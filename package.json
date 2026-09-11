@@ -1,0 +1,20 @@
+{
+  "name": "space-kill-web",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "node server/server.js",
+    "sim": "node tools/sim.cjs 300",
+    "sim:human": "node tools/sim.cjs 120 human",
+    "mc": "node tools/mc.cjs 500 1",
+    "test:fix": "node tools/test-fix-v26.cjs",
+    "test:lang": "node tools/test-lang.cjs",
+    "test:heat": "node tools/verify-heat.js",
+    "test:ui": "node tools/uismoke.cjs",
+    "doc": "node tools/build-engine-docx.cjs",
+    "test:all": "node tools/test-fix-v26.cjs && node tools/test-lang.cjs && node tools/uismoke.cjs && node tools/sim.cjs 60"
+  },
+  "dependencies": {
+    "docx": "^9.7.1"
+  }
+}

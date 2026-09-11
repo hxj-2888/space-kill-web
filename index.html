@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>太空杀 · 三阵营对抗</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<div id="app">
+
+  <!-- ============ 开始界面（v33：顶部工具条 + 本局配置预览 + 阵营卡片 + CTA 主按钮 + 联机禁用态） ============ -->
+  <section id="screen-start" class="screen">
+    <div class="start-box">
+      <!-- 标题行 + 右上角紧凑工具条（音效 / 规则速览 / 黑话术语表，归属明确） -->
+      <div class="start-top">
+        <h1>太空杀 <span class="sub">三阵营对抗</span></h1>
+        <div class="start-actions" id="start-actions">
+          <button id="btn-bgm" class="act" title="背景音乐与音效开关">♪ 音效：开</button>
+          <button id="btn-rules-start" class="act">📖 规则速览</button>
+          <button id="btn-slang-start" class="act">💬 黑话术语表</button>
+        </div>
+      </div>
+
+      <!-- 本局配置预览条：这是即将开局的预设，不是实时战况；总数与分项呈包含关系 -->
+      <div class="config-strip" data-fac="random">
+        <span class="cfg-cap">本局配置</span>
+        <div class="cfg-unit">
+          <b>15</b><i>名船员被困星舰</i>
+          <div class="cfg-subs">
+            <span class="cs-item f-human"><em></em>人类 <b>11</b></span>
+            <span class="cs-item f-alien"><em></em>异形 <b>3</b></span>
+            <span class="cs-item f-xeno"><em></em>外星人 <b>1</b></span>
+          </div>
+        </div>
+        <div class="cfg-unit"><b>24</b><i>昼夜倒计时</i></div>
+      </div>
+
+      <div class="panel-grid">
+        <!-- 单机（主路径，视觉权重高） -->
+        <div class="mode-card main">
+          <h2>单机对局</h2>
+          <div class="faction-pick">
+            <label class="fp fp-random active"><input type="radio" name="fac" value="random" checked /><span class="fp-ico">🎲</span><span class="fp-nm">随机</span><span class="fp-ds">系统随机分配阵营</span></label>
+            <label class="fp fp-human"><input type="radio" name="fac" value="human" /><span class="fp-ico">🧑‍🚀</span><span class="fp-nm">人类</span><span class="fp-ds">修船 · 查验 · 撑到倒计时归零</span></label>
+            <label class="fp fp-alien"><input type="radio" name="fac" value="alien" /><span class="fp-ico">👾</span><span class="fp-nm">异形</span><span class="fp-ds">潜伏 · 击杀 · 感染，三人小队共享情报</span></label>
+            <label class="fp fp-xeno"><input type="radio" name="fac" value="xeno" /><span class="fp-ico">👽</span><span class="fp-nm">外星人</span><span class="fp-ds">独狼搅局 · 夜行免疫 · 觉醒双刀</span></label>
+          </div>
+          <!-- 种子 = 高级/调试项，折叠收起，不再干扰核心决策 -->
+          <details class="adv">
+            <summary>高级选项 · 对局种子</summary>
+            <label class="seed">种子 <input id="seed" type="text" placeholder="留空 = 每局随机" /></label>
+            <p class="tiny">填相同种子会复现完全相同的一局（身份、AI 行为都一致），留空则每局全新。</p>
+          </details>
+          <!-- 全界面唯一主行动按钮 -->
+          <button id="btn-start" class="primary cta">开始对局</button>
+        </div>
+
+        <!-- 联机（开发中：默认折叠为一行提示条释放宽度，展开后为禁用态，服务器地址收进高级设置） -->
+        <details class="mode-card dev" id="online-card">
+          <summary>
+            <h2>联机对局 <span class="dev-badge">即将上线</span></h2>
+            <span class="dev-fold-hint">功能开发中 · 点击展开</span>
+          </summary>
+          <div class="dev-body">
+            <label class="fld">昵称 <input id="nick" type="text" value="船员" maxlength="8" disabled /></label>
+            <details class="adv">
+              <summary>高级设置 · 服务器地址</summary>
+              <label class="fld">服务器 <input id="addr" type="text" value="ws://localhost:8766" disabled /></label>
+            </details>
+            <label class="fld">房间号 <input id="roomid" type="text" placeholder="创建时留空" disabled /></label>
+            <div class="row">
+              <button id="btn-create" class="act" disabled>创建房间</button>
+              <button id="btn-join" class="act" disabled>加入房间</button>
+            </div>
+            <p class="tiny">联机功能开发中，暂不可用。当前版本请使用单机对局（其余 14 人由 AI 托管）。</p>
+          </div>
+        </details>
+      </div>
+
+      <!-- v32：bgm checkbox 保留为音效按钮的状态真源（隐藏），main.js 开局逻辑零改动 -->
+      <input type="checkbox" id="bgm" checked style="display:none" />
+    </div>
+  </section>
+
+  <!-- ============ 房间 ============ -->
+  <section id="screen-room" class="screen hidden">
+    <div class="start-box">
+      <h1>房间 <span class="sub" id="room-tag">R1</span></h1>
+      <p class="lead">把房间号告诉朋友，最多 15 人；空席位由 AI 托管。</p>
+      <div id="seats" class="seats"></div>
+      <div class="row">
+        <span class="hint" id="room-hint"></span>
+        <button id="btn-launch" class="primary">开始对局</button>
+      </div>
+      <button id="btn-back" class="act" style="margin-top:10px">返回</button>
+    </div>
+  </section>
+
+  <!-- ============ 对局（v33：顶部状态条 + 左中右 3:5:2 三栏；
+       左栏只留玩家格子，中栏 = 发言流水 70% + 决策区 + 输入组，右栏 = 页签面板 + 规则折叠入口） ============ -->
+  <section id="screen-game" class="screen hidden">
+    <div id="banner" class="banner hidden"></div>
+    <div id="dev-overlay" class="hidden">
+      <div class="ov-head"><span class="sec">开发者视角 · 上帝模式</span><button id="btn-dev-close" class="ov-close" title="关闭（Esc）">✕</button></div>
+      <div id="dev-body"></div>
+    </div>
+    <div id="p-pop" class="hidden"></div>
+    <div id="dev-chip" class="devchip hidden">DEV 已开启 · 展开总览</div>
+
+    <!-- 顶部状态条：阶段名 + 主倒计时 + 净破坏 + 决策窗口进度，统一收拢全场计时信息 -->
+    <div class="topbar">
+      <div id="stage-head" class="stage-head"></div>
+      <div class="top-stats">
+        <span class="hi cd-hi"><i>倒计时</i><span class="cd-ring" id="cd-ring"><b id="hud-cd">24</b></span></span>
+        <span class="hi"><i>净破坏</i><b id="hud-net">0.0</b><i class="net-bar"><i id="hud-net-fill"></i></i></span>
+        <span class="hi dim"><i>决策窗口</i><b id="timer-num">—</b></span>
+      </div>
+      <div class="timerbar top-timerbar"><div id="timerbar-fill"></div></div>
+      <!-- 圆钮组并入状态条右端（定尺寸控件，不参与信息增减） -->
+      <div class="orb-bar">
+        <button id="btn-rules" class="orb" title="规则清单（含黑话对照）">📖</button>
+        <button id="btn-dev" class="orb" title="开发者视角（含我的账本）">DEV</button>
+        <button id="btn-music" class="orb" title="音乐开关">♪</button>
+        <button id="btn-pause" class="orb" title="暂停对局（单机）" style="display:none">⏸</button>
+        <button id="btn-exit" class="orb" title="退出对局（单机）" style="display:none">✕</button>
+      </div>
+    </div>
+
+    <div class="board">
+      <!-- 左栏 3：只留玩家格子（5×3 紧凑网格） -->
+      <section class="seg seg-roster">
+        <div class="seg-t">玩家名单</div>
+        <div id="roster" class="roster"></div>
+      </section>
+
+      <!-- 中栏 5：发言流水（70%）→ 决策/事件区（30%）→ 操作行 → 输入组 -->
+      <section class="seg seg-stage">
+        <div class="seg-t">公开发言流水（当天）</div>
+        <div id="chatlog" class="chatlog"></div>
+        <div class="seg-t">决策 · 事件</div>
+        <div id="stage-body" class="stage-body"></div>
+        <div id="stage-actions" class="stage-actions"></div>
+        <div class="input-dock">
+          <!-- 决策窗口收缩进度线（≤30s 青转橙红并脉冲），恒定 3px 高不占增量 -->
+          <div class="input-timeline"><i id="input-timeline-fill"></i></div>
+          <!-- 识别预览：悬浮于输入组上方，不占布局流 -->
+          <div id="talk-preview" class="talk-preview hidden"></div>
+          <!-- @ 提及自动补全浮层（悬浮，不占布局流） -->
+          <div id="at-pop" class="at-pop hidden"></div>
+          <div id="talkbar" class="talkrow hidden">
+            <input id="f-text" type="text" placeholder="输入发言…（≤120 字，点击左侧玩家可自动生成讯问句）" maxlength="120" />
+            <button id="btn-send" class="act primary">发送</button>
+          </div>
+          <div id="f-camp-row" class="talkrow hidden">
+            <input id="f-camp" type="text" placeholder="队内频道（异形专属）：白天密谈，仅队友可见，AI 队友会真的听见" maxlength="120" />
+            <button id="btn-camp" class="act">队内发送</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- 右栏 2：页签面板 + 底部规则折叠入口（默认收起，展开为半透明浮层） -->
+      <section class="seg seg-side">
+        <div class="tabs" id="nb-tabs">
+          <button class="tab active" data-tab="pub">公告</button>
+          <button class="tab" data-tab="priv">私人</button>
+          <button class="tab" data-tab="camp">阵营</button>
+        </div>
+        <div id="side-body" class="side-body"></div>
+        <div class="side-foot">
+          <button id="btn-rules-side" class="act">📖 规则 / 黑话术语</button>
+        </div>
+      </section>
+    </div>
+  </section>
+
+  <!-- ============ 结算 / 复盘 ============ -->
+  <section id="screen-over" class="screen hidden">
+    <div class="start-box wide">
+      <h1 id="over-title">对局结束</h1>
+      <div id="over-body"></div>
+      <div class="row" style="margin-top:14px">
+        <button id="btn-replay" class="act">上帝视角复盘</button>
+        <button id="btn-again" class="primary">再来一局</button>
+      </div>
+      <div id="replay-box" class="replay hidden">
+        <div class="sec">选择夜次</div>
+        <div id="rp-nights" class="nights"></div>
+        <div id="rp-body" class="rp-body"></div>
+      </div>
+    </div>
+  </section>
+
+    <!-- ============ 黑话术语表（全屏覆盖页：覆盖整个游戏页、屏蔽主页渲染，Esc/✕ 关闭） ============ -->
+    <div id="slang-overlay" class="hidden">
+      <div class="ov-head">
+        <span class="sec">黑话术语表 · AI 发言识别全览</span>
+        <button id="btn-slang-close" class="ov-close" title="关闭（Esc）">✕</button>
+      </div>
+      <p class="sg-intro">以下黑话 AI <b>全部听得懂</b>——解析结果以小字「原意」显示在每条发言下方，并<b>只增不减</b>地写入各 AI 的证据台账，驱动怀疑度 / 投票 / 追责。语言库分两侧：<b>理解侧</b>（nlp.js：你说的话 → 意图）与<b>生成侧</b>（corpus/tactics.js + lang/renderer.js：AI 的话术库），下表是理解侧的完整对照。</p>
+      <div class="sg-grid">
+
+        <div class="sg-card"><h4>① 查验汇报</h4>
+          <div class="sg-item"><b>金水 / 银水</b><span> → 引擎记「锁定·好人」汇报 + 辩护效应</span></div>
+          <div class="sg-item"><b>查杀 / 实锤验出</b><span> → 「查杀（敌方）」汇报 + 重度指控</span></div>
+          <div class="sg-item"><b>排除 / 已排除 / 肯定不是</b><span> → 排除汇报（反向通道证据）</span></div>
+          <div class="sg-item"><b>锁定 / 验过 / 扫了 / 查验结果</b><span> → 锁定汇报</span></div>
+        </div>
+
+        <div class="sg-card"><h4>② 身份声称</h4>
+          <div class="sg-item"><b>我是神探 / 跳预言家 / 底牌是医生</b><span> → 身份声称（触发 R38 隐式自证；假身份被揭示吃 R30 硬置位 95）</span></div>
+          <div class="sg-item"><b>悍跳 / 对跳 / 抢身份</b><span> → 标记冒充 / 两人同抢一职 → R12 对跳追责（+30，公开事实不衰减）</span></div>
+          <div class="sg-item"><b>异形说「我查了 X」</b><span> → 来源致命 A⁻ +33：异形根本没有查验能力</span></div>
+        </div>
+
+        <div class="sg-card"><h4>③ 指控（三档）</h4>
+          <div class="sg-item"><b>重度</b><span>：查杀 · 说谎 · 骗子 · 内鬼 · 聊爆 · 假冒 · 咬死 · 实锤 · 是异形 → 直接咬死档</span></div>
+          <div class="sg-item"><b>中度</b><span>：怀疑 · sus · 有嫌疑 · 像狼 · 盘出来 · 节奏点 · 重点关照</span></div>
+          <div class="sg-item"><b>轻度</b><span>：可疑 · 不对劲 · 踩 · 盯 · 挂一下 · 很怪</span></div>
+          <div class="sg-item"><b>带「如果 / 万一」</b><span> → 假设降权（置信度 ×0.5~0.6，不算实指控）</span></div>
+        </div>
+
+        <div class="sg-card"><h4>④ 投票意向</h4>
+          <div class="sg-item"><b>归票 / 统一投 / 票别散</b><span> → 归票号召（AI 跟随主流票向）</span></div>
+          <div class="sg-item"><b>分票 / 票散了</b><span> → 警告分票信号</span></div>
+          <div class="sg-item"><b>压手 / 弃票 / skip / 不投</b><span> → 弃票（正常权利，信息门槛驱动）</span></div>
+          <div class="sg-item"><b>出他 / 抬走 / 放逐 / 投 X 号</b><span> → 投票意向（宣称投 X 而 X 零票 → 抓谎 +25）</span></div>
+        </div>
+
+        <div class="sg-card"><h4>⑤ 辩护与背书</h4>
+          <div class="sg-item"><b>挺 / 保 / 信 + 编号</b><span> → 辩护背书（被挺者减疑）</span></div>
+          <div class="sg-item"><b>站边 / 作证 / 金水位 / 清白</b><span> → 辩护；「抗推」者出局揭示后追责链反转（R17b）</span></div>
+          <div class="sg-item"><b>自证 / 表水</b><span> → 空口「我是好人」−5；有证明链（声称职业+对账）−25</span></div>
+        </div>
+
+        <div class="sg-card"><h4>⑥ 承诺（强 / 中 / 弱）</h4>
+          <div class="sg-item"><b>强</b><span>：「今晚查 X，明晚公告 X」——不兑现重罚</span></div>
+          <div class="sg-item"><b>中</b><span>：「我今晚要投 / 保 / 查 X」</span></div>
+          <div class="sg-item"><b>弱</b><span>：「可能会查 / 看情况」</span></div>
+          <div class="sg-item"><b>兑现</b><span> → 给可信度 C 加分（+0.05/0.15/0.30）；保镖「我保护 X」公开不可验证、不吃未兑现惩罚</span></div>
+        </div>
+
+        <div class="sg-card"><h4>⑦ 证伪型否认（A12~A15）</h4>
+          <div class="sg-item"><b>我没被查验过</b><span> → 否认被查验（与查验者宣称为真冲突时暴露）</span></div>
+          <div class="sg-item"><b>没被治疗 / 没有抗体 / 没进过濒死</b><span> → 否认被治/被救</span></div>
+          <div class="sg-item"><b>没有感染标记</b><span> → 否认带标记（真实状态由系统对账）</span></div>
+        </div>
+
+        <div class="sg-card"><h4>⑧ 体验宣称（D 档）</h4>
+          <div class="sg-item"><b>用了感染抑制 / 我修了 / 在制药</b><span> → 私有体验宣称（不可验证，价值最低）</span></div>
+          <div class="sg-item"><b>我治疗了 / 我救了 / 我带感染标记</b><span> → 部分可对账（⑫ 医生出手数公开）</span></div>
+        </div>
+
+        <div class="sg-card"><h4>⑨ 质询与划水</h4>
+          <div class="sg-item"><b>解释 / 交代 / 说清楚 / 昨晚在哪 / 摊牌 / 报身份 / 给我个说法</b><span> → 质询（被质询者吃压力，答不上来旁观 AI 记账）</span></div>
+          <div class="sg-item"><b>划水 / 听大家的 / 没信息</b><span> → 划水（长期沉默触发 R34 扣分）</span></div>
+        </div>
+
+        <div class="sg-card"><h4>⑩ 职业别名（社区叫法 → 引擎职业）</h4>
+          <div class="sg-item"><b>船员</b><span>：平民 · 白板 · 普通人　<b>警长</b>：船长</span></div>
+          <div class="sg-item"><b>工程师</b><span>：维修工 · 修船的 · 技工 · 扳手　<b>助理</b>：副工程师</span></div>
+          <div class="sg-item"><b>生化医师</b><span>：生化 · 医生 · 大夫 · 奶妈 · 奶　<b>救援</b>：救援兵 · 救援医</span></div>
+          <div class="sg-item"><b>神探</b><span>：侦探 · 预言家 · 警察 · 查杀位 · 验人位</span></div>
+          <div class="sg-item"><b>保镖</b><span>：守卫 · 护卫 · 盾位　<b>验票官</b>：票务 · 查票官</span></div>
+          <div class="sg-item"><b>武装船员</b><span>：枪位 · 猎人 · 带枪的　<b>临时医生</b>：代医 · 临时奶</span></div>
+        </div>
+
+        <div class="sg-card"><h4>⑪ 数字写法</h4>
+          <div class="sg-item"><span>阿拉伯数字、中文数字（一~十五）、「号 / 号位 / 号玩家」后缀均可——</span><b>「十二号位」「5号自称验票官」「医生12号」「五号」</b><span> 等写法全部解析</span></div>
+          <div class="sg-item"><b>转述</b><span>：「3号说5号是异形」→ 归因给 3 号而非自己背指控</span></div>
+        </div>
+
+        <div class="sg-card"><h4>⑫ 生成侧（AI 的话术库）</h4>
+          <div class="sg-item"><b>安全话术 N336~N347</b><span>：票型承诺 / 弃票声明 / 附和 / 引用公开信息 / 认错 / 情绪表达——异形的全部发言空间（N348：只能维持基线）</span></div>
+          <div class="sg-item"><b>禁区 N397~N400</b><span>：异形说「X 是人类」、精确报行动数字、外星人明说蛰伏、神探公告密集期冒领——生成前直接拦截</span></div>
+        </div>
+
+      </div>
+    </div>
+
+<!-- ============ 规则速览（全屏覆盖页：开始页/游戏页均可打开） ============ -->
+    <div id="rules-overlay" class="hidden">
+      <div class="lg-head">
+        <span class="sec">规则速览 · 正式版 v4.1 精简</span>
+        <button id="btn-rules-close" class="ov-close" title="关闭（Esc）">✕</button>
+      </div>
+      <div class="rg-body">
+        <div class="evt info"><b>夜间步骤</b>：私聊（发起→接受→正文）→ 感染抑制 → 感染致死 → 进化/转职 → 预提交 → 外星人查验 → 查验 → 巡逻 → 保护 → 维修 → 破坏 → 外星人行动 → 开枪 → 异形行动 → 医生 → 死亡结算 → 紧急会议 → 倒计时。</div>
+        <div class="evt info"><b>伤害</b>：造成濒死；抵挡层「保护 → 巡逻 → 护盾」；步骤 8 救援是唯一生路，步骤 9 硬结算。</div>
+        <div class="evt info"><b>感染</b>：普通第 3 夜致死、感染进化第 2 夜；抑制延后 1 夜；医生清除。</div>
+        <div class="evt info"><b>停摆</b>：破坏量自选档（未进化 1.0~1.5 / 破坏进化与外星人 2.0~3.0），⑤只公布当夜总量；净破坏 3.0 / 6.0 使倒计时 +1.5 / +3.0，9.0 人类倒计时胜利永久失效。</div>
+        <div class="evt info"><b>白天</b>：遗言 → 讨论 → 投票 → 驱逐（最高票、无平票、≥2 票）。</div>
+        <div class="evt info"><b>胜利</b>：人类撑到倒计时归零或清场；异形人类全灭且外星人已灭；外星人残局独存或决斗僵局。</div>
+      </div>
+    </div>
+
+</div>
+
+<!-- SK:SCRIPTS:BEGIN 由 tools/sync-html.cjs 从 tools/load-order.cjs 生成，勿手改 -->
+  <script src="js/rng.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/state.js"></script>
+  <script src="js/nlp.js"></script>
+  <script src="js/lang/ir.js"></script>
+  <script src="js/lang/renderer.js"></script>
+  <script src="js/infer/speakable.js"></script>
+  <script src="js/infer/tiers.js"></script>
+  <script src="js/infer/registry.js"></script>
+  <script src="js/infer/predicates.js"></script>
+  <script src="js/infer/modules/e1-destroy.js"></script>
+  <script src="js/infer/modules/e2-infection.js"></script>
+  <script src="js/infer/modules/e3-ballot.js"></script>
+  <script src="js/infer/modules/e4-verify.js"></script>
+  <script src="js/infer/modules/e11-network.js"></script>
+  <script src="js/infer/modules/e56-protect.js"></script>
+  <script src="js/infer/modules/e8-claims.js"></script>
+  <script src="js/infer/modules/e10-aggregate.js"></script>
+  <script src="js/infer/moe.js"></script>
+  <script src="js/infer/channels.run.js"></script>
+  <script src="js/corpus/tactics.js"></script>
+  <script src="js/corpus/channels.data.js"></script>
+  <script src="js/corpus/channels.js"></script>
+  <script src="js/infer/pipeline.js"></script>
+  <script src="js/infer/visible.js"></script>
+  <script src="js/ai/util.js"></script>
+  <script src="js/ai/belief.js"></script>
+  <script src="js/ai/perceive.js"></script>
+  <script src="js/ai/decide.js"></script>
+  <script src="js/ai.js"></script>
+  <script src="js/engine/announce.js"></script>
+  <script src="js/engine/steps.js"></script>
+  <script src="js/engine.js"></script>
+  <script src="js/view.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/net.js"></script>
+  <script src="js/main.js"></script>
+<!-- 结合层：Claim IR（语言⇄推理的唯一交换格式）· 生成侧 renderer · 可说话语候选 · 统一发言入口 -->
+<!-- SK:SCRIPTS:END -->
+</body>
+</html>

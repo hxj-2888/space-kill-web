@@ -1,0 +1,1097 @@
+:root{
+  /* v34 D1 背景三层：页面底 / 面板 / 悬停选中 */
+  --bg:#050A14; --bg2:#0a1120; --panel:#0C1524; --panel2:#142440; --hover:#142440;
+  --line:#1e2c4a; --line2:#2b3f66; --txt:#dde7f8; --dim:#8299bd; --dim2:#5f7396;
+  /* v34 D2 主色青绿 #00E5B0 四级强度（100% 实心 / 60% 悬停 / 40% 描边 / 15% 底纹） */
+  --accent:#00E5B0; --accent2:#7c9dff;
+  --human:#4aa8ff; --alien:#ff5a7a; --xeno:#5ce6a8; --warn:#ffcc4d;
+  /* v34 B1 阵营身份色 + 独立行动色（琥珀金，仅「开始对局」使用，不与阵营色混用） */
+  --fac-human:#4DA6FF; --fac-alien:#FF4D6D; --fac-xeno:#A78BFA; --fac-random:#8892A6;
+  --cta:#FFB020;
+  --glow:0 0 18px rgba(0,229,176,.18);
+  --card-sh:0 10px 30px rgba(0,0,0,.45), 0 1px 0 rgba(255,255,255,.04) inset;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;width:100%;height:100%}
+body{
+  background:
+    radial-gradient(1100px 520px at 15% -8%, rgba(35,66,120,.35) 0%, transparent 55%),
+    radial-gradient(900px 480px at 88% -12%, rgba(84,42,74,.30) 0%, transparent 55%),
+    radial-gradient(1400px 900px at 50% 120%, rgba(16,38,70,.5) 0%, transparent 60%),
+    var(--bg);
+  color:var(--txt);
+  font-family:"Microsoft YaHei","PingFang SC",-apple-system,Segoe UI,sans-serif;
+  font-size:14px;line-height:1.6;
+}
+/* v33 修铺满视口：去掉写死的 max-width:1500px（宽屏左右黑边元凶）与固定 padding
+   （与 #screen-game 的 height:100vh 叠加会产生 28px 底部溢出空隙）；
+   各页面的安全边距改由页面自身承担：#screen-start 已有 24px/16px 内边距，
+   房间/结算页在此补横向安全边距；body 的径向渐变背景自然延续到全部留边区域 */
+#app{width:100%;min-height:100vh;margin:0;padding:0}
+#screen-room,#screen-over{padding:0 16px}
+.hidden{display:none !important}
+button{font-family:inherit;transition:all .18s ease}
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-thumb{background:#22314f;border-radius:6px}
+::-webkit-scrollbar-thumb:hover{background:#31456e}
+::-webkit-scrollbar-track{background:transparent}
+
+/* ---------- 开始 / 结束 ---------- */
+.screen{min-height:100vh}
+.start-box{
+  max-width:760px;margin:6vh auto;background:linear-gradient(180deg,rgba(19,29,50,.92),rgba(10,16,30,.94));
+  border:1px solid var(--line2);border-radius:18px;padding:32px 34px;
+  box-shadow:var(--card-sh), var(--glow);
+  backdrop-filter:blur(8px);
+  animation:rise .5s ease both;
+}
+@keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.start-box h1{
+  font-size:32px;margin:0 0 6px;letter-spacing:3px;
+  background:linear-gradient(90deg,#9fd8ff,#00E5B0 40%,#5ce6a8);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+}
+.start-box h1 .sub{font-size:13px;color:var(--dim);letter-spacing:2px;font-weight:400;-webkit-text-fill-color:var(--dim)}
+.lead{color:var(--dim);margin:10px 0 20px}
+.lead b{color:var(--warn)}
+.faction-pick{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:18px}
+.fp{background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:11px 6px;text-align:center;cursor:pointer;font-size:13px;transition:all .18s}
+.fp:hover{border-color:var(--line2);transform:translateY(-1px)}
+.fp input{display:none}
+.fp.active{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset, var(--glow);color:#fff;background:#0e2138}
+.row{display:flex;gap:12px;align-items:center;justify-content:space-between}
+.seed{color:var(--dim);font-size:13px}
+.seed input{background:#080e1b;border:1px solid var(--line);color:var(--txt);border-radius:9px;padding:8px 10px;width:130px;transition:border-color .18s}
+.seed input:focus{outline:none;border-color:var(--accent)}
+button.primary{
+  background:linear-gradient(180deg,#3392e8,#1d63b5);border:0;color:#fff;
+  padding:11px 28px;border-radius:11px;cursor:pointer;font-size:15px;font-weight:600;
+  box-shadow:0 6px 18px rgba(38,120,214,.35);
+}
+button.primary:hover{filter:brightness(1.12);transform:translateY(-1px);box-shadow:0 8px 24px rgba(38,120,214,.45)}
+button.primary:active{transform:none}
+.rules{margin-top:18px;color:var(--dim);font-size:13px}
+.rules summary{cursor:pointer;color:var(--accent);padding:4px 0}
+.rules ul{padding-left:20px;margin:8px 0}
+.rules li{margin:5px 0}
+
+/* ---------- HUD ---------- */
+.hud{
+  display:flex;gap:6px;align-items:stretch;flex-wrap:wrap;
+  background:linear-gradient(180deg,rgba(17,26,46,.95),rgba(11,18,33,.95));
+  border:1px solid var(--line2);border-radius:14px;padding:10px 12px;margin-bottom:8px;
+  box-shadow:var(--card-sh);backdrop-filter:blur(8px);
+}
+.hud-item{display:flex;flex-direction:column;min-width:88px;padding:2px 12px;border-right:1px solid var(--line)}
+.hud-item:last-of-type{border-right:0}
+.hud-item i{font-style:normal;color:var(--dim2);font-size:11px;letter-spacing:1px}
+.hud-item b{font-size:19px;color:#fff;font-variant-numeric:tabular-nums;text-shadow:0 0 12px rgba(0,229,176,.25)}
+.hud-me{
+  margin-left:auto;background:linear-gradient(180deg,var(--panel2),var(--bg2));
+  border:1px solid var(--line2);border-radius:11px;padding:6px 16px;text-align:right;box-shadow:var(--glow);
+}
+.hud-me .r{font-size:17px;font-weight:700}
+.hud-me .d{font-size:11px;color:var(--dim)}
+.banner{
+  background:linear-gradient(90deg,rgba(90,26,38,.92),rgba(58,28,34,.92));
+  border:1px solid #8a3244;color:#ffd9df;padding:9px 16px;border-radius:11px;margin-bottom:10px;font-weight:600;
+  box-shadow:0 0 24px rgba(255,90,122,.18);animation:pulse 1.6s ease infinite;
+}
+@keyframes pulse{0%,100%{box-shadow:0 0 14px rgba(255,90,122,.14)}50%{box-shadow:0 0 26px rgba(255,90,122,.30)}}
+
+/* ---------- 布局 ---------- */
+.layout{display:grid;grid-template-columns:274px 1fr 348px;gap:10px;align-items:start}
+.panel{
+  background:linear-gradient(180deg,rgba(15,24,43,.92),rgba(10,17,32,.94));
+  border:1px solid var(--line);border-radius:14px;padding:13px;
+  box-shadow:var(--card-sh);backdrop-filter:blur(6px);
+}
+.panel h3{margin:0 0 8px;font-size:13px;color:var(--accent);letter-spacing:2px}
+@media(max-width:1200px){.layout{grid-template-columns:1fr}}
+
+/* ---------- 名单（3 列网格） ---------- */
+.roster{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;max-height:46vh;overflow:auto;padding-right:2px}
+.pl{
+  display:flex;flex-direction:column;gap:3px;padding:6px 7px;min-width:0;
+  border:1px solid var(--line);border-radius:10px;background:rgba(10,17,32,.8);
+  cursor:pointer;transition:all .15s ease;
+}
+.pl:hover{border-color:#3c5a8a;transform:translateY(-1px)}
+.pl.sel{border-color:var(--accent);background:#0e2238;box-shadow:var(--glow)}
+.pl.me{border-color:var(--accent2);box-shadow:0 0 0 1px var(--accent2) inset}
+.pl.out{opacity:.45}
+.pl.out .nm{text-decoration:line-through}
+.pl .no{width:22px;height:22px;border-radius:7px;flex:0 0 auto;
+  display:inline-flex;align-items:center;justify-content:center;
+  background:#16233c;color:#9fc2ee;font-size:11px;font-weight:700;
+}
+.pl.me .no{background:#123049;color:var(--accent)}
+.pl .top{display:flex;align-items:center;gap:5px;min-width:0}
+.pl .nm{flex:1;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+.pl .idn{font-size:10px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.tags{display:flex;gap:2px;flex-wrap:wrap}
+.tag{font-size:9px;padding:1px 5px;border-radius:20px;background:#1c2b47;color:#bcd2f0;border:1px solid #26385c}
+.tag.hot{background:#431722;color:#ffd0da;border-color:#6d2a3a}
+.tag.ok{background:#123324;color:#bff3d6;border-color:#1e5a3e}
+.tag.warn{background:#3a2e0e;color:#ffe6a8;border-color:#6a5518}
+.dead{display:flex;flex-direction:column;gap:4px;font-size:11.5px;color:var(--dim);max-height:22vh;overflow:auto}
+.dead > div{padding:4px 8px;background:rgba(10,17,32,.6);border-radius:8px;border:1px dashed #1c2942}
+
+/* ---------- 本步公告推送（决策栏顶部） ---------- */
+.annbox{
+  margin:0 0 10px;padding:8px 10px;border-radius:11px;
+  background:linear-gradient(180deg,rgba(20,34,58,.9),rgba(12,20,36,.9));
+  border:1px solid var(--line2);box-shadow:var(--glow);animation:fadein .35s ease;
+}
+.annbox .sec{margin:0 0 6px;font-size:11px;letter-spacing:2px}
+.an{display:flex;gap:7px;align-items:flex-start;font-size:12.5px;padding:4px 7px;margin:3px 0;border-radius:8px;background:rgba(8,14,27,.75);border-left:3px solid var(--accent)}
+.an .bt{flex:0 0 auto;font-weight:700;color:var(--accent);min-width:16px}
+.an.b1{border-left-color:#6fa8ff}.an.b1 .bt{color:#6fa8ff}
+.an.b2{border-left-color:#a98bff}.an.b2 .bt{color:#a98bff}
+.an.b3{border-left-color:#00E5B0}.an.b3 .bt{color:#00E5B0}
+.an.b4{border-left-color:#5ce6a8}.an.b4 .bt{color:#5ce6a8}
+.an.b5{border-left-color:#ffb45c}.an.b5 .bt{color:#ffb45c}
+.an.b6{border-left-color:#ff5a7a;background:rgba(67,23,34,.5)}.an.b6 .bt{color:#ff5a7a}
+.an.b7{border-left-color:#ffcc4d}.an.b7 .bt{color:#ffcc4d}
+.an.b8{border-left-color:#7fb0ff}.an.b8 .bt{color:#7fb0ff}
+.an.b9{border-left-color:#c79bff}.an.b9 .bt{color:#c79bff}
+.an.b10{border-left-color:#c0405e;background:rgba(67,23,34,.45)}.an.b10 .bt{color:#c0405e}
+.an.b11{border-left-color:#b98bd6}.an.b11 .bt{color:#b98bd6}
+.an.b12{border-left-color:#8fd6a8}.an.b12 .bt{color:#8fd6a8}
+
+/* 玩家详情弹窗（点击名单卡片） */
+#p-pop{
+  position:fixed;top:60px;left:14px;z-index:55;width:340px;max-height:74vh;overflow:auto;
+  background:linear-gradient(180deg,rgba(15,24,43,.97),rgba(10,17,32,.97));
+  border:1px solid var(--line2);border-radius:13px;padding:12px 14px;
+  box-shadow:var(--card-sh), var(--glow);backdrop-filter:blur(8px);
+}
+.pl{cursor:pointer}
+.pl .skull{font-size:13px}
+
+/* ---------- 舞台 ---------- */
+.stage{min-height:440px;display:flex;flex-direction:column}
+.stage-head{display:flex;align-items:baseline;gap:10px;border-bottom:1px solid var(--line);padding-bottom:9px;margin-bottom:10px}
+.stage-head h2{margin:0;font-size:18px;letter-spacing:1px}
+.stage-head .st{color:var(--dim);font-size:12px}
+.stage-body{flex:1;overflow:auto;max-height:52vh;padding-right:2px;animation:fadein .3s ease}
+@keyframes fadein{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.stage-body p{margin:4px 0}
+.evt{padding:7px 11px;border-left:3px solid var(--line);background:rgba(10,17,32,.75);border-radius:0 10px 10px 0;margin:5px 0;font-size:13px}
+.evt.good{border-left-color:#2f9d63;background:rgba(18,51,36,.35)}
+.evt.bad{border-left-color:#c04a5e;background:rgba(67,23,34,.35)}
+.evt.info{border-left-color:var(--accent);background:rgba(16,42,66,.4)}
+.stage-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px;border-top:1px solid var(--line);padding-top:12px}
+.hint{color:var(--dim);font-size:12px;flex:1}
+button.act{background:linear-gradient(180deg,var(--panel2),var(--bg2));border:1px solid var(--line2);color:var(--txt);padding:9px 20px;border-radius:10px;cursor:pointer}
+button.act:hover{border-color:var(--accent);box-shadow:var(--glow);transform:translateY(-1px)}
+button.act:active{transform:none}
+button.act:disabled{opacity:.4;cursor:not-allowed;transform:none;box-shadow:none}
+.opts{display:flex;flex-direction:column;gap:7px;margin:8px 0}
+.opts.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+.grid3 .opt{padding:7px 9px}
+.grid3 .opt .t{font-size:12.5px}
+.grid3 .opt .d{font-size:10.5px}
+.opt{
+  display:flex;gap:8px;align-items:flex-start;
+  background:rgba(10,17,32,.8);border:1px solid var(--line);border-radius:10px;padding:9px 11px;cursor:pointer;
+  transition:all .15s ease;
+}
+.opt:hover{border-color:#3c5a8a}
+.opt.sel{border-color:var(--accent);background:#0e2238;box-shadow:var(--glow)}
+.opt.dis{opacity:.42;cursor:not-allowed}
+.opt input{margin-top:4px;accent-color:var(--accent)}
+.opt .t{font-size:13px}
+.opt .d{font-size:11px;color:var(--dim)}
+select,input[type=text],textarea{background:#080e1b;border:1px solid var(--line);color:var(--txt);border-radius:9px;padding:8px 10px;font-family:inherit;transition:border-color .18s}
+select:focus,input[type=text]:focus,textarea:focus{outline:none;border-color:var(--accent);box-shadow:var(--glow)}
+textarea{width:100%;min-height:64px;resize:vertical}
+
+/* ---------- 侧栏 ---------- */
+.tabs{display:flex;gap:4px;margin-bottom:9px;flex-wrap:wrap}
+.tab{background:rgba(10,17,32,.8);border:1px solid var(--line);color:var(--dim);padding:5px 11px;border-radius:9px;cursor:pointer;font-size:12px;transition:all .15s}
+.tab:hover{color:var(--txt);border-color:var(--line2)}
+.tab.active{border-color:var(--accent);color:#fff;background:#0e2238;box-shadow:var(--glow)}
+.side-body{max-height:70vh;overflow:auto;padding-right:2px}
+.logline{font-size:12.5px;padding:6px 8px;border-bottom:1px dashed #17233c;border-radius:6px}
+.logline:hover{background:rgba(13,21,38,.8)}
+.logline .b{color:var(--accent);font-weight:600}
+.logline .n{color:var(--dim2);font-size:11px}
+.kv{display:flex;justify-content:space-between;gap:8px;font-size:12.5px;padding:4px 0;border-bottom:1px dashed #17233c}
+.kv span:last-child{color:#fff;text-align:right}
+.sec{color:var(--accent);font-size:12px;margin:12px 0 5px;letter-spacing:2px;font-weight:600}
+.empty{color:var(--dim2);font-size:12px;padding:8px}
+.say{background:rgba(10,17,32,.8);border:1px solid var(--line);border-radius:10px;padding:7px 10px;margin:4px 0;font-size:12.5px;transition:border-color .15s}
+.say:hover{border-color:var(--line2)}
+.say .who{color:var(--accent);font-weight:600}
+.say .kind{font-style:normal;color:var(--warn);font-size:11px;margin-left:4px}
+.f-h{color:var(--human)} .f-a{color:var(--alien)} .f-x{color:var(--xeno)}
+
+/* 进度条（维修进度 / 破坏进度） */
+.pbar{height:9px;background:#080e1b;border:1px solid var(--line);border-radius:8px;overflow:hidden;margin:5px 0}
+.pfill{height:100%;background:linear-gradient(90deg,#00E5B0,#5ce6a8);transition:width .4s ease;box-shadow:0 0 10px rgba(0,229,176,.35)}
+.pfill.hot{background:linear-gradient(90deg,#ffcc4d,#ff5a7a);box-shadow:0 0 10px rgba(255,90,122,.4)}
+
+/* ---------- 计时条 ---------- */
+.timerbar{height:5px;background:#0a1220;border-radius:4px;overflow:hidden;margin:-4px 0 10px;border:1px solid #101c30}
+.timerbar div{height:100%;width:0;background:linear-gradient(90deg,#00E5B0,#5ce6a8);transition:width .2s linear;box-shadow:0 0 12px rgba(0,229,176,.4)}
+.hud-tools{display:flex;align-items:center;margin-left:6px}
+button.icon{
+  background:linear-gradient(180deg,var(--panel2),var(--bg2));border:1px solid var(--line2);color:var(--accent);
+  border-radius:10px;width:36px;height:36px;cursor:pointer;font-size:16px;
+}
+button.icon:hover{box-shadow:var(--glow);border-color:var(--accent)}
+button.icon:disabled{opacity:.4}
+
+/* ---------- 开发者视角（HUD 内按钮 + 右上浮层） ---------- */
+button.icon.dev{font-size:10px;font-weight:700;letter-spacing:1px;width:auto;padding:0 10px;color:var(--dim);margin-bottom:6px}
+button.icon.dev:hover{color:var(--txt)}
+button.icon.dev.on{color:var(--warn);border-color:#6a5518;background:#3a2e0e;box-shadow:0 0 12px rgba(255,204,77,.25)}
+.hud-tools{display:flex;flex-direction:column;align-items:center;gap:6px;margin-left:6px}
+#dev-overlay{
+  position:fixed;top:52px;right:14px;z-index:55;width:360px;max-height:72vh;overflow:auto;
+  background:linear-gradient(180deg,rgba(15,24,43,.97),rgba(10,17,32,.97));
+  border:1px solid var(--line2);border-radius:13px;padding:12px 14px;
+  box-shadow:var(--card-sh), var(--glow);backdrop-filter:blur(8px);
+}
+#dev-overlay .ov-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+#dev-overlay .sec{margin:0 0 4px}
+.ov-close{
+  background:var(--panel2);border:1px solid var(--line2);color:var(--dim);
+  border-radius:8px;width:26px;height:26px;cursor:pointer;font-size:13px;line-height:1;
+}
+.ov-close:hover{color:var(--txt);border-color:var(--accent)}
+.devchip{
+  position:fixed;top:52px;right:14px;z-index:56;cursor:pointer;
+  background:#3a2e0e;border:1px solid #6a5518;color:var(--warn);
+  border-radius:9px;padding:5px 12px;font-size:11px;font-weight:700;letter-spacing:1px;
+  box-shadow:0 0 12px rgba(255,204,77,.25);
+}
+.devchip:hover{filter:brightness(1.15)}
+#form-left{color:var(--accent);font-weight:700}
+
+/* ---------- 黑话术语表（全屏覆盖页：不透明背景，覆盖并屏蔽主页渲染） ---------- */
+#slang-overlay{
+  position:fixed;inset:0;z-index:70;overflow-y:auto;
+  background:linear-gradient(180deg,#0a1220,#070c17);
+  padding:18px 22px 44px;
+}
+#slang-overlay .ov-head{max-width:1080px;margin:0 auto 12px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+#slang-overlay .ov-head .sec{margin:0;font-size:16px}
+.sg-intro{max-width:1080px;margin:0 auto 16px;font-size:12px;line-height:1.7;color:var(--dim)}
+.sg-intro b{color:var(--txt)}
+.sg-grid{max-width:1080px;margin:0 auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:12px}
+.sg-card{background:linear-gradient(180deg,var(--panel2),var(--bg2));border:1px solid var(--line2);border-radius:12px;padding:12px 14px}
+.sg-card h4{margin:0 0 8px;color:var(--accent);font-size:13px}
+.sg-item{font-size:12px;line-height:1.6;padding:4px 0;border-top:1px dashed var(--line)}
+.sg-item:first-of-type{border-top:none}
+.sg-item b{color:var(--txt)}
+.sg-item span{color:var(--dim)}
+button.icon.dev.sg{color:var(--accent2,var(--accent))}
+
+/* ---------- 公开发言流 ---------- */
+.chatbox{border-top:1px solid var(--line);margin-top:10px;padding-top:9px}
+.chatlog{max-height:220px;overflow:auto;padding-right:2px}
+.chatlog.streaming{max-height:300px;border:1px solid #2b4a6f;border-radius:12px;padding:8px;box-shadow:var(--glow)}
+.talkrow{display:flex;gap:7px;margin:7px 0}
+.talkrow input{flex:1}
+.talkrow select{width:140px;flex:0 0 auto}
+/* 「原意」小字：NLP 解析结果跟在发言下方，玩家可核对 AI 对每句话的理解 */
+.say .sig-note{font-size:11px;color:#6f88ad;font-style:italic;margin-top:1px;opacity:.85}
+.live{color:var(--accent);font-size:15px;min-width:52px;font-variant-numeric:tabular-nums}
+
+/* ---------- 开始页双栏 / 房间 ---------- */
+.panel-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:760px){.panel-grid{grid-template-columns:1fr}}
+.mode-card{background:rgba(15,24,43,.7);border:1px solid var(--line);border-radius:13px;padding:16px;transition:border-color .2s}
+.mode-card:hover{border-color:var(--line2)}
+.mode-card h2{margin:0 0 12px;font-size:15px;color:var(--accent);letter-spacing:1px;display:flex;align-items:center;gap:8px}
+.mode-card.dev{opacity:.62}
+.mode-card.dev h2{color:var(--dim)}
+.dev-badge{
+  font-size:10px;color:var(--warn);border:1px solid #6a5518;background:#3a2e0e;
+  border-radius:20px;padding:1.5px 9px;letter-spacing:2px;font-weight:600;
+}
+.fld{display:flex;flex-direction:column;gap:3px;color:var(--dim);font-size:12px;margin-bottom:9px}
+.fld input{margin-top:2px}
+.tiny{color:var(--dim2);font-size:11px;margin:8px 0 0}
+.tiny code{background:#080e1b;padding:1px 6px;border-radius:5px;color:var(--accent)}
+.start-box.wide{max-width:940px}
+.seats{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin:12px 0}
+.seats .pl{cursor:default}
+.seats .pl.empty{opacity:.4}
+
+/* ---------- 复盘 ---------- */
+.replay{margin-top:14px;border-top:1px solid var(--line);padding-top:12px}
+.nights{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:9px}
+.rp-n.sel{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+.rp-body{max-height:46vh;overflow:auto;background:rgba(8,14,27,.9);border:1px solid var(--line);border-radius:11px;padding:10px}
+.god{color:#ffd98a;font-size:12.5px;padding:3px 8px;border-left:2px solid #8a6d2f;margin:3px 0;background:rgba(58,45,18,.25);border-radius:0 6px 6px 0}
+.prv{color:#9fd8ff;font-size:12px;padding:3px 8px;border-left:2px solid #2f5a8a;margin:3px 0;background:rgba(18,36,58,.35);border-radius:0 6px 6px 0}
+
+
+/* ---- 自动讯问 / 识别预览 ---- */
+.talk-preview{font-size:12px;line-height:1.5;padding:6px 10px;border-radius:8px;background:#101c2c;border:1px solid #23405e;color:#9fc3e8;margin-bottom:6px}
+.talk-preview .ok{color:#7fd0a0;font-weight:700;margin-right:4px}
+.talk-preview .warn{color:#e8c07f}
+.probe-row{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 10px}
+.probe-row .act{font-size:12px;padding:4px 10px}
+.probe-row .tiny{opacity:.75}
+
+/* ============ v32 我的账本（玩家席位自己的推理资产） ============ */
+#ledger-overlay{
+  position:fixed;inset:0;z-index:60;overflow:auto;display:block;
+  background:linear-gradient(180deg,rgba(8,13,25,.96),rgba(6,10,20,.98));
+  backdrop-filter:blur(6px);padding:20px 18px 40px;
+}
+#ledger-overlay.hidden{display:none}
+#ledger-overlay .lg-head{max-width:1080px;margin:0 auto 12px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+#ledger-overlay .lg-head .sec{margin:0;font-size:17px}
+#ledger-body{max-width:1080px;margin:0 auto}
+#ledger-body .sec{margin:14px 0 6px;font-size:13px;letter-spacing:1px;color:var(--accent)}
+.lg-row{display:flex;align-items:center;gap:10px;padding:4px 8px;border-bottom:1px dashed var(--line);font-size:13px}
+.lg-row b{flex:0 0 130px}
+.lg-bar{flex:1;display:flex;height:10px;border-radius:5px;overflow:hidden;background:#0a1220;border:1px solid var(--line)}
+.lg-bar i{display:block;height:100%}
+.lg-bar .ba{background:#e05252}
+.lg-bar .bk{background:#c887e0}
+.lg-bar .bh{background:#3f9e6e}
+.lg-num{flex:0 0 auto;color:var(--dim2);font-variant-numeric:tabular-nums}
+.lg-ev{display:flex;gap:10px;align-items:baseline;padding:3px 8px;border-bottom:1px dashed var(--line);font-size:12px}
+.lg-ev .who{color:var(--dim);flex:0 0 auto}
+.lg-ev .lg-src{flex:1;color:var(--dim2)}
+.lg-ev .lg-tier{color:var(--warn);flex:0 0 auto}
+.lg-ev .lg-d{flex:0 0 52px;text-align:right;font-variant-numeric:tabular-nums;font-weight:700}
+.lg-ev .lg-d.neg{color:#5ce6a8}
+.lg-ev .lg-d.pos{color:#e05252}
+
+/* ============ v32 行动面板（当前步骤的全部操作，全屏覆盖屏蔽主页） ============ */
+#act-overlay{
+  position:fixed;inset:0;z-index:60;overflow:auto;
+  background:linear-gradient(180deg,rgba(8,13,25,.97),rgba(6,10,20,.98));
+  backdrop-filter:blur(6px);padding:20px 18px 40px;
+}
+#act-overlay.hidden{display:none}
+#act-overlay .lg-head{max-width:1080px;margin:0 auto 12px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+#act-overlay .lg-head .sec{margin:0;font-size:17px}
+#act-overlay .lg-head h2{margin:0;font-size:20px;letter-spacing:1px}
+#act-overlay .stage-head{margin-bottom:8px}
+#act-body{max-width:1080px;margin:0 auto}
+#act-acts{max-width:1080px;margin:14px auto 0;border-top:1px solid var(--line);padding-top:12px}
+
+/* ============ v32 开始页顶部三键 + 规则速览覆盖页 ============ */
+.start-actions{
+  display:flex;gap:8px;align-items:center;justify-content:center;
+  margin:6px 0 16px;flex-wrap:wrap;
+}
+.start-actions .act{font-family:inherit;font-size:13px;white-space:nowrap}
+#rules-overlay{
+  position:fixed;inset:0;z-index:60;overflow:auto;
+  background:linear-gradient(180deg,rgba(8,13,25,.97),rgba(6,10,20,.98));
+  backdrop-filter:blur(6px);padding:20px 18px 40px;
+}
+#rules-overlay.hidden{display:none}
+#rules-overlay .lg-head{max-width:1080px;margin:0 auto 12px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+#rules-overlay .lg-head .sec{margin:0;font-size:17px}
+#rules-overlay .rg-body{max-width:1080px;margin:0 auto}
+
+/* ============ v32 HUD 两行紧凑版（防闪：JS 层只在值变化时写 DOM） ============ */
+.hud.hud-compact{flex-wrap:nowrap;gap:14px;min-height:0}
+.hud-line1{display:flex;gap:18px;align-items:baseline}
+.hud-line1 .hi{font-size:12px;color:var(--dim2);letter-spacing:1px;white-space:nowrap}
+.hud-line1 .hi b{font-size:18px;color:#fff;font-variant-numeric:tabular-nums;margin-left:4px;text-shadow:0 0 12px rgba(0,229,176,.25)}
+.hud-line1 .hi.dim b{font-size:14px;color:var(--dim)}
+.hud-line2{display:flex;gap:10px;align-items:center;flex:1;min-width:0}
+/* 身份标牌：小卡 + 标黄（用户拍板：一眼认出自己的牌，不再撑大方框） */
+#hud-me{
+  display:inline-flex;align-items:center;gap:6px;white-space:nowrap;
+  padding:3px 10px;border-radius:8px;
+  background:rgba(255,204,77,.10);border:1px solid rgba(255,204,77,.55);
+  font-size:13px;font-weight:700;color:#ffcc4d;line-height:1.4;
+}
+#hud-me .d{font-size:11px;font-weight:400;color:rgba(255,204,77,.75)}
+/* 名单：身份符号直接跟在名字后（异形▲红 / 外星人◆紫 / 人类●绿） */
+.fs{font-style:normal;font-size:12px;margin-left:2px}
+.fs.f-a{color:#e05252}
+.fs.f-x{color:#c887e0}
+.fs.f-h{color:#5ce6a8}
+/* ============ 开始页三按钮：同一行 + 边缘淡化（无明显方框） ============ */
+.start-actions .act{
+  background:transparent;border-color:rgba(255,255,255,.10);color:var(--dim);
+  font-size:12px;letter-spacing:1px;
+}
+.start-actions .act:hover{color:var(--txt);border-color:var(--accent)}
+
+/* ============ v32 横屏标准布局：一屏三段 + 右上五圆钮 + 底部收敛条（放弃竖屏适配） ============ */
+#screen-game{display:flex;flex-direction:column;height:100vh;min-width:1080px;overflow:hidden}
+#screen-game .orb-bar{
+  display:flex;gap:6px;justify-content:flex-end;align-items:center;
+  padding:8px 12px 0;flex:0 0 auto;
+}
+.orb{
+  width:34px;height:34px;border-radius:50%;padding:0;
+  display:inline-flex;align-items:center;justify-content:center;
+  font-size:12px;font-family:inherit;font-weight:700;
+  background:transparent;border:1px solid rgba(255,255,255,.14);color:var(--dim);
+  cursor:pointer;white-space:nowrap;overflow:hidden;
+}
+.orb:hover{color:var(--txt);border-color:var(--accent)}
+.orb[style*='none'] + .orb{margin-left:0}
+#screen-game .board{
+  flex:1 1 auto;display:grid;grid-template-columns:230px 1fr 320px;
+  gap:0 18px;min-height:0;
+  margin:6px 14px;padding:0 14px;
+  background:var(--panel2);border:1px solid var(--line);border-radius:13px;
+}
+#screen-game .seg{display:flex;flex-direction:column;min-height:0;padding:10px 0;overflow:hidden}
+#screen-game .seg + .seg{border-left:1px solid var(--line);padding-left:14px}
+#screen-game .seg-roster{overflow:auto}
+#screen-game .seg-stage{padding:10px 14px;overflow:auto}
+#screen-game .seg-side{overflow:auto}
+.seg-t{font-size:12px;letter-spacing:1px;color:var(--accent);margin:8px 0 6px}
+.seg-t:first-child{margin-top:0}
+#screen-game .chatlog{flex:1 1 auto;min-height:120px}
+#screen-game .side-body{flex:0 0 auto;max-height:46%;overflow:auto}
+/* 底部收敛条（页面底部之上）：倒计时 / 净破坏 / 决策窗口 / 身份标牌 */
+#screen-game .stat-bar{
+  flex:0 0 auto;display:flex;gap:26px;align-items:center;
+  margin:8px 14px 10px;padding:6px 16px;
+  background:var(--panel2);border:1px solid var(--line);border-radius:10px;
+}
+#screen-game .stat-bar .hi{font-size:12px;color:var(--dim2);letter-spacing:1px;white-space:nowrap}
+#screen-game .stat-bar .hi b{font-size:18px;color:#fff;font-variant-numeric:tabular-nums;margin-left:4px;text-shadow:0 0 12px rgba(0,229,176,.25)}
+#screen-game .stat-bar .hi.dim b{font-size:14px;color:var(--dim)}
+#screen-game .stat-bar .hud-me{margin-left:auto}
+/* 身份标牌：透明底 + 黄色边缘光晕（用户拍板：不做黄色填充卡） */
+#screen-game .hud-me{
+  display:inline-flex;align-items:center;gap:6px;white-space:nowrap;
+  padding:2px 10px;border-radius:8px;
+  background:transparent;border:1px solid transparent;
+  box-shadow:0 0 10px rgba(255,204,77,.45), inset 0 0 8px rgba(255,204,77,.12);
+  font-size:13px;font-weight:700;color:#ffcc4d;line-height:1.5;
+}
+#screen-game .hud-me .d{font-size:11px;font-weight:400;color:rgba(255,204,77,.72)}
+/* 名单：身份符号跟在名字后（👾异形 / 👽外星人 / 🧑‍🚀人类 备选 ▲◆●），不再撑独立行 */
+#screen-game .pl .idn{display:none}
+.fs{font-style:normal;font-size:13px;margin-left:4px}
+/* 放弃竖屏适配：移除窄屏折行规则（覆盖旧的媒体查询），横屏一屏承载 */
+
+/* ============ v32 修正：五钮贴最右侧 + 窄预览窗口底部横向滚动（不截断内容） ============ */
+#screen-game{position:relative;overflow-x:auto;overflow-y:hidden}
+#screen-game .board{min-width:1040px}
+#screen-game .stat-bar{min-width:1040px}
+#screen-game .orb-bar{position:absolute;top:8px;right:12px;justify-content:flex-end;padding:0}
+
+/* ============ v32 视觉修正（用户拍板）：削平圆角 / 去最外围大方框 / 开始页三按钮同行 ============ */
+/* 1) 全部方框削成纯正矩形（仅右上角五圆钮保持圆形）
+      v33：作用域收窄到游戏页 #screen-game——首页按新圆角规范（外卡 16 / 面板 12 / 按钮 10 / 图标 8） */
+#screen-game .panel, #screen-game .board, #screen-game .seg, #screen-game .pl, #screen-game .opt, #screen-game .tag,
+#screen-game .evt, #screen-game .say, #screen-game .an, #screen-game .kv, #screen-game .prv, #screen-game .chatbox, #screen-game .chatlog,
+#screen-game .roster, #screen-game .dead, #screen-game .side-body, #screen-game .stat-bar, #screen-game .hud-me,
+#screen-game .act, #screen-game .icon, #screen-game button, #screen-game input, #screen-game select, #screen-game textarea,
+#screen-game .opts, #screen-game .tabs, #screen-game .tab, #screen-game .rules,
+#screen-game .dev-overlay, #screen-game .ov-close, #screen-game .devchip, #screen-game .probe-row, #screen-game .talk-preview{
+  border-radius:0 !important;
+}
+#screen-game .orb{border-radius:50% !important}   /* 五圆钮例外：保持圆形 */
+/* 2) 去掉最外围大方框：board 与 stat-bar 不再带边框/底色，三段直接落在页面上 */
+#screen-game .board{background:transparent;border:none;padding:0 8px}
+#screen-game .seg + .seg{border-left:none;padding-left:8px}
+#screen-game .stat-bar{background:transparent;border:none}
+/* 3) 开始页顶部三按钮：强制并列一行，不换行 */
+.start-actions{flex-wrap:nowrap;gap:10px;justify-content:center;overflow:visible}
+.start-actions .act{white-space:nowrap}
+
+/* ============ v32 修正：五钮行在最上、收敛行其次、board 无外框、列宽按内容 ============ */
+#screen-game .orb-bar{
+  position:static;display:flex;gap:6px;justify-content:flex-end;align-items:center;
+  width:100%;padding:8px 14px 0;flex:0 0 auto;
+}
+#screen-game .stat-line{
+  display:flex;gap:26px;align-items:center;
+  margin:6px 14px 0;padding:6px 16px;
+  background:var(--panel2);border:1px solid var(--line);border-radius:0;
+}
+#screen-game .stat-line .hi{font-size:12px;color:var(--dim2);letter-spacing:1px;white-space:nowrap}
+#screen-game .stat-line .hi b{font-size:18px;color:#fff;font-variant-numeric:tabular-nums;margin-left:4px;text-shadow:0 0 12px rgba(0,229,176,.25)}
+#screen-game .stat-line .hi.dim b{font-size:14px;color:var(--dim)}
+#screen-game .stat-line .hud-me{margin-left:auto}
+/* 身份标牌：不做黄光，用既有蓝色系边框光效 */
+#screen-game .hud-me{
+  display:inline-flex;align-items:center;gap:6px;white-space:nowrap;
+  padding:2px 10px;border-radius:0;
+  background:transparent;border:1px solid var(--accent);
+  box-shadow:0 0 10px rgba(0,229,176,.35);
+  font-size:13px;font-weight:700;color:var(--txt);line-height:1.5;
+}
+#screen-game .hud-me .d{font-size:11px;font-weight:400;color:var(--dim)}
+/* 三段列宽按内容切割（名单/右侧贴合内容，中段弹性），横向不超出 */
+#screen-game .board{grid-template-columns:minmax(210px,max-content) 1fr minmax(280px,max-content);min-width:1000px}
+
+/* ============ v32 修正：细线严格分区 + 竖柱防膨胀 + orb 激活黄光 ============ */
+/* 细线严格划分各区域（覆盖此前的 none） */
+#screen-game .seg + .seg{border-left:1px solid var(--line);padding-left:12px}
+/* 竖柱防膨胀：固定列宽 + 内部滚动 + 长文本折行——重渲染绝不允许撑宽柱子 */
+#screen-game .board{grid-template-columns:250px 1fr 300px;min-width:1020px}
+#screen-game .board .seg{min-width:0;max-width:100%;overflow:hidden}
+#screen-game .board .seg > *{max-width:100%}
+#screen-game .roster,#screen-game .dead,#screen-game .chatlog,#screen-game .side-body{
+  overflow:auto;word-break:break-word;
+}
+#screen-game .roster .pl{max-width:100%}
+/* orb 激活态：黄光边缘（DEV 开启 / 音效开启） */
+#screen-game .orb.on{
+  border-color:#ffcc4d;color:#ffcc4d;
+  box-shadow:0 0 10px rgba(255,204,77,.5), inset 0 0 6px rgba(255,204,77,.15);
+}
+
+/* ============ v32 布局总规则（用户拍板）：任何信息的出现都不允许元素体积变动 ============
+   实现：三柱高度恒定（= 视口高）；柱内固定块 flex:0 0 auto，唯一弹性块（stage-body /
+   chatlog / side-body）flex:1 1 auto + min-height:0 内部滚动吸收一切增量；
+   banner / p-pop / dev-overlay 全部悬浮定位，不占布局流。 */
+
+/* 圆钮行：整页最上方右上角（悬浮，不占布局流） */
+#screen-game .orb-bar{
+  position:absolute;top:8px;right:12px;left:auto;width:auto;
+  padding:0;gap:6px;z-index:30;
+}
+/* 右柱顶部让出圆钮悬浮空间（圆钮行高 ≈42px） */
+#screen-game .seg-side{padding-top:48px}
+
+/* 收敛行（倒计时/净破坏/决策窗口）：第二柱顶部固定块 */
+#screen-game .seg-stage .stat-line{
+  margin:0;padding:0 0 8px;flex:0 0 auto;
+  background:transparent;border-top:none;
+}
+#screen-game .seg-stage .stat-line .hi{font-size:12px;color:var(--dim2);letter-spacing:1px;white-space:nowrap}
+#screen-game .seg-stage .stat-line .hi b{font-size:18px;color:#fff;font-variant-numeric:tabular-nums;margin-left:4px;text-shadow:0 0 12px rgba(0,229,176,.25)}
+#screen-game .seg-stage .stat-line .hi.dim b{font-size:14px;color:var(--dim)}
+/* 计时细条：固定 5px 高，紧贴收敛行下方（不吃分隔线） */
+#screen-game .seg-stage .timerbar{margin:0 0 10px;flex:0 0 auto;border-top:none;padding-top:0}
+
+/* 柱内纵向分隔：同柱不同内容块之间统一细线（第一块无顶线）；
+   舞台柱分隔线通栏（负 margin 抵消柱横向内边距，细线左右接底到柱边缘） */
+#screen-game .seg > * + *{border-top:1px solid var(--line);margin-top:8px;padding-top:8px}
+#screen-game .seg-stage > * + *{
+  margin-left:-14px;margin-right:-14px;padding-left:14px;padding-right:14px;
+}
+/* 双线豁免：stage-head 自带底线 / stage-actions 自带顶线，统一后去重 */
+#screen-game .stage-head{border-bottom:none;padding-bottom:0;margin-bottom:0}
+#screen-game .seg-stage .stage-actions{border-top:none;padding-top:0}
+/* timerbar/stat-line 已在上方单独豁免顶线 */
+
+/* 三柱体积恒定：柱只滚动内部，永不撑宽/撑高 */
+#screen-game .seg-stage{overflow:hidden}
+#screen-game .seg-roster,#screen-game .seg-side{overflow:hidden}
+#screen-game .stage-body{flex:1 1 auto;min-height:0;max-height:none;overflow:auto}
+#screen-game .stage-head,#screen-game .stage-actions,#screen-game .talk-preview,#screen-game .talkrow{flex:0 0 auto}
+#screen-game .chatlog{flex:1 1 auto;min-height:0;max-height:none}
+/* 名单：固定高度（15 人 5 行 × 72px 卡 + 4 × 5px 间隙 = 380px）+ 内滚动；发言记录弹性吸收 */
+#screen-game .roster{flex:0 0 auto;height:380px;max-height:none}
+#screen-game .side-body{flex:1 1 auto;min-height:0;max-height:none}
+
+/* 名单小卡：高度锁定 72px（标题 22 + 身份 12 + 标签区 22 + 内边距/间隙）——
+   标签行自动折行（不再单行省略号硬挤），溢出兜底裁切；DEV 开关不改变卡片体积。
+   卡片背景与页面同色（透明）：不再出现「深色方框附着在浅色背景墙」的色块感，仅以边框分区 */
+#screen-game .pl{height:72px;overflow:hidden;gap:2px;padding:6px 8px;background:transparent}
+#screen-game .pl .top{flex:0 0 auto;height:22px}
+#screen-game .pl .did{flex:0 0 auto}
+#screen-game .pl .tags{
+  flex:1 1 auto;min-height:0;display:flex;flex-wrap:wrap;
+  align-content:flex-start;gap:2px 4px;overflow:hidden;
+}
+
+/* DEV 透视：真实身份注在名字下方（单行截断，绝不出框、绝不改变卡片体积——行高恒定预留） */
+#screen-game .pl .did{
+  font-size:10px;line-height:12px;height:12px;
+  color:#ffcc4d;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;
+}
+/* 非 DEV 时无 did 行：卡片高度由 height:56px 锁死，两态体积一致 */
+
+/* banner：悬浮于顶部中央（出现/消失不推移任何布局） */
+#screen-game .banner{
+  position:fixed;top:10px;left:50%;transform:translateX(-50%);
+  z-index:40;margin-bottom:0;max-width:72vw;white-space:normal;
+}
+
+/* ============ v32 修正（用户拍板）：三柱永不压缩——窄视口保持柱宽，底部横向滚动 ============
+   board 自身无边框无底色（看不到框的边缘）；三柱间竖线为内容分区而非容器边界。
+   最小宽度恢复（三柱挤在一起比滚动条更不可接受），滚动条即窄视口下的正常横向浏览。 */
+#screen-game{overflow-x:auto;overflow-y:hidden}
+#screen-game .board{min-width:1110px;grid-template-columns:310px 1fr 330px}
+
+/* ============ v32 修正：右柱 330px 扩容 + 条目排版重排（左柱加宽不挤占右柱） ============
+   公告/发言条目：字号 12.5 → 12px、内边距收紧、行高统一 1.55、长句自动折行——
+   330px 柱宽下每行约容纳 24 个汉字，常规公告 1~2 行排完，不再有挤压感 */
+#screen-game .side-body{font-size:12px;word-break:break-word;line-height:1.55}
+#screen-game .side-body .an{font-size:12px;padding:4px 6px;gap:6px;line-height:1.55}
+#screen-game .side-body .logline{font-size:12px;padding:5px 6px;line-height:1.55}
+/* 键值行（阵营页签/私人页签等）长说明折行：label 固定、value 弹性换行——
+   说明文字一律左对齐（从左侧续行），不再右对齐贴边产生裁切感 */
+#screen-game .side-body .kv{flex-wrap:wrap;row-gap:2px}
+#screen-game .side-body .kv span{min-width:0}
+#screen-game .side-body .kv span:last-child{flex:1 1 auto;white-space:normal;word-break:break-word;text-align:left}
+/* 右柱兜底：任何直接子元素都不得横向撑破柱宽 */
+#screen-game .side-body > *{max-width:100%}
+
+/* ================================================================================
+   ============ v33 双页重构（2026-09） ==========================================
+   一、游戏内页：顶部状态条 + 左中右 3:5:2 三栏
+       —— 遵守布局总规则：任何信息的出现/更新/消失不改变元素体积；
+          弹性块（chatlog / stage-body / side-body）内部滚动吸收增量，
+          talk-preview 悬浮于输入组上方不占布局流，进度线恒定 3px。
+   二、首页：配置预览条 + 阵营卡片 + 高级选项折叠 + CTA 主按钮 + 联机禁用态。
+   ================================================================================ */
+
+:root{
+  --sep:rgba(0,229,176,.14);          /* v33 统一 1px 青色低透明度分区线 */
+  --t-fast:.15s ease;                  /* v33 统一交互过渡 120~180ms */
+}
+
+/* ---------- 1. 顶部状态条 ---------- */
+#screen-game .topbar{
+  flex:0 0 auto;display:flex;align-items:center;gap:20px;
+  margin:8px 16px 0;padding:8px 16px;min-width:1020px;
+  background:linear-gradient(180deg,rgba(13,21,38,.92),rgba(10,17,32,.72));
+  border:1px solid var(--sep);
+}
+/* 阶段名（左） */
+#screen-game .topbar .stage-head{flex:0 1 auto;min-width:0;border-bottom:none;padding-bottom:0;margin-bottom:0;overflow:hidden}
+/* 主倒计时大字 + 等宽数字；固定最小宽度防数值变化推动状态条位移 */
+#screen-game .topbar .top-stats{display:flex;gap:24px;align-items:baseline;margin-left:auto}
+#screen-game .topbar .hi{font-size:12px;color:var(--dim2);letter-spacing:1px;white-space:nowrap}
+#screen-game .topbar .hi b{
+  font-size:20px;color:#fff;font-variant-numeric:tabular-nums;margin-left:6px;
+  display:inline-block;min-width:56px;text-align:right;
+  text-shadow:0 0 12px rgba(0,229,176,.25);
+}
+#screen-game .topbar #hud-cd{
+  font-size:28px;line-height:1.1;min-width:86px;font-family:Consolas,"SF Mono",Menlo,monospace;
+  text-shadow:0 0 16px rgba(0,229,176,.4);
+}
+/* 决策窗口横向进度条（右） */
+#screen-game .topbar .top-timerbar{width:200px;flex:0 0 auto;margin:0;height:6px}
+/* 圆钮组并入状态条右端（定尺寸控件，不再是悬浮孤儿） */
+#screen-game .topbar .orb-bar{position:static;display:flex;gap:6px;flex:0 0 auto;padding:0;z-index:auto}
+
+/* ---------- 2. 三栏骨架 3:5:2 ---------- */
+#screen-game .board{
+  flex:1 1 auto;display:grid;
+  grid-template-columns:minmax(296px,3fr) minmax(420px,5fr) minmax(224px,2fr);
+  gap:0 16px;min-height:0;min-width:1020px;
+  margin:8px 16px 12px;padding:0;
+  background:transparent;border:none;
+}
+#screen-game .seg{display:flex;flex-direction:column;min-height:0;min-width:0;max-width:100%;padding:8px 0;overflow:hidden}
+#screen-game .seg + .seg{border-left:1px solid var(--sep);padding-left:16px}
+/* 柱内分隔线：统一青色低透明度（覆盖旧的 --line 通栏规则） */
+#screen-game .seg > * + *{border-top:1px solid var(--sep);margin-top:8px;padding-top:8px}
+#screen-game .seg-stage > * + *{margin-left:0;margin-right:0;padding-left:0;padding-right:0}
+#screen-game .seg-t{font-size:11px;letter-spacing:2px;color:var(--dim2);margin:0 0 6px}
+
+/* ---------- 3. 左栏：仅玩家格子，5×3 紧凑网格 ---------- */
+#screen-game .seg-roster .roster{
+  display:grid;grid-template-columns:repeat(5,1fr);gap:6px;
+  height:auto;max-height:none;flex:0 0 auto;align-content:start;
+  overflow:auto;margin-top:8px;padding-top:8px;
+}
+#screen-game .roster .pl{height:72px;padding:6px 7px;overflow:hidden;gap:2px}
+#screen-game .roster .pl .tags{flex:0 0 auto;min-height:0;flex-wrap:nowrap;overflow:hidden;white-space:nowrap}
+#screen-game .roster .pl .tag{flex:0 0 auto;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+/* 选中格：身份标签（.did 恒定 12px，两态体积一致）高亮显示 */
+#screen-game .roster .pl.sel{border-color:var(--accent);background:rgba(14,34,56,.85);box-shadow:var(--glow)}
+#screen-game .roster .pl.sel .did{color:var(--accent);font-weight:700}
+
+/* ---------- 4. 中栏：发言流水 70% + 决策区 30% + 操作行 + 输入组 ---------- */
+#screen-game .seg-stage .chatlog{
+  flex:7 1 0;display:flex;flex-direction:column;gap:4px;
+  min-height:0;overflow:auto;margin-top:8px;
+  padding:8px;background:rgba(10,17,32,.55);          /* 半透明深色底板 */
+  border:1px solid var(--sep);
+}
+#screen-game .chatlog.streaming{max-height:none;border-color:#2b4a6f;box-shadow:var(--glow)}
+/* 气泡：头像 + 昵称/编号 + 正文；左 2px 阵营色边条（己方独立配色，不泄露隐藏阵营） */
+#screen-game .chatlog .say{
+  display:flex;gap:8px;align-items:flex-start;max-width:88%;
+  background:#0b1424;border:1px solid rgba(0,229,176,.10);border-left:2px solid var(--accent);
+  padding:6px 10px;margin:0;flex:0 0 auto;
+}
+#screen-game .chatlog .say .ava{
+  flex:0 0 auto;width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;
+  background:#16233c;color:#9fc2ee;font-size:10px;font-weight:700;margin-top:1px;
+}
+#screen-game .chatlog .say .say-main{flex:1 1 auto;min-width:0;font-size:12.5px;line-height:1.55;word-break:break-word}
+/* 己方消息：右对齐 + 反向边条 + 提亮底色 */
+#screen-game .chatlog .say.mine{
+  align-self:flex-end;flex-direction:row-reverse;
+  background:#0e1c30;border:1px solid rgba(124,157,255,.18);border-right:2px solid var(--accent2);
+}
+#screen-game .chatlog .say.mine .who{color:var(--accent2)}
+#screen-game .chatlog .say.mine .ava{background:#123049;color:var(--accent)}
+/* 新消息 200ms 淡入上移（仅最后一条，整列表重渲染不闪烁） */
+#screen-game .chatlog .say.msg-in{animation:msg-in .2s ease}
+@keyframes msg-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+/* 决策/事件区 30%：弹性滚动吸收全部增量 */
+#screen-game .seg-stage .stage-body{flex:3 1 0;min-height:0;max-height:none;overflow:auto}
+
+#screen-game .seg-stage .stage-actions{flex:0 0 auto;border-top:1px solid var(--sep)}
+/* 「结束讨论」次要按钮：降对比度，不与发送抢焦点 */
+button.act.ghost{color:var(--dim);background:transparent;border-color:var(--line)}
+button.act.ghost:hover{color:var(--txt);border-color:var(--line2);box-shadow:none;transform:none}
+
+/* 输入组：进度线 + 预览浮层 + 输入行（输入框与发送同高紧贴成组） */
+#screen-game .input-dock{flex:0 0 auto;position:relative;margin-top:8px;padding-top:8px;border-top:1px solid var(--sep)}
+#screen-game .input-timeline{height:3px;background:rgba(0,229,176,.10);overflow:hidden;margin-bottom:8px}
+#screen-game .input-timeline i{
+  display:block;height:100%;width:0;
+  background:linear-gradient(90deg,#00E5B0,#5ce6a8);
+  transition:width .2s linear;
+}
+#screen-game .input-timeline i.hot{background:linear-gradient(90deg,#ff5a7a,#ff8a5a);animation:tl-pulse 1.1s ease-in-out infinite}
+@keyframes tl-pulse{0%,100%{opacity:.7}50%{opacity:1}}
+/* 识别预览：悬浮于输入组上方，出现/消失不占布局流（体积恒定规则） */
+#screen-game .input-dock .talk-preview{position:absolute;left:0;right:0;bottom:calc(100% + 8px);z-index:20;margin:0}
+#screen-game .input-dock .talkrow{margin:0 0 8px;gap:8px}
+#screen-game .input-dock .talkrow:last-child{margin-bottom:0}
+#screen-game .talkrow input{flex:1 1 auto;min-width:0;height:38px;padding:0 12px}
+#screen-game .talkrow .act{height:38px;padding:0 20px;flex:0 0 auto;font-size:14px;line-height:1}
+#screen-game .talkrow input:focus{border-color:var(--accent);box-shadow:var(--glow)}
+
+/* ---------- 5. 右栏：页签面板 + 底部规则折叠入口 ---------- */
+#screen-game .seg-side{padding-top:8px}   /* 圆钮已并入状态条，不再预留悬浮空间 */
+#screen-game .seg-side .side-body{flex:1 1 auto;min-height:0;max-height:none;overflow:auto;margin-top:8px;padding-top:8px}
+#screen-game .side-foot{flex:0 0 auto;margin-top:8px;padding-top:8px;border-top:1px solid var(--sep)}
+#screen-game .side-foot .act{
+  width:100%;text-align:center;font-size:12px;letter-spacing:1px;
+  color:var(--dim);background:transparent;border-color:rgba(255,255,255,.12);
+}
+#screen-game .side-foot .act:hover{color:var(--txt);border-color:var(--accent)}
+
+/* ================================================================================
+   ---------- 6. 首页 v33：工具条 / 配置预览 / 阵营卡片 / 折叠 / CTA / 禁用态 ------
+   圆角规范：外卡 16px · 面板 12px · 按钮 10px · 图标 8px；8px 网格间距；≥24px 安全边距
+   ================================================================================ */
+#screen-start{padding:24px 16px}
+#screen-start .start-box{max-width:980px;margin:4vh auto;padding:32px;border-radius:16px}
+
+/* 标题行 + 右上角紧凑工具条（明确归属，不再悬空） */
+#screen-start .start-top{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap}
+#screen-start .start-top h1{margin:0}
+#screen-start .start-actions{
+  margin:0;flex-wrap:nowrap;justify-content:flex-end;
+  background:rgba(10,17,32,.6);border:1px solid var(--sep);border-radius:10px;padding:6px;
+}
+#screen-start .start-actions .act{font-size:12px;border-radius:8px;transition:all var(--t-fast)}
+
+/* 本局配置预览条：数值（等宽大字）+ 标签（灰小字），1px 竖线分隔 */
+#screen-start .config-strip{
+  display:flex;align-items:stretch;margin:16px 0 20px;
+  background:rgba(10,17,32,.6);border:1px solid var(--sep);border-radius:12px;padding:10px 16px;
+}
+#screen-start .cfg-cap{
+  display:flex;align-items:center;flex:0 0 auto;
+  color:var(--accent);font-size:11px;letter-spacing:3px;white-space:nowrap;
+  padding-right:16px;margin-right:8px;
+}
+#screen-start .cfg-unit{flex:1;padding:2px 16px;min-width:0}
+#screen-start .cfg-unit + .cfg-unit{border-left:1px solid var(--sep)}
+#screen-start .cfg-unit b{
+  display:block;font-size:26px;line-height:1.25;color:#fff;
+  font-family:Consolas,"SF Mono",Menlo,monospace;font-variant-numeric:tabular-nums;
+}
+#screen-start .cfg-unit i{display:block;font-style:normal;font-size:11px;color:var(--dim2);letter-spacing:1px}
+/* 选中阵营后联动高亮：main.js 在 .config-strip 上写 data-fac，第三单元（阵营构成）按阵营色提亮 */
+#screen-start .config-strip .cfg-unit:nth-of-type(3) b{transition:color var(--t-fast),text-shadow var(--t-fast)}
+#screen-start .config-strip[data-fac="random"] .cfg-unit:nth-of-type(3) b{color:var(--accent);text-shadow:0 0 12px rgba(0,229,176,.35)}
+#screen-start .config-strip[data-fac="human"] .cfg-unit:nth-of-type(3) b{color:var(--human);text-shadow:0 0 12px rgba(74,168,255,.35)}
+#screen-start .config-strip[data-fac="alien"] .cfg-unit:nth-of-type(3) b{color:var(--alien);text-shadow:0 0 12px rgba(255,90,122,.35)}
+#screen-start .config-strip[data-fac="xeno"] .cfg-unit:nth-of-type(3) b{color:var(--xeno);text-shadow:0 0 12px rgba(92,230,168,.35)}
+
+/* 左栏主卡 vs 右栏降权（背景明度降低 + 整体 45% 透明禁用态） */
+#screen-start .panel-grid .mode-card.main{border-color:var(--line2)}
+#screen-start .panel-grid .mode-card.dev{opacity:.45;background:rgba(12,19,34,.45)}
+
+/* 阵营卡片：图标 + 名称 + 一行说明；默认 1px 低透明度青描边 + 8% 白底 */
+#screen-start .faction-pick{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:16px}
+#screen-start .fp{
+  position:relative;display:grid;text-align:left;cursor:pointer;
+  grid-template-columns:32px 1fr;grid-template-rows:auto auto;column-gap:12px;row-gap:2px;align-items:center;
+  padding:12px;background:rgba(255,255,255,.08);
+  border:1px solid rgba(0,229,176,.22);border-radius:12px;
+  transition:border-color var(--t-fast),background var(--t-fast),box-shadow var(--t-fast);
+}
+#screen-start .fp:hover{border-color:rgba(0,229,176,.55);background:rgba(255,255,255,.12)}
+#screen-start .fp.active{border:2px solid var(--accent);background:rgba(0,229,176,.16);box-shadow:var(--glow)}
+#screen-start .fp-ico{
+  grid-column:1;grid-row:1/3;width:32px;height:32px;
+  display:inline-flex;align-items:center;justify-content:center;
+  font-size:19px;background:rgba(10,17,32,.55);border-radius:8px;
+}
+#screen-start .fp-nm{grid-column:2;grid-row:1;font-size:15px;font-weight:600;color:var(--txt);line-height:1.3}
+#screen-start .fp-ds{grid-column:2;grid-row:2;font-size:12px;color:var(--dim);line-height:1.4}
+#screen-start .fp.active::after{
+  content:'✓';position:absolute;top:-6px;right:-6px;width:18px;height:18px;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--accent);color:#04121e;font-size:11px;font-weight:800;border-radius:8px;
+}
+
+/* 高级选项折叠行（种子 / 服务器地址）：默认收起 */
+#screen-start details.adv{
+  border:1px solid var(--line);border-radius:10px;background:rgba(10,17,32,.5);
+  margin:0 0 16px;
+}
+#screen-start details.adv summary{
+  cursor:pointer;list-style:none;color:var(--dim);font-size:12px;letter-spacing:1px;
+  padding:9px 12px;transition:color var(--t-fast);
+}
+#screen-start details.adv summary::-webkit-details-marker{display:none}
+#screen-start details.adv summary::before{content:'▸ '}
+#screen-start details.adv[open] summary::before{content:'▾ '}
+#screen-start details.adv[open] summary{color:var(--txt);border-bottom:1px dashed var(--line)}
+#screen-start details.adv .seed{margin:10px 12px 0}
+#screen-start details.adv .fld{margin:10px 12px 0}
+#screen-start details.adv .tiny{margin:8px 12px 10px}
+
+/* 开始对局 = 全界面唯一主行动按钮：高对比橙金实心，约 1.6 倍高，16px 上间距 */
+#screen-start button.primary.cta{
+  display:block;width:100%;margin-top:16px;padding:16px 28px;
+  font-size:17px;font-weight:700;letter-spacing:6px;text-indent:6px;
+  background:linear-gradient(180deg,#ffc45c,#e08f26);color:#1c1204;border-radius:10px;
+  box-shadow:0 8px 24px rgba(224,143,38,.35);
+  transition:filter var(--t-fast),box-shadow var(--t-fast),transform var(--t-fast);
+}
+#screen-start button.primary.cta:hover{filter:brightness(1.08);transform:translateY(-1px);box-shadow:0 10px 28px rgba(224,143,38,.45)}
+#screen-start button.primary.cta:active{transform:scale(.97);box-shadow:inset 0 2px 8px rgba(0,0,0,.25)}
+
+/* 「即将上线」胶囊标签：暖橙描边 + 半透明填充 */
+#screen-start .dev-badge{
+  font-size:11px;color:#ffb45c;letter-spacing:2px;font-weight:600;
+  border:1px solid rgba(255,180,92,.6);background:rgba(255,180,92,.12);
+  border-radius:999px;padding:2px 12px;
+}
+/* 禁用态规范：40% 透明、无悬停/按下反馈、not-allowed 光标 */
+#screen-start .mode-card.dev input,#screen-start .mode-card.dev button{cursor:not-allowed;transition:none}
+#screen-start .mode-card.dev button.act:hover{border-color:var(--line2);box-shadow:none;transform:none;filter:none}
+#screen-start .mode-card.dev button.act:active{transform:none;box-shadow:none}
+
+/* 输入框三态（默认 / 聚焦主色描边+外发光 / 禁用 40% 透明无反馈） */
+#screen-start input[type=text]{border-radius:10px;transition:border-color var(--t-fast),box-shadow var(--t-fast)}
+#screen-start input[type=text]:focus{outline:none;border-color:var(--accent);box-shadow:var(--glow)}
+#screen-start input[type=text]:disabled{opacity:.4;cursor:not-allowed}
+
+/* 首页圆角统一收口 */
+#screen-start .mode-card,#screen-start .fp,#screen-start .config-strip{border-radius:12px}
+#screen-start .mode-card{padding:20px}
+
+/* ================================================================================
+   ============ v34 全站深化：视口 dvh / 设计令牌落地 / 首页阵营色 / 对局决策态 ====
+   ================================================================================ */
+
+/* ---------- A4/A8 视口：dvh 适配（旧浏览器回退 vh）+ 滚动区三件套已就位 ---------- */
+#app{min-height:100vh;min-height:100dvh}
+.screen{min-height:100vh;min-height:100dvh}
+#screen-game{height:100vh;height:100dvh}
+
+/* ---------- D5 交互四态补全：键盘焦点环 + 按下缩放/内阴影 ---------- */
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,summary:focus-visible{
+  outline:2px solid var(--accent);outline-offset:2px;
+}
+button.act:active,button.primary:active{transform:scale(.97);box-shadow:inset 0 2px 8px rgba(0,0,0,.28)}
+
+/* ---------- C2 阶段心跳条：环形主倒计时 + 净破坏迷你条 ---------- */
+#screen-game .topbar .hi{display:flex;flex-direction:column;gap:3px;align-items:flex-start}
+#screen-game .topbar .hi > i{font-style:normal;font-size:10px;color:var(--dim2);letter-spacing:2px;line-height:1}
+#screen-game .topbar .hi b{margin:0;font-size:20px;min-width:56px;text-align:right}
+#screen-game .topbar .cd-hi{flex-direction:row;align-items:center;gap:8px}
+/* 环形进度：颜色由 JS 按剩余量写入 --c/--p（青绿 → 琥珀 → 红） */
+.cd-ring{
+  --p:100;--c:#00E5B0;
+  width:52px;height:52px;flex:0 0 auto;border-radius:50%;position:relative;
+  background:conic-gradient(var(--c) calc(var(--p)*1%),rgba(255,255,255,.07) 0);
+  display:flex;align-items:center;justify-content:center;
+}
+.cd-ring::before{content:'';position:absolute;inset:4px;border-radius:50%;background:var(--bg2)}
+.cd-ring b{
+  position:relative;z-index:1;margin:0 !important;min-width:0 !important;text-align:center;
+  font-size:15px !important;line-height:1;color:#fff;font-variant-numeric:tabular-nums;
+}
+/* 净破坏迷你条：满 9.0 = 人类倒计时胜利永久失效（比例 = 净破坏/9） */
+#screen-game .topbar .net-bar{display:block;width:76px;height:3px;background:rgba(255,255,255,.08);overflow:hidden;margin-top:2px}
+#screen-game .topbar #hud-net-fill{display:block;height:100%;width:0;background:linear-gradient(90deg,#00E5B0,#FFB020 55%,#FF4D6D);transition:width .4s ease}
+
+/* ---------- C1 三栏 25% / 55% / 20%，中栏为视觉主轴 ---------- */
+#screen-game .board{grid-template-columns:minmax(268px,25fr) minmax(430px,55fr) minmax(212px,20fr)}
+
+/* ---------- H1~H6 名单卡片文字布局：两行结构 + emoji 出文本流 + 卡片最小 120px ----------
+   H5：网格列数由 5 列降至 2 列——列宽不足时优先减少列数，绝不压缩文字（卡片内滚动兜底） */
+#screen-game .seg-roster .roster{grid-template-columns:repeat(2,minmax(120px,1fr))}
+#screen-game .roster .pl{
+  position:relative;box-sizing:border-box;
+  height:76px;min-width:120px;padding:10px 12px;gap:0;
+}
+/* 行①：编号徽章 28×28 定宽 + 昵称容器弹性收缩 */
+#screen-game .pl .top{display:flex;align-items:center;gap:8px;height:28px;flex:0 0 auto;min-width:0}
+#screen-game .pl .no{width:28px;height:28px;flex:0 0 auto;font-size:12px;font-variant-numeric:tabular-nums}
+/* H3：昵称 13px/500 + 强制弹性省略号 */
+#screen-game .pl .nm{
+  flex:1 1 auto;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;
+  font-size:13px;font-weight:500;line-height:1.3;
+}
+#screen-game .pl.has-emo .nm{padding-right:24px}
+/* H2/H4：emoji 绝对定位右上角，独立字体栈与 emoji 字形，不占昵称横向空间 */
+#screen-game .pl .fs{
+  position:absolute;top:6px;right:6px;z-index:3;flex:0 0 auto;
+  font-size:14px;line-height:1;
+  font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji";
+  font-variant-emoji:emoji;
+}
+/* 行②：职业小字（可截断） + 状态徽章（不压缩） */
+#screen-game .pl .idrow{display:flex;align-items:center;gap:6px;height:20px;flex:0 0 auto;min-width:0;margin-top:2px}
+#screen-game .pl .idrow .did{
+  flex:0 1 auto;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;
+  height:14px;line-height:14px;font-size:11px;
+}
+#screen-game .pl .idrow .tags{
+  flex:0 0 auto;max-width:54%;height:18px;
+  display:flex;flex-wrap:nowrap;overflow:hidden;white-space:nowrap;align-items:center;gap:3px;
+}
+#screen-game .pl .idrow .tag{flex:0 0 auto}
+
+/* ---------- C3 名单决策态卡片：六套状态（颜色之外全部带形状/图标差异） ---------- */
+#screen-game .roster .pl{position:relative}
+#screen-game .roster .pl .no{font-variant-numeric:tabular-nums}
+/* 发言中：主色描边 + 1.5s 呼吸（形状 = 描边光晕） */
+#screen-game .roster .pl.talking{border-color:var(--accent);animation:pl-breathe 1.5s ease-in-out infinite;position:relative;z-index:1}
+@keyframes pl-breathe{0%,100%{box-shadow:0 0 0 0 rgba(0,229,176,0)}50%{box-shadow:0 0 10px 2px rgba(0,229,176,.35)}}
+/* 被提名：橙色描边（形状 = 双层描边）+ ◎ 图标标签（JS 追加） */
+#screen-game .roster .pl.nom{border-color:var(--cta);box-shadow:0 0 0 1px var(--cta) inset}
+#screen-game .roster .pl .tag.nom-t{background:#3a2c0e;color:#ffd9a0;border-color:#6a5518}
+/* 已投票：灰色 ✓ 勾选标签（形状 = 勾选符号） */
+#screen-game .roster .pl .tag.voted{background:#1a2334;color:#93a3bd;border-color:#2a3a58}
+/* 聊天联动高亮（C4） */
+#screen-game .roster .pl.hl{border-color:var(--accent);background:rgba(0,229,176,.10)}
+/* 自己：左上角「你」角标（优先级最高，叠加于任意状态） */
+#screen-game .roster .pl.me::before{
+  content:'你';position:absolute;top:-1px;left:-1px;z-index:2;
+  background:var(--accent2);color:#04121e;font-size:9px;font-weight:700;line-height:13px;padding:0 4px;
+}
+/* 出局：灰度 + 30% 透明 + 斜线纹理（优先级最高，覆盖上述状态色） */
+#screen-game .roster .pl.out{
+  opacity:.4;filter:grayscale(.6);
+  background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.05) 0 4px,transparent 4px 8px);
+}
+
+/* ---------- C4 发言流 ↔ 名单联动 + @ 自动补全 ---------- */
+#screen-game .chatlog{position:relative}
+#screen-game .chatlog .say{cursor:pointer}
+#screen-game .chatlog .say:hover{border-color:var(--accent)}
+#screen-game .chatlog .chat-filter-chip{
+  position:absolute;top:6px;right:6px;z-index:5;
+  background:rgba(0,229,176,.14);border:1px solid var(--accent);color:var(--txt);
+  font-size:11px;padding:2px 8px;cursor:pointer;font-family:inherit;
+}
+#screen-game .chatlog .chat-filter-chip:hover{filter:brightness(1.15)}
+.at-pop{
+  position:absolute;left:0;right:0;bottom:calc(100% + 6px);z-index:22;
+  display:flex;flex-wrap:wrap;gap:4px;padding:6px;
+  background:rgba(10,17,32,.97);border:1px solid var(--line2);
+}
+.at-item{
+  background:var(--panel2);border:1px solid var(--line2);color:var(--txt);
+  font-size:12px;padding:3px 10px;cursor:pointer;font-family:inherit;white-space:nowrap;
+}
+.at-item:hover{border-color:var(--accent)}
+
+/* ---------- C6 输入框危险态（优先于聚焦态，≤10s） ---------- */
+#screen-game .talkrow input.danger{
+  border-color:#FF4D6D !important;
+  box-shadow:0 0 10px rgba(255,77,109,.35) !important;
+  animation:tl-pulse 1.1s ease-in-out infinite;
+}
+
+/* ---------- C5 公告按昼夜折叠 ---------- */
+.night-fold{border-bottom:1px dashed var(--line)}
+.night-fold > summary{
+  cursor:pointer;list-style:none;color:var(--dim);font-size:12px;letter-spacing:1px;
+  padding:5px 2px;transition:color .15s ease;
+}
+.night-fold > summary::-webkit-details-marker{display:none}
+.night-fold > summary::before{content:'▸ '}
+.night-fold[open] > summary::before{content:'▾ '}
+.night-fold[open] > summary{color:var(--txt)}
+
+/* ---------- B8 文本截断修复：emoji 定宽、弹性收缩而非硬截断 ---------- */
+#screen-game .pl .top .fs{flex:0 0 auto}
+#screen-game .pl .nm{min-width:0}
+#screen-game .say-main{min-width:0}
+
+/* ---------- D6 左栏余量装饰填充（低干扰网格纹理，不响应指针） ---------- */
+#screen-game .seg-roster::after{
+  content:'';flex:1 1 auto;pointer-events:none;margin:8px 0 0;
+  background:
+    repeating-linear-gradient(0deg,rgba(255,255,255,.035) 0 1px,transparent 1px 24px),
+    repeating-linear-gradient(90deg,rgba(255,255,255,.035) 0 1px,transparent 1px 24px);
+}
+
+/* ================================================================================
+   ---------- B 区首页深化：阵营色卡片 / 配置条分项 / 联机折叠 --------------------
+   ================================================================================ */
+#screen-start .panel-grid{align-items:start}
+
+/* B2/B4：卡片左侧 4px 阵营色竖条；随机卡虚线描边 + 降权重 */
+#screen-start .fp{padding-left:14px}
+#screen-start .fp::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--fc,var(--fac-random));opacity:.85}
+#screen-start .fp-random{--fc:var(--fac-random);border-style:dashed;background:rgba(255,255,255,.05)}
+#screen-start .fp-random .fp-ico{filter:grayscale(.4);opacity:.8}
+#screen-start .fp-human{--fc:var(--fac-human)}
+#screen-start .fp-alien{--fc:var(--fac-alien)}
+#screen-start .fp-xeno{--fc:var(--fac-xeno)}
+/* B3：选中态与阵营色联动（2px 阵营色描边 + 12% 阵营色底 + 对勾） */
+#screen-start .fp.active{
+  border:2px solid var(--fc,var(--accent));
+  background:color-mix(in srgb,var(--fc,var(--accent)) 12%,transparent);
+  box-shadow:0 0 0 1px var(--fc,var(--accent)) inset,var(--glow);
+}
+#screen-start .fp.active::after{background:var(--fc,var(--accent))}
+/* B3：首屏作用域全局强调色临时切换（300ms 过渡由各元素 transition 承担） */
+#screen-start[data-fac="random"]{--accent:#00E5B0}
+#screen-start[data-fac="human"]{--accent:var(--fac-human)}
+#screen-start[data-fac="alien"]{--accent:var(--fac-alien)}
+#screen-start[data-fac="xeno"]{--accent:var(--fac-xeno)}
+#screen-start .fp,#screen-start .fp.active::after{transition-duration:.3s}
+
+/* B5：配置条分项（阵营色圆点）+ 叙事副标题降为 11px 40% 透明 */
+#screen-start .cfg-unit i{opacity:.55;font-size:11px}
+#screen-start .cfg-subs{display:flex;gap:16px;flex-wrap:wrap;margin-top:6px;padding-top:6px;border-top:1px solid var(--sep)}
+#screen-start .cs-item{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--dim);white-space:nowrap}
+#screen-start .cs-item em{font-style:normal;width:6px;height:6px;border-radius:50%;flex:0 0 auto}
+#screen-start .cs-item b{font-size:12px;color:var(--txt);font-variant-numeric:tabular-nums}
+#screen-start .cs-item.f-human em{background:var(--fac-human)}
+#screen-start .cs-item.f-alien em{background:var(--fac-alien)}
+#screen-start .cs-item.f-xeno em{background:var(--fac-xeno)}
+/* B3：选中阵营后配置条对应分项数值高亮为阵营色 */
+#screen-start .config-strip[data-fac="human"] .cs-item.f-human b{color:var(--fac-human);text-shadow:0 0 10px rgba(77,166,255,.4)}
+#screen-start .config-strip[data-fac="alien"] .cs-item.f-alien b{color:var(--fac-alien);text-shadow:0 0 10px rgba(255,77,109,.4)}
+#screen-start .config-strip[data-fac="xeno"] .cs-item.f-xeno b{color:var(--fac-xeno);text-shadow:0 0 10px rgba(167,139,250,.4)}
+#screen-start .config-strip[data-fac="random"] .cs-item b{color:var(--txt)}
+#screen-start .cs-item b{transition:color .3s ease}
+
+/* B6：行动色统一收口到琥珀金令牌 */
+#screen-start button.primary.cta{
+  background:linear-gradient(180deg,#FFC65C,var(--cta));
+  box-shadow:0 8px 24px rgba(255,176,32,.32);
+}
+
+/* B7：联机区默认折叠为一行提示条 */
+#screen-start details.mode-card{padding:0}
+#screen-start details.mode-card > summary{
+  list-style:none;cursor:pointer;
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+  padding:14px 20px;
+}
+#screen-start details.mode-card > summary::-webkit-details-marker{display:none}
+#screen-start details.mode-card > summary h2{margin:0}
+#screen-start .dev-fold-hint{font-size:11px;color:var(--dim2);white-space:nowrap}
+#screen-start details.mode-card[open] > summary{border-bottom:1px solid var(--line)}
+#screen-start .dev-body{padding:16px 20px 20px}

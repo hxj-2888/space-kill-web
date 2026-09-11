@@ -1,0 +1,17 @@
+# 依赖
+node_modules/
+
+# 打包产物（仓库内自带的完整版压缩包，非源码）
+*.zip
+
+# 运行时与本地状态
+*.log
+.DS_Store
+Thumbs.db
+
+# 编辑器
+.vscode/
+.idea/
+
+# Cloudflare / 部署本地缓存
+.wrangler/
