@@ -141,4 +141,4 @@ node tools/test-lang.cjs        # 语言库 round-trip：render → parse → IR
 | [`改动说明.md`](改动说明.md) | 当前版本改动说明 |
 | 《太空杀游戏引擎.docx》（桌面） | 完整技术文档 14 章 + 附录（由 `tools/build-engine-docx.cjs` 生成） |
 
-> v26~v29 时代的 12 份历史文档已归档至 `C:/Users/ASUS/CodeBuddy/20260910112441/_archive_docs_v26-v29/`。
+> v26~v29 时代的 12 份历史文档已归档至 `<本地>/CodeBuddy/20260910112441/_archive_docs_v26-v29/`。
