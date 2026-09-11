@@ -12,14 +12,24 @@
   <!-- ============ 开始界面（v33：顶部工具条 + 本局配置预览 + 阵营卡片 + CTA 主按钮 + 联机禁用态） ============ -->
   <section id="screen-start" class="screen">
     <div class="start-box">
-      <!-- 标题行 + 右上角紧凑工具条（音效 / 规则速览 / 黑话术语表，归属明确） -->
+      <!-- 标题行 + 右上角紧凑工具条（音效 / 规则速览 / 黑话术语表 / 附件，归属明确） -->
       <div class="start-top">
         <h1>太空杀 <span class="sub">三阵营对抗</span></h1>
         <div class="start-actions" id="start-actions">
           <button id="btn-bgm" class="act" title="背景音乐与音效开关">♪ 音效：开</button>
           <button id="btn-rules-start" class="act">📖 规则速览</button>
           <button id="btn-slang-start" class="act">💬 黑话术语表</button>
+          <a class="act" href="https://space-kill.pages.dev" target="_blank" rel="noopener"
+             title="规则全文 / 剧情 / 蒙特卡洛模拟成果（独立站点）">📎 附件：规则与模拟</a>
         </div>
+      </div>
+
+      <!-- 预览版说明：本作仍在迭代，AI 判断与语言是后续主要投入方向 -->
+      <div class="preview-note">
+        <span class="pn-badge">预览版</span>
+        <span>本作为可玩预览版，后续将全力优化 <b>AI 判断逻辑</b> 与 <b>AI 语言</b>。
+          规则全文、剧情与蒙特卡洛模拟成果见
+          <a class="pn-link" href="https://space-kill.pages.dev" target="_blank" rel="noopener">附件站点</a>。</span>
       </div>
 
       <!-- 本局配置预览条：这是即将开局的预设，不是实时战况；总数与分项呈包含关系 -->
