@@ -1,0 +1,15 @@
+# 太空杀 · 网页版 (space-kill-web.pages.dev) 响应头
+# 说明：
+#   - 本文件会随 tools/deploy-pages.cjs 一起部署（白名单内）。
+#   - 不设 X-Frame-Options / frame-ancestors：作品集等自有页面需要能引用本页；
+#     CSP 收紧（script-src 'self' 等）另行评估：index.html 目前零内联脚本、
+#     零内联事件处理器，具备收紧条件，但需连同联机 ws:// 的 connect-src 一起验证。
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Strict-Transport-Security: max-age=31536000
+
+# 安卓安装包：强制附件下载，避免被浏览器当页面打开或落到 SPA 回退
+/SpaceKill.apk
+  Cache-Control: no-cache, no-store, must-revalidate
+  Content-Disposition: attachment; filename="SpaceKill.apk"

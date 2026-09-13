@@ -15,3 +15,11 @@ Thumbs.db
 
 # Cloudflare / 部署本地缓存
 .wrangler/
+
+# Android 构建（签名密钥与产物绝不入库）
+.env*
+*.keystore
+*.jks
+android/assets/www/
+android/SpaceKill.apk
+/SpaceKill.apk
