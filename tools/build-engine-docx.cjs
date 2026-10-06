@@ -1,5 +1,6 @@
 /* 把游戏引擎（模块化架构 + AI 独立运行模块 + 蒙特卡洛结果 + 全部源码）打包成 docx 到桌面 */
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const {
   Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
@@ -8,7 +9,10 @@ const {
 } = require('docx');
 
 const ROOT = path.join(__dirname, '..');
-const OUT = 'C:\\Users\\ASUS\\Desktop\\太空杀游戏引擎.docx';
+/* 输出目录取「当前用户桌面」而非硬编码 「本机用户名」 —— 仓库是公开的，
+   硬编码本机用户名等于把使用者身份写进代码。桌面不存在时回退到工程目录。 */
+const DESKTOP = path.join(os.homedir(), 'Desktop');
+const OUT = process.argv[2] || path.join(fs.existsSync(DESKTOP) ? DESKTOP : ROOT, '太空杀游戏引擎.docx');
 /* 读取路径与 tools/mc.cjs 的写出路径保持一致（Desktop/.tmp_docs），修正此前多一层 .. 导致读到旧快照 */
 const MC = (() => { try { return JSON.parse(fs.readFileSync(path.join(ROOT, '..', '.tmp_docs', 'mc_result.json'), 'utf8')); } catch (e) { return null; } })();
 /* 回归断言条数：从被测文件实时统计。此前正文多处硬编码「100 条 / 64 条 / 71 条」，随批次增长

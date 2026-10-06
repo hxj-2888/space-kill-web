@@ -6,8 +6,9 @@
  *       一次性脚本固化为可复跑的工具——以后每次改代码后重跑即可「同步修改内容」。
  *
  * 用法：node tools/build-src-docx.cjs [输出路径] [版本]
- *   默认输出 C:\Users\ASUS\Desktop\太空杀v6.6阶段2_源代码合集.docx
- *   版本缺省取 package.json 的 version（升版本号请改 package.json，勿硬编码）
+ *   默认输出到「当前用户桌面」（桌面不存在则回退工程根目录）：太空杀v6.6阶段2_源代码合集.docx
+ *   版本缺省取 package.json的 version（升版本号请改 package.json，勿硬编码）
+ *   —— 刻意不硬编码 「本机用户名」：仓库公开，路径会泄露使用者身份
  *
  * 收录口径（勿随意放宽）：
  *   · 扩展名白名单：js / cjs / mjs / md / json / yml / yaml / html / css / txt
@@ -17,6 +18,7 @@
  *   · 排序：localeCompare('zh-CN')，与首版逐项一致
  * ============================================================= */
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const {
   Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
@@ -26,7 +28,8 @@ const {
 
 const ROOT = path.join(__dirname, '..');
 const PKG = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
-const OUT = process.argv[2] || 'C:\\Users\\ASUS\\Desktop\\太空杀v6.6阶段2_源代码合集.docx';
+const DESKTOP = path.join(os.homedir(), 'Desktop');
+const OUT = process.argv[2] || path.join(fs.existsSync(DESKTOP) ? DESKTOP : ROOT, '太空杀v6.6阶段2_源代码合集.docx');
 const VERSION = process.argv[3] || PKG.version;
 const DATE = new Date().toISOString().slice(0, 10);
 

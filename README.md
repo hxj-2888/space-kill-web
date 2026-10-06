@@ -146,3 +146,40 @@ node tools/test-lang.cjs        # 语言库 round-trip：render → parse → IR
 | 《太空杀游戏引擎.docx》（桌面） | 完整技术文档 14 章 + 附录（由 `tools/build-engine-docx.cjs` 生成） |
 
 > v26~v29 时代的 12 份历史文档已归档至 `<本地>/CodeBuddy/20260910112441/_archive_docs_v26-v29/`。
+
+## 安卓版构建
+
+`SpaceKill.apk` **不在仓库里**（二进制产物不入库），线上下载的是 Pages 部署时上传的那份。本地重建：
+
+```bash
+node android\sync-www.cjs   # 把站点资源镜像进 android/assets/www（务必在前端改动之后）
+android\build.cmd           # 需要 JDK 17 + Android SDK 34 + 7-Zip；产物自动复制到仓库根
+```
+
+- 签名口令从**根目录 `.env`** 读（`KEYSTORE_PASS` / `KEY_PASS`，已被 `.gitignore` 排除）；签名密钥 `android/release.keystore` 同样不入库。**请与 `.env`、`release.keystore` 一起离线备份**——丢失后无法给已安装用户推送升级版本。
+- 版本号取自 `package.json`：`version` → APK `versionName`，`androidVersionCode` → `versionCode`（**每次发布必须递增**，否则无法覆盖安装）。
+
+## 安全与发布约定（必读）
+
+本仓库是**公开**仓库。以下内容一律不得入库，`.gitignore` 已强制排除：
+
+| 类别 | 具体文件 | 为什么 |
+|---|---|---|
+| 口令 | `.env`（`KEYSTORE_PASS` / `KEY_PASS`） | 签名私钥口令，泄露即可伪造签名 |
+| 私钥 | `android/release.keystore`、`*.jks` / `*.pem` / `*.p12` | 同上；泄露等于签名权外流 |
+| 构建产物 | `SpaceKill.apk`、`android/SpaceKill.apk`、`android/assets/www/`、`dist/` | 二进制大文件；`assets/www` 是可随时重建的镜像 |
+| 本机信息 | 任何 `C:\Users\<用户名>\...` 绝对路径、`<本机用户名>` | 会暴露使用者身份。工具脚本一律用 `os.homedir()` 或命令行参数，不要写死 |
+| 账号信息 | 真实邮箱、令牌、API Key、Cookie | 提交邮箱用 `hxj-2888@users.noreply.github.com` 这类 noreply 地址 |
+| 打包副本 | `*.zip`（含 `太空杀游戏-完整版.zip`） | 仓库内有全部源文件，压缩包纯冗余 |
+
+CI（`.github/workflows/deploy.yml`）只从 **GitHub Secrets** 读 `CF_API_TOKEN` / `CF_ACCOUNT_ID`，仓库内不存放任何密钥；未配置时流水线照常跑测试并跳过部署。
+
+提交前自检（一条命令过一遍）：
+
+```bash
+git ls-files | grep -Ei '\.env|keystore|\.jks|\.pem|\.apk$|assets/www'   # 必须无输出
+git grep -nE 'C:\\Users\\|[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}' # 必须无输出
+```
+
+> 若不慎把敏感文件推上了远程：**先删远程再谈补救**——`git rm --cached <文件>` 只清本地，历史里仍然存在；
+> 需要吊销该凭据（改口令 / 换密钥）并用 `git filter-repo` 重写历史 + 强推。**`.env` 与 keystore 一旦外泄，必须视为已泄露并立即换密钥。**

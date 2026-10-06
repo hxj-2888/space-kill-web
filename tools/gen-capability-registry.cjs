@@ -8,9 +8,11 @@
  *   机器搬运可消除人工转写误差，规则侧修订后重跑即可再生成
  *   （与 tools/build-engine-docx.cjs 同惯例：改内容重跑生成，不手改产物）。
  *
- * 输入（默认）：C:\Users\ASUS\Desktop\太空杀v6.6规则文本\_九关核验_提取数据.json
+ * 输入（默认）：<用户桌面>/太空杀v6.6规则文本/_九关核验_提取数据.json
  *   该 JSON 由「九关核验提取任务」自《太空杀V6.6正文_改造v3.txt》(3489 行) 逐字提取，
  *   含 10 个核验块 × 12 字段槽 + 附录二速查卡 + 35 条歧义清单。
+ *   ——刻意不硬编码 「本机用户名」：仓库公开，绝对路径会泄露使用者身份；
+ *     桌面不存在时报错退出，请显式传入输入路径。
  * 用法：node tools/gen-capability-registry.cjs [输入JSON] [输出JS]
  *
  * 本文件内的「策展层」= 人工核定的三件事，除此之外一律机器搬运：
@@ -19,10 +21,16 @@
  *   ③ 对提取数据的更正项（见 CORRECTIONS，每条须带规则依据）
  * ============================================================= */
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 
-const IN = process.argv[2] || 'C:\\Users\\ASUS\\Desktop\\太空杀v6.6规则文本\\_九关核验_提取数据.json';
+const DESKTOP = path.join(os.homedir(), 'Desktop');
+const IN = process.argv[2] || path.join(DESKTOP, '太空杀v6.6规则文本', '_九关核验_提取数据.json');
 const OUT = process.argv[3] || path.join(__dirname, '..', 'js', 'v66', 'declaration', 'capabilityRegistry.js');
+if (!fs.existsSync(IN)) {
+  console.error('找不到提取数据 JSON：' + IN + '\n请显式传入路径：node tools/gen-capability-registry.cjs <输入JSON>');
+  process.exit(1);
+}
 
 /* ---------- 策展层：块 → 机制键 + owner 角色键 ----------
    steps ＝ 该机制的行动位（九关①的结构化形态）。九关①在正文里是**散文**
