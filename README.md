@@ -174,7 +174,12 @@ git grep -nE 'C:\\Users\\|[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}' # 必�
 
 ## 安卓版构建
 
-`SpaceKill.apk` **不在仓库里**（二进制产物不入库），线上下载的是 Pages 部署时上传的那份。本地重建：
+**下载**：GitHub Release 稳定链接（永远指向最新版）
+<https://github.com/hxj-2888/space-kill-web/releases/latest/download/SpaceKill.apk>
+发布页：<https://github.com/hxj-2888/space-kill-web/releases>
+网页版开始页另有「📱 扫码下载应用」，站内不使用明文直链。
+
+`SpaceKill.apk` **不在仓库里**（二进制产物不入库），线上下载的是 Pages 部署与 Release 上传的那两份。本地重建：
 
 ```bash
 node android\sync-www.cjs   # 把站点资源镜像进 android/assets/www（务必在前端改动之后）
