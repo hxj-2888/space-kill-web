@@ -4236,14 +4236,15 @@ const jsFiles = [];
   const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
   const cmd = fs.readFileSync(path.join(__dirname, '..', 'android', 'build.cmd'), 'utf8');
   ok('版本A：package.json 版本真源就位（version + androidVersionCode 递增位）',
-    !!pkg.version && /^\d+\.\d+/.test(pkg.version) && Number(pkg.androidVersionCode) >= 1,
+    /* 版本名带中文前缀（「新架构测试2.0preview」），故不按 semver 校验，只要求含版本号主体 */
+    /\d+\.\d+preview/.test(pkg.version || '') && Number(pkg.androidVersionCode) >= 1,
     `version=${pkg.version} code=${pkg.androidVersionCode}`);
   ok('版本B：build.cmd 版本取自 package.json（无硬编码 --version-name / --version-code）',
     /pkg-field\.cjs/.test(cmd) && /--version-code %VCODE%/.test(cmd) &&
     /--version-name %VNAME%/.test(cmd) && !/--version-code 1 /.test(cmd) && !/--version-name 1\.0\.0/.test(cmd));
   const rdme = fs.readFileSync(path.join(__dirname, '..', 'README.md'), 'utf8');
   const html39 = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-  ok('版本C：页面与 README 的版本说明已切到 2.0preview',
+  ok('版本C：页面与 README 的版本说明与 package.json 逐字一致（防各写各的）',
     html39.indexOf(pkg.version) >= 0 && rdme.indexOf(pkg.version) >= 0);
 }
 

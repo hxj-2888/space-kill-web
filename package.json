@@ -1,7 +1,7 @@
 {
   "name": "space-kill-web",
-  "version": "2.0preview",
-  "androidVersionCode": 2,
+  "version": "新架构测试2.0preview",
+  "androidVersionCode": 3,
   "private": true,
   "scripts": {
     "start": "node server/server.js",
