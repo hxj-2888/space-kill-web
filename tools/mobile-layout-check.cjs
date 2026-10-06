@@ -64,7 +64,12 @@ function serve() {
   ];
   const exePath = CANDIDATES.find(p => fs.existsSync(p));
   const srv = await serve();
-  const base = 'http://127.0.0.1:' + srv.address().port;
+  /* 默认测本地；--url=https://… 改测线上（部署后核验专用：
+     线上与本地可能因部署遗漏、CDN 缓存而不同步，这个开关就是为抓那种漂移） */
+  const argUrl = process.argv.find(a => a.startsWith('--url='));
+  const base = argUrl ? argUrl.slice(6) : 'http://127.0.0.1:' + srv.address().port;
+  const remote = !!argUrl;
+  console.log('目标：' + base + (remote ? '（线上）' : '（本地）'));
   const browser = await chromium.launch(exePath ? { executablePath: exePath } : {});
   let fail = 0;
 
@@ -75,6 +80,18 @@ function serve() {
     });
     const page = await ctx.newPage();
     await page.goto(base + '/index.html', { waitUntil: 'load' });
+    /* 线上核验时给静态资源加时间戳，绕开 CDN 边缘缓存（否则量到的是旧版布局） */
+    if (remote) {
+      await page.evaluate(() => {
+        const t = Date.now();
+        document.querySelectorAll('link[rel=stylesheet],script[src]').forEach(function (el) {
+          const u = new URL(el.href || el.src, location.href);
+          u.searchParams.set('nocache', t);
+          if (el.href) el.href = u.toString(); else el.src = u.toString();
+        });
+      });
+      await page.waitForTimeout(500);
+    }
     /* 直接进对局页：开始页要选阵营+开局，这里只验对局页布局 */
     await page.evaluate(() => {
       document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
