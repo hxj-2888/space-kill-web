@@ -1,7 +1,7 @@
 {
   "name": "space-kill-web",
   "version": "新架构测试2.0preview",
-  "androidVersionCode": 3,
+  "androidVersionCode": 4,
   "private": true,
   "scripts": {
     "start": "node server/server.js",
@@ -15,9 +15,11 @@
     "test:coverage": "node tools/audit-step-coverage.cjs",
     "test:heat": "node tools/verify-heat.js",
     "test:ui": "node tools/uismoke.cjs",
+    "test:mobile": "node tools/mobile-layout-check.cjs",
+    "shots:mobile": "node tools/mobile-shots.cjs",
     "doc": "node tools/build-engine-docx.cjs",
     "srcdoc": "node tools/build-src-docx.cjs",
-    "test:all": "node tools/test-fix-v26.cjs && node tools/test-lang.cjs && node tools/test-add-role.cjs && node tools/test-add-mechanism.cjs && node tools/audit-step-coverage.cjs && node tools/uismoke.cjs && node tools/sim.cjs 60",
+    "test:all": "node tools/test-fix-v26.cjs && node tools/test-lang.cjs && node tools/test-add-role.cjs && node tools/test-add-mechanism.cjs && node tools/audit-step-coverage.cjs && node tools/uismoke.cjs && node tools/mobile-layout-check.cjs && node tools/sim.cjs 60",
     "test:cloud": "node tools/test-cloud.cjs",
     "probe:chan": "node tools/channel-ab.cjs 200 501",
     "trace": "node tools/trace-game.cjs",
@@ -26,5 +28,8 @@
   },
   "dependencies": {
     "docx": "^9.7.1"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.63.0"
   }
 }

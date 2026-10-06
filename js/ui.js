@@ -1203,6 +1203,7 @@
          二维码为构建期静态图，点开即显，不发起任何外部请求。 */
       if (e.target && e.target.closest && e.target.closest('#btn-apk-qr')) { openApkQr(); return; }
       if (e.target && e.target.closest && e.target.closest('#apk-qr-close')) { closeApkQr(); return; }
+      if (e.target && e.target.closest && e.target.closest('#btn-side-toggle')) { toggleSideDrawer(); return; }
       if (e.target && e.target.id === 'apk-qr') { closeApkQr(); return; }   // 点遮罩关闭
       if (e.target && e.target.closest && e.target.closest('#btn-rules-close')) { closeRules(); return; }
       if (e.target && e.target.closest && e.target.closest('#btn-bgm')) {
@@ -1274,6 +1275,7 @@
       render(global.Game.g);
     });
     window.addEventListener('error', e => showFatal('脚本错误：' + (e.message || '未知')));
+    syncSideToggle();   // 〔批次 41〕进入对局前先按当前视口决定是否显示抽屉按钮
   }
 
   function closeDevView() {
@@ -1282,6 +1284,27 @@
     const ov = el('dev-overlay');
     if (ov) ov.classList.add('hidden');
     if (global.Game.g) render(global.Game.g);
+  }
+
+  /* ---------- 侧栏抽屉（〔批次 41〕移动端横屏适配） ----------
+     手机横屏下公告/私人/阵营 侧栏改为右侧抽屉（CSS 在 style.css 的 v35 段）：
+     桌面三栏布局原样保留，抽屉按钮只在横屏矮屏时显示（init 里按视口切换）。 */
+  const sideDrawerQuery = global.matchMedia ? global.matchMedia('(orientation:landscape) and (max-height:560px)') : null;
+  function syncSideToggle() {
+    const btn = el('btn-side-toggle');
+    if (btn) btn.style.display = (sideDrawerQuery && sideDrawerQuery.matches) ? 'inline-flex' : 'none';
+  }
+  function toggleSideDrawer(force) {
+    const side = document.querySelector('#screen-game .seg-side');
+    if (!side) return;
+    const want = force === undefined ? !side.classList.contains('open') : !!force;
+    side.classList.toggle('open', want);
+  }
+  if (sideDrawerQuery) {
+    /* 视口切换（转屏 / 折叠展开）时同步按钮可见性；竖屏返回时强制收回抽屉 */
+    const onChange = () => { syncSideToggle(); toggleSideDrawer(false); };
+    if (sideDrawerQuery.addEventListener) sideDrawerQuery.addEventListener('change', onChange);
+    else if (sideDrawerQuery.addListener) sideDrawerQuery.addListener(onChange);   //旧版 WebView
   }
 
   /* ---------- 扫码下载应用（〔批次 40〕全站唯一 APK 入口形态） ----------

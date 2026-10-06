@@ -122,6 +122,13 @@
     <div id="p-pop" class="hidden"></div>
     <div id="dev-chip" class="devchip hidden">DEV 已开启 · 展开总览</div>
 
+    <!-- 竖屏提示（v35 移动端适配）：竖屏放不下三栏，明确引导旋转而非硬塞一套劣化布局 -->
+    <div id="rot-hint" aria-live="polite">
+      <div class="rot-ico">📱↻</div>
+      <b>请横屏游玩</b>
+      <span>竖屏无法容纳三栏布局，旋转手机后即可进入对局</span>
+    </div>
+
     <!-- 扫码下载应用：悬浮层，不占布局流（UI 硬规则）· 二维码为构建期静态图，运行时零外部依赖 -->
     <div id="apk-qr" class="apk-qr hidden">
       <div class="apk-qr-box">
@@ -142,6 +149,7 @@
       <div class="timerbar top-timerbar"><div id="timerbar-fill"></div></div>
       <!-- 圆钮组并入状态条右端（定尺寸控件，不参与信息增减） -->
       <div class="orb-bar">
+        <button id="btn-side-toggle" class="orb" title="公告 / 私人 / 阵营面板" style="display:none">☰</button>
         <button id="btn-rules" class="orb" title="规则速览（v6.6 精简）">📖</button>
         <button id="btn-dev" class="orb" title="开发者视角（含我的账本）">DEV</button>
         <button id="btn-music" class="orb" title="音乐开关">♪</button>

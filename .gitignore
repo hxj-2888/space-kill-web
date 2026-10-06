@@ -23,3 +23,6 @@ Thumbs.db
 android/assets/www/
 android/SpaceKill.apk
 /SpaceKill.apk
+
+# 移动端布局截图（本地人工复核产物，可由 tools/mobile-shots.cjs 重新生成）
+.tmp_shots/

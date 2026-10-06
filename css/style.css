@@ -1142,3 +1142,144 @@ a.act{
 a.act:hover{border-color:var(--accent);box-shadow:var(--glow);transform:translateY(-1px)}
 a.act:active{transform:none}
 #screen-start .start-actions a.act{font-size:12px;border-radius:8px;transition:all var(--t-fast)}
+
+/* ============================================================
+   v35 移动端适配（2026-10-06）：横屏可玩 + 竖屏明确引导旋转
+   ------------------------------------------------------------
+   背景：v32 起桌面口径写死了下限——#screen-game{min-width:1080px} 与
+   .board{min-width:1020px}。手机横屏（≈844×390 / 667×375）根本进不去对局，
+   而安卓 APK 已在分发 —— 等于「装了玩不了」。本段只改布局，不删信息。
+
+   横屏矮屏（手机）方案：单列中栏 + 名单横条 + 侧栏抽屉
+     · 名单从 5×3 竖排网格改为顶部横向滚动条（高度固定 46px，省出垂直空间）
+     · 公告/私人/阵营 侧栏改为右侧抽屉：悬浮覆盖、不占布局流（延续 UI 硬规则）
+     · 顶栏压缩字号，隐藏「精确调速滑杆」与净破坏迷你条（控制项与冗余图形，
+       数值本身仍在 top-stats 里，信息不丢）
+   竖屏：不做适配。三栏在 390px 宽下无论如何重排都不可读，不如明确引导旋转。
+
+   必须放在文件末尾：需压过 v32/v33/v34 的桌面规则（同特异性靠后取胜）。
+   ============================================================ */
+
+/* ---------- 触摸基础（所有窄屏） ---------- */
+@media (max-width:1100px){
+  /* iOS/Android 聚焦 <16px 的输入框会自动缩放页面，破坏固定布局 —— 横屏必须 16px */
+  #screen-game input,#screen-game textarea,#screen-game select{font-size:16px}
+  #screen-game button,#screen-game .orb,#screen-game .act{touch-action:manipulation}
+  #screen-game button,#screen-game .orb,#screen-game .act{
+    -webkit-tap-highlight-color:transparent;   /* 去掉点击蓝框，避免「元素变色」违例 */
+  }
+  #screen-game .seg,#screen-game .seg *{user-select:none;-webkit-user-select:none}
+  #screen-game input,#screen-game textarea{user-select:text;-webkit-user-select:text}
+}
+
+/* ---------- 竖屏：旋转提示（悬浮层，出现不引起任何布局变动） ---------- */
+#rot-hint{
+  display:none;position:fixed;inset:0;z-index:90;
+  flex-direction:column;align-items:center;justify-content:center;gap:10px;
+  background:rgba(3,7,14,.94);color:var(--txt);text-align:center;padding:24px;
+}
+#rot-hint .rot-ico{font-size:44px;line-height:1;animation:rot-hint-turn 2.2s ease-in-out infinite}
+#rot-hint b{font-size:17px;letter-spacing:.04em}
+#rot-hint span{font-size:12px;color:var(--dim);line-height:1.6;max-width:22em}
+@keyframes rot-hint-turn{0%,60%,100%{transform:rotate(0)}30%{transform:rotate(-90deg)}}
+@media (orientation:portrait) and (max-width:900px){
+  #rot-hint{display:flex}
+}
+
+/* ---------- 横屏矮屏（手机）：单列中栏 + 名单横条 + 侧栏抽屉 ---------- */
+@media (orientation:landscape) and (max-height:560px){
+  /* 解除桌面硬下限 */
+  #screen-game{min-width:0;height:100dvh}
+  #screen-game .board{
+    position:relative;                 /* 抽屉的定位上下文 */
+    grid-template-columns:minmax(0,1fr);/* 单列：中栏独占 */
+    min-width:0;gap:0;
+    margin:0;padding:0;
+  }
+  /* 分栏竖线在单列下无意义 */
+  #screen-game .seg + .seg{border-left:none;padding-left:0}
+  #screen-game .seg{padding:6px 10px}
+
+  /* 顶栏压缩：一行放下，不换行 */
+  #screen-game .topbar{padding:5px 8px;gap:8px}
+  #screen-game .topbar .stage-head{font-size:12px;letter-spacing:1px;flex:0 1 auto;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #screen-game .topbar .top-stats{gap:12px}
+  #screen-game .topbar .hi{font-size:10px;letter-spacing:.5px}
+  #screen-game .topbar .hi b{font-size:15px;min-width:0}
+  #screen-game .topbar #hud-cd{font-size:19px;min-width:0}
+  #screen-game .topbar .cd-ring{width:34px;height:34px}   /* 环形倒计时缩小 */
+  #screen-game .topbar .top-timerbar{width:84px;height:4px}
+  #screen-game .tempo-ctl{display:none}   /* 精确调速是桌面鼠标操作，触屏隐藏省宽度 */
+  #screen-game .net-bar{display:none}     /* 净破坏迷你条冗余，数值仍在 top-stats */
+  #screen-game .orb{width:32px;height:32px;font-size:11px}
+  #screen-game .orb-bar{gap:4px}
+
+  /* 名单：竖排网格 → 顶部横向滚动条（高度固定，不占增量） */
+  #screen-game .seg-roster{padding:0 0 4px;border-bottom:1px solid var(--sep)}
+  #screen-game .seg-roster .seg-t{display:none}
+  #screen-game .seg-roster .roster{
+    display:flex;flex:0 0 auto;gap:4px;align-content:stretch;
+    margin:0;padding:4px 8px;height:46px;max-height:46px;
+    overflow-x:auto;overflow-y:hidden;scrollbar-width:none;
+  }
+  #screen-game .seg-roster .roster::-webkit-scrollbar{display:none}
+  #screen-game .roster .pl{width:64px;height:38px;flex:0 0 auto;padding:3px 4px;gap:1px}
+  #screen-game .roster .pl .name{font-size:11px}
+  #screen-game .roster .pl .tags{gap:2px}
+
+  /* 中栏：发言流水吃掉剩余高度 */
+  #screen-game .seg-stage{padding-bottom:4px}
+  #screen-game .seg-stage .chatlog{padding:6px}
+  #screen-game .chatlog .say{padding:5px 8px}
+  #screen-game .chatlog .say .say-main{font-size:12px;line-height:1.5}
+  #screen-game .seg-t{font-size:10px;letter-spacing:1px;margin:0 0 4px}
+
+  /* 输入区：高度留够触点，发送按钮与输入框同高 */
+  #screen-game .talkrow input{height:34px}
+  #screen-game .talkrow .act{height:34px;padding:0 14px;font-size:13px}
+  #screen-game .input-timeline{margin-bottom:6px}
+
+  /* 侧栏 → 右侧抽屉：悬浮覆盖，不占布局流 */
+  #screen-game .seg-side{
+    position:absolute;top:0;right:0;bottom:0;z-index:30;
+    width:min(320px,74vw);padding:8px 10px;
+    background:var(--panel);border-left:1px solid var(--line2);
+    box-shadow:-12px 0 28px rgba(0,0,0,.45);
+    transform:translateX(102%);transition:transform .18s ease;
+  }
+  #screen-game .seg-side.open{transform:none}
+  #screen-game .seg-side .side-foot{padding-top:6px;margin-top:6px}
+
+  /* 悬浮层在窄屏同样受约束 */
+  .apk-qr-box{width:232px;padding:10px}
+  .apk-qr-img{width:196px;height:196px}
+
+  /* ---- 追加修正（Playwright 844×390 实测抓出）----
+     顶栏被内容撑到 1020px 宽、右端 orb 组溢出视口：flex 子项默认 min-width:auto，
+     而顶栏是 nowrap —— min-width 桌面时代这个老问题被大宽度掩盖了，这里必须归零。 */
+  #screen-game .topbar{min-width:0;max-width:100%;flex-wrap:nowrap;overflow:hidden}
+  #screen-game .topbar .top-stats{flex:0 1 auto;min-width:0;overflow:hidden}
+  #screen-game .topbar .orb-bar{flex:0 0 auto;margin-left:auto}
+  #screen-game .seg-stage,#screen-game .seg-roster{min-width:0;max-width:100%}
+
+  /* ---- 追加修正 2（截图肉眼复核抓出，数值检查看不出）----
+     ① 单列 grid 的行高默认按内容分配，剩余高度不给舞台行 → 发言流水被压扁、
+        气泡文字裁切。改成「名单行 auto + 舞台行 minmax(0,1fr)」把高度明确交给舞台。
+     ② 手机竖向空间紧张：发言流水权重提到 8，决策区压到 2（它内容少且可滚动）。 */
+  #screen-game .board{grid-template-rows:auto minmax(0,1fr)}
+  #screen-game .seg-stage .chatlog{flex:8 1 0}
+  #screen-game .seg-stage .stage-body{flex:2 1 0}
+  /* 名单一屏尽量放下 15 人：52px ×15 + 4px ×14 ≈ 836px（iPhone 14 横屏刚好） */
+  #screen-game .roster .pl{width:52px}
+
+  /* ---- 追加修正 3（截图复核）----
+     手机横屏垂直空间极紧（390 视口 − 顶栏 57 ≈ 333px，还要扣名单条 46 与输入区），
+     纯 flex 权重会把发言流水压到 70px、只能看两条。给发言区一个硬下限，
+     并按视口高度分级——SE 横屏 375px 若用 112px，输入框会被顶出视口（实测 b=397>390）。 */
+  #screen-game .seg-stage .chatlog{min-height:104px}
+}
+/* 极矮横屏（≤400px，如 iPhone SE 横屏 375）：收紧发言区，保住输入框不出屏 */
+@media (orientation:landscape) and (max-height:400px){
+  #screen-game .seg-stage .chatlog{min-height:84px}
+}
