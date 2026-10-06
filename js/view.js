@@ -1,12 +1,41 @@
 /* 视图层：把权威对局状态裁剪成「某个玩家按规则应当看到的样子」，用于联机广播 */
 (function (global) {
   const D = global.SKData;
+  const RD = global.SKRoleDecl;                 // v6.6 阶段 2（D6）：能力分发表（视角裁剪按能力判定）
+
+  /* =============================================================
+   * K3 防透视架构化（v6.6 阶段 4 · B3/B4/G6）——本文件是**唯一的视图构建器**，
+   * 三条能力边界在此集中实现，调用点不得绕过：
+   *   · B3/H13：对局进行中，任何视图都不含 replay（隐藏历史）。完整回放只在终局后
+   *     经 View.replayOf(g) 发放（2.6.3：终局后全体可看完整回放）。
+   *   · B4：私有节点只对持有者出现（他人的 inbox/known/checkPool/crewChecks/notes 一律不下发）。
+   *   · G6：出局者解锁「全知当前态 + 完整公告历史」（公告历史＝log 本就按投递侧过滤累积），
+   *     但**仍不含 replay**；且视图构建是纯函数、不改对局状态（判定基数不变）。
+   * ============================================================= */
+
+  /** 出局者视角（G6）：出局且对局未结束 —— 解锁全知当前态 */
+  function isOmniscient(g, v) { return !!(v && v.out && g && !g.over); }
+
+  /** 全知当前态的单人投影：只含「现在是什么」与当前资源，**不含**历史与他人的私有节点 */
+  function currentState(p) {
+    return {
+      faction: p.faction, role: p.role, roleName: p.roleName, out: !!p.out, outNight: p.outNight || null,
+      dying: !!p.dying, infection: p.infection ? { real: p.infection.real, deathNight: p.infection.deathNight } : null,
+      shield: p.shield, bullets: p.bullets, nightImmune: p.nightImmune, awakened: !!p.awakened,
+      healLeft: p.healLeft, selfSaveLeft: p.selfSaveLeft, rescueLeft: p.rescueLeft, cureLeft: p.cureLeft,
+      repairTotal: p.repairTotal, extraRepair: p.extraRepair, repairExposed: !!p.repairExposed,
+      meetingLeft: p.meetingLeft, silenceNight: p.silenceNight, suppressLeft: p.suppressLeft,
+      antibodyNight: p.antibodyNight, repairValue: p.repairValue,
+      alien: p.alien ? { dir: p.alien.dir, kills: p.alien.kills, destroyTotal: p.alien.destroyTotal } : null,
+    };
+  }
 
   function sanitize(g, p, v) {
     const self = p.id === v.id;
     const god = !!g.dev;                                        // 开发者视角：上帝视角
-    const isDoc = v.role === 'bio' || v.role === 'rescue' || v.role === 'tempdoc';
-    const isRescuer = v.role === 'rescue' || v.role === 'tempdoc';
+    const omni = isOmniscient(g, v);                            // G6：出局者视角
+    const isDoc = RD.hasGrant(v.role, 'treat');                 // D6：能力标签（医生系）
+    const isRescuer = RD.hasGrant(v.role, 'save');              // D6：能力标签（救援族）
     const team = v.faction === 'alien' && p.faction === 'alien';
 
     const o = {
@@ -18,10 +47,11 @@
       accusers: (p.accuseHistory || []).map(a => a.id),   // 公开发言中的指控，全体可知
     };
 
-    if (self || team || god) { o.faction = p.faction; o.role = p.role; o.roleName = p.roleName; }
+    if (self || team || god || omni) { o.faction = p.faction; o.role = p.role; o.roleName = p.roleName; }
     if (p.revealed) {
-      o.faction = o.faction != null ? o.faction : p.revealed.faction;
-      if (p.revealed.role) { o.role = o.role != null ? o.role : p.revealed.role; o.roleName = D.ROLES[o.role].name; }
+      /* B5：非 faction 路径的揭示无阵营字段（2.8.12④），不下发 null/undefined 阵营 */
+      if (p.revealed.faction != null && o.faction == null) o.faction = p.revealed.faction;
+      if (p.revealed.role && o.role == null) { o.role = p.revealed.role; o.roleName = D.ROLES[o.role].name; }
     }
 
     if (self) {
@@ -51,6 +81,8 @@
       if (isDoc) o.infection = p.infection ? { exists: true } : null;
       else if (team) o.infection = p.infection ? { exists: true, real: p.infection.real } : null;
       if (team) { o.shield = p.shield; o.alien = { dir: p.alien.dir, kills: p.alien.kills, destroyTotal: p.alien.destroyTotal }; }
+      /* G6：出局者视角对**他人**也只下发「全知当前态」（身份 + 当前资源），仍不下发其私有节点与历史 */
+      if (omni) o.omniscient = currentState(p);
     }
     return o;
   }
@@ -58,7 +90,7 @@
   function build(g, pid) {
     const v = g.players[pid - 1];
     if (!v) return null;
-    const isDoc = v.role === 'bio' || v.role === 'rescue' || v.role === 'tempdoc';
+    const isDoc = RD.hasGrant(v.role, 'treat');                    // D6：能力标签（医生系）
 
     /* v21 改动 #11：可见性过滤收敛到投递侧唯一实现 infer/visible.js（SKVisible.canSee） */
     const log = g.log.filter(e => global.SKVisible.canSee(v, e));
@@ -71,6 +103,8 @@
 
     return {
       view: true, humanId: pid,
+      /* G6：出局者视角标识（UI 可据此标注「全知当前态（不含历史）」；挂机接管不显示标识） */
+      omniscient: isOmniscient(g, v) || undefined,
       night: g.night, day: g.day, phase: g.phase, step: g.step, stepDone: g.stepDone,
       countdown: g.countdown, net: (g.net10 || 0) / 10, threat: g.threat,
       banner: g.banner || null, over: g.over, winner: g.winner,
@@ -126,6 +160,44 @@
     };
   }
 
+  /* ---------- K3 契约：replay 的唯一发放口 + 视图审计 ---------- */
+
+  /** 完整回放的**唯一**发放口：仅终局后（2.6.3）；对局进行中返回 null。
+      调用点（server 的 end 消息 / main 的 endData）一律经此，不得直接读 g.replay。 */
+  function replayOf(g) {
+    return (g && g.over) ? (g.replay || []) : null;
+  }
+
+  /** 视图审计（B3/B4/G6 契约）：返回违规清单（空数组＝合规）。
+      可被回归断言直接调用，也可在联机侧作为「下发前自检」使用。 */
+  function auditView(view) {
+    const bad = [];
+    if (!view) return ['空视图'];
+    /* B3：任何视图都不含 replay（隐藏历史） */
+    if (Object.prototype.hasOwnProperty.call(view, 'replay')) bad.push('视图含 replay（违 B3）');
+    /* B3：可见日志里不得出现上帝作用域条目 */
+    for (const e of (view.log || [])) if (e.scope === 'god') bad.push('视图 log 含 scope=god 条目（违 B3）');
+    /* B4：私有节点只对持有者出现 */
+    const me = view.humanId;
+    for (const p of (view.players || [])) {
+      if (p.id === me) continue;
+      for (const f of ['inbox', 'known', 'checkPool', 'crewChecks', 'notes'])
+        if (Object.prototype.hasOwnProperty.call(p, f)) bad.push(`${p.id} 号出现他人的私有节点 ${f}（违 B4）`);
+    }
+    /* B4：他人现成状态的投影不得含历史字段 */
+    for (const p of (view.players || [])) {
+      if (p.id === me || !p.omniscient) continue;
+      for (const f of ['known', 'inbox', 'notes', 'checkPool'])
+        if (Object.prototype.hasOwnProperty.call(p.omniscient, f)) bad.push(`全知当前态含历史字段 ${f}（违 G6/B4）`);
+    }
+    /* G6：非出局者不得拿到全知标识 */
+    if (view.omniscient && me != null) {
+      const self = (view.players || []).find(p => p.id === me);
+      if (self && !self.out) bad.push('未出局者却带全知标识（违 G6）');
+    }
+    return bad;
+  }
+
   /* JSON 传输后的还原：数组 → Map，保证 UI 直接可用 */
   function hydrate(view) {
     for (const p of view.players) {
@@ -137,5 +209,5 @@
     return view;
   }
 
-  global.View = { build, hydrate };
+  global.View = { build, hydrate, replayOf, auditView, isOmniscient, currentState };
 })(typeof window !== 'undefined' ? window : globalThis);

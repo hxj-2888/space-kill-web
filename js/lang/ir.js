@@ -27,7 +27,9 @@
       targets: targets || [],
       payload: payload || {},
       meta: meta || {},
-      band: null,          // 由推理层回填（MVP 阶段为 null，仅占位）
+      /* band：断言强度档（A/A−/B/…），由推理层在入账时回填；IR.mk 只负责构造，不预设强度。
+         此处置 null 是「未回填」的显式初值，不是 MVP 占位——消费点须判空，不得当 0 用。 */
+      band: null,
       evidence: [],        // 该断言命中了哪些推理通道（由 infer 回填）
     };
   }

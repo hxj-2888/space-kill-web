@@ -6,9 +6,11 @@
  *   · announce()     公开公告（加批次号，聚合成本步公告盒给 UI）
  *   · priv()         私有投递（p.inbox + 复盘 scope=priv）—— 投递侧过滤的天然位置
  *   · god()          仅复盘可见（真实行动与隐藏结果）
- *   · revealPublic() 公开揭示身份（写全场 known 硬源 + 触发 AI.onReveal 清算）
  *   · applyThreat()  讨论结束清算（指控入账 + 船员公开查验锁定 + AI.reason）
  *   · banner()       顶部横幅
+ *
+ * 身份揭示（原 revealPublic）已移交 js/v66/reveal/revealService.js（B5 揭示统一服务，
+ * v6.6 阶段 1.5）：known 写入的阵营字段按揭示路径配置，六路径口径见该文件 PATHS 表。
  *
  * 依赖：global.AIUtil（byId/…）；运行时调用 global.AI.onReveal / onAccuse / reason
  *       （延迟绑定：本文件先于 engine.js 加载，调用发生在对局中）。
@@ -37,11 +39,6 @@
   /* 仅复盘可见：真实行动与隐藏结果 */
   function god(g, text) {
     g.replay.push({ night: g.night, step: g.step, batch: null, text, scope: 'god' });
-  }
-  function revealPublic(g, p, faction, role) {
-    p.revealed = { faction, role: role || null };
-    for (const o of g.players) o.known.set(p.id, { faction, role: role || null });
-    global.AI.onReveal(g, p);        // R17 追责 / R17b 减免 / R29 投票追责 / R30 假冒
   }
 
   /* 公开身份声称冲突（同一独占职业多人声称）→ 对跳事件的推理入账。
@@ -73,9 +70,13 @@
           const signed = (info.faction === 'human' ? -1 : 1) * T.SCORE[tier];
           for (const o of g.players) {
             if (o.out || o.id === p.id || o.id === t.id) continue;
-            /* v32 批 4′（统一入账口）：路径③改道 MoE.absorb（参数透传）；批 5′ 补 evt=verify */
-            global.MoE.absorb(g, o.id, [{ target: t.id, delta: signed, grudge: false,
-              src: `shareSay:${p.id}:${t.id}:${g.night}`, kind: 'claim', tier, speakerId: p.id }], { path: 'announce', evt: 'verify' });
+            /* v32 批 4′（统一入账口）：路径③改道 MoE.absorb（参数透传）；批 5′ 补 evt=verify。
+               D3 降级运行：MoE 缺席（noBridge/minimal 剖面＝Bridge 未装配）时必须与其他
+               调用点同口径短路，而不是抛 TypeError 打断整局——本处曾缺守卫，是
+               SK_NO_BRIDGE=1 同种子对照臂唯一的运行时崩溃源。 */
+            if (global.MoE && global.MoE.absorb)
+              global.MoE.absorb(g, o.id, [{ target: t.id, delta: signed, grudge: false,
+                src: `shareSay:${p.id}:${t.id}:${g.night}`, kind: 'claim', tier, speakerId: p.id }], { path: 'announce', evt: 'verify' });
           }
         }
         if (info.faction !== 'human') global.AI.onAccuse(g, p.id, [t.id]);
@@ -84,5 +85,5 @@
     global.AI.reason(g);
   }
   function banner(g, text) { g.banner = text; }
-  global.EngineAnnounce = { log, announce, priv, god, revealPublic, applyThreat, banner };
+  global.EngineAnnounce = { log, announce, priv, god, applyThreat, banner };
 })(typeof window !== 'undefined' ? window : globalThis);

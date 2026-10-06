@@ -140,7 +140,8 @@
 
     collectEnd(g) {
       return {
-        replay: g.replay,
+        /* K3（B3/2.6.3）：完整回放经唯一发放口 View.replayOf（仅终局后非 null） */
+        replay: global.View.replayOf(g),
         roster: g.players.map(p => ({
           id: p.id, name: p.name, faction: p.faction, role: p.role, roleName: p.roleName,
           out: p.out, outNight: p.outNight, outType: p.outType, cause: p.cause,

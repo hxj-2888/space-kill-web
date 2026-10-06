@@ -41,7 +41,7 @@
   /* 性格危险度基线（唯一真源，2026-09-10 已回退为原值）：激进 30 / 正常 50 / 保守 70。
      ★ 尚无消费点：真正读 θ 的行动阈值在 decide.js（actLine/abstain/param），
        本表登记的是「基线的官方取值」，将来若接线，从这里取，不要在各调用点另写字面量（红线 1）。 */
-  const BASE_DANGER = { 25: 30, 50: 50, 75: 70 };
+  const BASE_DANGER = global.SKTrait.table('theta', 'baseDanger');   // K2：档位表由性格轴声明给出
 
   /* ============ 怀疑度 / 危险度的全部调用值（v28 / B2 裁定：统一到本表）============
      裁定原文：「把所有怀疑度和危险度的调用值统一到 score」。
@@ -54,24 +54,28 @@
      PRIOR_E 是 E 三通道的初始分布（按观察者对每个目标的初始证据量）。 */
   const PRIOR = { human: 28.6, xeno: 21.4, alienVsOther: 50 };
   const PRIOR_E = {
-    humanViewer:  { human: 100 / 14, alien: 30 / 14, king: 10 / 14 },
-    xenoViewer:   { human: 110 / 14, alien: 30 / 14, king: 0 },
-    alienMate:    { human: 0, alien: 10, king: 0 },          // 异形观察者的队友
-    alienVsOther: { human: 5, alien: 5, king: 0 },           // 异形观察者的非队友
+    humanViewer:  { human: 100 / 14, alien: 30 / 14, xeno: 10 / 14 },
+    xenoViewer:   { human: 110 / 14, alien: 30 / 14, xeno: 0 },
+    alienMate:    { human: 0, alien: 10, xeno: 0 },           // 异形观察者的队友
+    alienVsOther: { human: 5, alien: 5, xeno: 0 },            // 异形观察者的非队友
   };
 
   /* 危险度 Dg 构成权重（§4.1.4；uni = 普适层偏移项，v20 双层估值） */
   const DG_W = { cap: 0.3, host: 0.6, act: 0.1, uni: 0.15 };
-  /* 能力项系数（§4.1.4：只读公开可推信息） */
+  /* 能力项系数（§4.1.4：只读公开可推信息）
+     D6（v6.6 阶段 2）：三张**角色清单**不再手写，改由角色声明表的 capClass 字段派生——
+     「谁算高能力」是声明层的事，档位系数（base/high/mid/low）才是标定层的事。
+     派生结果与原字面量逐项同序（crew 等未声明 capClass 者不入任一清单 → 回落 base）。 */
+  const RD = global.SKRoleDecl;
   const CAP = {
     base: 0.15,
-    high: 0.8,        // 神探 / 验票官 / 警长 / 武装
-    mid: 0.6,         // 医生系（bio / rescue / tempdoc）
-    low: 0.5,         // 工程师 / 助理
+    high: 0.8,        // 神探 / 验票官 / 警长 / 武装（capClass: 'high'）
+    mid: 0.6,         // 医生系（capClass: 'mid'）
+    low: 0.5,         // 工程师 / 助理（capClass: 'low'）
     repairExposed: 0.5,
-    highRoles: ['detective', 'inspector', 'sheriff', 'armed'],
-    midRoles: ['bio', 'rescue', 'tempdoc'],
-    lowRoles: ['engineer', 'assistant'],
+    highRoles: RD.rolesWithCapClass('high'),
+    midRoles: RD.rolesWithCapClass('mid'),
+    lowRoles: RD.rolesWithCapClass('low'),
   };
   /* 普适层饱和化（v26）：Σ → ±cap，曲线 s/(|s|+k) */
   const UNIVERSAL = { cap: 25, k: 60 };
@@ -95,7 +99,7 @@
     resistPer: 8,       // 每名「AI 已知的维修者」抵扣的破坏效用
     matesW: 4,          // 本夜已预提交破坏的队友，每个 +4（协同）
     riskThetaDiv: 50,   // 暴露风险的 θ 归一化分母
-    thetaShift: { 25: 12, 50: 0, 75: -10 },   // 性格项：激进更偏向攻击
+    thetaShift: global.SKTrait.table('theta', 'thetaShift'),   // 性格项：激进更偏向攻击（K2：表由声明给出）
     noise: 6,           // 同轴比较的噪声幅度（gauss × noise）
     quotaTail: 0.08,    // 队内软节流：超出配额后仍继续的概率
     /* 队内节流配额（v28b 修正）：旧口径按 countdown 取 1/2/3，而节流信号本身曾是死代码；
@@ -259,8 +263,22 @@
       ballot: { inspector: 1.3 },
     },
   };
-  /** 角色注意力解析器（唯一入口）：attend(roleKey, evt) → 连续权重，缺省 def */
+  /** 角色注意力解析器（唯一入口）：attend(roleKey, evt) → 连续权重，缺省 def。
+      D7（v6.6 阶段 2 声明层，2026-10-03）：**真源已迁入角色声明表**
+      （js/v66/declaration/roleDecl.js 的每角色 attend 字段，按焦点族声明）。
+      本表降级为「声明层缺席时」的回退（如 lang 剖面只加载 data/lang）；
+      两张表的一致性由回归断言强制（逐角色逐族比对），故不存在平行真源风险。
+      K2：新增强度维度（新焦点族）只改声明层，本文件与消费点零改动。 */
+  /* 〔批次 34〕注意力 floor 闸门值：低于此权重的事件不进入证据表（注意力「选择化」的阈值）。
+     真源在声明层（roleDecl.ATTEND_FLOOR），此处仅透出——避免第二处硬编码。 */
+  function attendFloor() {
+    const RD = global.SKRoleDecl;
+    return (RD && typeof RD.attendFloor === 'number') ? RD.attendFloor : 0;
+  }
+
   function attend(roleKey, evt) {
+    const RD = global.SKRoleDecl;
+    if (RD && RD.attendWeight) return RD.attendWeight(roleKey, evt);
     if (!evt) return ATTEND.def;
     const f = ATTEND.focus[evt];
     if (!f) return ATTEND.def;
@@ -276,7 +294,7 @@
     /* v31 批 3.5（人类侧保护专项）：N414~N417 的保护优先级权重与下界 */
     PROTECT,
     /* v32 批 5′：角色注意力连续权重表 + 解析器 */
-    ATTEND, attend,
+    ATTEND, attend, attendFloor,   /* 〔批次 34〕注意力 floor 闸门（真源在声明层） */
     /* v31 批 1（B4）：视角依赖档位解析器（唯一入口） */
     tierFor, magFor,
   };

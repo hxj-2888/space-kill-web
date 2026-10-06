@@ -3,7 +3,7 @@
    消费侧一律调用 SKVisible.canSee(viewer, e)，杜绝两处口径漂移。
    scope 语义（对齐 v4.1 公告口径）：
      'alien'     —— 仅异形阵营可见（如 ⑪ 类异形私有通道）
-     'non-alien' —— 异形阵营外可见（如 ⑫ 医生清除感染出手）
+     'non-alien' —— 异形阵营外可见（批⑫已撤 2026-10-04，现行批次无此 scope 使用者；机制保留）
      其余        —— 全体可见 */
 (function (global) {
   function canSee(viewer, e) {

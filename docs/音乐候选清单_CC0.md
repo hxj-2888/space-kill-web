@@ -1,7 +1,10 @@
 # 背景音乐候选清单（CC0 / 纯音乐 / 悬疑·太空恐怖向）
 
-> 用途：替换 `audio/music-space-ambience.ogg`（当前 BGM）。
-> 项目纪律：`audio/CREDITS.md` 已声明**全部音频必须 CC0 1.0**，并明确拒绝过 CC-BY-SA 3.0 / CC-BY 3.0。
+> ⚠ **本清单已失效**（〔批次 38〕2026-10-06）：BGM 已换为用户提供的录音 `audio/music-bgm.m4a`，
+> 旧 `music-space-ambience.ogg` 已删除，不再需要候选替换。本文仅作历史留档。
+>
+> 用途（原）：替换 `audio/music-space-ambience.ogg`（当时 BGM）。
+> 项目纪律：`audio/CREDITS.md` 已声明音效**全部 CC0 1.0**，并明确拒绝过 CC-BY-SA 3.0 / CC-BY 3.0。
 > 选定后请把来源补写进 `CREDITS.md`。
 
 ## 选定曲目（每类一首，共三首）

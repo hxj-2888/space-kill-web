@@ -1,6 +1,7 @@
 {
   "name": "space-kill-web",
-  "version": "1.0.0",
+  "version": "2.0preview",
+  "androidVersionCode": 2,
   "private": true,
   "scripts": {
     "start": "node server/server.js",
@@ -9,10 +10,19 @@
     "mc": "node tools/mc.cjs 500 1",
     "test:fix": "node tools/test-fix-v26.cjs",
     "test:lang": "node tools/test-lang.cjs",
+    "test:addrole": "node tools/test-add-role.cjs",
+    "test:addmechanism": "node tools/test-add-mechanism.cjs",
+    "test:coverage": "node tools/audit-step-coverage.cjs",
     "test:heat": "node tools/verify-heat.js",
     "test:ui": "node tools/uismoke.cjs",
     "doc": "node tools/build-engine-docx.cjs",
-    "test:all": "node tools/test-fix-v26.cjs && node tools/test-lang.cjs && node tools/uismoke.cjs && node tools/sim.cjs 60"
+    "srcdoc": "node tools/build-src-docx.cjs",
+    "test:all": "node tools/test-fix-v26.cjs && node tools/test-lang.cjs && node tools/test-add-role.cjs && node tools/test-add-mechanism.cjs && node tools/audit-step-coverage.cjs && node tools/uismoke.cjs && node tools/sim.cjs 60",
+    "test:cloud": "node tools/test-cloud.cjs",
+    "probe:chan": "node tools/channel-ab.cjs 200 501",
+    "trace": "node tools/trace-game.cjs",
+    "narrate": "node tools/replay-narrate.cjs",
+    "probe:attend": "node tools/attend-ab.cjs"
   },
   "dependencies": {
     "docx": "^9.7.1"

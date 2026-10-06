@@ -15,6 +15,7 @@
  * ============================================================= */
 (function (global) {
   const D = global.SKData;
+  const RD = global.SKRoleDecl;                  // v6.6 阶段 2（D6）：能力分发表（能力标签判定）
   const T = global.Tiers;                       // 档位分值表（A35/B20/C10/D5，±2）
   const U = global.AIUtil, BEL = global.AIBelief;
   const clamp = U.clamp, alive = U.alive, aliveF = U.aliveF, byId = U.byId;
@@ -90,6 +91,19 @@
       if (o.out || o.id === p.id) continue;
       addEvent(g, o.id, p.id, d, false, src, 'claim', tierKey, p.id, null, 'E8');
     }
+    /* 拟人层 A：长期记忆——**每位观察者**都记得「谁自称过什么」（跨夜可翻旧账）。
+       自称改口即矛盾：人脑对此反应最强（同一张脸两个职业），故在记完当夜后即检测。 */
+    const MEM = global.AIMemory;
+    if (MEM) {
+      for (const o of g.players) {
+        if (o.out || o.id === p.id) continue;
+        const e = MEM.noteRole(o, p.id, roleKey, g.night);
+        /* 改口检测：与既有记录不同且跨夜 ⇒ 记为矛盾（conflictWith 供 checkRoleConflict 取用） */
+        if (e.prevRole && e.prevRole !== roleKey && !e.conflictWith) e.conflictWith = e.prevRole;
+        if (!e.prevRole) e.prevRole = roleKey;
+        MEM.checkRoleConflict(o, g.night);
+      }
+    }
   }
 
   /* ============ v23 批次 1：防透视闸门与证据回填 ============
@@ -108,7 +122,8 @@
       case 'conflict': return !!t && !!t.hardConflict;                 // R13/R16 硬矛盾（黑板）
       case 'accuse': return g.players.some(x => x.id !== speaker.id && (x.accuseHistory || []).some(a => a.id === +parts[1]));   // 公开指控史（交流）
       case 'check': return !!(speaker.checkPool && speaker.checkPool.has(+parts[1]));                                        // 自有：神探查验
-      case 'crewcheck': { const cc = speaker.crewChecks && speaker.crewChecks.get(+parts[1]); return !!(cc && cc.locked); }  // 自有：船员双查锁定
+      /* 自有：船员查验（A13 验证式——任一身份验证为「是」即算已查验该目标） */
+      case 'crewcheck': { const cc = speaker.crewChecks && speaker.crewChecks.get(+parts[1]); return !!(cc && cc.n > 0); }
       default: return false;
     }
   }
@@ -208,7 +223,7 @@
       if (t.faction === 'alien') {
         const mates = g.players.filter(x => x.faction === 'alien' && !x.out && !x.isHuman && x.id !== t.id && x.id !== accuserId);
         const rescuer = mates.slice().sort((a, b) => a.theta - b.theta)[0];
-        if (rescuer && g.rng.chance({ 25: 0.7, 50: 0.4, 75: 0.15 }[rescuer.theta] || 0.4)) {
+        if (rescuer && g.rng.chance(global.SKTrait.traitValue('theta', 'rescueRate', rescuer.theta))) {   // K2：档位表由声明给出
           addEvent(g, rescuer.id, accuserId, T.SCORE[T.RULE.rescueBack], false, `rescue:${t.id}:${accuserId}:${g.night}`, 'claim', T.RULE.rescueBack, accuserId, 'human', 'E12');
         }
       }
@@ -386,7 +401,7 @@
     /* R7 假标记识别（医生）：标记滞留 ≥4 夜未致死 → 硬源置位 85（v21 改动 #9：不再做超档位增量，
        置位后不衰减、不可被软证据反向；每标记一次，非累加） */
     for (const doc of g.players) {
-      if (doc.out || ['bio', 'rescue', 'tempdoc'].indexOf(doc.role) < 0) continue;
+      if (doc.out || !RD.hasGrant(doc.role, 'treat')) continue;    // D6：能力标签取代手写角色清单
       for (const [id, seen] of (doc.markSeen || new Map())) {
         const t = byId(g, id);
         if (t && !t.out && t.infection && g.night - seen >= 4 && once(g, `R7:${doc.id}:${id}:${seen}`))
@@ -491,29 +506,37 @@
     }
   }
   /* ---------- 质询-应答闭环（v4 7.4/7.5）：被质询者当场作答，观察者按应答质量调整威胁度 ---------- */
-  /* 生成应答：quality ∈ truth(−3) / vague(+8) / refuse(+12) / lie(+15)，异形倾向含糊与谎言 */
+  /* 生成应答：quality ∈ truth(−3) / vague(+8) / refuse(+12) / lie(+15)，异形倾向含糊与谎言
+     〔第三十批 拟人层〕每档模板池 2~3 条 → 4~6 条：应答是每夜高频动作（多人被质询），
+     池子过小必然复读（同局内同句逐字重复）。档位比例 roll 阈值不变（不动物理），
+     只扩表达面；quality 语义与上下游打分口径完全不变。 */
   function answerQuestion(g, p, askerId) {
     const rng = g.rng;
     const evil = p.faction !== 'human';
     const roll = rng.next();
     let quality, text;
     if (evil) {
-      if (roll < 0.40) { quality = 'vague'; text = pick(rng, [`我昨晚在忙自己的事，细节没必要全交代。`, `这问题我answered过类似的，翻记录去。`, `轮到你审我？先把你自己说清楚。`]); }
-      else if (roll < 0.65) { quality = 'refuse'; text = pick(rng, [`我拒绝回答这种带预设的质询。`, `等你拿出证据再来问我。`]); }
-      else if (roll < 0.90) { quality = 'lie'; text = pick(rng, [`我是普通船员，昨晚协助维修，不信拉倒。`, `我一直在做维修，场上有记录的不过是我没说话而已。`]); }
-      else { quality = 'truth'; text = pick(rng, [`问就问吧，我昨晚的行踪经得起查。`, `我没什么可藏的，票该投谁投谁。`]); }
+      if (roll < 0.40) { quality = 'vague'; text = pick(rng, [`我昨晚在忙自己的事，细节没必要全交代。`, `这问题我答过类似的，翻记录去。`, `轮到你审我？先把你自己说清楚。`, `昨晚的安排没义务向全场通报。`, `你要听哪个版本？我手里只有我自己的那份。`, `说多了对你没好处，你也验证不了。`]); }
+      else if (roll < 0.65) { quality = 'refuse'; text = pick(rng, [`我拒绝回答这种带预设的质询。`, `等你拿出证据再来问我。`, `这个问题换个问法我也不答。`, `你的问题里已经带了结论，我不接。`, `我不想在自证和被审之间选了。`]); }
+      else if (roll < 0.90) { quality = 'lie'; text = pick(rng, [`我是普通船员，昨晚协助维修，不信拉倒。`, `我一直在做维修，场上有记录的不过是我没说话而已。`, `我就是个船员，哪来那么多动作可讲。`, `昨晚？昨晚我基本在划水，这答案满意吗。`, `我做的都是普通人做的事，编号对上就行。`]); }
+      else { quality = 'truth'; text = pick(rng, [`问就问吧，我昨晚的行踪经得起查。`, `我没什么可藏的，票该投谁投谁。`, `行，我直说：昨晚我确实动了手，但那是我的职责。`, `没什么好绕的，我做的每一件事都写在我的流水里。`]); }
       if (quality === 'lie') p.claimedRole = p.claimedRole || 'crew';
     } else {
       if (roll < 0.70) {
         quality = 'truth';
         if (p.role === 'crew' && p.crewChecks.size) {
           const r0 = [...p.crewChecks.entries()][0];
-          text = `我是普通船员，查过 ${+r0[0]} 号：` + (r0[1].locked ? `阵营是${D.FACTION[r0[1].locked].name}。` : `排除了${(r0[1].excludes || []).map(x => D.ROLES[x].name).join('、')}。`);
+          /* A13（4.1.1 验证式）：自述只报「是」结果——否证清单不上报 */
+          const yeses = (r0[1].results || []).filter(x => x.ans);
+          text = `我是普通船员，查过 ${+r0[0]} 号：` +
+            (yeses.length
+              ? `他的职业是${D.ROLES[yeses[yeses.length - 1].id] ? D.ROLES[yeses[yeses.length - 1].id].name : '某身份'}。`
+              : `验证结果与我说的对不上。`);
         } else if (p.role === 'detective') {
-          text = `我是神探，查验结果暂不公布，但我的链路是干净的。`;
-        } else text = pick(rng, [`我是${D.ROLES[p.role] ? D.ROLES[p.role].name : '船员'}，昨晚的行踪可以跟任何人互对。`, `我如实回答：昨晚我在做本职工作，细节私下可对。`]);
-      } else if (roll < 0.90) { quality = 'vague'; text = pick(rng, [`细节我记不全了，但我的行动对得起自己阵营。`, `这个问题明天再谈，今天先聚焦更可疑的人。`]); }
-      else { quality = 'refuse'; text = pick(rng, [`公开说我立场没问题，具体细节保留。`, `我不习惯被当堂审问，拒绝回答。`]); }
+          text = pick(rng, [`我是神探，查验结果暂不公布，但我的链路是干净的。`, `我是神探，我出的公告都是查过的，你们可以对账。`]);
+        } else text = pick(rng, [`我是${D.ROLES[p.role] ? D.ROLES[p.role].name : '船员'}，昨晚的行踪可以跟任何人互对。`, `我如实回答：昨晚我在做本职工作，细节私下可对。`, `我是${D.ROLES[p.role] ? D.ROLES[p.role].name : '船员'}，做的都是分内事，不神秘。`, `行，我摊开说：我是这个身份，昨晚按规矩办事。`, `我可以对质，但我更想知道你为什么先问我。`]);
+      } else if (roll < 0.90) { quality = 'vague'; text = pick(rng, [`细节我记不全了，但我的行动对得起自己阵营。`, `这个问题明天再谈，今天先聚焦更可疑的人。`, `我说了你也不一定信，信了也不一定有用。`, `我的部分没有疑点，但别人的部分我也在看。`, `现在讲这些太早，先看今晚谁会被投出去。`]); }
+      else { quality = 'refuse'; text = pick(rng, [`公开说我立场没问题，具体细节保留。`, `我不习惯被当堂审问，拒绝回答。`, `质询可以，我保留不答的权利。`, `这个问题的前提就不对，我不接。`, `我回答过了，换个问题我就答。`]); }
     }
     return { text, quality };
   }
@@ -585,7 +608,7 @@
       if (silent && g.night >= 3 && once(g, `kingSilent:${t.id}:${g.night - (g.night % 3)}`)) {
         for (const o of g.players) {
           if (o.out || o.id === t.id || o.faction === 'alien') continue;
-          addEvent(g, o.id, t.id, T.SCORE[T.RULE.kingSilent], false, `kingSilent:${t.id}:${g.night - (g.night % 3)}`, 'claim', T.RULE.kingSilent, t.id, 'king');
+          addEvent(g, o.id, t.id, T.SCORE[T.RULE.kingSilent], false, `kingSilent:${t.id}:${g.night - (g.night % 3)}`, 'claim', T.RULE.kingSilent, t.id, 'xeno');   // D5：通道键与阵营键对齐（原 'king'）
         }
       }
       /* K2：t 是否「反咬揭发者」——对每个已被揭示的敌人 E，找出在揭示前指控过 E 的人 b，
@@ -656,6 +679,25 @@
       }
     }
     settlePromises(g, counts);   // v21 审查 P0-2：承诺兑现 → C 表 / 未兑现 → S
+
+    /* 拟人层 A · 立场记忆：人记得住「谁一直站谁那边」——本条把全体票源（公开信息）
+       归并成跨夜印象。**每对观察者×被观察者各记一份**（人各记各的，不是共享黑板）。
+       口径：与「自己反对谁」为正相关（+1 站同侧 / −1 站对立），弃票不记。
+       记满 |score|≥3 即成为可引用的发言依据（reasoningChain ②）。 */
+    const MEM = global.AIMemory;
+    if (MEM && g.voteSources) {
+      for (const o of g.players) {
+        if (o.out) continue;
+        const mine = g.voteSources[o.id];
+        if (mine == null) continue;                         // 弃票
+        for (const sp of g.players) {
+          if (sp.out || sp.id === o.id) continue;
+          const theirs = g.voteSources[sp.id];
+          if (theirs == null) continue;                      // 对方弃票：不产生立场
+          MEM.noteStance(o, sp.id, g.night, mine === theirs ? 1 : -1);
+        }
+      }
+    }
   }
 
   /* 承诺兑现结算（v21 审查 P0-2 附带，规格 §4.4）：C 表落地路径。

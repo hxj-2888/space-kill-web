@@ -41,6 +41,11 @@ const CASES = [
   /* bind 的 payload.role 会被解析器归一化（'doc' 不是合法 role 键，词表统一归到 'bio'） */
   { c: claim('bind', [11], { role: 'bio' }), expect: 'bind', keys: ['role'] },
   /* v20 推理库对应族：证伪 / 承诺 / 私有体验 */
+  /* 【条数留档 · 2026-10-05】断言数由 103 变为 **102 并恒定**（审查结论 P4 建议留档）：
+     被合并的两条原断言测的是**同一模板的两个措辞变体**——renderer 的 `deny/cured`
+     原先有「我没有抗体，也没被治疗过」与「我昨晚没进过濒死」两句，第二十批因该句
+     泄露私有治疗/抗体状态（3.3.11 结果无反馈红线）被删除，只留一句；覆盖面未下降，
+     是**恒定化**（同一 Commit 起连跑多次恒为 102），非断言流失。 */
   { c: claim('deny', [], { about: 'checked' }), expect: 'deny', keys: ['about'] },
   { c: claim('deny', [], { about: 'cured' }), expect: 'deny', keys: ['about'] },
   { c: claim('deny', [], { about: 'infection' }), expect: 'deny', keys: ['about'] },
@@ -77,9 +82,15 @@ const payloadOf = (c, keys) => {
   return o;
 };
 
+/* 确定性变体生成（2026-10-03 修正）：render 在 ctx.rng 缺失时退化为 Math.random
+   （js/lang/renderer.js:24），故此前每轮跑出的变体集合不同，断言数在 100~103 之间浮动
+   ——同一个提交可能报出三个不同的「通过条数」，回归门禁失去可比性。现改为显式传入
+   定种子 RNG：变体集合逐字节可复现，条数恒定。 */
+const renderRng = new ctx.RNG(20261003);
+
 for (const t of CASES) {
   const variants = new Set();
-  for (let i = 0; i < ROUNDS; i++) variants.add(Lang.render(t.c, {}));
+  for (let i = 0; i < ROUNDS; i++) variants.add(Lang.render(t.c, { rng: renderRng }));
   for (const text of variants) {
     if (!text) { console.log(`  [空句] ${t.c.kind} 渲染为空`); fail++; continue; }
     if (!t.expect) { pending++; continue; }

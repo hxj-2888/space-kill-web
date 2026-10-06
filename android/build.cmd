@@ -6,6 +6,14 @@ rem Output:   android\SpaceKill.apk
 rem
 rem Usage:  node android\sync-www.cjs   ^&^&  android\build.cmd
 rem
+rem Version: single source of truth = root package.json
+rem   version (e.g. 2.0preview)        -> AndroidManifest versionName
+rem   androidVersionCode (monotonic)   -> AndroidManifest versionCode
+rem   Read via tools\pkg-field.cjs because inlining `node -p "require(...)"` in
+rem   batch is fragile (non-ASCII repo path + for /f quote/escape pitfalls).
+rem   versionCode MUST increase every release or Android refuses to install over
+rem   an older build (same signing key).
+rem
 rem Pipeline notes (same constraints as the ping-pong project; do not "simplify"):
 rem  - aapt2 cannot open source paths containing non-ASCII characters, so every
 rem    build input is copied to %TEMP%\sk_apk_build first and built from there.
@@ -30,6 +38,17 @@ if not exist "%PLAT%" ( echo [ERR] platform not found: %PLAT% & exit /b 1 )
 if not exist "%SZ%" ( echo [ERR] 7-Zip not found: %SZ% & exit /b 1 )
 if not exist "%ROOT%assets\www\index.html" ( echo [ERR] assets/www missing - run: node android\sync-www.cjs & exit /b 1 )
 
+rem 版本单一真源 = 根 package.json（version → versionName，androidVersionCode → versionCode）
+rem 用 tools\pkg-field.cjs 读取：批处理里内嵌 `node -p "require(...)"` 会被仓库中文路径
+rem 与 for /f 的引号/转义坑到。versionCode 必须每次发布递增，否则同签名也无法覆盖安装。
+set "VNAME="
+set "VCODE="
+for /f "usebackq delims=" %%v in (`node "%ROOT%..\tools\pkg-field.cjs" version`) do set "VNAME=%%v"
+for /f "usebackq delims=" %%v in (`node "%ROOT%..\tools\pkg-field.cjs" androidVersionCode`) do set "VCODE=%%v"
+if "%VNAME%"=="" ( echo [ERR] package.json version missing & exit /b 1 )
+if "%VCODE%"=="" ( echo [ERR] package.json androidVersionCode missing - bump it every release & exit /b 1 )
+echo version: versionName=%VNAME% versionCode=%VCODE%
+
 rem copy build inputs to an ASCII temp workspace (aapt2 non-ASCII path fix)
 if exist "%WORK%" rmdir /s /q "%WORK%"
 mkdir "%WORK%" || goto :err
@@ -47,7 +66,7 @@ echo [2/7] link manifest + resources (no -A assets: added by 7-Zip in [5/7])...
 "%BT%\aapt2.exe" link -o "%OUT%\unsigned.apk" -I "%PLAT%" ^
   --manifest "%ROOT%AndroidManifest.xml" -R "%OUT%\res.zip" --auto-add-overlay ^
   --java "%OUT%\gen" --min-sdk-version 24 --target-sdk-version 34 ^
-  --version-code 1 --version-name 1.0.0 || goto :err
+  --version-code %VCODE% --version-name %VNAME% || goto :err
 
 echo [3/7] compile java...
 javac -encoding UTF-8 -source 1.8 -target 1.8 -classpath "%PLAT%" -d "%OUT%\classes" ^

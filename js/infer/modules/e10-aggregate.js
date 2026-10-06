@@ -7,15 +7,17 @@
  * 判据全部只读【公开口径】：⑥/⑨/⑩/②/③/④/⑤ 公告批次（g.log）、公开展示的
  *   死亡字段（out/outNight/cause/outType——⑥⑩公开揭示，见总表 C37~C40 判据）、
  *   g.net10 / g._t10Night / voteHistory / 存活数。不读任何私有状态。
- * 批次口径：本批 9 条（C07/C09/C14/C22/C42/C43/C45/C55/C56）为「判据可机械评估」
- *   的首批；C04/C36（死者排除）、C51/C67（配对图结构）等留待后续批。
+ * 批次口径：本批 7 条（C07/C09/C42/C43/C45/C55/C56）为「判据可机械评估」
+ *   的首批；C14/C22 已随批⑫公告退役（3.3.7，2026-10-04）；C04/C36（死者排除）、
+ *   C51/C67（配对图结构）等留待后续批。
  * ============================================================= */
 (function (global) {
   const P = global.SKPred;
 
-  const infectDeathTonight = g => g.players.some(x => x.out && x.outNight === g.night && x.cause === 'infect');
-  const cureAnnounceN = (g, night) => (g.log || []).filter(e => e.batch === '⑫' && e.night === night).length;
   const aliveN = g => g.players.filter(p => !p.out).length;
+
+  /* 批⑫撤除（2026-10-04，正文 3.3.7）：C14/C22 原以「⑫ 清除公告」为判据——该公告已撤，
+     两通道退役（channels.data 已标 dormant）；C07/C09/C42/C43/C45/C55/C56 判据不含⑫，保留。 */
 
   /* v33 标定注记（500 局 A/B，本批同日）：结构事实若逐夜重复入账（C14 曾 2,889 次/100 局），
      普适层被反复抬压 ⇒ 人类 32.4% → 30.6%（-1.8pp，方向与 100 局一致）。
@@ -40,19 +42,7 @@
              if (!sheriffDead) return false;
              return g.players.some(x => x.out && x.cause === 'gun' && x.outNight === g.night) && P.onceChan(g, p, 'C09');
            } },
-    /* C14（C）：⑫＞0 而无人死于感染 ⇒ 当夜有真标记被清除（医生在行动） */
-    C14: { expert: 'E10', universal: true, tier: 'C',
-           gate: (g, p) => cureAnnounceN(g, g.night) > 0 && !infectDeathTonight(g) && P.onceChan(g, p, 'C14') },
-    /* C22（C+）：连续 3 夜无感染死亡且⑫=0 ⇒ 全场无真标记存在（感染威胁清零期） */
-    C22: { expert: 'E10', universal: true, tier: 'C+',
-           gate: (g, p) => {
-             if (g.night < 3) return false;
-             for (let n = g.night - 2; n <= g.night; n++) {
-               if (g.players.some(x => x.out && x.outNight === n && x.cause === 'infect')) return false;
-               if (cureAnnounceN(g, n) > 0) return false;
-             }
-             return P.onceChan(g, p, 'C22');
-           } },
+    /* C14/C22 已随批⑫公告退役（3.3.7，2026-10-04）——见文件头注记 */
     /* C42（C）：单夜净破坏量为负（维修量 ＞ 新增破坏）⇒ 场上有正牌工程师在维修 */
     C42: { expert: 'E10', universal: true, tier: 'C',
            gate: (g, p) => g._t10Night != null && g._t10Night < 0 && P.onceChan(g, p, 'C42') },

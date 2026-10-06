@@ -1,11 +1,13 @@
 /* 界面渲染：HUD / 计时 / 表单 / 六分区记事本 / 公开发言流 / 复盘 */
 (function (global) {
   const D = global.SKData;
+  const RD = global.SKRoleDecl;                  // v6.6 阶段 2（D6/D8）：能力标签与职业余额表由声明层派生
   const E = global.Engine;
   const el = id => document.getElementById(id);
   let tab = 'pub';
-  let formState = { opt: null, targets: [], num: null, text: '' };
+  let formState = { opt: null, targets: [], num: null, num2: null, text: '' };
   let rpNight = 0;                     // 复盘：0 = 全部
+  let rpMode = 'raw';                  // 复盘视图：'raw' 原始流 | 'story' 叙事（〔批次 34〕默认原始）
   /* 倒计时提示音：只在最后 5 秒（与既有 danger 阈值一致）每秒响一次，
      故必须记录上一次已发声的整秒，避免每帧重复触发。 */
   let lastTickSec = -1;
@@ -98,16 +100,22 @@
     if (g.dev) return `${facName(p.faction)}·${p.roleName}`;          // 上帝视角：全员身份公开
     if (viewer && p.id === viewer.id) return `${facName(p.faction)}·${p.roleName}`;
     const k = viewer && viewer.known && viewer.known.get(p.id);
-    if (k && k.role) return `${facName(k.faction)}·${roleNameOf(k.role)}`;
+    /* B5：known 条目可能不含阵营字段（2.8.12④）——只渲染允许揭示的部分 */
+    if (k && k.role) { const fn = facName(k.faction); return (fn ? fn + '·' : '') + roleNameOf(k.role); }
     /* 神探：已查验池内目标的身份标注常驻显示（4.7/显示方案 2.7） */
     if (viewer && viewer.checkPool) {
       const rec = Array.isArray(viewer.checkPool)
         ? viewer.checkPool.find(x => x.id === p.id)
         : (viewer.checkPool.get && viewer.checkPool.get(p.id));
-      if (rec) return `${facName(rec.faction)}·${roleNameOf(rec.role)}（查）`;
+      /* B5（4.7.3，待拍板 I9）：池内不标注阵营 */
+      if (rec) return roleNameOf(rec.role) + '（查）';
     }
     if (k && k.faction) return facName(k.faction);
-    if (p.revealed) return p.revealed.role ? `${facName(p.revealed.faction)}·${roleNameOf(p.revealed.role)}` : facName(p.revealed.faction);
+    /* B5：非 faction 路径的揭示（暴露/神探公告/会议背书）无阵营字段 */
+    if (p.revealed) {
+      const fn = facName(p.revealed.faction);
+      return p.revealed.role ? (fn ? fn + '·' : '') + roleNameOf(p.revealed.role) : fn;
+    }
     if (k && k.excludes) return k.excludes.length >= 2
       ? `非${roleNameOf(k.excludes[0])}/${roleNameOf(k.excludes[1])}`
       : `非${roleNameOf(k.excludes[0])}`;
@@ -430,7 +438,7 @@
   function renderForm(g, head, body, acts) {
     const f = g.pending, me = E.P(g, g.humanId);
     head.innerHTML = `<h2>${esc(f.title)}</h2><span class="st">等待你的决策 · 剩余 <b id="form-left">${f.duration || 0}</b>s</span>`;
-    formState = { opt: null, targets: [], num: null, text: '' };
+    formState = { opt: null, targets: [], num: null, num2: null, text: '' };
 
     let html = announceHtml(g) + `<p class="hint" style="margin:0 0 8px">${esc(f.desc || '')}</p>`;
 
@@ -483,6 +491,11 @@
         <select id="f-num">${f.num.options.map(o => `<option value="${o.v}">${esc(o.label)}</option>`).join('')}</select>`;
       formState.num = f.num.options[0].v;
     }
+    if (f.num2) {
+      html += `<div class="sec">${esc(f.num2.label)}</div>
+        <select id="f-num2">${f.num2.options.map(o => `<option value="${o.v}">${esc(o.label)}</option>`).join('')}</select>`;
+      formState.num2 = f.num2.options[0].v;
+    }
     if (f.text) {
       html += `<div class="sec">${esc(f.text.label)}</div><textarea id="f-form-text" placeholder="输入你想说的话……"></textarea>`;
     }
@@ -513,7 +526,9 @@
       formState.targets = sel;
       box.querySelectorAll('.opt').forEach(l => l.classList.toggle('sel', sel.indexOf(+l.dataset.v) >= 0));
     });
-    if (f.num) el('f-num').onchange = e => { formState.num = parseFloat(e.target.value); };
+    /* A13：身份选择为字符串键（'crew'…），数值档仍解析为数字 */
+    if (f.num) el('f-num').onchange = e => { const v = e.target.value; formState.num = v !== '' && !isNaN(+v) ? +v : v; };
+    if (f.num2) el('f-num2').onchange = e => { const v = e.target.value; formState.num2 = v !== '' && !isNaN(+v) ? +v : v; };
     if (f.text) el('f-form-text').oninput = e => { formState.text = e.target.value; };
 
     /* §2.9 紧急会议二次确认：发动即公开身份且当夜倒计时不减。
@@ -548,7 +563,9 @@
   function selfPanel(g, p) {
     const rows = [];
     const kv = (a, b) => `<div class="kv"><span>${esc(a)}</span><span>${esc(b)}</span></div>`;
-    if (p.dying) rows.push('<div class="evt bad">你已濒死：步骤 8 的救援是唯一生路，否则步骤 9 死亡结算，不会拖到第二天。</div>');
+    /* T4（2026-10-04 文本审查）：4.10.6 生路有三项——救援额度 / 外星人夜晚免疫 / 死囚复生；
+       旧文案「救援是唯一生路」对外星人直接误导（其濒死生路正是夜晚免疫）。 */
+    if (p.dying) rows.push('<div class="evt bad">你已濒死：生路有三——步骤 8 获救援额度解救、外星人夜晚免疫自动拦截（6.4）、死囚复生（6.8.4）；均未发生则步骤 9 死亡结算，不会拖到第二天。</div>');
     if (p.infection) rows.push(kv('感染', p.infection.real == null ? '（带标记，真伪不可辨）' : p.infection.real === false ? '（假标记，仅你可见）' : `第 ${p.infection.deathNight} 夜致死`));
     if (p.antibodyNight != null && p.antibodyNight >= g.night) rows.push(kv('抗体', p.antibodyNight === g.night ? '生效中（仅今夜有效，可挡 1 次感染）' : '已持有，仅下夜有效'));
     if (p.silenceNight === g.night) rows.push(kv('沉默', '今夜主动技能被封锁（投票与私聊不受影响）'));
@@ -563,51 +580,55 @@
     if (p.faction === 'xeno') {
       rows.push(kv('夜晚免疫', `${p.nightImmune} / 2 次（仅免疫伤害；被感染濒死也会消耗一次）`));
       rows.push(kv('双刀', p.awakened ? '已觉醒（第 6 夜或存活≤6 达成，不可逆）' : '未觉醒（第 6 夜或存活≤6 触发）'));
-      rows.push(kv('破坏', `${p.destroyLeft} / 1（+3.0，次夜为停转夜）`));
+      rows.push(kv('破坏', `${p.destroyLeft} / 1（+2.0~3.0 自选，次夜为停转夜）`));
       rows.push(kv('感染治疗额度', `${p.cureSelf} / 1（仅自用，感染消失即作废）`));
       const silenced = g.players.filter(x => !x.out && x.silenceNight != null && x.silenceNight > g.night);
       if (silenced.length) rows.push(`<div class="sec">已沉默名单</div>` + silenced.map(x =>
         `<div class="kv"><span>${x.id} 号</span><span>覆盖期：第 ${x.silenceNight} 夜（夜间主动技能封锁，投票/私聊不受影响）</span></div>`).join(''));
     }
-    if (p.role === 'sheriff' || p.role === 'armed') {
+    if (RD.hasGrant(p.role, 'shoot')) {                                    // D6：能力标签（枪手族）
+      /* 4.4.3：警长额外子弹两项——第 5 夜起 +1、全场存活≤6 +1，各自全局仅此 1 次、可叠加（至多 +2）。
+         〔2026-10-05 规则方裁决〕采信正文口径「第 5 夜起」；此前实现的第 7 夜作废，引擎发放点已回改为
+         engine.js 的 n===5。⚠ 与外星人「第 7 夜夜晚免疫」（6.4）夜次不同，两者勿混。 */
       rows.push(kv('子弹', `${p.bullets} 发（悬赏击杀回复、第 5 夜 +1、存活≤6 +1）`));
       if (p.bulletLog && p.bulletLog.length)
         rows.push(`<div class="sec">子弹流水</div>` + p.bulletLog.map(b =>
           `<div class="kv"><span>第 ${b.night === 0 ? '—' : b.night} 夜</span><span>${b.delta > 0 ? '+' : ''}${b.delta}（${esc(b.src)}）</span></div>`).join(''));
     }
-    if (p.role === 'engineer' || p.role === 'assistant') {
-      const th = p.role === 'engineer' ? 4 : 3;
+    if (RD.hasGrant(p.role, 'repair')) {                                   // D6：能力标签（工程师系）
+      const th = RD.repairExposeAtOf(p.role) || 0;                         // D6：阈值声明化
       const total = p.repairTotal || 0;
       rows.push(`<div class="sec">维修进度（累计含追加）</div>
         <div class="pbar"><div class="pfill ${p.repairExposed ? 'hot' : ''}" style="width:${clampN(total / th * 100, 0, 100)}%"></div></div>
         <div class="kv"><span>${p.repairExposed ? '已暴露（编号与职业已向全体公开）' : '距暴露还需 ' + Math.max(0, th - total).toFixed(1)}</span>
         <span>${total.toFixed(1)} / ${th.toFixed(1)}</span></div>`);
-      if (p.role === 'engineer') rows.push(kv('追加维修', `${p.extraRepair} / 3 次（仅限本人基础维修当夜）`));
-      if (g.night === 1) rows.push(kv('第 1 夜全能免疫', '生效中（伤害与感染全额抵挡）'));
+      if (RD.hasGrant(p.role, 'extraRepair')) rows.push(kv('追加维修', `${p.extraRepair} / 3 次（仅限本人基础维修当夜）`));
+      /* T6（2026-10-04 文本审查 P0）：原此处渲染「第 1 夜全能免疫·生效中」——v6.6 已删除该
+         被动免疫（改为工程师限定技「安全室」4.3.1），全仓无发放点，属幽灵 UI，整行删除。 */
     }
     if (p.role === 'bio') { rows.push(kv('治疗额度', `${p.healLeft}`)); rows.push(kv('自救额度', `${p.selfSaveLeft} / 1`)); }
-    if (p.role === 'rescue' || p.role === 'tempdoc') { rows.push(kv('救援额度', `${p.rescueLeft}`)); rows.push(kv('治疗额度', `${p.cureLeft}`)); }
+    if (RD.hasGrant(p.role, 'save')) { rows.push(kv('救援额度', `${p.rescueLeft}`)); rows.push(kv('治疗额度', `${p.cureLeft}`)); }   // D6
     if (p.role === 'inspector') rows.push(kv('紧急会议', `${p.meetingLeft} / 1`));
-    /* 神探：已查验池（编号/阵营/职业/查验当夜/存活/已发布，§2.7） */
+    /* 神探：已查验池（编号/职业/查验当夜/存活/已发布，§2.7；阵营标注待拍板 I9，暂不显示） */
     if (p.role === 'detective' && p.checkPool) {
       const pool = Array.isArray(p.checkPool) ? p.checkPool
         : [...p.checkPool.values()].map(x => x);
       if (pool.length) {
         rows.push(`<div class="sec">已查验池</div>` + pool.map(rec => {
           const t = g.players.find(x => x.id === rec.id);
-          return `<div class="kv"><span>${rec.id} 号</span><span>${esc(facName(rec.faction))} · ${rec.role ? esc(roleNameOf(rec.role)) : '—'} · 第${rec.night}夜查验` +
+          return `<div class="kv"><span>${rec.id} 号</span><span>${rec.role ? esc(roleNameOf(rec.role)) : '—'} · 第${rec.night}夜查验` +
             ` · ${t && !t.out ? '存活' : '已出局'}${rec.published ? ' · 已发布' : ''}</span></div>`;
         }).join(''));
       }
     }
-    /* 普通船员：查验记录（排除信息与锁定结论转职后保留，4.1/4.2） */
+    /* 普通船员：查验记录（A13 验证式——提交身份与是/否答案，查验者×目标独立留存，4.1.1⑤） */
     if ((p.role === 'crew' || p.transferred) && p.crewChecks) {
       const entries = Array.isArray(p.crewChecks) ? p.crewChecks.map(x => [+x.id, x])
         : [...p.crewChecks.entries()].map(([id, v]) => [+id, v]);
       if (entries.length) {
-        rows.push(`<div class="sec">查验记录（转职后保留）</div>` + entries.map(([id, v]) =>
-          `<div class="kv"><span>${id} 号</span><span>${v.locked ? esc(facName(v.locked)) + '（已锁定）'
-            : (v.excludes || []).map(x => '非' + roleNameOf(x)).join('、')}</span></div>`).join(''));
+        rows.push(`<div class="sec">查验记录（转职后保留，4.1.4）</div>` + entries.map(([id, v]) =>
+          `<div class="kv"><span>${id} 号（查 ${v.n} 次）</span><span>${(v.results || []).map(r =>
+            `${roleNameOf(r.id)}→${r.ans ? '是' : '否'}`).join('；') || '（无有效作答）'}</span></div>`).join(''));
       }
     }
     return rows.join('');
@@ -695,15 +716,15 @@
        才抛 ReferenceError（外星人觉醒双刀的中后期才出现，故「有时候」崩）。改为显式传参。 */
     if (p.silenceNight != null && g && p.silenceNight >= g.night) parts.push('沉默@' + p.silenceNight);
     if (p.infection) parts.push(p.infection.real === false ? '假标记' : p.infection.real ? `真感染(死@${p.infection.deathNight})` : '带标记');
-    if (p.role === 'sheriff' || p.role === 'armed') parts.push(`枪${p.bullets}${p.patrolUsed ? '·巡逻已用' : ''}`);
-    if (p.role === 'engineer' || p.role === 'assistant') parts.push(`维修${(p.repairTotal || 0).toFixed(1)}/${p.role === 'engineer' ? 4 : 3}·追加${p.extraRepair}`);
+    if (RD.hasGrant(p.role, 'shoot')) parts.push(`枪${p.bullets}${p.patrolUsed ? '·巡逻已用' : ''}`);      // D6
+    if (RD.hasGrant(p.role, 'repair')) parts.push(`维修${(p.repairTotal || 0).toFixed(1)}/${RD.repairExposeAtOf(p.role) || 0}·追加${p.extraRepair}`);   // D6
     if (p.role === 'bio') parts.push(`治疗${p.healLeft}·自救${p.selfSaveLeft}`);
-    if (p.role === 'rescue' || p.role === 'tempdoc') parts.push(`救援${p.rescueLeft}·治疗${p.cureLeft}`);
+    if (RD.hasGrant(p.role, 'save')) parts.push(`救援${p.rescueLeft}·治疗${p.cureLeft}`);   // D6：能力标签（救援族）
     if (p.faction === 'alien') parts.push(`刀${p.alien ? p.alien.kills : '—'}·护盾${p.shield || 0}·破坏${((p.alien && p.alien.destroyTotal) || 0).toFixed(1)}`);
     if (p.faction === 'xeno') parts.push(`免疫${p.nightImmune}·双刀${p.awakened ? '✓' : '✗'}`);
     if (p.role === 'inspector') parts.push(`会议${p.meetingLeft}`);
     if (p.antibodyNight != null && p.antibodyNight >= g.night) parts.push('抗体');
-    if (p.brew) parts.push(`制药${p.brew.progress}/2`);
+    if (p.brew) parts.push(`制药${p.brew.progress}/${(global.SKProcess && global.SKProcess.get('brew').nights) || 2}`);   // C11：进度上限由声明给出
     return parts.length ? parts.join(' · ') : '—';
   }
   function devPanel(g, me) {
@@ -796,13 +817,16 @@
       box.innerHTML = selfPanel(g, me) + campPanel(g, me);
     } else if (tab === 'out') {
       const rows = g.players.filter(p => p.out);
-      /* 职业余额表（显示方案 1.3）：由公开揭示信息自动汇总 */
-      const totals = { crew: 4, engineer: 1, sheriff: 1, bio: 1, rescue: 1, detective: 1, bodyguard: 1, inspector: 1, alien: 3, xeno: 1 };
+      /* 职业余额表（显示方案 1.3）：总数由声明层派生（人类席位来自 2.8.14 组位表，
+         非人类名额来自各阵营角色的 seats）——取代此前写死的 totals 与角色键清单。
+         D6/D8：加角色/改席位只改声明，本表自动跟上。 */
+      const totals = RD.roleTotals();
       let balance = '<div class="sec">职业余额表（已揭示出局 / 总数）</div>';
-      for (const r of ['crew', 'engineer', 'sheriff', 'bio', 'rescue', 'detective', 'bodyguard', 'inspector', 'alien', 'xeno']) {
+      for (const r of RD.keys().filter(k => totals[k] > 0)) {
         const outN = g.players.filter(p => p.out && (p.originRole || p.role) === r).length;
         const left = totals[r] - outN;
-        balance += `<div class="kv"><span>${esc(D.ROLES[r].name)}${r === 'alien' ? '（异形）' : r === 'xeno' ? '（外星人）' : ''}</span>` +
+        const facTag = D.ROLES[r].faction !== 'human' ? `（${D.FACTION[D.ROLES[r].faction].name}）` : '';
+        balance += `<div class="kv"><span>${esc(D.ROLES[r].name)}${facTag}</span>` +
                    `<span>已揭示出局 ${outN} / ${totals[r]} · 剩余身份 ${left >= 0 ? left : 0} 人（含未揭示）</span></div>`;
       }
       /* 死因统计（显示方案 1.3）：仅逐夜累计呈现，不给出任何推断结论 */
@@ -820,10 +844,12 @@
       const known = g.players.filter(p => p.id !== me.id && ((me.known && me.known.has(p.id)) || p.revealed))
         .map(p => {
           const k = (me.known && me.known.get(p.id)) || p.revealed;
-          return `<div class="kv"><span>${p.id} 号 ${esc(p.name)}</span><span>${esc(facName(k.faction))}${k.role ? ' · ' + esc(roleNameOf(k.role)) : ''}</span></div>`;
+          /* B5：known/揭示条目可能不含阵营字段（2.8.12④），缺阵营时只显示职业 */
+          const parts = [facName(k.faction), k.role ? roleNameOf(k.role) : ''].filter(Boolean);
+          return `<div class="kv"><span>${p.id} 号 ${esc(p.name)}</span><span>${esc(parts.join(' · '))}</span></div>`;
         }).join('');
       /* §2.5 记一笔（医师手动誊抄）＋ §2.1 对账便签：均由玩家手动写入备注，UI 不代记 */
-      const isDoc = ['bio', 'rescue', 'tempdoc'].indexOf(me.role) >= 0;
+      const isDoc = RD.hasGrant(me.role, 'treat');      // D6：能力标签取代手写角色清单
       const isCrew = me.role === 'crew' || me.transferred;
       const quick = isDoc || isCrew ? `<div class="row" style="margin:4px 0">
         ${isDoc ? '<button class="act" id="btn-jibi">记一笔（标记清单→备注）</button>' : ''}
@@ -882,18 +908,81 @@
       el('rp-nights').querySelectorAll('.rp-n').forEach(x => x.classList.toggle('sel', +x.dataset.n === rpNight));
       renderReplayBody(g);
     });
+    /* 〔批次 34 · 叙事层 N2〕复盘盒加「原始／叙事」并排页签——**默认原始**，
+       叙事是增量视图而非替代（可回退、不改原始数据）。叙事内容由 Narrator 生成：
+       chronicle（系统编年史）＋ voice（AI 视角的个人讲法，含长期记忆与立场收尾）。
+
+       ⚠ **联机态封锁（批次 34 决定，本批不实装）**——叙事页签当前只在单机局成立。
+          联机局 `Game.g` 是 `View.hydrate(m.view)` 的视图而非真对局（main.js 的 'state' 分支），
+          而视图的 `log` 经 `SKVisible.canSee` **按观察者过滤**（view.js build），于是：
+            ① chronicle() 读到的是「该玩家能看到的编年」而非终局全知编年——**静默降级**，
+               同一局在单机与联机会讲出两份不同的复盘，且不报错；
+            ② `duelSinceNight` 不在视图载荷内，narrator 的决斗章节标注回落 `g.night`；
+            ③ `mem`（AIMemory，内部为 Map）不过线（AI 跑在服务端），`voice()` 拿不到长期记忆，
+               故联机局只有「全局编年」段、没有「你的视角」段。
+          **解冻时须做**（勿在冻结期内顺手改）：给视图补一份不过 canSee 的编年源，或由 server
+          在 'end' 载荷里直接下发 chronicle 结果；并裁定 `voice` 是限定单机、还是随载荷下发
+          （后者要一并处理 AIMemory 的序列化口径）。本段为改动备注，不是待办承诺。 */
+    const NR = global.Narrator;
+    if (NR && typeof NR.chronicle === 'function') {
+      const doc = NR.chronicle(g);
+      if (doc) {
+        const meId = me.id != null ? me.id : null;
+        const memP = meId != null ? (E.P(g, meId) || {}).mem : null;
+        let sysTxt = '', voiceTxt = '';
+        try { sysTxt = NR.renderDoc(doc); } catch (e) { sysTxt = '（复盘文本生成失败：' + e.message + '）'; }
+        if (meId != null) {
+          try {
+            voiceTxt = NR.voice(doc, {
+              me: meId, mem: memP,
+              aliveIds: g.players.filter(x => !x.out).map(x => x.id),
+            });
+          } catch (e) { voiceTxt = '（个人叙事生成失败：' + e.message + '）'; }
+        }
+        g._replayDoc = { sys: sysTxt, voice: voiceTxt, meId };
+      }
+    }
+    el('rp-modes').innerHTML =
+      `<button class="act rp-m sel" data-m="raw">原始</button>` +
+      (g._replayDoc ? `<button class="act rp-m" data-m="story">叙事</button>` : '');
+    el('rp-modes').querySelectorAll('.rp-m').forEach(b => b.onclick = () => {
+      rpMode = b.dataset.m;
+      el('rp-modes').querySelectorAll('.rp-m').forEach(x => x.classList.toggle('sel', x.dataset.m === rpMode));
+      renderReplayBody(g);
+    });
     renderReplayBody(g);
   }
 
   function nights(g) {
     const end = global.Game.endData || {};
-    const list = (end.replay || g.replay || []).map(e => e.night);
+    /* K3（B3）：对局进行中不得读 g.replay（本地模式在终局后仍可读，联机模式只读 end 载荷） */
+    const list = (end.replay || (g && g.over ? g.replay : null) || []).map(e => e.night);
     return [0, ...[...new Set(list)].sort((a, b) => a - b)];
   }
 
   function renderReplayBody(g) {
     const end = global.Game.endData || {};
-    const rp = (end.replay || g.replay || []).filter(e => !rpNight || e.night === rpNight);
+    /* 〔批次 34 · 叙事层 N2〕叙事页签：渲染 Narrator 的编年史与个人讲法。
+       纪律：①纯读——不改 g.replay/g.log；②经 Taboo 出口校验（Narrator 内部已 assert）；
+            ③逐字转义后插入（与原始流同一防注入口径）。夜次筛选对叙事页签不适用
+            （叙事是整局的连贯叙述，切夜会破坏因果链）——故叙事页签忽略 rpNight。 */
+    if (rpMode === 'story' && g._replayDoc) {
+      const d = g._replayDoc;
+      const parts = [];
+      if (d.meId != null && d.voice) {
+        parts.push('<div class="sec">你的视角</div>');
+        parts.push('<div class="storyvoice">' + esc(d.voice).replace(/\n/g, '<br>') + '</div>');
+      }
+      if (d.sys) {
+        parts.push('<div class="sec">全局编年</div>');
+        parts.push('<div class="storysys">' + esc(d.sys).replace(/\n/g, '<br>') + '</div>');
+      }
+      el('rp-body').innerHTML = parts.join('') ||
+        '<div class="hint">（本局无可生成的复盘叙事）</div>';
+      return;
+    }
+    /* K3（B3）：同上——进行中回退为空数组，绝不在对局中暴露隐藏历史 */
+    const rp = (end.replay || (g && g.over ? g.replay : null) || []).filter(e => !rpNight || e.night === rpNight);
     let html = '', cur = null;
     for (const e of rp) {
       const key = e.night + '/' + (e.step || '');
@@ -1077,6 +1166,18 @@
       /* v32（用户拍板）：音效按钮开启时黄光边缘提示（与 DEV 按钮激活态同款） */
       if (mb) { mb.classList.toggle('on', !!on); mb.style.opacity = ''; }
     };
+    /* 〔批次 38b〕BGM 播放速度条状滑杆：连续调节 0.5×~2×，即时生效并回显 ×N.NN。
+       音乐未起（bgm 关）时只记档，ensure() 时套用——SKAudio.setRate 的语义。
+       拖动过程（input）只改速度不出声（连发 tick 会变机关枪），松手（change）才响一声。 */
+    const ts = el('tempo-slider'), tv = el('tempo-val');
+    if (ts) {
+      const applyTempo = () => {
+        const r = global.SKAudio.setRate(ts.value);
+        if (tv) tv.textContent = '×' + r.toFixed(2);
+      };
+      ts.oninput = applyTempo;
+      ts.onchange = () => { applyTempo(); global.SKAudio.sfx('tick'); };
+    }
     el('btn-send').onclick = sendTalk;
     el('f-text').onkeydown = e => { if (e && e.key === 'Enter') { e.preventDefault(); sendTalk(); } };
     /* v32：队内频道（异形白天密谈） */
@@ -1094,11 +1195,7 @@
       }
       if (e.target && e.target.closest && e.target.closest('#btn-dev-close')) closeDevView();
       if (e.target && e.target.closest && e.target.closest('#dev-chip')) { devOvOpen = true; render(global.Game.g); return; }
-      /* 黑话术语表（全屏覆盖页）：开 / ✕ 关 */
-      if (e.target && e.target.closest && e.target.closest('#btn-slang')) { openSlang(); return; }
-      if (e.target && e.target.closest && e.target.closest('#btn-slang-close')) { closeSlang(); return; }
-      /* v32：开始页顶部三键——音效开关 / 规则速览 / 黑话术语表（独立覆盖页） */
-      if (e.target && e.target.closest && e.target.closest('#btn-slang-start')) { openSlang(); return; }
+      /* v32：开始页顶部两键——音效开关 / 规则速览（黑话术语表已删，〔批次 36〕） */
       if (e.target && e.target.closest && e.target.closest('#btn-rules')) { openRules(); return; }
       if (e.target && e.target.closest && e.target.closest('#btn-rules-side')) { openRules(); return; }   // v33：右栏底部规则入口
       if (e.target && e.target.closest && e.target.closest('#btn-rules-start')) { openRules(); return; }
@@ -1111,11 +1208,11 @@
         }
         return;
       }
-      /* v32：单机暂停 / 退出（仅单机模式显示按钮） */
+      /* v32：单机暂停 / 退出（仅单机模式显示按钮）；〔批次 38b〕orb 只留图标，汉字说明在 title */
       if (e.target && e.target.closest && e.target.closest('#btn-pause')) {
         global.Game.togglePause();
         const b = e.target.closest('#btn-pause');
-        if (b) b.textContent = global.Game.paused ? '▶ 继续' : '⏸ 暂停';
+        if (b) b.textContent = global.Game.paused ? '▶' : '⏸';
         return;
       }
       if (e.target && e.target.closest && e.target.closest('#btn-exit')) { global.Game.exitLocal(); return; }
@@ -1157,7 +1254,7 @@
       if (e.target && e.target.closest && e.target.closest('#btn-p-close')) { popPid = null; render(global.Game.g); }
     });
     document.addEventListener('keydown', e => {
-      if (e && e.key === 'Escape') { closeSlang(); closeRules(); closeDevView(); popPid = null; render(global.Game.g); }
+      if (e && e.key === 'Escape') { closeRules(); closeDevView(); popPid = null; render(global.Game.g); }
     });
     /* v32：职业备注 select（change 不经 click 委托，单独监听；个人笔记不进 AI 账本） */
     document.addEventListener('change', e => {
@@ -1182,15 +1279,6 @@
     if (global.Game.g) render(global.Game.g);
   }
 
-  /* ---------- 黑话术语表（全屏覆盖页） ---------- */
-  function openSlang() {
-    const ov = el('slang-overlay');
-    if (ov) { ov.classList.remove('hidden'); ov.scrollTop = 0; }
-  }
-  function closeSlang() {
-    const ov = el('slang-overlay');
-    if (ov) ov.classList.add('hidden');
-  }
   /* ---------- 规则速览（全屏覆盖页，v32：开始页顶部按钮打开） ---------- */
   function openRules() {
     const ov = el('rules-overlay');
@@ -1236,9 +1324,15 @@
         catch (err) { d = null; dg = null; }
         if (!d) return '';
         const pct = v => Math.round(v * 100);
-        const bar = `<span class="lg-bar"><i style="width:${pct(d.p_alien)}%" class="ba"></i><i style="width:${pct(d.p_king)}%" class="bk"></i><i style="width:${pct(d.p_human)}%" class="bh"></i></span>`;
+        /* D2：分布按阵营声明序渲染（原为写死的 异/外/人 三元组与三个条形类名）。
+           展示序 = FACTION[x].order 升序 → 异形(1) 外星人(2) 人类(3)，与原输出逐字一致。 */
+        const ord = (AI.FACTION_KEYS || []).slice()
+          .sort((a, b) => (D.FACTION[a].order || 0) - (D.FACTION[b].order || 0));
+        const bar = '<span class="lg-bar">' + ord.map(k =>
+          `<i style="width:${pct(AI.distGet(d, k))}%" class="${D.FACTION[k].barCls}"></i>`).join('') + '</span>';
         return `<div class="lg-row"><b>${x.id} 号 ${esc(x.name)}</b>${bar}` +
-          `<span class="lg-num">异 ${pct(d.p_alien)}% · 外 ${pct(d.p_king)}% · 人 ${pct(d.p_human)}%` +
+          `<span class="lg-num">` + ord.map(k =>
+            `${D.FACTION[k].short} ${pct(AI.distGet(d, k))}%`).join(' · ') +
           (dg != null ? ` · 危险 ${Math.round(dg)}` : '') + `</span></div>`;
       }).join('');
       html += `<div class="sec">我的怀疑度分布（三阵营 · 与 AI 投影同源）</div>` +
@@ -1260,12 +1354,15 @@
     /* ④ 角色私有资产 */
     const assets = [];
     if (me.checkPool && me.checkPool.size) {
+      /* B5（4.7.3，待拍板 I9）：池内不标注阵营 */
       assets.push('<div class="sec">神探·已查验池</div>' + [...me.checkPool.values()].map(v =>
-        `<div class="evt ${v.faction === 'human' ? 'good' : 'bad'}">${v.id} 号（第 ${v.night} 夜查验）：${({ human: '人类', alien: '异形', xeno: '外星人' })[v.faction]}（${v.roleName || v.role}）${v.published ? ' · 已公告' : ''}</div>`).join(''));
+        `<div class="evt info">${v.id} 号（第 ${v.night} 夜查验）：${v.roleName || (v.role ? roleNameOf(v.role) : '—')}${v.published ? ' · 已公告' : ''}</div>`).join(''));
     }
     if (me.crewChecks && me.crewChecks.size) {
-      assets.push('<div class="sec">船员·二查记录</div>' + [...me.crewChecks.entries()].map(([id, v]) =>
-        `<div class="evt ${v.locked ? (v.locked === 'human' ? 'good' : 'bad') : 'info'}">${+id} 号：${v.locked ? `已锁定 ${{ human: '人类', alien: '异形', xeno: '外星人' }[v.locked]}` : `已排除 ${v.excludes.map(r => (global.NLP && global.NLP.ROLE_NAME ? (global.NLP.ROLE_NAME[r] || r) : r)).join('、')}`}（查了 ${v.n} 次）</div>`).join(''));
+      /* A13（4.1.1 验证式）：查验记录 = 提交身份与是/否答案（「否」统一口径） */
+      assets.push('<div class="sec">船员·查验记录</div>' + [...me.crewChecks.entries()].map(([id, v]) =>
+        `<div class="evt info">${+id} 号（查了 ${v.n} 次）：${(v.results || []).map(r =>
+          `${roleNameOf(r.id)}→${r.ans ? '是' : '否'}`).join('；') || '（无有效作答）'}</div>`).join(''));
     }
     if ((me.markSeen && me.markSeen.size) || me.markEverSeen && me.markEverSeen.size) {
       assets.push('<div class="sec">医生·标记记忆</div>' + [...(me.markEverSeen || new Map()).entries()].map(([id, v]) =>

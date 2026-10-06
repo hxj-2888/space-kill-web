@@ -7,13 +7,15 @@
  * ============================================================= */
 (function (global) {
   const P = global.SKPred;
+  const RD = global.SKRoleDecl;                 // v6.6 阶段 2（D6）：能力分发表
 
   /* --- N401（C+，E5·全场）：④ 维修者暴露 ⇒ 必为工程师系且必为人类 ----------------
-     ★ 覆盖说明：④ 暴露在引擎里已走 revealPublic → 全场 p.known 硬源，本条不追求增量强度，
-     落地的是①可追溯推断通道登记 ②「原职业」连带推论（公告补标原职业后）。 */
+     ★ 覆盖说明：④ 暴露在引擎里已走 B5 揭示服务 → 全场 p.known 硬源（known 不写阵营，
+     阵营由职业推论），本条不追求增量强度，落地的是①可追溯推断通道登记
+     ②「原职业」连带推论（v6.6 B2 后公告不再标注原职业，推论由转职状态与语境承担）。 */
   function repairExposedKeyHuman(g, selfId) {
     const x = g.players.find(q => !q.out && q.id !== selfId && q.repairExposed &&
-      (q.role === 'engineer' || q.role === 'assistant'));
+      RD.hasGrant(q.role, 'repair'));                                  // D6：能力标签（工程师系）
     return x ? x.id : null;
   }
 
@@ -22,7 +24,7 @@
      形态：证群体不证个体（总量对账）⇒ 走普适层（B+），不指向任何个体。
      （被救回者 ≠ 好人：异形会用「自伤队友」制造濒死诱饵。） */
   function dyingSeenOf(g, p) {
-    if (p.role !== 'rescue' && p.role !== 'tempdoc') return null;
+    if (!RD.hasGrant(p.role, 'save')) return null;                     // D6：能力标签（救援族）
     const seen = p.dyingSeen;
     if (!seen || seen.night !== g.night || !seen.ids || !seen.ids.length) return null;
     const deadIds = new Set();

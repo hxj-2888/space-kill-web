@@ -59,7 +59,9 @@ for (let i = 0; i < N; i++) {
             const d = AI.suspDist(g, p, x.id);
             stateParts.push(
               'N' + g.night + '.' + p.id + '>' + x.id + ':' +
-              d.p_human.toFixed(6) + ',' + d.p_alien.toFixed(6) + ',' + d.p_king.toFixed(6) + ':' +
+              /* D2：经访问器读取，序列化顺序仍固定为 human, alien, xeno（与原
+                 p_human/p_alien/p_king 的取值与顺序逐位一致 ⇒ 指纹 hash 不变） */
+              AI.distGet(d, 'human').toFixed(6) + ',' + AI.distGet(d, 'alien').toFixed(6) + ',' + AI.distGet(d, 'xeno').toFixed(6) + ':' +
               AI.dangerOf(g, p, x.id).toFixed(6));
           }
         }

@@ -67,32 +67,50 @@
   /* ============ 性格调制（§4 层三）：gate 阈值按 θ 偏移 ============
      激进 E7/E8 阈值低（更易激活），保守 E9/E10 阈值低；常驻专家不受调制 */
   const BASE_GATE = 0.5;
-  const THETA_BIAS = { E7: { 25: -0.15, 50: 0, 75: 0.15 }, E8: { 25: -0.15, 50: 0, 75: 0.15 }, E9: { 25: 0.10, 50: 0, 75: -0.10 }, E10: { 25: 0.10, 50: 0, 75: -0.10 } };
+  /* K2：专家 gate 偏置的档位表改由性格轴声明给出（js/v66/declaration/traits.js）。
+     迁移前为四张手写 {25,50,75} 表；迁移后「新增一档性格」只需在声明层补档位。 */
+  const TR = global.SKTrait;
+  const THETA_BIAS = {
+    E7: TR.table('theta', 'gateBiasE7'), E8: TR.table('theta', 'gateBiasE8'),
+    E9: TR.table('theta', 'gateBiasE9'), E10: TR.table('theta', 'gateBiasE10'),
+  };
   function gateThreshold(expert, self) {
     const bias = (THETA_BIAS[expert] || {})[self && self.theta] || 0;
     return Math.max(0, Math.min(1, BASE_GATE + bias));
   }
-  /* ============ v32 批 5′：角色专家注册表（R01~R13，13 席 = 引擎角色键 1:1）============
-     方案 §4.1 写「16 席（13 初始 + 3 转职）」，但引擎 ROLES 恰是 13 个角色键
-     （10 初始 + 3 转职系），方案的「16」内部计数不一致——按交接文档 §1.2/§9.1 裁定：
-     以角色键 1:1 落 13 席开工，差额（异形按进化方向拆分？）留待拍板。
+  /* ============ v6.6 阶段 2（D4 注册表去编号）：角色专家注册表 ============
+     迁移前为 R01~R13 编号键（13 席 = 引擎角色键 1:1）。编号本身即声明上限、且与角色键
+     构成平行结构（8 类框死点之 E 类）。D4 改为**键即身份**：ROLE_SPEC[roleKey]，
+     指标改比值不写死分母。实测迁移前 ROLES_EXPERTS 全仓零消费者（仅声明+导出），
+     故本次重键不改变任何运行时行为。
      转职 = 换眼睛 + 留记忆（规则 118/120）：doTransfer 改写 p.roleExpert（挂载新角色专家、
      卸载原职业的），已入账的 p.tEvents 不删除。
-     私有源（source 列）= 分叉度的全部来源（方案 §4.1：「这 16 个私有源就是分叉度的全部来源」）。 */
-  const ROLES_EXPERTS = {
-    R01: { role: 'crew',      name: '普通船员',   source: '查验二选一（弱）· 维修人数 N（4.1）' },
-    R02: { role: 'detective', name: '神探',       source: 'checkPool 已查验池（4.7）' },
-    R03: { role: 'sheriff',   name: '警长',       source: '巡逻结果 · 子弹/悬赏流水（4.4）' },
-    R04: { role: 'bodyguard', name: '保镖',       source: '受袭感知：伤害类型三分（4.8）' },
-    R05: { role: 'bio',       name: '生化医师',   source: '抗体生效反馈（P15）· 标记记忆（4.5）' },
-    R06: { role: 'rescue',    name: '救援医师',   source: '当夜全场濒死名单（P13）' },
-    R07: { role: 'inspector', name: '验票官',     source: '票源（票型记录，2.3）' },
-    R08: { role: 'engineer',  name: '工程师',     source: '累计维修量 · 距暴露阈值 · 已暴露态（4.3）' },
-    R09: { role: 'alien',     name: '异形',       source: '队友互认 · 标记清单可辨真伪（3.3④）· attackLog' },
-    R10: { role: 'xeno',      name: '外星人',     source: '蛰伏查验结果 · 夜晚免疫/感染治疗额度（7.2.4）' },
-    R11: { role: 'armed',     name: '武装船员',   source: '子弹/悬赏 · 警长编号（规则 138 双向识别）' },
-    R12: { role: 'assistant', name: '助理工程师', source: '累计维修量 · 距 3.0 阈值（规则 130，阈值独立）' },
-    R13: { role: 'tempdoc',   name: '临时医生',   source: '当夜濒死名单（P13）' },
+     private 列 = 该角色的私有源（分叉度的全部来源，方案 §4.1）；下一批（C2 转录）
+     按 2.8.10 九关把该列结构化进 RoleDecl.visibility / charges。 */
+  const ROLE_SPEC = {
+    crew:      { name: '普通船员',   private: ['查验二选一（弱）· 维修人数 N（4.1）'] },
+    detective: { name: '神探',       private: ['checkPool 已查验池（4.7）'] },
+    sheriff:   { name: '警长',       private: ['巡逻结果 · 子弹/悬赏流水（4.4）'] },
+    bodyguard: { name: '保镖',       private: ['受袭感知：伤害类型三分（4.8）'] },
+    bio:       { name: '生化医师',   private: ['抗体生效反馈（P15）· 标记记忆（4.5）'] },
+    rescue:    { name: '救援医师',   private: ['当夜全场濒死名单（P13）'] },
+    inspector: { name: '验票官',     private: ['票源（票型记录，2.3）'] },
+    engineer:  { name: '工程师',     private: ['累计维修量 · 距暴露阈值 · 已暴露态（4.3）'] },
+    alien:     { name: '异形',       private: ['队友互认 · 标记清单可辨真伪（3.3④）· attackLog'] },
+    xeno:      { name: '外星人',     private: ['蛰伏查验结果 · 夜晚免疫/感染治疗额度（7.2.4）'] },
+    armed:     { name: '武装船员',   private: ['子弹/悬赏 · 警长编号（规则 138 双向识别）'] },
+    assistant: { name: '助理工程师', private: ['累计维修量 · 距 3.0 阈值（规则 130，阈值独立）'] },
+    tempdoc:   { name: '临时医生',   private: ['当夜濒死名单（P13）'] },
+    /* 〔批次 29 A6〕两变体各有真实私有源，登记于同一表——键集与 RoleDecl 一致由 D4 断言把守。
+       私有源进账通道随批次 18/19 统一建立，本批只登记声明（照 sheriff/engineer 现有粒度）。 */
+    hunter:    { name: '猎手',       private: ['嗅探结果（保护状态存在性·4.4.8）· 攒弹进度与子弹流水（4.4.7）'] },
+    listener:  { name: '窃听者',     private: ['当夜配对私聊读取内容（4.12.1）· 报告额度（4.12.5⑦）'] },
+    /* 〔批次 31〕两变体的私有源：工匠知库存/铸造进度/自身甲况，毒师见全场毒药清单（4.6.4③可见性）。 */
+    artisan:   { name: '工匠',       private: ['护甲库存与铸造进度（4.11.3）· 自身甲况与到期夜（4.11.2①之二）'] },
+    poisoner:  { name: '毒师',       private: ['全场毒药清单（4.6.4③）· 毒药/解药额度余量（4.6.4⑥）'] },
+    /* 〔批次 32〕死囚的私有源是**镜像账本**本身（2.8.5）——每个身份的槽位状态各自可读，
+       外加「可变形身份池」与「冷却何时解除」这两条只有变形者本人知道的信息。 */
+    convict:   { name: '死囚外星人', private: ['各身份镜像槽位与已到账额度（2.8.5）· 变形池与冷却解除夜（6.8.3③）· 复生额度（6.8.4④）'] },
   };
 
   /* ============ v32 批 7′ 前置：通用专家 G1~G8（方案 §4.2，与 E 组的合并映射）============
@@ -113,6 +131,6 @@
 
   global.MoERegistry = {
     RANK, EXPERTS, HARD_ROUTE, RELEVANCE, GATES, BASE_GATE, THETA_BIAS, gateThreshold,
-    ROLES_EXPERTS, G_EXPERTS,
+    ROLE_SPEC, G_EXPERTS,
   };
 })(typeof window !== 'undefined' ? window : globalThis);

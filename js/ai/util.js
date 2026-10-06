@@ -21,7 +21,8 @@
   }
   const knownOf = (g, me, t) => me.known.get(t.id) || t.revealed || null;
   const BAND_DOWN = { 'A-': 'B-', 'B-': 'C', 'C': 'C-', 'C-': 'D+' };
-  const GRUDGE_W = { 25: 0.5, 50: 0.3, 75: 0.15 };
+  /* K2：性格轴的档位表由声明层给出（js/v66/declaration/traits.js；迁移前为手写字面量） */
+  const GRUDGE_W = global.SKTrait.table('theta', 'grudgeW');
 
   global.AIUtil = { clamp, alive, aliveF, byId, isAlly, pick, gauss, knownOf, BAND_DOWN, GRUDGE_W };
 })(typeof window !== 'undefined' ? window : globalThis);

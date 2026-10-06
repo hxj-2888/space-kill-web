@@ -92,7 +92,7 @@
                此前真神探在讨论里说一句「我查过 X，他是异形」就给全场写硬锁（p.known），
                与官方公告同权。现改：口头汇报只走【可伪造的宣称】入账（下面的目标侧证据
                Tiers.RULE.lockEnemy/lockHuman + 说话者自证），**不再写全场硬锁**。
-               硬锁的唯一来源保留为官方 ③ 公告（steps.js 的 announce('③') + revealPublic）
+               硬锁的唯一来源保留为官方 ③ 公告（steps.js 经 B5 揭示服务 reveal('detectiveAnnounce')）
                以及角色自身的私有查验（`p.checkPool`）；冒领者与真神探在证据层同权，
               这正是定案 20 / N400「冒领与清零」博弈成立的前提。 */
             recordEvidence(g, speakerId, c, p.role === 'detective'
@@ -228,6 +228,14 @@
           p.promises.push({ night: g.night, tier: c.payload.tier, targets: c.targets.slice(),
             kind: c.payload.kind || 'vote',
             verifiable: c.payload.kind !== 'protect' });
+          /* 拟人层 A：承诺进入**每位观察者**的长期记忆（跨夜可引用：「他答应过…」）。
+             承诺是公开发言内容，人人都听见了，故全员可记（与 saidRole 同口径）。 */
+          if (global.AIMemory) {
+            for (const o of g.players) {
+              if (o.out || o.id === speakerId) continue;
+              global.AIMemory.notePromise(o, speakerId, g.night, c.payload.tier, c.targets);
+            }
+          }
           break;
         default:
           recordEvidence(g, speakerId, c, '其他');

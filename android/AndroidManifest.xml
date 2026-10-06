@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- 版本号刻意「不」写在这里：aapt2 link 传入的 versionCode / versionName 会被
+     manifest 里显式声明的同名属性覆盖（旧坑：build.cmd 传了 2.0preview，打出来仍是 1.0.0）。
+     单一真源 = 根 package.json 的 version / androidVersionCode，由 build.cmd 注入。 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.sk.game"
-    android:versionCode="1"
-    android:versionName="1.0.0">
+    package="com.sk.game">
   <!-- 联机（ws://局域网或公网服务器）需要网络权限 -->
   <uses-permission android:name="android.permission.INTERNET"/>
   <application

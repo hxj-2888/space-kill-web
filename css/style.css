@@ -270,25 +270,6 @@ button.icon.dev.on{color:var(--warn);border-color:#6a5518;background:#3a2e0e;box
 .devchip:hover{filter:brightness(1.15)}
 #form-left{color:var(--accent);font-weight:700}
 
-/* ---------- 黑话术语表（全屏覆盖页：不透明背景，覆盖并屏蔽主页渲染） ---------- */
-#slang-overlay{
-  position:fixed;inset:0;z-index:70;overflow-y:auto;
-  background:linear-gradient(180deg,#0a1220,#070c17);
-  padding:18px 22px 44px;
-}
-#slang-overlay .ov-head{max-width:1080px;margin:0 auto 12px;display:flex;align-items:center;justify-content:space-between;gap:8px}
-#slang-overlay .ov-head .sec{margin:0;font-size:16px}
-.sg-intro{max-width:1080px;margin:0 auto 16px;font-size:12px;line-height:1.7;color:var(--dim)}
-.sg-intro b{color:var(--txt)}
-.sg-grid{max-width:1080px;margin:0 auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:12px}
-.sg-card{background:linear-gradient(180deg,var(--panel2),var(--bg2));border:1px solid var(--line2);border-radius:12px;padding:12px 14px}
-.sg-card h4{margin:0 0 8px;color:var(--accent);font-size:13px}
-.sg-item{font-size:12px;line-height:1.6;padding:4px 0;border-top:1px dashed var(--line)}
-.sg-item:first-of-type{border-top:none}
-.sg-item b{color:var(--txt)}
-.sg-item span{color:var(--dim)}
-button.icon.dev.sg{color:var(--accent2,var(--accent))}
-
 /* ---------- 公开发言流 ---------- */
 .chatbox{border-top:1px solid var(--line);margin-top:10px;padding-top:9px}
 .chatlog{max-height:220px;overflow:auto;padding-right:2px}
@@ -325,6 +306,11 @@ button.icon.dev.sg{color:var(--accent2,var(--accent))}
 .replay{margin-top:14px;border-top:1px solid var(--line);padding-top:12px}
 .nights{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:9px}
 .rp-n.sel{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+/* 〔批次 34 · 叙事层 N2〕复盘视图页签 + 叙事正文样式：与原始流视觉上明确区分，
+   叙事为「系统口吻」（编年史）与「你的口吻」（个人讲法）两段，后者用暖色以示主观。 */
+.rp-m.sel{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+.storysys{font-size:12.5px;line-height:1.75;color:#cfe0f5;padding:6px 10px;background:rgba(12,22,40,.6);border-radius:8px;white-space:pre-wrap}
+.storyvoice{font-size:13px;line-height:1.85;color:#ffe6bd;padding:8px 12px;background:rgba(40,28,12,.5);border-left:2px solid #8a6d2f;border-radius:0 8px 8px 0;white-space:pre-wrap}
 .rp-body{max-height:46vh;overflow:auto;background:rgba(8,14,27,.9);border:1px solid var(--line);border-radius:11px;padding:10px}
 .god{color:#ffd98a;font-size:12.5px;padding:3px 8px;border-left:2px solid #8a6d2f;margin:3px 0;background:rgba(58,45,18,.25);border-radius:0 6px 6px 0}
 .prv{color:#9fd8ff;font-size:12px;padding:3px 8px;border-left:2px solid #2f5a8a;margin:3px 0;background:rgba(18,36,58,.35);border-radius:0 6px 6px 0}
@@ -437,6 +423,15 @@ button.icon.dev.sg{color:var(--accent2,var(--accent))}
 }
 .orb:hover{color:var(--txt);border-color:var(--accent)}
 .orb[style*='none'] + .orb{margin-left:0}
+/* 〔批次 38b〕BGM 播放速度条状滑杆（orb 行内嵌，accent 色轨+发光滑块） */
+.tempo-ctl{display:inline-flex;align-items:center;gap:6px;padding:0 4px}
+#tempo-slider{-webkit-appearance:none;appearance:none;width:92px;height:4px;border-radius:2px;
+  background:var(--line2);outline:none;cursor:pointer}
+#tempo-slider::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:12px;height:12px;border-radius:50%;
+  background:var(--accent);box-shadow:0 0 8px rgba(0,229,176,.5);cursor:pointer}
+#tempo-slider::-moz-range-thumb{width:12px;height:12px;border:none;border-radius:50%;
+  background:var(--accent);box-shadow:0 0 8px rgba(0,229,176,.5);cursor:pointer}
+#tempo-val{font-size:11px;color:var(--dim);font-variant-numeric:tabular-nums;min-width:40px;text-align:left}
 #screen-game .board{
   flex:1 1 auto;display:grid;grid-template-columns:230px 1fr 320px;
   gap:0 18px;min-height:0;

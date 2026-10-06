@@ -11,6 +11,13 @@ const ROOT = path.join(__dirname, '..');
 const OUT = 'C:\\Users\\ASUS\\Desktop\\太空杀游戏引擎.docx';
 /* 读取路径与 tools/mc.cjs 的写出路径保持一致（Desktop/.tmp_docs），修正此前多一层 .. 导致读到旧快照 */
 const MC = (() => { try { return JSON.parse(fs.readFileSync(path.join(ROOT, '..', '.tmp_docs', 'mc_result.json'), 'utf8')); } catch (e) { return null; } })();
+/* 回归断言条数：从被测文件实时统计。此前正文多处硬编码「100 条 / 64 条 / 71 条」，随批次增长
+   已全部失真（v6.6 阶段 2 实测 168 条），而其中一部分本身是「开工前自检」的操作指令——
+   硬编码一旦落后即误导判断。此后正文一律引用本常量，不再写死数字。 */
+const ASSERT_OK_COUNT = (() => {
+  try { return (fs.readFileSync(path.join(__dirname, 'test-fix-v26.cjs'), 'utf8').match(/^\s*ok\(/gm) || []).length; }
+  catch (e) { return null; }
+})();
 
 const border = { style: BorderStyle.SINGLE, size: 1, color: 'BFC9D9' };
 const borders = { top: border, bottom: border, left: border, right: border };
@@ -371,7 +378,7 @@ children.push(table([
    'chan_wired → 32/499；chan_fired → 16；expert_active 9/13（E2 激活）'],
 ], [900, 5600, 2860]));
 children.push(h2('4.5 工具链与仪器'));
-children.push(bullet('tools/test-fix-v26.cjs（v26 新增 29 条断言 → 现 **100 条**）：每条对应一处缺陷——硬源锁定／透视／宣称目标侧证据／档位三层计价／承诺兑现／K2 判据／执行器幂等与量纲／通道挂载／医生与验票官私有通道／战术库结构（批 3）／保护侧 7 条通道与 N417 下界（批 3.5）。'));
+children.push(bullet('tools/test-fix-v26.cjs（v26 新增 29 条断言 → 现 **' + ASSERT_OK_COUNT + ' 条**，实时统计）：每条对应一处缺陷——硬源锁定／透视／宣称目标侧证据／档位三层计价／承诺兑现／K2 判据／执行器幂等与量纲／通道挂载／医生与验票官私有通道／战术库结构（批 3）／保护侧 7 条通道与 N417 下界（批 3.5）／v6.6 阶段 1-2（A7 步位重排、12 处硬数值、A13-A16、B5 揭示服务、G1 事件族、D1/D4/D7/D8 声明层、C2 能力注册表）。'));
 children.push(bullet('tools/mc.cjs：新增 chan_unmounted、chan_fires、通道分叉度、证据层分叉度、分阵营 AUC、宣称侧计数；补印 defeat_mode / nightHist / avgRepair。'));
 children.push(bullet('tools/verify-heat.js：自 v22 起因加载列表缺 tiers.js 而一运行就崩，已修；读数改「投票前共识榜名次」——被驱逐者中 43.1% 为第 1 名、73.8% 前三（随机基线约 14%/43%），此前「被驱逐者热度更低」是幸存者偏差 + 快照时点双重伪影。'));
 children.push(bullet('package.json 补齐 scripts（README 里写的 npm start / npm run sim 此前并不存在），新增 npm run test:all。'));
@@ -523,7 +530,7 @@ pushCode(children, '10.1  server/server.js', G.server[0]);
 /* 11 附录：缺陷回归断言 */
 children.push(new Paragraph({ children: [new PageBreak()] }));
 children.push(h1('11. 附录：缺陷回归断言（tools/test-fix-v26.cjs）'));
-children.push(p('64 条断言（v26 的 29 条 + v28 系列 25 条 + v31 批 1~2 新增 10 条），每条对应一处已修缺陷：硬源锁定 / 透视四处 / 宣称类目标侧证据 / 指控档位三层计价 / 承诺兑现判据 / K2 护队指纹 / 执行器幂等与量纲 / 通道编号挂载 / 医生记忆通道（N139/N141/N149）/ 验票官通道（N188/N216）/ 影子层与仪器 / 破坏局势相关性 / P 档映射与视角依赖档位 / 承诺词表与 A01 命中 / 预告类结算；' +
+children.push(p(ASSERT_OK_COUNT + ' 条断言（v26 的 29 条 + v28 系列 25 条 + v31 批 1~2 新增 10 条 + 其后各批增量；**条数实时统计，不再写死**），每条对应一处已修缺陷：硬源锁定 / 透视四处 / 宣称类目标侧证据 / 指控档位三层计价 / 承诺兑现判据 / K2 护队指纹 / 执行器幂等与量纲 / 通道编号挂载 / 医生记忆通道（N139/N141/N149）/ 验票官通道（N188/N216）/ 影子层与仪器 / 破坏局势相关性 / P 档映射与视角依赖档位 / 承诺词表与 A01 命中 / 预告类结算；' +
   'v28 新增：影子层 targets[] 形态可算 + 无目标安全返 0 + 返回值分布可读（A1/C1）· 执行器求值计数（C3）· crew 自证幅度与档位来源（A6①）· 宣称医生（旧别名 doc）产证据（A6③）· 谎称船员被对证击穿（A6②）· K1 档位来源与被沉默者豁免（A5）。' +
   '运行：node tools/test-fix-v26.cjs —— 失败即视为修复失效。'));
 pushCode(children, '11.1  tools/test-fix-v26.cjs', G.reg[0]);
@@ -583,7 +590,7 @@ G.tool.forEach((b, i) => pushCode(children, '13.' + (i + 1) + '  tools/' + b.tit
 children.push(new Paragraph({ children: [new PageBreak()] }));
 children.push(h1('14. 交接要点'));
 children.push(p('给接手者的十一条（每条的背景都在前 12 章里）：'));
-children.push(bullet('① 开工前先跑三件事确认环境：node tools/test-fix-v26.cjs（应为 **100/100**）· node tools/fingerprint.cjs 200 1（当前基线 hash 应为 **6c04657a…**；此前的 4fa952e7… / 91e2f543… / 4a5fb176… / 120d2cdc… / 9a600934… / 9ee5c4ae… 均已因有意的行为改动作废）· node tools/sync-html.cjs --check（应为一致）。'));
+children.push(bullet('① 开工前先跑三件事确认环境：node tools/test-fix-v26.cjs（当前应为 **' + ASSERT_OK_COUNT + ' 条全通过、0 失败**，条数实时统计）· node tools/fingerprint.cjs 200 1（行为指纹：v6.6 有意改动后旧基线 hash 一律作废，以最近一次「行为中性」批次的记录为准）· node tools/sync-html.cjs --check（应为一致）。'));
 children.push(bullet('② 改「不应改变行为」的东西（搬移 / 重命名 / 加注释）：必须过 fingerprint 的 200 局逐局比对；hash 不一致就回滚，不要凭感觉判断。'));
 children.push(bullet('③ 改行为（数值 / 判据 / 通道）：先存档一次 fingerprint，再改动；然后看 mc 500 的三组读数——胜负分布 · 分叉度 · 分阵营 AUC。'));
 children.push(bullet('④ 新增 js 文件：只改 tools/load-order.cjs 的 ORDER，然后跑 node tools/sync-html.cjs；不要手改 index.html 的脚本块。'));

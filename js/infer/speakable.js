@@ -2,9 +2,11 @@
    定位：这是总表 hundreds 通道的 speakable 字段在本阶段的雏形——
    只有【发言者自己确实持有、且规则允许其声张】的信息才会成为候选，
    从源头杜绝「说出 AI 不该知道的事」（总表判据：AI 不蠢，属选项生成层过滤）。
-   本阶段不新增任何权重，发言开合概率沿用 ai/speak 里既有的西塔三档口径 0.8/0.5/0.2。 */
+   本阶段不新增任何权重：发言开合概率由性格轴声明给出——
+   SKTrait.traitValue('theta','claimRate')（K2 强度轴声明化，档位知识只在 traits.js；
+   旧注释所写「西塔三档 0.8/0.5/0.2」为迁移前硬编码口径，已失效）。 */
 (function (global) {
-  const OPEN_RATE = { 25: 0.8, 50: 0.5, 75: 0.2 };   // 与 ai.js:speak 侦探/船员分支同口径，未新建数值
+  const RD = global.SKRoleDecl;                        // v6.6 阶段 2（D6）：能力分发表
 
   function candidatesFor(g, p) {
     const IR = global.IR;
@@ -23,7 +25,7 @@
       });
     }
     /* ② 维修体验：工程师 / 助理工程师当夜确有维修记录时才能说 */
-    if ((p.role === 'engineer' || p.role === 'assistant') && (p.repairedTonight || 0) > 0) {
+    if (RD.hasGrant(p.role, 'repair') && (p.repairedTonight || 0) > 0) {   // D6：能力标签（维修体验）
       out.push({
         source: 'repair-experience', verifiable: 'partial', cost: '④ 维修总量可被部分对账',
         claim: IR.mk('repair', [], {}, { speaker: p.id, night, step: g.step, channel: 'public' }),
@@ -36,19 +38,10 @@
         claim: IR.mk('brew', [], {}, { speaker: p.id, night, step: g.step, channel: 'public' }),
       });
     }
-    /* ④ v32 语言层（角色黑话出口）：保镖的公开背书——「我保 X / 我挺 X」。
-       说话者确实在保护 X（lastProtected = 步骤 3 落盘）时才是合法声张；
-       用 defend 类型（已有 IR 类型 + 渲染 + 解析链），承诺公开化会把自己暴露
-       （N400 同构：保护承诺 → 被保护对象成为集火点），与 R38 自证同档风险。 */
-    if (p.role === 'bodyguard' && p.lastProtected != null) {
-      const t = g.players.find(x => x.id === p.lastProtected);
-      if (t && !t.out) {
-        out.push({
-          source: 'guard-backing', verifiable: false, cost: '保护不可验证（§5.2 verifiable=false 同构），但背书会招火',
-          claim: IR.mk('defend', [t.id], {}, { speaker: p.id, night, step: g.step, channel: 'public' }),
-        });
-      }
-    }
+    /* ④ （T18-d，2026-10-05 文本审查第二遍）原「保镖公开背书 guard-backing」整块删除——
+       channels.data.js Z03 明文「保护不可证明 → 不生成」：保护对象是保镖私有信息，
+       公开「我保 X」既无来源门禁价值、又把被保护者变成集火点（N400 同构）。
+       defend 句型与解析链保留（玩家自行输入仍可被识别）。 */
     /* ⑤ v32 语言层（角色黑话出口）：验票官的票源观察——「X 号在跟 Y 号的票」。
        票源是验票官私有（2.3 例外一），公开转述票型 = N219（B−）的正主出口；
        用 quote 类型（转述归因，已有解析链）：「X 说/咬 Y」句式，票源转述共用该结构。 */
@@ -72,7 +65,7 @@
   function pick(g, p, rng) {
     const list = candidatesFor(g, p);
     if (!list.length) return null;
-    const rate = OPEN_RATE[p.theta] != null ? OPEN_RATE[p.theta] : 0.5;
+    const rate = global.SKTrait.traitValue('theta', 'claimRate', p.theta);   // K2：宣称开合率由性格轴声明给出
     if (rng && rng.chance ? !rng.chance(rate) : Math.random() >= rate) return null;
     /* 优先说「可被部分验证」的那条——不可验证的空话价值最低 */
     list.sort((a, b) => (b.verifiable ? 1 : 0) - (a.verifiable ? 1 : 0));

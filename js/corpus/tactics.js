@@ -1,10 +1,12 @@
 /* 浑水摸鱼系统 · 异形与外星人战术库（v21，N336~N400）数据化。
    定位（原文件附录）：本库是「语言库的语料规格」与「AI 行为选项池」，
    不作为推断通道进入估值层；排错条目（N397~N400）并入 Z 档负样本库，
-   由 infer/filter.js 在**生成前**统一拦截——先生成再删除是浪费，且语气犹疑。
+   由 Tactics.filterClaims 在**生成前**统一拦截——先生成再删除是浪费，且语气犹疑。
    核心公式：实际生存力 ＝ 评估能力 × 安全选项数量。
    平衡红线：安全宣称只能维持基线，不能建立强信任（N348）。 */
 (function (global) {
+  /* v6.6 阶段 2（D6）：能力分发表——医生数等「按能力而非按职业」的判定一律问声明层 */
+  const RD = global.SKRoleDecl;
   /* ---------- 一、安全宣称库 N336~N348：任何身份可安全使用（异形的唯一话术空间） ---------- */
   const SAFE = [
     { id: 'N336', kind: 'vote-promise', risk: 0, note: '票型承诺：不绑定能力，异形少数能兑现的承诺',
@@ -29,8 +31,8 @@
       say: ['这点我之前确实想错了，认。', '我昨天判断有偏差，修正一下。'] },
     { id: 'N346', kind: 'hedge', risk: 0, note: '表达不确定性：安全且提升可信度',
       say: ['我现在的判断没什么把握。', '说实话我也没看清。'] },
-    { id: 'N347', kind: 'emote', risk: 0, note: '情绪表达：不含信息量故无暴露风险',
-      say: ['这局势太难受了。', '每晚都睡不好，谁懂。'] },
+    { id: 'N347', kind: 'emote', risk: 0, note: '情绪表达：不含信息量故无暴露风险。〔批次 36 情绪降档〕措辞收一档——保留情绪（拟真），去戏剧化与网感（「太难受」「谁懂」类）；强度棘轮见门禁 §29',
+      say: ['这几晚过得不太平。', '连着熬，有点疲惫。'] },
   ];
   const SAFE_LIMIT = { id: 'N348', note: '★★★ 安全宣称的局限：只能维持基线，不能建立强信任——本库的地基' };
 
@@ -50,7 +52,7 @@
     /* 零风险：只维持存在感，任何身份可用（与 SAFE 池同族） */
     A('N349', '主动附和', 'zero', { act: null, say: ['这点我同意。', '上面说的有道理。'] }),
     A('N350', '引用公开信息并复述', 'zero', { act: null, say: ['净破坏量又涨了，大家都看到了。', '死亡名单摆在那，自己品。'] }),
-    A('N351', '情绪表态', 'zero', { act: null, say: ['这局势太难受了。', '每晚都睡不好。'] }),
+    A('N351', '情绪表态', 'zero', { act: null, say: ['局势是紧了点。', '连着熬，谁都累。'] }),
     /* 低风险：怀疑但不硬咬 */
     A('N352', '假意怀疑队友（轮换）', 'low', {
       when: (g, p) => matesOf(g, p).length > 1 && g.night >= 3,
@@ -103,8 +105,12 @@
       say: ['你们冲我来的这套我见多了，我是被冤枉的那个。'] }),
     A('N365', '主动提供部分真相', 'high', {
       when: (g, p) => (p.alien && p.alien.destroyTotal10 >= 30) && p.repairExposed !== true,
-      act: null, say: ['破坏的事我承认看到过一点，但不是我干的。'],
-      note: '已积累破坏量时，先自曝"看到"以解释痕迹' }),
+      act: null,
+      /* T18-h（2026-10-05 文本审查第二遍）：原 say「破坏的事我承认看到过一点」暗示拥有
+         攻击视角——与 N369「说出攻击反馈＝承认出过刀，故不产出」自相矛盾。改写为
+         公开信息（⑤总量公告）复述＋立场声明，不携带任何攻击视角。 */
+      say: ['昨晚的破坏量不小，但跟我没关系。'],
+      note: '已积累破坏量时，用公开信息撇清（只引用⑤公告，不暗示知情）' }),
     A('N366', '轮换破坏规避暴露', 'high', { act: null, note: '调度条目：由破坏档位选择（decide.js 的 N367/N49 档位逻辑）承担' }),
     A('N367', '破坏量选小值换隐蔽', 'high', { act: null, note: '调度条目：decide.js 的 sabAmount 自选档已实现' }),
     A('N368', '结茧自保（队内留痕）', 'high', { act: null, note: '调度条目：PHASES 的 kill-cocoon-only 已实现' }),
@@ -162,7 +168,7 @@
   }
   function aliveN(g) { return g.players.filter(x => !x.out).length; }
   function doctorsAlive(g) {
-    return g.players.filter(x => !x.out && (x.role === 'bio' || x.role === 'rescue' || x.role === 'tempdoc')).length;
+    return g.players.filter(x => !x.out && RD.hasGrant(x.role, 'treat')).length;   // D6：能力标签（医生系）
   }
   /* 队内分工现状（N372）：伪装 / 破坏 / 潜伏 —— 只读异形自有信息（alien.dir 与破坏累计） */
   function squadRoles(g, p) {
@@ -203,11 +209,9 @@
     let text = null, claim = null;
     if (opt.act) claim = { kind: opt.act.kind, payload: opt.act.payload };
     if (opt.say && opt.say.length) text = rng.pick(opt.say);
-    if (opt.id === 'N372') {
-      const r = squadRoles(g, p);
-      text = `我们三个分开走：${r.destroy.length ? '他去压机器' : '没人压机器'}，` +
-             `${r.disguise.length ? '他在场上混' : '场上没人接话'}，剩下的继续趴着。`;
-    }
+    /* T18-f（2026-10-05 文本审查第二遍）：删除 N372 的「我们三个分开走…」文本生成——
+       该句在公开频道说出队内人数与分工，违反 5.10（队内共享仅队内可见）。
+       squadRoles() 数据用途保留（decide 战术分支），文本出口退役；异形协调走队内私聊（2.2⑤）。 */
     (p.tacticLog = p.tacticLog || []).push({ night: g.night, id: opt.id, risk: opt.risk });
     return { opt, text, claim };
   }
@@ -256,7 +260,7 @@
        0 = 其余（不排除保护，只是不加权） */
   function protectPriority(g, p, x, channel) {
     if (!x || x.out || x.id === p.id) return 0;
-    const exposedKey = !!x.repairExposed && (x.role === 'engineer' || x.role === 'assistant');
+    const exposedKey = !!x.repairExposed && RD.hasGrant(x.role, 'repair');   // D6：能力标签（工程师系）
     const forecaster = (x.promises || []).some(pr => pr.tier === 'strong');
     if (exposedKey || forecaster) return 3;
     const pubRole = x.claimedRole || (x.revealed && x.revealed.role) || null;

@@ -21,6 +21,28 @@
   function runChannelsAll(g) {
     const AI = global.AI;
     if (!AI || !global.Channels) return;
+    /* ---- 通道库使用档位（第二十五批 · 降级：不再作为推理的首要素材）----
+       消融实测（tools/channel-ab.cjs，200 局 / 验证集 501–700，主判据非异形 AUC）：
+         档位 full 现状            非异形 0.500 · top1 61.8% · 残局 0.742
+         档位 off 全关              非异形 0.498 · top1 63.8% · 残局 0.726
+       ⇒ 通道库的**边际贡献仅 +0.002**，且在开局与 top1 上是**负贡献**；唯一正贡献是**残局
+         （+0.016）**——残局信息稀薄时，通道的算术约束（破坏量区间、存活数、档位距离）才显出价值。
+       因此降级方案不是「删掉」，而是**限定使用范围**：只在残局运行。
+         late（默认）—— 仅存活≤6 或第 6 夜及以后运行；开局/中期不跑。
+         full          —— 旧行为，保留为**回退路径**（启动前注入 SK_CHAN_MODE='full'）。
+         off           —— 全关（对照/审计用）。
+       ⚠ 两种读法：
+       ① **不读 process.env** —— 引擎跑在 makeCtx 沙箱里，ctx.process 是 undefined，
+          在模块内读 process 会**永远取不到值**（曾因此让 full 档静默失效、误判为降级已生效）。
+          档位一律从 `global.SK_CHAN_MODE` 取，由宿主（Node 入口/工具）在 loadInto 之后注入。
+       ② **不按任何指标设阈值**——「残局」是规则概念（1.4 残局与人数条件），判据取自规则而非读数；
+          AUC 只用于事后验证效果，不参与本函数任何分支（铁律一）。 */
+    const MODE = global.SK_CHAN_MODE || 'late';
+    if (MODE === 'off') return;
+    if (MODE === 'late') {
+      const al = (g.players || []).filter(p => !p.out).length;
+      if (al > 6 && g.night < 6) return;                 // 开局与中期不跑（残局限定）
+    }
     if (!g._chanFired) g._chanFired = new Set();
     if (!g._chanFires) g._chanFires = {};
     /* v27 仪器（C3）：每条接线通道的「求值次数 / 命中次数」。
@@ -36,6 +58,14 @@
     let fired = 0;
     const table = global.Channels.CHANNELS || [];
     for (const ch of table) {
+      /* 〔第二十四批 · 判据失效拒用〕总表 506 条里有 38 条的判据所依赖的机制已被撤销
+         （批次⑫撤除 / 第 1 夜全能免疫删除 / 数值改档）。它们在总表里与「只是还没接线」
+         的条目长得一模一样，接线时极易被误当可接线资产 —— 写了 gate 也永不命中。
+         这里按退役台账明确拒用（详见 js/corpus/channels.retired.js）。
+         ⚠ 台账登记为 'valueOld' 的条目判据仍可成立（只是 cond 原文过时），接线时须按新值
+         重写判据而非照抄，故**不拒用**；只有 'batch12'/'ruleGone' 两类在此硬拒。 */
+      const R = global.SKChannelsRetired;
+      if (R && R.dead && R.dead(ch.id)) continue;
       const impl = GATE_IMPL[ch.id];
       if (!impl) continue;                                    // 未接线 = dormant（总表原状）
       /* v31 批 1（B4，定案 9）：档位声明可以是字符串（全员同档），也可以是

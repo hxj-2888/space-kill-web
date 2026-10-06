@@ -16,6 +16,9 @@
   const D = global.SKData;
   const T = global.Tiers;                       // 档位分值表（A35/B20/C10/D5，±2）
   const U = global.AIUtil, BEL = global.AIBelief;
+  const RD = global.SKRoleDecl;                 // v6.6 阶段 2（D6）：能力分发表 / 转职方向池
+  const ACT = global.SKDerivation;              // v6.6 阶段 2（H21）：查证池推导（4.1.1 ①②③）
+  const TR = global.SKTrait;                    // v6.6 阶段 2（K2）：性格轴声明（档位参数唯一真源）
   const clamp = U.clamp, alive = U.alive, aliveF = U.aliveF, byId = U.byId;
   const isAlly = U.isAlly, pick = U.pick, gauss = U.gauss, knownOf = U.knownOf;
   const BAND_DOWN = U.BAND_DOWN, GRUDGE_W = U.GRUDGE_W;
@@ -45,7 +48,7 @@
 
   /* 已达维修暴露阈值的人类工程师／助理工程师（R22 双向锚点） */
   function exposedEngineer(g, x) {
-    return !x.out && x.faction === 'human' && x.repairExposed && (x.role === 'engineer' || x.role === 'assistant');
+    return !x.out && x.faction === 'human' && x.repairExposed && RD.hasGrant(x.role, 'repair');   // D6
   }
 
   /* v28（B1 裁定）：「对手方还剩多少维修能力」——全部来自【合法信息】，不读真相阵营/职业：
@@ -60,7 +63,7 @@
       if (x.out || x.id === p.id || isAlly(p, x)) continue;
       if (x.repairExposed) { n += 1; continue; }
       const k = p.known.get(x.id);
-      if (k && (k.role === 'engineer' || k.role === 'assistant')) { n += 1; continue; }
+      if (k && RD.hasGrant(k.role, 'repair')) { n += 1; continue; }        // D6：能力标签（工程师系）
       if (k && k.role === 'crew') { n += 0.5; continue; }
       if ((x.claimedRole === 'engineer' || x.claimedRole === 'assistant') && credOf(p, x.id) >= 0.6) n += 0.5;
       else if (x.claimedRole === 'crew' && credOf(p, x.id) >= 0.6) n += 0.25;
@@ -75,10 +78,24 @@
      被误导的 AI 果断做错选择是好剧情，错误可归因。硬源确证（conf=1）时归零——那不是推理，是事实。
      硬下限 0.05 防信息茧房。ε 不随性格变（激进是敢冒险不是乱来）。 */
   const EPS = { main: 0.4, phenotype: 0.65, survival: 0.15, floor: 0.05 };
+  /* 〔批次 37 · U1 变体 AI 策略〕三个变体/规则主动技能的策略参数（decide 派发 case 消费）。
+     此前 sniff／wiretapReport／disguise 恒缓发（批次 28/29 注释「随批次 22」）——本批接上。
+     θ 档发动率（sniffRate/disguiseRate/disguiseProactive）在 traits.js 声明轴（K2 纪律：
+     档位知识只在声明层），本表只留**非 θ 维度**的选角权重与攒弹倾向；额度、互斥与池外
+     不生效仍由引擎侧收口（steps.js run 段）。导出以便门禁做回退验证。 */
+  const VA = {
+    gatherRate:   0.40,                              // 4.4.7①：无可射目标时改攒弹（而非放弃）的倾向
+    /* 7.3.1 加权选角：只从人类职业里挑（伪装成异形/外星人 = 自曝）；crew 最重（最不显眼），
+       关键位低权（口头冒领有 N400 追责链，机制乔装虽不公告但查验口径会背书，仍须谨慎）。
+       未列出的池内人类角色取缺省权 3。 */
+    disguiseW: { crew: 45, bio: 8, rescue: 4, tempdoc: 3, engineer: 12, assistant: 4,
+                 sheriff: 8, bodyguard: 4, artisan: 3, detective: 5, inspector: 2, hunter: 2 },
+    disguiseWDefault: 3,
+  };
   function confOf(g, p, id) {
     if (id == null) return 0;
     const d = suspDist(g, p, id);
-    return Math.max(d.p_human, d.p_alien, d.p_king);        // 主观置信度 = 分布最大项
+    return BEL.distMax(d);                                   // 主观置信度 = 分布最大项（D2：维度开放）
   }
   function argmax(g, opts, eps, floor) {
     const rng = g.rng;
@@ -113,6 +130,72 @@
   function argmaxProtect(g, opts, eps) {
     const floor = (T.PROTECT && T.PROTECT.floor) || EPS.floor;
     return argmax(g, opts, eps == null ? EPS.main : eps, floor);
+  }
+
+  /* ============ 拟人层 B · 推理链发言 ============
+     人指控时几乎总会给出理由，而理由来自**自己记得的**具体事。函数从说话者
+     合法持有的信息中取一条最强的「因为」，取不到时返回 null（调用方回落到
+     旧的无理由模板——不强凑，避免生成无依据的话）。
+
+     口径纪律（关键）：只引**自己确实持有**的信息——
+       · 硬源（p.known：自己查验所得或官方公告所报）；
+       · 长期记忆（自己听过的发言：自称、承诺、改口、立场）；
+       · 证据链（自己 tEvents 里的积累条数，只报条数不报内容）。
+     **不泄露任何隐藏字段**（他人真实身份/阵营/私有额度）——那不是推理，是透视。 */
+  function reasoningChain(g, p, target) {
+    const t = (target && typeof target === 'object') ? target.id : (target != null ? target : p.lastAccuse);
+    if (t == null) return null;
+    const D2 = global.SKData;
+    const roleName = k => (D2 && D2.ROLES[k] ? D2.ROLES[k].name : k);
+    const MEM = global.AIMemory;
+    const nid = p.id;
+
+    /* ① 硬源：自己查过的人，最硬的理由（4.1.1/4.7 查验是本人合法持有） */
+    if (p.crewChecks && p.crewChecks.get) {
+      const rec = p.crewChecks.get(t);
+      if (rec && rec.results && rec.results.length) {
+        const yes = rec.results.filter(r => r.ans);
+        if (yes.length) return `我查过 ${t} 号，${yes[yes.length - 1].id ? roleName(yes[yes.length - 1].id) : '他的身份'}。所以我投他。`;
+        return `我查过 ${t} 号，他不是他自称的那个。`;
+      }
+    }
+    if (p.checkPool && p.checkPool.get) {
+      const r = p.checkPool.get(t);
+      if (r && r.role) return `${t} 号的查验在我这儿，是${roleName(r.role)}。`;
+    }
+    const k = p.known.get(t);
+    if (k && k.faction) return `${t} 号的身份是明摆着的——公告白纸黑字写着。`;
+
+    /* ② 长期记忆：改口（人脑最强烈的一类记忆） */
+    if (MEM) {
+      const m = p.mem;
+      if (m) {
+        const e = m.saidRole.get(t);
+        if (e && e.conflictWith)
+          return `他第 ${e.nights[0]} 夜说自己是${roleName(e.prevRole)}，第 ${e.nights[e.nights.length - 1]} 夜又说自己${roleName(e.conflictWith)}。一个人两张脸，我不信他。`;
+        /* 单次自称也值得说——「我记着他说过自己是X」正是人建立怀疑的起点，
+           无需等到改口才开口（此前的窄口径使链条几乎恒为 null，实测 0/84）。 */
+        if (e && e.role && e.times >= 1)
+          return `${t} 号自称${roleName(e.role)}——我记着这话，等他露馅。`;
+        const ps = m.promise.get(t);
+        if (ps && ps.length) {
+          const last = ps[ps.length - 1];
+          return `他第 ${last.night} 夜答应过${last.tier === 'strong' ? '一定查他' : '不会带节奏'}，结果呢？`;
+        }
+        const st = m.stance.get(t);
+        if (st && Math.abs(st.score) >= 3)
+          return `这几天他一直在${st.score > 0 ? '帮别人站台' : '带节奏'}，我记着呢。`;
+      }
+    }
+
+    /* ③ 证据链：只报条数（说「我攒了 N 条对不上的地方」而非泄露内容）。
+       门槛 2 条：实测多数对局中人对单个目标的证据量在这个量级，
+       门槛过高会使本通道形同虚设（治理：以读数校验通道真跑，而非以观感设门槛）。 */
+    const ev = p.tEvents && p.tEvents.get ? p.tEvents.get(t) : null;
+    if (ev && ev.length >= 2) {
+      return `我对 ${t} 号的怀疑不是一天两天了，攒了 ${ev.length} 条对不上的地方。`;
+    }
+    return null;
   }
 
   /* ============ 白天发言（事实驱动 + 西塔门限）============
@@ -171,13 +254,23 @@
                 : k && k.excludes ? `${top.id} 号跟我的查验对不上。`
                 : night0 ? `${top.id} 号开局这套发言我记下了。`
                 : `${top.id} 号到现在一点干货没有。`;
-      text = pick(rng, [
-        `${why} 我怀疑他是异形。`,
-        `我的票在 ${top.id} 号身上。`,
-        `投 ${top.id} 号，错杀也比全灭强。`,
-        night0 ? `${top.id} 号开局就 sus，我先记一笔。` : `${top.id} 号这几晚太划水了，盘不出来人还占位置。`,
-        `${top.id} 号的发言我踩一下，节奏不对。`,
-      ]);
+      /* 拟人层 B · 推理链发言：空口指控最不拟人——人指控时**总要给一条理由**，
+         且理由来自自己**记得**的东西。此处按优先级取一条可引用的「因为」：
+           ① 硬源（自己查验/官方公告摆在那）② 长期记忆（他自称过什么、改过口）
+           ③ 证据链（我这些天积累的证据条数）④ 立场（他一直站谁那边）
+         口径纪律：只引**自己合法持有**的信息（7.0 推理自由），不泄露隐藏字段。 */
+      const chain = reasoningChain(g, p, top);
+      if (chain) {
+        text = chain;
+      } else {
+        text = pick(rng, [
+          `${why} 我怀疑他是异形。`,
+          `我的票在 ${top.id} 号身上。`,
+          `投 ${top.id} 号，错杀也比全灭强。`,
+          night0 ? `${top.id} 号开局就 sus，我先记一笔。` : `${top.id} 号这几晚太划水了，盘不出深浅还占位置。`,
+          `${top.id} 号的发言我踩一下，节奏不对。`,
+        ]);
+      }
     } else if (top && (p.faction === 'human' ? (socialT >= thEff - 15) : rng.chance(0.18))) {
       /* v4 7.4 质询（提问曲线）：疑似目标进入 [θ−15, θ] 中段 → 公开质询而非指控。
          异形也低频反向质询（试探/带节奏，合法策略）。回答与对证由 streamPump/talk 驱动。 */
@@ -188,7 +281,7 @@
       text = pick(rng, night0 ? [
         `${top.id} 号，开局先把你的立场说清楚，别急着站队。`,
         `我质询 ${top.id} 号：第一轮就想好你要跟谁走。`,
-        `${top.id} 号，开局这套发言太保守了，亮点干货。`,
+        `${top.id} 号，开局这套发言太保守了，全是场面话。`,
       ] : [
         `${top.id} 号，你昨晚到底做了什么？当着大家的面说清楚。`,
         `${top.id} 号，报一下你的职业和昨晚行动，别绕。`,
@@ -259,31 +352,35 @@
       } else text = '我手里的查验结果先压一夜。';
     } else if (!evilIntent(p) && p.role === 'detective') {
       const pool = [...p.checkPool.values()].filter(x => !byId(g, x.id).out);
-      if (pool.length && rng.chance(p.theta === 25 ? 0.8 : p.theta === 50 ? 0.5 : 0.2)) {
+      if (pool.length && rng.chance(TR.traitValue('theta', 'claimRate', p.theta))) {   // K2：档位表由声明给出
         const rec = rng.pick(pool);
-        if (IR) p.outClaims.push(IR.mk('lock', [rec.id], { faction: rec.faction, role: rec.role, good: rec.faction === 'human' }, meta));
-        text = `我查过 ${rec.id} 号，他是${D.FACTION[rec.faction].name}（${D.ROLES[rec.role].name}）。`;
+        /* B5（4.7.1）：查验只得知呈现职业——宣称方向由职业确定性推论（职业→阵营同口径） */
+        const lf = D.ROLES[rec.role] ? D.ROLES[rec.role].faction : null;
+        if (IR) p.outClaims.push(IR.mk('lock', [rec.id], { faction: lf, role: rec.role, good: lf === 'human' }, meta));
+        text = `我查过 ${rec.id} 号，他的职业是（${D.ROLES[rec.role].name}）。`;
         claimRole = 'detective';
       } else text = '我手里的查验结果先压一夜。';
     } else if (!evilIntent(p) && p.role === 'crew' && p.crewChecks.size && rng.chance(0.6)) {
       const rec = [...p.crewChecks.entries()].map(([id, v]) => ({ id: +id, v })).filter(x => !byId(g, x.id).out);
       if (rec.length) {
         const r0 = rng.pick(rec);
-        if (r0.v.locked) {
-          text = `我查了两次 ${r0.id} 号，能确认他的阵营是${D.FACTION[r0.v.locked].name}。`;
-          p.pendingPublic = { id: r0.id, kind: 'lock', faction: r0.v.locked };
-          if (IR) p.outClaims.push(IR.mk('lock', [r0.id], { faction: r0.v.locked, good: r0.v.locked === 'human' }, meta));
+        /* A13（4.1.1 验证式）：口头汇报验证结果——按最近一次「是」作答宣称身份；
+           「否」是统一口径，不区分「是人类但非该身份」与「不是人类」，故不上报。
+           4.1.2：口头汇报属可伪造宣称，不写全场硬锁（硬锁只认官方 ③ 公告）。 */
+        const yeses = (r0.v.results || []).filter(x => x.ans);
+        if (yeses.length) {
+          const ry = yeses[yeses.length - 1];
+          const rf = D.ROLES[ry.id] ? D.ROLES[ry.id].faction : null;
+          text = `我查过 ${r0.id} 号，他是${D.ROLES[ry.id].name}。`;
+          p.pendingPublic = { id: r0.id, kind: 'lock', faction: rf };
+          if (IR) p.outClaims.push(IR.mk('lock', [r0.id], { faction: rf, role: ry.id, good: rf === 'human' }, meta));
         } else {
-          const ex = r0.v.excludes;
-          text = ex.length >= 2
-            ? `${r0.id} 号不是${D.ROLES[ex[0]].name}，也不是${D.ROLES[ex[1]].name}。`
-            : `${r0.id} 号不是${D.ROLES[ex[0]].name}。`;
-          p.pendingPublic = { id: r0.id, kind: 'exclude' };
-          if (IR) p.outClaims.push(IR.mk('exclusion', [r0.id], { excludes: ex }, meta));
+          /* 全部为「否」：只报「已验证」，不展开否决了哪些身份——否证清单本身即情报 */
+          text = `我验证过 ${r0.id} 号的身份，和我说的对不上。`;
         }
         claimRole = 'crew';
       } else text = '我这轮先听大家的信息。';
-    } else if (!evilIntent(p) && (p.role === 'sheriff' || p.role === 'armed') && rng.chance(p.theta === 75 ? 0.15 : 0.5)) {
+    } else if (!evilIntent(p) && RD.hasGrant(p.role, 'shoot') && rng.chance(TR.traitValue('theta', 'shootRate', p.theta))) {   // D6/K2
       text = p.bullets > 0 ? `我是${D.ROLES[p.role].name}，枪口对着谁不用报备。` : '子弹打出去了，结果看今晚名单。';
       claimRole = p.role;
     } else if (p.faction !== 'human' && rng.chance(0.55) && global.Tactics &&
@@ -311,9 +408,16 @@
       }
       (g._tacticUse = g._tacticUse || {})[tac.opt.id] = (g._tacticUse[tac.opt.id] || 0) + 1;
     } else if (p.faction !== 'human' && rng.chance(0.3)) {
+      /* 〔第三十批 拟人层〕队内/伪装语料池 2 条 → 5 条：这两条是异形/外星人的「非公开语料」，
+         出现频率高（每夜约 30% 概率触发），池小必然复读。内容仍受 2.8.7 约束
+         ——不泄露己方身份与计划，只做带节奏/稳住阵线这类公开可见的表层动作。 */
       const mate = p.faction === 'alien' ? aliveF(g, 'alien').find(x => x.id !== p.id && !x.out) : null;
-      text = mate ? pick(rng, [`${mate.id} 号跟我对过信息，他没问题。`, '别急着投人，先看死因。'])
-                  : pick(rng, ['我是普通船员，我这轮先稳住。', '这么快带节奏，正中对方下怀。']);
+      text = mate ? pick(rng, [`${mate.id} 号跟我对过信息，他没问题。`, '别急着投人，先看死因。',
+                                `${mate.id} 号那边的说法我信一半。`, '先压一轮节奏，别让人带跑。',
+                                '今晚死因是关键，其他先放放。'])
+                  : pick(rng, ['我是普通船员，我这轮先稳住。', '这么快带节奏，正中对方下怀。',
+                                '我先不表态，看谁先露破绽。', '这一轮我站边，但不急。',
+                                '你们吵，我听着就行。']);
       if (text.startsWith('我是普通船员')) claimRole = 'crew';
     } else if (IR && global.Speakable && global.Lang && !quiet && g.night > 0 &&
                !global.SK_NO_SPEAKABLE && (prep = global.Speakable.pick(g, p, rng))) {
@@ -389,27 +493,38 @@
         const pool = [...p.checkPool.values()].filter(x => !byId(g, x.id).out);
         if (pool.length) {
           const rec = rng.pick(pool);
-          p.lastShare = { id: rec.id, faction: rec.faction, role: rec.role };
-          text = `私下跟你说：我查过 ${rec.id} 号，他是${D.FACTION[rec.faction].name}（${D.ROLES[rec.role].name}）。`;
+          /* B5（4.7.1）：查验只得知呈现职业——私下交底按职业口径，不代报阵营 */
+          p.lastShare = { id: rec.id, role: rec.role };
+          text = `私下跟你说：我查过 ${rec.id} 号，他的职业是（${D.ROLES[rec.role].name}）。`;
         }
       } else if (p.crewChecks && p.crewChecks.size) {
-        const locked = [...p.crewChecks.entries()].map(([id, v]) => ({ id: +id, v })).filter(x => x.v.locked && !byId(g, x.id).out);
-        if (locked.length) {
-          const r0 = rng.pick(locked);
-          p.lastShare = { id: r0.id, faction: r0.v.locked, role: null };
-          text = `私下跟你说：我两次查验锁了 ${r0.id} 号，阵营是${D.FACTION[r0.v.locked].name}。`;
+        /* A13：验证式私聊交底——只报「是」结果（否证清单不上报） */
+        const yes = [...p.crewChecks.entries()].map(([id, v]) => ({ id: +id, v }))
+          .filter(x => !byId(g, x.id).out && (x.v.results || []).some(r => r.ans));
+        if (yes.length) {
+          const r0 = rng.pick(yes);
+          const ry = r0.v.results.filter(r => r.ans).pop();
+          const rf = D.ROLES[ry.id] ? D.ROLES[ry.id].faction : null;
+          p.lastShare = { id: r0.id, faction: rf, role: ry.id };
+          text = `私下跟你说：我验证过 ${r0.id} 号，他的职业是（${D.ROLES[ry.id].name}）。`;
         }
       }
     }
     /* v26：异形队内频道（quiet）不应产出「我是普通船员」这类对外伪装话术——队友当然知道你是谁，
        这句话在队内既无意义又会污染复盘。改为按计划沟通的口径，并撤销本次身份声称。 */
     if (quiet && claimRole && evilIntent(p)) {
-      text = pick(rng, ['按计划走，别乱。', '我这边稳住，你们看情况。', '别急着表态，先看死因。']);
+      text = pick(rng, ['按计划走，别乱。', '我这边稳住，你们看情况。', '别急着表态，先看死因。',
+                        '我先不动，等下一个窗口。', '今晚别单独出头，等我信号。', '目标我心里有数，别点我。']);
       claimRole = null;
     }
     if (claimRole) { p.claimedRole = claimRole; }   /* accuseHistory 由 onAccuse 统一记录，此处不再手动 push（避免双计） */
     if (quiet) { p.lastAccuse = null; if (claimRole) p.claimedRole = null; }
     else if (claimRole) onClaim(g, p, claimRole);
+    /* 〔批次 35 · 定制发言〕语气层（拟人层 Ⅲ）：θ 档决定「怎么说」——公开发言按 voiceRate
+       概率带 θ 档开场/口头禅；私聊只替换交底开场白。只包装不改内容：指控对象、IR 意图
+       （p.outClaims 已在上面 push 完）与声称语义均不受影响。rng 消耗发生在出口处，
+       顺序确定（开场 roll → 口头禅 roll），可复算。 */
+    if (global.Voice) text = global.Voice.tone(p, text, rng, { quiet });
     return text;
   }
   function evilIntent(p) { return p.faction !== 'human'; }
@@ -440,17 +555,17 @@
     /* 2026-09-10 注：本分支三处（abstain/actLine/param）曾改为读 Tiers.PERSONALITY 并按 k 等比缩放，
        实测人类 27.0% → 25.4% ⇒ 已整体回退，现为字面量表（与 BASE_DANGER 只登记、不缩放同口径）。 */
     const abstain = me.faction === 'alien' ? 0
-      : -5 + ({ 25: -10, 50: 0, 75: 8 }[me.theta] || 0);          // v22 性格：激进更少弃票、保守更多弃票
+      : -5 + TR.traitValue('theta', 'abstainBias', me.theta);          // K2：性格偏置由声明给出
     /* v22 性格化行动门槛：危险度基线随性格偏移（激进 30/保守 70），行动门槛须反向联动——
        激进低门槛 + 低基线 = 敢投；保守高门槛 + 高基线 = 慎重。固定 20 会让激进者整体哑火。 */
-    const actLine = { 25: 10, 50: 20, 75: 30 }[me.theta] != null ? { 25: 10, 50: 20, 75: 30 }[me.theta] : 20;
+    const actLine = TR.traitValue('theta', 'actLine', me.theta);        // K2：行动线由声明给出
     const opts = [{ v: null, U: abstain }];                       // 5.1：弃票同为候选，防止过度行动
     for (const x of al) {
       const Dg = dangerOf(g, me, x.id);
       if (Dg < actLine) continue;                                 // 性格化门槛（队友锁 0 天然排除）
       let U;
       if (me.faction === 'alien') {
-        const param = { 25: 0, 50: 25, 75: 55 }[me.theta];
+        const param = TR.traitValue('theta', 'voteParam', me.theta);        // K2：票型参数由声明给出
         U = Dg - param;
       } else {
         if (exposedEngineer(g, x)) continue;                      // 官方确证自家人：人类一律 U=−∞
@@ -503,8 +618,7 @@
     /* v27（A6-③）：claimedRole 的第三项由死别名 'doc' 改为 'tempdoc'——医生系三职业
        （bio / rescue / tempdoc）在语言层与推理层现在同一套键，不再有 'doc' 这个空洞。 */
     const doctorsAlive = Math.max(1, alive(g).filter(x =>
-      x.role === 'bio' || x.role === 'rescue' || x.role === 'tempdoc' ||
-      x.claimedRole === 'bio' || x.claimedRole === 'rescue' || x.claimedRole === 'tempdoc').length);
+      RD.hasGrant(x.role, 'treat') || RD.hasGrant(x.claimedRole, 'treat')).length);   // D6：能力标签（医生系）
 
     switch (req.kind) {
       case 'invite': {                                     // 5.2⑥
@@ -583,7 +697,9 @@
       case 'transfer': {                                   // 按场上缺口
         const sheriffDead = !g.players.some(x => x.originRole === 'sheriff' && !x.out);
         const docDead = !g.players.some(x => (x.originRole === 'bio' || x.originRole === 'rescue') && !x.out);
-        const dir = sheriffDead ? 'armed' : docDead ? 'tempdoc' : urg > 0.5 ? 'assistant' : rng.pick(['armed', 'assistant', 'tempdoc']);
+        /* D6：转职方向池由声明层派生（transferred:true 的角色，声明序 = 历史字面量顺序
+           armed,assistant,tempdoc）——顺序敏感（rng.pick 的输入），故由声明序保证等价。 */
+        const dir = sheriffDead ? 'armed' : docDead ? 'tempdoc' : urg > 0.5 ? 'assistant' : rng.pick(RD.transferRoles());
         return { dir };
       }
 
@@ -605,7 +721,24 @@
             .sort((a, b) => b.U - a.U);
           const tpick = argmax(g, topts, EPS.main);
           const t = tpick ? tpick.x : al[0];
-          return { mode: 'check', target: t ? t.id : null };
+          /* A13（4.1.1 验证式）：提交 1~2 个待查证身份——优先验证目标宣称（抓谎），其余按敌情假设。
+             第 1 次（查验者×目标）仅提交人类职业池身份；第 2 次起可加验「异形/外星人」假设。
+             H21（4.1.1 ①②③ + I3）：两个池都由推导层给出（随本局构成浮动、且移除全部持有者
+             已出局的职业）——此前 AI 侧不做任何过滤，会提交「已无真实持有者」的身份，
+             与 ③「系统仅提供可查范围内的职业供选，故不存在无效查证」相悖。 */
+          const prev = t ? p.crewChecks.get(t.id) : null;
+          const isFirst = !prev || prev.n === 0;
+          const humanPool = ACT.verifyPool(g, { first: true });
+          const fullPool = ACT.verifyPool(g);
+          const activePool = isFirst ? humanPool : fullPool;
+          if (!activePool.length) return { mode: 'none' };          // 可查范围为空：不提交（4.1.1③）
+          const id1 = (t && t.claimedRole && activePool.includes(t.claimedRole))
+            ? t.claimedRole
+            : (isFirst ? humanPool[Math.floor(rng.next() * humanPool.length)]
+                       : (rng.chance(0.45) || humanPool.length === 0 ? 'alien' : humanPool[Math.floor(rng.next() * humanPool.length)]));
+          const ids = [id1];
+          if (!isFirst && rng.chance(0.4)) ids.push(id1 === 'xeno' ? 'alien' : 'xeno');
+          return { mode: 'check', target: t ? t.id : null, ids };
         }
         if (c.v === 'repair') {
           /* 5.2③：7 档维修值 argmax（σ=6），U = 紧迫度×(a/0.50)×50 − 15×(50/θ) */
@@ -623,7 +756,11 @@
         const pool = [...p.checkPool.values()].filter(x => !byId(g, x.id).out);
         let uPub = -Infinity, pubT = null;
         if (pool.length) {
-          const values = pool.map(x => x.faction === 'alien' ? 60 : x.faction === 'xeno' ? 50 : -30);
+          /* B5（4.7.1）：池内只存呈现职业——公告价值由职业确定性推论阵营后判读 */
+          const values = pool.map(x => {
+            const f = D.ROLES[x.role] ? D.ROLES[x.role].faction : null;
+            return f === 'alien' ? 60 : f === 'xeno' ? 50 : -30;
+          });
           /* v32 语言层修复（用户拍板「公告有啥用」）：旧公式对公告【扣减】敌方存活数 ×10 ——
              方向反了：敌方活着越多，官方 ③ 公告的硬源价值越大（全体人类立刻锁定 + 警长开枪 + 投票聚焦）。
              旧读数下 uPub ≈ 60−3×10−1×10 = 20 < uCheck ≈ 32 ⇒ AI 神探几乎从不公告，
@@ -692,12 +829,30 @@
       case 'repair': {                                     // ③ 工程师 / 追加（★已暴露改取保护收益 +20）
         const riskTerm = p.repairExposed ? -20 : exposeRiskInc(p) * (p.theta / 50);
         const doIt = urg * 50 - riskTerm + gauss(g) * 6 > 0;
+        /* v6.6 2.3 表 #5/#6：维修与追加维修各 −1.0~1.5 六档自选——紧迫度越高越拉满，含风险折价 */
+        const aOpts = [1.0, 1.1, 1.2, 1.3, 1.4, 1.5]
+          .map(v => ({ v, U: urg * ((v - 1.0) / 0.5) * 50 - riskTerm * 0.3 }));
+        const ap = argmax(g, aOpts, EPS.main);
         const extra = p.role === 'engineer' && p.extraRepair > 0 && urg > 0.4 &&
                       (g.net10 < 30 ? (30 - g.net10) < 5 : g.net10 < 60 && (60 - g.net10) < 5) &&
                       rng.chance(0.7);
-        return { do: doIt, extra };
+        return { do: doIt, extra,
+                 value: doIt && ap ? ap.v : 1.0,
+                 extraValue: extra ? (urg > 0.6 ? 1.5 : 1.0) : 1.0 };
       }
-      case 'branch': {                                     // 0.7 预提交（v4 第五章：破坏三层随机）
+      case 'safeRoom': {                                   // 4.3.1 工程师限定技（全局 1 次）
+        /* 代价是当夜放弃维修：仅在高威胁（自身危险度高 / 临近暴露阈值）或残局时使用 */
+        const nearExpose = p.repairTotal >= (p.role === 'engineer' ? 3.0 : 2.0);
+        const use = !p.safeRoomUsed && (dangerOf(g, p, p.id) > 55 || nearExpose || al.length <= 4);
+        return { use };
+      }
+      case 'awaken': {
+        /* 6.2：觉醒可选不强制——残局/激进性格更早觉醒 */
+        const dc = TR.traitValue('theta', 'destroyChance', p.theta);        // K2：档位表由声明给出
+    const doIt = al.length <= 6 ? true : dc >= 1 ? true : rng.chance(dc);   // ≥1 = 必然（不消耗随机数，与迁移前一致）
+        return { do: doIt };
+      }
+      case 'branch': {                                     // 4b 破坏/结茧（A7：0.7 预提交已删，四选一拆至 0.1/4b/5/8 各步）
         if (p.faction === 'alien') {
           /* ① 个体阈值（开局 roll 一次，整局不变——p.sabTau 在 state 初始化） */
           /* ② 倒计时反比例压力：base = raw/(raw+SAB_K)，raw = 24/max(cd,0.5) − 1 */
@@ -772,7 +927,8 @@
           let sabAmount = null;
           if (go) {
             const big = p.alien.dir === 'destroy';
-            const lo = big ? 20 : 10, hi = big ? 30 : 15;
+            /* v6.6 2.3 表 #4：未进化破坏量 1.5~2.0（六档，步长 0.1）；破坏进化 2.0~3.0 不变 */
+            const lo = big ? 20 : 15, hi = big ? 30 : 20;
             const next10 = g.net10 < 30 ? 30 : g.net10 < 60 ? 60 : 90;
             const gap10 = next10 - g.net10;
             const cross = [];
@@ -781,11 +937,20 @@
             else if (cross.length && rng.chance(0.5)) sabAmount = cross[0];  // N49：恰好跨档
             else sabAmount = rng.chance(0.9) ? lo : lo + rng.int(hi - lo + 1);  // N367：未暴露以最小档保隐蔽（总表 N367 判据），10% 噪声防众数指纹（N74/N84）——v25 C2：删「实测显著优于」的循环论证表述，策略依据回归总表条目
           }
-          return { branch: go ? 'destroy' : 'act', num: sabAmount };
+          /* A14/5.7①：结茧可指定任意存活玩家——未选破坏时按威胁自保或掩护濒危队友 */
+          if (!go && p.shield <= 0 && rng.chance(0.3)) {
+            const matesAtRisk = g.players.filter(x => x.faction === 'alien' && !x.out && x.id !== p.id && x.shield <= 0);
+            const risky = matesAtRisk.length
+              ? matesAtRisk.reduce((a, b) => (dangerOf(g, p, b.id) > dangerOf(g, p, a.id) ? b : a)) : null;
+            const useSelf = !risky || dangerOf(g, p, p.id) >= dangerOf(g, p, risky.id) || rng.chance(0.5);
+            return { branch: 'cocoon', cocoonTarget: useSelf || !risky ? p.id : risky.id };
+          }
+          return { branch: go ? 'destroy' : 'none', num: sabAmount };
         }
-        /* 外星人：全局 1 次（6.3），平时低率、倒计时 ETA 临近爆发 */
-        if (g.extinction) return { branch: 'kill' };
-        if (p.destroyLeft > 0) {
+        /* 外星人破坏（6.3，全局 1 次）：于 4b 决策——蛰伏已在 0.1 自行决定（branch='check' 者
+           req 已排除、不会进入本步），击杀在步骤 5 自行决定。破坏 → 次夜停转 + 当夜放弃击杀/自疗。 */
+        if (g.extinction || p.destroyLeft <= 0) return { branch: 'none' };
+        {
           const repairRate = Math.max(1, (g.actCounts.repair || 0) / Math.max(1, g.night));  // 估算每晚维修量
           const eta = Math.max(g.countdown, 0.5) / repairRate;
           const raw2 = 24 / Math.max(g.countdown, 0.5) - 1;
@@ -804,14 +969,16 @@
             return { branch: 'destroy', num: rng.chance(0.7) ? 20 : 20 + rng.int(11) };
           }
         }
-        if (rng.chance(0.25)) return { branch: 'check' };
-        return { branch: 'kill' };
+        return { branch: 'none' };
       }
       case 'xenoCheck': {                                  // U(i) = Dg_i，已确认异形 ×1.5（v21：ε-greedy）
+        /* 6.1：蛰伏与否 = 外星人当夜四选一之一（vs 4b 破坏 / 5 击杀 / 8 自疗）——保持约 1/4 蛰伏率 */
+        if (!rng.chance(0.25)) return {};
         const copts = al.map(x => {
           const k = p.known.get(x.id);
           let U = dangerOf(g, p, x.id);
-          if (k && k.faction === 'alien') U *= 1.5;
+          /* B5：known 不再为揭示路径携带阵营字段（2.8.12④），硬源阵营经 knownLockOf 推论 */
+          if ((k && k.faction === 'alien') || knownLockOf(p, x.id) === 'alien') U *= 1.5;
           return { v: x.id, U, conf: confOf(g, p, x.id) };
         });
         const cc = argmax(g, copts, EPS.main);
@@ -823,10 +990,12 @@
            效用 = 职业价值（神职/武力最值得封）− 性格谨慎度；异形目标降权（封它会削弱异形清人）。 */
         const rec = p.lastXenoCheckRes;
         const t = rec && byId(g, rec.id);
-        if (!t || t.out || t.silencedOnce) return { silence: false };
+        /* 6.1.2(a)：上一夜已被沉默者本夜不可再沉默 */
+        if (!t || t.out || t.lastSilenceNight === g.night - 1) return { silence: false };
         const val = { detective: 40, inspector: 38, sheriff: 34, bio: 30, rescue: 30, armed: 30,
                       tempdoc: 24, engineer: 22, assistant: 20, bodyguard: 14, crew: 8 }[t.role] || 10;
-        const U = val - ({ 25: 8, 50: 18, 75: 28 }[p.theta] || 18) + (rec.faction === 'alien' ? -25 : 0);
+        /* B5（6.1.1①）：蛰伏查验不报阵营——按呈现职业判读（呈现为异形 ⇒ 队友，降权） */
+        const U = val - TR.traitValue('theta', 'killBase', p.theta) + (rec.role === 'alien' ? -25 : 0);   // K2
         return { silence: U + gauss(g) * 6 > 0 };
       }
       case 'xenoKill': {                                   // 双刀：同目标合法（突破用；v21：ε-greedy）
@@ -844,10 +1013,21 @@
       }
       case 'shoot': {                                      // 1.4×Dg − 1.4×(θ+35)，终局 −30（v21：去 gauss 加噪）
         const th = p.theta + 35 - (alive(g).length <= 6 ? 30 : 0);
+        /* 〔批次 37 · U1〕嗅探反哺：猎手当夜 3.5 的结构化结果（steps.js 写 p.sniffLog）——
+           确认「呈现保护状态」的目标从开枪名单剔除（省子弹；玩家同一信息在 priv 文本里，
+           AI 用结构化形态，无新增知情）。警长无 sniffLog，集合恒空 → 行为不变。 */
+        const guarded36 = new Set((p.sniffLog || []).filter(s => s.night === g.night && s.guarded).map(s => s.id));
         const scored = al.map(x => ({ x, U: 1.4 * dangerOf(g, p, x.id) - 1.4 * th }))
           .sort((a, b) => b.U - a.U);
         const targets = [];
-        for (const s of scored) { if (targets.length >= p.bullets) break; if (s.U > 0) targets.push(s.x.id); }
+        for (const s of scored) {
+          if (targets.length >= p.bullets) break;
+          if (s.U > 0 && !guarded36.has(s.x.id)) targets.push(s.x.id);
+        }
+        /* 〔批次 37 · U1〕攒弹分支（4.4.7①②b）：无可射目标且今夜未嗅探 → 按倾向改攒弹
+           （2 夜后 +1 发），而非放弃——三选一的真实使用。 */
+        if (p.role === 'hunter' && !targets.length && !p.sniffedTonight && rng.chance(VA.gatherRate))
+          return { opt: 'gather' };
         return { targets };
       }
       case 'alienAct': {
@@ -870,10 +1050,13 @@
         /* v23 批次 3：报复心转化为咬人倾向——被冤枉的异形优先反咬指控者 */
         const uKill0 = best ? best.T * 0.9 - protPen(best.x) + GRUDGE_W[p.theta] * grudgeLevel(g, p, best.x.id) : -Infinity;
 
-        /* 感染效用（v4 2.4）：抑制/救援挤兑收益 + 抵挡层惩罚（删除「绕过保护」错误前提） */
+        /* 感染效用（v4 2.4）：抑制/救援挤兑收益 + 抵挡层惩罚（删除「绕过保护」错误前提）
+           批⑫撤除（2026-10-04，3.3.7「任何玩家均无从得知清除类出手次数」）：used 不再含
+           g.actCounts.cure（全场清除累计，AI 不可读）——感染致死数（⑥ 调查报告公开口径）
+           是异形估计抑制压力的唯一合法公开来源；抑制人数本身不予通报（3.3.7(11)）。 */
         const suppressDepletion = (() => {
           const preyAlive = aliveF(g, 'human').length + aliveF(g, 'xeno').length;
-          const used = (g.infectedDeaths || 0) + (g.actCounts.cure || 0);   // 感染致死 + 医生清除（⑫）
+          const used = (g.infectedDeaths || 0);   // 感染致死（⑥ 公开），不再读全场清除累计
           return clamp(1 - used / Math.max(1, preyAlive * 3), 0, 1);        // 剩余抑制充裕度 0~1
         })();
         const suppressValue = suppressDepletion > 0 ? 10 : 25;  // 抑制耗尽 → 感染转为真实致死
@@ -937,7 +1120,7 @@
       case 'doctor': {                                     // ⑤ 三类
         const infected = g.players.filter(x => !x.out && x.infection);
         const dying = g.players.filter(x => !x.out && x.dying);
-        const canRescue = p.role === 'rescue' || p.role === 'tempdoc';
+        const canRescue = RD.hasGrant(p.role, 'save');                   // D6：能力标签（救援族）
         const blocked = p.silenceNight === g.night || p.noActive;
         if (blocked) return { act: 'none', targets: [] };
         const opts = [{ v: 'none', U: 0 }];
@@ -981,10 +1164,96 @@
           opts.push({ v: 'rescue', U: scored[0].U, targets: scored.slice(0, Math.min(p.rescueLeft, 2)).map(s => s.x.id) });
         }
         if (!p.brew) opts.push({ v: 'brew', U: p.healLeft + p.cureLeft + p.rescueLeft <= 0 ? 30 : 8 });
+        /* A6 批次 31 · 4.6.4：毒师的毒药/解药进入同场 argmax（五选一互斥，2.5.3）。
+           · 下毒目标＝敌方阵营中危险度最高者（毒药要 2 夜才发作，押注对象价值高）；
+             额度有限（全局 3），故只在敌营存在候选时出手，不浪费在无信息的第 1 夜。
+           · 解药目标＝当前带毒药标记者（唯一起作用的对象），优先救队友。
+           ε 沿用 EPS.survival——与医生其余分支同口径，策略强度随批次 22 拟人化再调。 */
+        if (RD.hasGrant(p.role, 'poison')) {
+          if (p.poisonLeft > 0) {
+            const prey = al.filter(x => x.faction !== p.faction && !x.poison && !x.dying)
+              .sort((a, b) => dangerOf(g, p, b.id) - dangerOf(g, p, a.id));
+            if (prey.length && g.night >= 2)
+              opts.push({ v: 'poison', U: 30 + dangerOf(g, p, prey[0].id) * 0.4 + gauss(g) * 10, targets: [prey[0].id] });
+          }
+          if (p.antidoteLeft > 0) {
+            const poisoned = g.players.filter(x => !x.out && x.poison);
+            if (poisoned.length) {
+              const mine = poisoned.filter(x => x.faction === p.faction);
+              const tgt = (mine[0] || poisoned[0]);
+              opts.push({ v: 'antidote', U: 45 + (mine.length ? 15 : 0) + gauss(g) * 8, targets: [tgt.id] });
+            }
+          }
+        }
         const c = argmax(g, opts, EPS.survival);   // 生存决策：ε=0.15（v21 改动 #10）
         if (c.v === 'heal' || c.v === 'rescue' || c.v === 'selfsave') return { act: c.v, targets: c.targets };
+        if (c.v === 'poison' || c.v === 'antidote') return { act: c.v, targets: c.targets };
         if (c.v === 'brew') return { act: 'brew', targets: [], product: rng.chance(0.5) ? 'rescue' : 'heal' };
         return { act: 'none', targets: [] };
+      }
+      /* A6 批次 31 · 工匠（4.11.2）：常规铸造（2 夜）／速成铸造（1 夜）／分配 三者择一。
+         U 口径（本批取保守初值，标定留批次 23 分阵营读数）：
+           · 分配 ≫ 铸造：库存护甲立刻生效，收益不延迟；
+           · 常规 vs 速成：速成 1 夜即成、但只生效 2 夜且到期消失；常规 2 夜成、永续。
+             故「今夜是关键夜（已被点名/高危）」偏向速成，否则常规。
+           · 分配目标：优先无甲者，按危险度降序（给最可能被攻击的人），含自身。 */
+      case 'craft': {
+        const opts = [{ v: 'none', U: 0 }];
+        const castSt = global.SKProcessEngine && global.SKProcessEngine.stateOf(p, 'cast');
+        const fastSt = global.SKProcessEngine && global.SKProcessEngine.stateOf(p, 'castFast');
+        if (!fastSt) {
+          /* 在进进度 2/2 的一步：续投（不重置） */
+          if (castSt) opts.push({ v: 'cast', U: 55 + gauss(g) * 8 });
+          else if (p.armorStock >= 2) opts.push({ v: 'cast', U: 8, });    // 满仓铸造＝浪费（4.11.3①）
+          else opts.push({ v: 'cast', U: 22 + gauss(g) * 6 });
+        }
+        if (!castSt) {
+          const hot = al.filter(x => dangerOf(g, p, x.id) >= 60).length;
+          opts.push({ v: 'castFast', U: 18 + hot * 12 + gauss(g) * 8 });
+        }
+        if (p.armorStock > 0) {
+          const bare = al.filter(x => !(x.armor && x.armor.mode))
+            .sort((a, b) => dangerOf(g, p, b.id) - dangerOf(g, p, a.id));
+          const selfBare = !(p.armor && p.armor.mode);
+          const picks = bare.slice(0, p.armorStock).map(x => x.id);
+          if (selfBare) picks.push(p.id);
+          if (picks.length) opts.push({ v: 'give', U: 62 + bare.length * 4 + gauss(g) * 10, targets: picks.slice(0, 2) });
+        }
+        const c = argmax(g, opts, EPS.main);
+        return { opt: c.v, targets: c.targets || [] };
+      }
+      /* A6 批次 32 · 死囚变形（6.8.3）：池＝本局在场人类职业 ∪ 异形。
+         效用口径：变形是**战术切换**——夜晚免疫/保命能力在残局价值最高；前期变形收益低
+         （会被查验、暴露职业），故按夜次与自身处境加权。异形克隆项在有队友时降权
+         （队内互认不克隆，可能自伤队友，6.8.3⑧）。策略强度随批次 22 拟人化再调。 */
+      case 'morph': {
+        const M = global.SKMirror;
+        const pool = M.morphPool(g, alive(g).map(x => x.originRole || x.role));
+        const lateNight = g.night >= 5;
+        const score = r => {
+          let U = 12;
+          if (r === 'alien') U = g.night >= 4 ? 34 : 14;                 // 克隆异形：出刀/破坏强，且有护盾
+          else if (r === 'sheriff' || r === 'hunter') U = 20 + (lateNight ? 10 : 0);
+          else if (r === 'detective') U = 16 + (g.night >= 3 ? 6 : 0);
+          else if (r === 'bodyguard' || r === 'artisan') U = 18 + (lateNight ? 8 : 0);
+          else if (r === 'engineer') U = 10;
+          else if (r === 'crew') U = 6;                                   // 收益最低
+          else U = 14;
+          return U + gauss(g) * 8;
+        };
+        const ranked = pool.map(r => ({ v: r, U: score(r) })).sort((a, b) => b.U - a.U);
+        const c = argmax(g, ranked.concat([{ v: 'none', U: lateNight ? 40 : 22 }]), EPS.main);
+        return { opt: c.v };
+      }
+      /* A6 批次 32 · 死囚复生（6.8.4）：目标＝当夜濒死者，优先救人类（少一个敌人即多一分胜算），
+         不救异形队友（无互认）。额度稀缺（全局 2），故只在濒死者为人类时出手。 */
+      case 'revive': {
+        const dying = alive(g).filter(x => x.dying);
+        if (!dying.length || p.reviveLeft <= 0) return { use: false };
+        const mine = dying.filter(x => x.faction === 'human');
+        if (!mine.length) return { use: false };
+        const best = mine.sort((a, b) => a.faction === b.faction ? 0 : 0)[0];
+        return { use: true, targets: [best.id] };
       }
       case 'xenoCure': return { use: !!(p.infection && p.infection.real && p.cureSelf > 0) };
       case 'meeting': {                                    // U = 揭穿收益 − 暴露代价×(θ/50)
@@ -994,6 +1263,61 @@
         return { call: U > 0 };
       }
       case 'clean': return { do: true };
+      /* 〔批次 37 · U1〕嗅探策略（4.4.8，猎手专属）：此前恒缓发。现在按 θ 档概率发动——
+         目标＝威胁降序的前两名（嗅探回答「是否呈现保护状态」，对高威胁目标最有价值：
+         ① 今夜可能开枪的对象——确认无保护再开枪，省子弹（结果经 sniffLog 反哺 'shoot'）；
+         ② 全场威胁最高者——推断保镖/工匠「在看守谁」。
+         名额策略：第一名额恒给最高威胁；第二名额只在次高威胁也过「开枪效用线」时才用满
+         （省着用——全局仅 2 夜）。不发动返回 {}（不耗次数，req 层已保证 sniffLeft>0）。 */
+      case 'sniff': {
+        const rate = TR.traitValue('theta', 'sniffRate', p.theta);
+        if (!(rate > 0) || !rng.chance(rate)) return {};
+        const cands = al.slice().sort((a, b) => dangerOf(g, p, b.id) - dangerOf(g, p, a.id));
+        if (!cands.length) return {};
+        const targets = [cands[0].id];
+        const shootTh = p.theta + 35 - (alive(g).length <= 6 ? 30 : 0);
+        if (cands[1] && 1.4 * dangerOf(g, p, cands[1].id) - 1.4 * shootTh > 0) targets.push(cands[1].id);
+        return { targets };
+      }
+      /* 〔批次 37 · U1〕窃听报告（4.12.5⑦）：此前恒提交第 1 组。多组时按
+         「成员威胁分 + 内容量」择优（报告关于高危者的私聊，对人类阵营价值最大），
+         gauss 抖动破平；单组恒提交（现状）。text 恒空＝原样提交——改写/虚构属语言层
+         策略，随拟人化批次（边界：本批只做择组）。不提交无收益（读取不跨夜累积）。 */
+      case 'wiretapReport': {
+        const gs = (p.wiretap && p.wiretap.groups) || [];
+        if (!gs.length) return { opt: 'none' };
+        if (gs.length === 1) return { opt: 'g0', text: '' };
+        let best = 0, bestS = -Infinity;
+        gs.forEach((gp, i) => {
+          const s = dangerOf(g, p, gp.a) + dangerOf(g, p, gp.b) + gp.lines.length * 2 + gauss(g) * 4;
+          if (s > bestS) { bestS = s; best = i; }
+        });
+        return { opt: 'g' + best, text: '' };
+      }
+      /* 〔批次 37 · U1〕乔装（7.3）：此前恒不发动。现在**压力驱动为主**——近 3 夜被公开
+         指控才按 θ 档概率发动；无压力时仅激进档以低概率主动洗身份（实测被指控窗口命中率
+         仅 ~4.5% 请求，纯压力门在整局尺度几乎不可见——拟真与可观测的折中）。
+         伪装对象从人类职业里加权抽签（伪装成异形/外星人 = 自曝，剔除；crew 最重，关键位
+         低权）。额度/每夜 1 次/池外不生效由引擎 run 段收口。边界：只动机制层（p.disguise）
+         ——白天口头宣称仍走既有 claim 逻辑，不与之强行对齐。注意：本分支在经典局每夜被
+         询问，发动会改变船员查验答案 → 行为指纹（按硬纪律 4 重建基线，见交接 §五）。 */
+      case 'disguise': {
+        if (p.disguiseLeft <= 0) return {};
+        const accused = g.players.some(o => o.id !== p.id && !o.out &&
+          (o.accuseHistory || []).some(a => a.id === p.id && a.night >= g.night - 3));
+        const rate = TR.traitValue('theta', 'disguiseRate', p.theta);
+        const pro = TR.traitValue('theta', 'disguiseProactive', p.theta);
+        const go = accused ? (rate > 0 && rng.chance(rate)) : (pro > 0 && rng.chance(pro));
+        if (!go) return {};
+        const pool = ACT.verifyPool(g).filter(r => D.ROLES[r] && D.ROLES[r].faction === 'human');
+        if (!pool.length) return {};
+        const weighted = [];
+        for (const r of pool) {
+          const w = VA.disguiseW[r] != null ? VA.disguiseW[r] : VA.disguiseWDefault;
+          for (let k = 0; k < w; k++) weighted.push(r);
+        }
+        return { opt: weighted[rng.int(weighted.length)] };
+      }
       case 'vote': return { target: vote(g, p) };
     }
     return {};
@@ -1022,6 +1346,6 @@
 
 
   global.AIDecide = {
-    urgency, exposedEngineer, knownRepairers, EPS, confOf, argmax, argmaxProtect, speak, evilIntent, vote, inviteUtility, decide, canKill, clearedK, threatTop, dirOcc, exposeRiskInc, rankLow,
+    urgency, exposedEngineer, knownRepairers, EPS, VA, confOf, argmax, argmaxProtect, speak, evilIntent, vote, inviteUtility, decide, canKill, clearedK, threatTop, dirOcc, exposeRiskInc, rankLow, reasoningChain,
   };
 })(typeof window !== 'undefined' ? window : globalThis);

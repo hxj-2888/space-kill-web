@@ -25,7 +25,7 @@
                     announce = ③公告清算（announce/steps）· chan / chanUniv = ④通道门禁（channels.run） */
                  rerouted: { reason: 0, speak: 0, announce: 0, chan: 0, chanUniv: 0, private: 0 },
                  /* v32 批 5′：被 ATTEND 调制（权重 ≠ 1）的写入条数（只观测不设靶） */
-                 attended: 0 };
+                 attended: 0, leaked: 0, capped: 0 };   /* 〔批次 35〕leaked=弱事件漏进 / capped=缓存满截流（仪器） */
 
   function route(g, evt, self) {
     const hard = HARD_ROUTE[evt] || [];
@@ -188,10 +188,57 @@
        改变写入幅度的批次（验收 = 指纹会变 + 分叉度上升），ATTEND 是幅度的新维度
        （正交于档位表：档位 = 方法维度「怎么解读」，ATTEND = 视角维度「要不要进账」）。 */
     const w = (opts && opts.evt && T) ? T.attend(self.roleExpert != null ? self.roleExpert : self.role, opts.evt) : 1;
-    if (w !== 1) {
-      claims = claims.map(c => Object.assign({}, c, { delta: (c.delta || 0) * w }));
-      stats.attended = (stats.attended || 0) + claims.length;
+    if (w !== 1) claims = claims.map(c => Object.assign({}, c, { delta: (c.delta || 0) * w }));
+    /* 〔批次 34 · 注意力选择化〕注意力不止是「加权」，还该是「选择」——
+       注意力低于 ATTEND.floor 者**根本不进账**（不是「以弱证据进账」）。
+       这是注意力从机制走向拟人的关键一步：先前多数角色对非主业族的权重恒为 1.00，
+       语义上「不关心」与「同等关心」无从分辨；给低注意力族配 0.7 之类的低值后，
+       差别才体现为**是否形成证据**。
+
+       纪律（红线 1 的边界，须防「连续权重退化为第二套硬阈值」）：
+         · floor 是**连续权重轴上的闸门**，是声明层常量、可随标定调整，不是新体系；
+         · 未归族事件（w=def=1）恒过闸 ⇒ 行为不变；
+         · 私有源走 absorbPrivate（红线 3：该角色必入账），**不经此闸门**——
+           自己的私有体验不能因「注意力低」而不被自己记得；
+         · 硬源（known，官方揭示/查验硬锁）走 project 短路，天然不经 absorb ⇒ 不受影响。 */
+    const floor = (T && typeof T.attendFloor === 'function') ? T.attendFloor() : 0;
+    const TR = global.SKTrait;
+    if (floor > 0 && w > 0 && w < floor) {
+      /* 〔批次 35 · 注意力挡位化〕低于 floor 的弱事件不再一律丢弃——按 θ 档 attCatch
+         小概率「漏进」注意力（人走神时也会瞥见不关心的事），catch 不中才丢弃。
+         批次 34 的硬闸语义由「attCatch 覆写为 0」退化复现（挡位可关）。
+         rng 只在被闸的事件上消耗一次；未触发闸门零消耗，序列可复算。
+         纪律边界保持批次 34 不变：未归族事件（w=1）不进此分支；私有源不经 absorb；
+         硬源走 project 短路。 */
+      const catchP = (TR && self.theta != null) ? TR.traitValue('theta', 'attCatch', self.theta) : 0;
+      const leak = catchP > 0 && g.rng && g.rng.chance(catchP);
+      if (!leak) {
+        stats.ignored = (stats.ignored || 0) + claims.length;   // 仪器：注意力不足且未漏进而被丢弃
+        return;
+      }
+      stats.leaked = (stats.leaked || 0) + claims.length;       // 仪器：弱事件漏进而入账
     }
+    /* 〔批次 35 · 注意力容量（缓存）〕按「当夜正在关注的目标数」计——新目标占名额，
+       装满后新目标的事件被截流；**已关注目标的后续事件不占新名额**（新面孔贵、熟面孔
+       免费——比按条数截流拟真，也避免把一天的后半场发言整段切掉）。
+       「每夜清零」承载缓存换页语义；证据表一旦入账即持久，不做旧条淘汰
+       （淘汰语义由长期记忆容量承载，见 ai/memory.js）。
+       私有源走 absorbPrivate 不经此口——红线 3（自己的体验必入账）不受缓存约束。 */
+    const cap = (TR && self.theta != null) ? TR.traitValue('theta', 'attCap', self.theta) : null;
+    if (cap != null && isFinite(cap)) {
+      const B = g._attFocus = g._attFocus || {};
+      const b = (B[viewerId] && B[viewerId].night === g.night) ? B[viewerId] : (B[viewerId] = { night: g.night, set: new Set() });
+      let room = Math.max(0, cap - b.set.size);
+      const admitted = [];
+      for (const c of claims) {
+        if (c.target == null || b.set.has(c.target)) { admitted.push(c); continue; }   // 已关注：不占新名额
+        if (room > 0) { b.set.add(c.target); room--; admitted.push(c); }
+        else stats.capped = (stats.capped || 0) + 1;                                    // 新目标且缓存满：截流
+      }
+      if (!admitted.length) return;
+      claims = admitted;
+    }
+    if (w !== 1) stats.attended = (stats.attended || 0) + claims.length;
     arbitrate(g, viewerId, claims, { passthrough: true });
   }
   /* ============ v32 批 5′：私有源入账器（单人私有流水）============
@@ -264,8 +311,9 @@
     let after;
     try { after = AI.suspDist(g, self, tid); } finally { evs.pop(); }
     /* v27：返回值分布入 stats（C1 仪器三件套之二）——修 A1 之前这里恒 0，
-       任何关于影子层量级的讨论都是空谈；分布让「标定对象是否存在」可验证。 */
-    const inc = after.p_alien - before.p_alien;
+       任何关于影子层量级的讨论都是空谈；分布让「标定对象是否存在」可验证。
+       D2：读法改经访问器（原 after.p_alien）——维度开放后不得依赖固定属性名。 */
+    const inc = AI.distGet(after, 'alien') - AI.distGet(before, 'alien');
     statsShadow(inc);
     return inc;
   }

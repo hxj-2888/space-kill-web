@@ -1,9 +1,11 @@
-/* 音频：太空悬疑素材库（CC0 实录/采样音频文件）驱动，替代 v33 之前的 WebAudio 合成器。
+/* 音频：音效走 CC0 素材库（Kenney / rubberduck），背景音乐为用户提供的录音。
    素材来源与许可（见 audio/CREDITS.md）：
-     · BGM  music-space-ambience.ogg —— 60 CC0 Sci-Fi SFX（rubberduck，OpenGameArt CC0）
-     · SFX  sfx-*.ogg —— 同上 + Kenney Sci-Fi Sounds（Kenney，CC0，经 soundcn 镜像取用）
-   对外接口与合成器版本完全一致（SKAudio.{startMusic,sfx,toggle,setVolume,isOn,ensure}），
-   调用点零改动；文件缺失时静默降级（play() 的 promise 拒绝被吞掉），不阻塞任何流程。 */
+     · BGM  music-bgm.m4a —— 用户提供录音（2026-10-06），替换原 CC0 space ambience
+       （〔批次 38〕音乐资源清理：旧 BGM 文件已删除，只留音效＋本 BGM）；
+     · SFX  sfx-*.ogg —— Kenney Sci-Fi Sounds + 60 CC0 Sci-Fi SFX（均 CC0）。
+   对外接口与合成器版本一致（SKAudio.{startMusic,sfx,toggle,setVolume,isOn,ensure}），
+   〔批次 38〕新增 setRate/rate：BGM 播放速度条状连续调节（38b 由循环按钮改为滑杆）；
+   文件缺失时静默降级（play() 的 promise 拒绝被吞掉），不阻塞任何流程。 */
 (function (global) {
   const BASE = 'audio/';
   let muted = false, volume = 0.6;
@@ -21,9 +23,11 @@
        但保留函数与用户手势语义：首个 ensure() 时机即解锁自动播放限制。 */
     if (music) return music;
     try {
-      music = new Audio(BASE + 'music-space-ambience.ogg');
+      music = new Audio(BASE + 'music-bgm.m4a');
       music.loop = true;
       music.volume = Math.min(1, 0.5 * volume);
+      music.playbackRate = rate;
+      if ('preservesPitch' in music) music.preservesPitch = true;
       music.addEventListener('canplaythrough', () => { musicReady = true; });
       music.addEventListener('error', () => { musicReady = false; });
     } catch (e) { music = null; }
@@ -65,5 +69,16 @@
   }
   function isOn() { return !muted; }
 
-  global.SKAudio = { startMusic, sfx, toggle, setVolume, isOn, ensure };
+  /* 〔批次 38b〕BGM 播放速度：条状滑杆连续设置（0.5×~2×，钳制后立即生效）；
+     preservesPitch 恒真（变速不变调——BGM 是氛围层，变调会破坏音色）。
+     音乐未创建时只记档位，ensure() 时套用；rate() 返回当前档位供滑杆回显。 */
+  let rate = 1;
+  function setRate(v) {
+    v = Math.max(0.5, Math.min(2, Number(v) || 1));
+    rate = v;
+    if (music) music.playbackRate = rate;
+    return rate;
+  }
+
+  global.SKAudio = { startMusic, sfx, toggle, setVolume, isOn, ensure, setRate, rate: () => rate };
 })(typeof window !== 'undefined' ? window : globalThis);

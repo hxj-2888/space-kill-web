@@ -1,0 +1,87 @@
+# ===== GitHub Actions — Cloudflare Pages 部署（太空杀 · 网页版）=====
+# 触发：push 到 main（或手动 workflow_dispatch）
+# 说明：本站是纯静态前端（单机可玩）。联机模式依赖 server/server.js 的 WebSocket，
+#       不属于 Cloudflare Pages 的能力范围，故不在本流水线内。
+# 依赖 GitHub Secrets（缺任一则跳过部署，流水线保持绿）：
+#   CF_API_TOKEN    Cloudflare API Token（需含 Pages:Edit 权限）
+#   CF_ACCOUNT_ID   Cloudflare 账户 ID
+
+name: deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Syntax check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Syntax check all JS
+        run: |
+          find js server tools -name '*.js' -print0 | xargs -0 -n1 node --check
+          node --check server/server.js 2>/dev/null || true
+
+      - name: Unit / language / UI smoke / simulation
+        run: |
+          node tools/test-fix-v26.cjs
+          node tools/test-lang.cjs
+          node tools/uismoke.cjs
+          node tools/sim.cjs 60
+
+  deploy-pages:
+    name: Cloudflare Pages (production)
+    needs: check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Check deploy secrets
+        id: secrets
+        env:
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+        run: |
+          if [ -z "$CF_API_TOKEN" ] || [ -z "$CF_ACCOUNT_ID" ]; then
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "⚠ CF_API_TOKEN / CF_ACCOUNT_ID 未配置，跳过部署（仓库仍可正常拉取）"
+          else
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Deploy to Cloudflare Pages
+        if: steps.secrets.outputs.present == 'true'
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CF_API_TOKEN }}
+          accountId: ${{ secrets.CF_ACCOUNT_ID }}
+          command: pages deploy . --project-name=space-kill-web --branch=main --commit-hash=${{ github.sha }}
+
+  smoke-test:
+    name: Post-deploy smoke test
+    needs: deploy-pages
+    if: needs.deploy-pages.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: 首页可达
+        run: curl -fsSL -o /dev/null --max-time 30 "https://space-kill-web.pages.dev/"
+
+      - name: 核心脚本可达
+        run: curl -fsSL -o /dev/null --max-time 30 "https://space-kill-web.pages.dev/js/main.js"

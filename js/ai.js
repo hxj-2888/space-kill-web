@@ -27,6 +27,9 @@
   const knownLockOf = BEL.knownLockOf, project = BEL.project;
   const addUniversal = BEL.addUniversal, universalOf = BEL.universalOf, hostileOf = BEL.hostileOf;
   const suspOf = BEL.suspOf, suspDist = BEL.suspDist, dangerOf = BEL.dangerOf, capability = BEL.capability;
+  /* D2 开放维度：分布访问器（门面导出，调用点不得写死 d.p_human 之类的固定三元组） */
+  const FACTION_KEYS = BEL.FACTION_KEYS, distGet = BEL.distGet, distMax = BEL.distMax, distEntries = BEL.distEntries;
+  const refreshFactions = BEL.refreshFactions, factionCount = BEL.factionCount;
   const addEvent = BEL.addEvent, once = BEL.once;
   /* 入账层 */
   const onClaim = PER.onClaim, holds = PER.holds, adjudicate = PER.adjudicate;
@@ -41,7 +44,9 @@
   const urgency = DEC.urgency, exposedEngineer = DEC.exposedEngineer, EPS = DEC.EPS;
   const knownRepairers = DEC.knownRepairers;      // v28（B1）：对手方维修能力估计（破坏效用的阻力项）
   const confOf = DEC.confOf, argmax = DEC.argmax, speak = DEC.speak, evilIntent = DEC.evilIntent;
-  const argmaxProtect = DEC.argmaxProtect;   // v31 批 3.5（N417）：保护型选择入口（下界硬约束 ≥5%）
+  const argmaxProtect = DEC.argmaxProtect;
+/* 拟人层 B：推理链发言生成器（运行期由 speak 内部调用；导出供观察侧工具与门禁直调） */
+const reasoningChain = DEC.reasoningChain;   // v31 批 3.5（N417）：保护型选择入口（下界硬约束 ≥5%）
   const vote = DEC.vote, inviteUtility = DEC.inviteUtility, decide = DEC.decide;
   const canKill = DEC.canKill, clearedK = DEC.clearedK, threatTop = DEC.threatTop;
   const dirOcc = DEC.dirOcc, exposeRiskInc = DEC.exposeRiskInc, rankLow = DEC.rankLow;
@@ -49,7 +54,7 @@
     decide, speak, vote, threatOf: suspOf, suspOf, suspDist, dangerOf, onAccuse, onClaim, onReveal, reason, updatePublicThreat, onExpose,
     onVoteSettle, addEvent,
     onAsk, onQuote, onReport, onCheckClaim, onPrivate, onPrivateShare,
-    answerQuestion, evaluateAnswer,
+    answerQuestion, evaluateAnswer, reasoningChain,
     setHardFloor, credAdd, priorOf, holds, adjudicate, grudgeLevel, phaseTag, addUniversal, universalOf, settleClaims,
     settlePromises,   // v31 批 2：门面此前漏导出（函数已声明、engine 直连 perceive，但门面无此接口）
     /* v31 批 0（命名污染清理）：删除 `threatOf: suspOf` 别名——它名字叫「威胁度」，实际返回的是
@@ -58,5 +63,7 @@
     inviteUtility, alive, aliveF, byId, knownFaction: knownOf, knownRepairers, sus: (g, me, t) => suspOf(g, me, t.id),
     /* v31 批 3.5（人类侧保护专项）：N417 下界硬约束的入口 + 其对照物（供回归断言与审计读取） */
     argmax, argmaxProtect, confOf, EPS,
+    /* D2 开放维度：分布读法的唯一入口（UI/指纹/仪器/影子层一律经此，不再依赖三键属性名） */
+    FACTION_KEYS, distGet, distMax, distEntries, refreshFactions, factionCount,
   };
 })(typeof window !== 'undefined' ? window : globalThis);

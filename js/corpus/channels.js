@@ -15,5 +15,15 @@
   function of(expert) { return CHANNELS.filter(c => c.expert === expert); }
   function on(evt) { return CHANNELS.filter(c => c.on === evt); }
 
-  global.Channels = { CHANNELS, byId, of, on, count: CHANNELS.length };
+  /* ---- 判据失效查询（第二十四批：把 38 条死判据从「看不出来」变成「明确不可用」----
+     退役台账在 js/corpus/channels.retired.js（独立文件，不改 506 条总表数据，保留与
+     v20 底本的可追溯性）。执行器接线时按 staleVerdict 拒用，详见该文件头说明。 */
+  const R = global.SKChannelsRetired || { of: () => null, isStale: () => false, dead: () => false, ids: () => [], wireable: l => l };
+  const staleVerdict = id => R.of(id);
+  const isStale = id => R.isStale(id);
+
+  global.Channels = {
+    CHANNELS, byId, of, on, count: CHANNELS.length,
+    staleVerdict, isStale, retiredIds: R.ids, wireable: R.wireable,
+  };
 })(typeof window !== 'undefined' ? window : globalThis);
