@@ -1199,6 +1199,11 @@
       if (e.target && e.target.closest && e.target.closest('#btn-rules')) { openRules(); return; }
       if (e.target && e.target.closest && e.target.closest('#btn-rules-side')) { openRules(); return; }   // v33：右栏底部规则入口
       if (e.target && e.target.closest && e.target.closest('#btn-rules-start')) { openRules(); return; }
+      /* 〔批次 40〕扫码下载应用：全站唯一的 APK 入口形态——不给直链，只给二维码。
+         二维码为构建期静态图，点开即显，不发起任何外部请求。 */
+      if (e.target && e.target.closest && e.target.closest('#btn-apk-qr')) { openApkQr(); return; }
+      if (e.target && e.target.closest && e.target.closest('#apk-qr-close')) { closeApkQr(); return; }
+      if (e.target && e.target.id === 'apk-qr') { closeApkQr(); return; }   // 点遮罩关闭
       if (e.target && e.target.closest && e.target.closest('#btn-rules-close')) { closeRules(); return; }
       if (e.target && e.target.closest && e.target.closest('#btn-bgm')) {
         const cb = el('bgm');
@@ -1254,7 +1259,7 @@
       if (e.target && e.target.closest && e.target.closest('#btn-p-close')) { popPid = null; render(global.Game.g); }
     });
     document.addEventListener('keydown', e => {
-      if (e && e.key === 'Escape') { closeRules(); closeDevView(); popPid = null; render(global.Game.g); }
+      if (e && e.key === 'Escape') { closeRules(); closeApkQr(); closeDevView(); popPid = null; render(global.Game.g); }
     });
     /* v32：职业备注 select（change 不经 click 委托，单独监听；个人笔记不进 AI 账本） */
     document.addEventListener('change', e => {
@@ -1277,6 +1282,18 @@
     const ov = el('dev-overlay');
     if (ov) ov.classList.add('hidden');
     if (global.Game.g) render(global.Game.g);
+  }
+
+  /* ---------- 扫码下载应用（〔批次 40〕全站唯一 APK 入口形态） ----------
+     只给二维码、不给 APK 直链：手机端扫码即可下载安装，电脑端也不必搬运链接。
+     悬浮层不占布局流（UI 硬规则），Esc / 点遮罩 / ✕ 三种方式关闭。 */
+  function openApkQr() {
+    const q = el('apk-qr');
+    if (q) q.classList.remove('hidden');
+  }
+  function closeApkQr() {
+    const q = el('apk-qr');
+    if (q) q.classList.add('hidden');
   }
 
   /* ---------- 规则速览（全屏覆盖页，v32：开始页顶部按钮打开） ---------- */

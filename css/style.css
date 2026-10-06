@@ -1110,6 +1110,28 @@ button.act:active,button.primary:active{transform:scale(.97);box-shadow:inset 0 
 .preview-note .pn-link{color:var(--accent);text-decoration:none;border-bottom:1px solid rgba(0,229,176,.4)}
 .preview-note .pn-link:hover{color:#fff;border-bottom-color:#fff}
 
+/* ============ 扫码下载应用（悬浮层·不占布局流·定尺寸不引起布局变动） ============
+   入口在开始页工具条（#btn-apk-qr）。二维码是构建期生成的静态 PNG
+   （portfolio/space-kill-3.0/tools/gen_qr_apk.py），运行时零外部请求。 */
+.apk-qr{
+  position:fixed;inset:0;z-index:70;display:flex;align-items:center;justify-content:center;
+  background:rgba(3,7,14,.78);padding:16px;
+}
+.apk-qr-box{
+  width:268px;padding:14px 14px 12px;border-radius:14px;text-align:center;
+  background:var(--panel);border:1px solid var(--line);box-shadow:0 18px 48px rgba(0,0,0,.55);
+}
+.apk-qr-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+.apk-qr-t{font-size:13px;font-weight:700;color:var(--txt);letter-spacing:.02em}
+.apk-qr-x{
+  flex:none;width:24px;height:24px;border-radius:50%;padding:0;
+  background:transparent;border:1px solid var(--line);color:var(--dim);
+  font-size:12px;font-family:inherit;cursor:pointer;
+}
+.apk-qr-x:hover{color:var(--txt);border-color:var(--accent)}
+.apk-qr-img{display:block;width:220px;height:220px;margin:0 auto;border-radius:10px;background:#fff;padding:6px}
+.apk-qr-tip{margin:10px 0 0;font-size:11px;line-height:1.6;color:var(--dim)}
+
 /* 附件入口：与 button.act 同款的链接形态（既有样式只覆盖 button） */
 a.act{
   display:inline-flex;align-items:center;gap:6px;text-decoration:none;

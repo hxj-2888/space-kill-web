@@ -14,7 +14,7 @@ const ROOT = path.join(__dirname, '..');
 const DEST = path.join(__dirname, 'assets', 'www');
 // 与 tools/deploy-pages.cjs 的白名单同口径：页面 + 资源 + 图标（index.html 声明了图标，
 // 不带上会在 WebView/file:// 下报 404，虽然不影响运行但会污染控制台）
-const ENTRIES = ['index.html', 'css', 'js', 'audio',
+const ENTRIES = ['index.html', 'css', 'js', 'audio', 'assets',
   'favicon.ico', 'icon-32.png', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'];
 
 const walk = (dir, base, out) => {

@@ -22,6 +22,7 @@
         <div class="start-actions" id="start-actions">
           <button id="btn-bgm" class="act" title="背景音乐与音效开关">♪ 音效：开</button>
           <button id="btn-rules-start" class="act">📖 规则速览</button>
+          <button id="btn-apk-qr" class="act" title="扫码下载安卓应用">📱 扫码下载应用</button>
           <a class="act" href="https://space-kill.pages.dev" target="_blank" rel="noopener"
              title="规则全文 / 剧情 / 蒙特卡洛模拟成果（独立站点）">📎 附件：规则与模拟</a>
         </div>
@@ -120,6 +121,15 @@
     </div>
     <div id="p-pop" class="hidden"></div>
     <div id="dev-chip" class="devchip hidden">DEV 已开启 · 展开总览</div>
+
+    <!-- 扫码下载应用：悬浮层，不占布局流（UI 硬规则）· 二维码为构建期静态图，运行时零外部依赖 -->
+    <div id="apk-qr" class="apk-qr hidden">
+      <div class="apk-qr-box">
+        <div class="apk-qr-head"><span class="apk-qr-t">扫码下载安卓应用</span><button id="apk-qr-close" class="apk-qr-x" title="关闭（Esc）">✕</button></div>
+        <img class="apk-qr-img" src="assets/qr/space-kill-apk.png" alt="太空杀安卓应用下载二维码" width="220" height="220">
+        <p class="apk-qr-tip">手机相机 / 微信扫一扫即可下载安装<br>文件名不含版本号，版本号在应用内</p>
+      </div>
+    </div>
 
     <!-- 顶部状态条：阶段名 + 主倒计时 + 净破坏 + 决策窗口进度，统一收拢全场计时信息 -->
     <div class="topbar">
