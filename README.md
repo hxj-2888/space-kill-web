@@ -174,6 +174,7 @@ git grep -nE 'C:\\Users\\|[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}' # 必�
 
 ## 安卓版构建
 
+**代码托管**：GitHub `hxj-2888/space-kill-web` · Gitee `hxj-2888/space-kill-web`（两站内容同步，主分支与版本标签一致）
 **下载**：GitHub Release 稳定链接（永远指向最新版）
 <https://github.com/hxj-2888/space-kill-web/releases/latest/download/SpaceKill.apk>
 发布页：<https://github.com/hxj-2888/space-kill-web/releases>
