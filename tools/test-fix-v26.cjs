@@ -4224,6 +4224,14 @@ const jsFiles = [];
     /tempo-slider/.test(ui38) && /setRate/.test(ui38) && /tempo-val/.test(ui38) &&
     /ts\.oninput = applyTempo/.test(ui38) && /ts\.onchange = /.test(ui38) &&
     !/ts\.oninput = \(\) => \{[^}]*sfx\('tick'\)/.test(ui38));
+  /* 〔批次 41〕音乐与音效必须独立：关音乐不能连带关掉按键音（历史上是一个 muted 闸） */
+  ok('音频D：音乐 / 音效两个独立闸（各有 toggle 与状态查询，无共享 muted）',
+    /function toggleMusic\(\)/.test(auSrc) && /function toggleSfx\(\)/.test(auSrc) &&
+    /musicEnabled/.test(auSrc) && /sfxEnabled/.test(auSrc) &&
+    !/let muted = /.test(auSrc) && !/if \(muted\) return;/.test(auSrc) &&
+    /toggleMusic\(\)/.test(ui38) && /toggleSfx\(\)/.test(ui38) &&
+    /id="btn-music"/.test(html38) && /id="btn-sfx"/.test(html38) &&
+    /btn-music-start/.test(html38) && /btn-sfx-start/.test(html38));
   ok('音频C：暂停 orb 只留图标（▶／⏸，汉字说明移入 title）',
     /paused \? '▶' : '⏸'/.test(ui38) && ui38.indexOf('▶ 继续') < 0 && ui38.indexOf('⏸ 暂停') < 0);
 }

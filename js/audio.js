@@ -8,7 +8,7 @@
    文件缺失时静默降级（play() 的 promise 拒绝被吞掉），不阻塞任何流程。 */
 (function (global) {
   const BASE = 'audio/';
-  let muted = false, volume = 0.6;
+  let musicOn = true, sfxOn = true, volume = 0.6;
   let music = null, musicReady = false;
 
   /* 音效音量表（v33b：素材已低通柔化 + loudnorm -20 LUFS，角色增益整体下调约 35%——
@@ -36,7 +36,7 @@
 
   function startMusic() {
     const m = ensure();
-    if (!m || started()) return;
+    if (!m || started() || !musicOn) return;   /* 〔41〕音乐闸关闭时不启动 */
     m.currentTime = 0;
     const p = m.play();
     if (p && p.catch) p.catch(() => { /* 自动播放被拦：等待下一次用户手势重试 */ });
@@ -46,7 +46,7 @@
   /* 音效：按名克隆 Audio 节点——同名短间隔连发（如快速点击）互不打断 */
   const cache = {};
   function sfx(name) {
-    if (muted) return;
+    if (!sfxOn) return;                 /* 〔41〕音效闸独立，不再受音乐开关影响 */
     const src = BASE + 'sfx-' + name + '.ogg';
     try {
       let base = cache[name];
@@ -58,16 +58,27 @@
     } catch (e) { /* 音频不可用环境：静默 */ }
   }
 
-  function toggle() {
-    muted = !muted;
-    if (music) { if (muted) music.pause(); else { const p = music.play(); if (p && p.catch) p.catch(() => {}); } }
-    return !muted;
+  /* 〔批次 41〕音乐与音效解耦：此前一个 muted 闸同时管BGM 与 sfx，导致「只想关音乐」
+     却把按键音也一起关掉。现在两个独立闸、两个独立 API：
+       musicOn / sfxOn —— 各自的开关状态；toggleMusic() / toggleSfx() 各自翻转
+       isOn() 保留为「总闸」（两者都开才算开），仅供旧调用点兼容，不新增耦合
+     约定：关音乐不动音效；关音效不动音乐。 */
+  function toggleMusic() {
+    musicOn = !musicOn;
+    if (music) {
+      if (!musicOn) music.pause();
+      else { const p = music.play(); if (p && p.catch) p.catch(() => {}); }
+    }
+    return musicOn;
   }
+  function toggleSfx() { sfxOn = !sfxOn; return sfxOn; }
   function setVolume(v) {
     volume = Math.max(0, Math.min(1, v));
-    if (music && !muted) music.volume = Math.min(1, 0.5 * volume);
+    if (music && musicOn) music.volume = Math.min(1, 0.5 * volume);
   }
-  function isOn() { return !muted; }
+  function isOn() { return musicOn && sfxOn; }          // 总闸：兼容旧调用点
+  function musicEnabled() { return musicOn; }
+  function sfxEnabled() { return sfxOn; }
 
   /* 〔批次 38b〕BGM 播放速度：条状滑杆连续设置（0.5×~2×，钳制后立即生效）；
      preservesPitch 恒真（变速不变调——BGM 是氛围层，变调会破坏音色）。
@@ -80,5 +91,11 @@
     return rate;
   }
 
-  global.SKAudio = { startMusic, sfx, toggle, setVolume, isOn, ensure, setRate, rate: () => rate };
+  global.SKAudio = {
+    startMusic, sfx, setVolume, isOn, ensure, setRate, rate: () => rate,
+    /* 分离后的开关 */
+    toggleMusic, toggleSfx, musicEnabled, sfxEnabled,
+    /* 兼容旧调用点：toggle() 现在只作用于音乐（历史上它同时管两者） */
+    toggle: toggleMusic,
+  };
 })(typeof window !== 'undefined' ? window : globalThis);

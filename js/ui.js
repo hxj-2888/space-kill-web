@@ -1160,12 +1160,22 @@
 
   function init() {
     document.querySelectorAll('#nb-tabs .tab').forEach(t => t.onclick = () => { tab = t.dataset.tab; renderSide(global.Game.g); });
-    el('btn-music').onclick = () => {
-      const on = global.SKAudio.toggle();
-      const mb = el('btn-music');
-      /* v32（用户拍板）：音效按钮开启时黄光边缘提示（与 DEV 按钮激活态同款） */
-      if (mb) { mb.classList.toggle('on', !!on); mb.style.opacity = ''; }
+    /* 〔批次 41〕音乐与音效两个独立按钮：此前 orb 栏一个♪ 同时管两者，
+       关掉音乐会连带把按键音也关掉。现在 ♫ 只管 BGM、🔔 只管 sfx；
+       开启态沿用 v32 的黄光边缘提示（与 DEV 按钮激活态同款）。 */
+    const bindAudioToggle = (btnId, onToggle) => {
+      const b = el(btnId);
+      if (b) b.onclick = () => { const on = onToggle(); b.classList.toggle('on', !!on); b.style.opacity = ''; };
     };
+    bindAudioToggle('btn-music', () => global.SKAudio.toggleMusic());
+    bindAudioToggle('btn-sfx', () => global.SKAudio.toggleSfx());
+    /* 开始页两个开关：文案自带状态；标签与状态均为定长，不引起布局变动 */
+    const bindStartToggle = (btnId, label, onToggle) => {
+      const b = el(btnId);
+      if (b) b.onclick = () => { b.textContent = label + (onToggle() ? '开' : '关'); };
+    };
+    bindStartToggle('btn-music-start', '♫ 音乐：', () => global.SKAudio.toggleMusic());
+    bindStartToggle('btn-sfx-start', '🔔 音效：', () => global.SKAudio.toggleSfx());
     /* 〔批次 38b〕BGM 播放速度条状滑杆：连续调节 0.5×~2×，即时生效并回显 ×N.NN。
        音乐未起（bgm 关）时只记档，ensure() 时套用——SKAudio.setRate 的语义。
        拖动过程（input）只改速度不出声（连发 tick 会变机关枪），松手（change）才响一声。 */
@@ -1206,14 +1216,6 @@
       if (e.target && e.target.closest && e.target.closest('#btn-side-toggle')) { toggleSideDrawer(); return; }
       if (e.target && e.target.id === 'apk-qr') { closeApkQr(); return; }   // 点遮罩关闭
       if (e.target && e.target.closest && e.target.closest('#btn-rules-close')) { closeRules(); return; }
-      if (e.target && e.target.closest && e.target.closest('#btn-bgm')) {
-        const cb = el('bgm');
-        if (cb) {
-          cb.checked = !cb.checked;
-          e.target.closest('#btn-bgm').textContent = cb.checked ? '♪ 音效：开' : '♪ 音效：关';
-        }
-        return;
-      }
       /* v32：单机暂停 / 退出（仅单机模式显示按钮）；〔批次 38b〕orb 只留图标，汉字说明在 title */
       if (e.target && e.target.closest && e.target.closest('#btn-pause')) {
         global.Game.togglePause();

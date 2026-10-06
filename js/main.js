@@ -294,7 +294,7 @@
     });
 
     el('btn-start').onclick = () => {
-      if (el('bgm').checked) { A().ensure(); A().startMusic(); }
+      if (A().musicEnabled()) { A().ensure(); A().startMusic(); }
       A().sfx('click');
       const seed = (el('seed').value || '').trim() || String(Date.now() % 100000000);
       const n = parseInt(seed, 10);
@@ -302,8 +302,8 @@
       Game.startLocal(isNaN(n) ? hash(seed) : n, pref);
     };
 
-    el('btn-create').onclick = () => { if (el('bgm').checked) { A().ensure(); A().startMusic(); } Game.connect('create'); };
-    el('btn-join').onclick = () => { if (el('bgm').checked) { A().ensure(); A().startMusic(); } Game.connect('join'); };
+    el('btn-create').onclick = () => { if (A().musicEnabled()) { A().ensure(); A().startMusic(); } Game.connect('create'); };
+    el('btn-join').onclick = () => { if (A().musicEnabled()) { A().ensure(); A().startMusic(); } Game.connect('join'); };
     el('btn-back').onclick = () => { global.Net.close(); el('screen-room').classList.add('hidden'); el('screen-start').classList.remove('hidden'); };
     el('btn-launch').onclick = () => global.Net.startGame(Date.now() % 100000000);
 
