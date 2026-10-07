@@ -8,6 +8,8 @@
  * 站点实际引用（见 index.html 与 js/audio.js）：index.html / css/ / js/ / audio/
  *
  * 前置：本机已安装 wrangler 并 `wrangler login`。
+ * CI：设 CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID 环境变量（wrangler 自动识别，免登录），
+ *     并用 WRANGLER_CMD 指定启动命令（如 "npx wrangler@4"）——见 .github/workflows/deploy.yml。
  * 用法：node tools/deploy-pages.cjs
  * ============================================================ */
 'use strict';
@@ -19,6 +21,8 @@ const path = require('path');
 const PROJECT = 'space-kill-web';
 const BRANCH = 'main';
 const ROOT = path.join(__dirname, '..');
+// CI 注入的启动命令（如 "npx wrangler@4"）；本地默认用 PATH 里的 wrangler
+const WRANGLER = process.env.WRANGLER_CMD || 'wrangler';
 // 站点图标随页面一起部署（缺了会被 Cloudflare 回退成 404，浏览器退回默认空白图标）
 // SpaceKill.apk = 安卓版安装包（由 android/build.cmd 自动复制到仓库根，见该脚本注释）；
 // _headers = 该 APK 的附件下载响应头。三者缺一都会导致线上"能点但下不到"。
@@ -53,11 +57,11 @@ const total = files.reduce((s, f) => s + fs.statSync(path.join(stage, f)).size, 
 console.log('总体积: ' + (total / 1048576).toFixed(2) + ' MB');
 
 console.log('\n创建 Pages 项目（已存在则忽略报错）...');
-spawnSync('wrangler', ['pages', 'project', 'create', PROJECT, '--production-branch', BRANCH],
+spawnSync(WRANGLER, ['pages', 'project', 'create', PROJECT, '--production-branch', BRANCH],
   { cwd: ROOT, stdio: 'inherit', shell: true });
 
 console.log('\n部署中...');
-const r = spawnSync('wrangler',
+const r = spawnSync(WRANGLER,
   ['pages', 'deploy', stage, '--project-name', PROJECT, '--branch', BRANCH],
   { cwd: ROOT, stdio: 'inherit', shell: true });
 

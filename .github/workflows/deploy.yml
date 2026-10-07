@@ -2,6 +2,9 @@
 # 触发：push 到 main（或手动 workflow_dispatch）
 # 说明：本站是纯静态前端（单机可玩）。联机模式依赖 server/server.js 的 WebSocket，
 #       不属于 Cloudflare Pages 的能力范围，故不在本流水线内。
+# ★ 部署源是白名单暂存目录（tools/deploy-pages.cjs 的 SITE_ENTRIES），
+#   绝不能 pages deploy . 整仓直推：仓库根含 node_modules/、docs/、tools/、
+#   attachment-site/（12.6MB 附件站全套）等非站点内容，配了 secret 就会被公开。
 # 依赖 GitHub Secrets（缺任一则跳过部署，流水线保持绿）：
 #   CF_API_TOKEN    Cloudflare API Token（需含 Pages:Edit 权限）
 #   CF_ACCOUNT_ID   Cloudflare 账户 ID
@@ -66,13 +69,13 @@ jobs:
             echo "present=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Deploy to Cloudflare Pages
+      - name: Deploy via whitelist staging (tools/deploy-pages.cjs)
         if: steps.secrets.outputs.present == 'true'
-        uses: cloudflare/wrangler-action@v4
-        with:
-          apiToken: ${{ secrets.CF_API_TOKEN }}
-          accountId: ${{ secrets.CF_ACCOUNT_ID }}
-          command: pages deploy . --project-name=space-kill-web --branch=main --commit-hash=${{ github.sha }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          WRANGLER_CMD: npx wrangler@4
+        run: node tools/deploy-pages.cjs
 
   smoke-test:
     name: Post-deploy smoke test
