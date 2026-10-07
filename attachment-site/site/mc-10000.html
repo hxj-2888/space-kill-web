@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>蒙特卡洛模拟 · 10000 局 · 太空杀</title>
+<meta name="description" content="网页版引擎离线跑完整对局 · 胜负 / 节奏 / 证据链">
+<style>
+:root { --bg:#0a0a0f; --card:#141420; --line:#252535; --text:#e0e0ea; --muted:#8888a0; --accent:#818cf8; }
+* { margin:0; padding:0; box-sizing:border-box }
+body { background:var(--bg); color:var(--text); font-family:"PingFang SC","Microsoft YaHei","Noto Sans SC",sans-serif; line-height:1.9 }
+nav { position:sticky; top:0; z-index:10; display:flex; align-items:center; gap:14px; padding:14px 22px; background:rgba(10,10,15,.92); backdrop-filter:blur(8px); border-bottom:1px solid var(--line) }
+nav .brand { font-weight:700; letter-spacing:.02em; color:#fff; text-decoration:none; margin-right:auto }
+nav a.tab { color:var(--muted); text-decoration:none; font-size:14px; padding:5px 12px; border-radius:999px; transition:.15s }
+nav a.tab:hover { color:#fff }
+nav a.tab.on { color:#fff; background:var(--line) }
+.wrap { max-width:52rem; margin:0 auto; padding:48px 22px 96px }
+.filebox { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px 18px; margin:10px 0; text-decoration:none; color:var(--text); display:block }
+.filebox:hover { border-color:var(--accent) }
+.filebox .t { font-weight:700; color:#fff }
+.filebox .s { color:var(--muted); font-size:13px; margin-top:3px }
+.kicker { font-size:12px; letter-spacing:.18em; text-transform:uppercase; color:var(--accent); margin-bottom:10px }
+h1 { font-size:clamp(26px,4.6vw,38px); letter-spacing:-.02em; margin-bottom:28px; color:#fff }
+h2 { font-size:20px; color:#fff; margin:44px 0 14px; padding-left:12px; border-left:3px solid var(--accent) }
+p { margin:12px 0; color:#c9c9d9; font-size:16px }
+hr { border:none; border-top:1px solid var(--line); margin:32px 0 }
+table { border-collapse:collapse; width:100%; margin:18px 0; font-size:14.5px }
+th, td { border:1px solid var(--line); padding:8px 12px; text-align:left; vertical-align:top; color:#c9c9d9 }
+th { background:#181826; color:#fff; white-space:nowrap }
+ul, ol { margin:12px 0 12px 26px; color:#c9c9d9; font-size:16px }
+li { margin:6px 0 }
+blockquote { margin:18px 0; padding:12px 18px; border-left:3px solid var(--accent); background:#12121e; border-radius:0 10px 10px 0 }
+blockquote p { color:var(--muted); font-size:15px }
+code { background:#1c1c2c; border:1px solid var(--line); border-radius:5px; padding:1px 6px; font-size:13.5px; color:#a5b4fc }
+pre { background:#12121e; border:1px solid var(--line); border-radius:10px; padding:14px; overflow-x:auto; color:#c9c9d9; font-size:13px }
+.foot { margin-top:64px; padding-top:20px; border-top:1px solid var(--line); color:var(--muted); font-size:13px; display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap }
+.foot a { color:var(--accent); text-decoration:none }
+</style>
+</head>
+<body>
+<nav>
+  <a class="brand" href="index.html">🚀 太空杀 · 星途归航</a>
+  <a class="tab" href="story-human.html">剧情</a>
+  <a class="tab" href="rules.html">规则</a>
+  <a class="tab on" href="sim31-matrix.html">平衡性</a>
+  <a class="tab" href="mc-10000.html">蒙特卡洛</a>
+  <a class="tab" href="https://space-kill-web.pages.dev" rel="noopener" target="_blank">可玩网页版 ↗</a>
+</nav>
+<div class="wrap">
+<h1>蒙特卡洛模拟 · 10000 局</h1>
+<blockquote><p>由<strong>网页版游戏引擎</strong>（<code>js/engine.js</code> 与结合层全量模块）离线跑完整对局，无 DOM、无 UI、无联机层——即玩家实际对战的那套规则与 AI。</p></blockquote>
+<table>
+<tr><th>项目</th><th>值</th></tr>
+<tr><td>对局数</td><td>10000 / 10000</td></tr>
+<tr><td>种子区间</td><td>1 ~ 10000</td></tr>
+<tr><td>耗时</td><td>759.0 秒</td></tr>
+<tr><td><strong>运行时异常</strong></td><td><strong>0</strong></td></tr>
+</table>
+<h3>胜负分布</h3>
+<table>
+<tr><th>阵营</th><th>胜场</th><th>占比</th></tr>
+<tr><td>人类</td><td>2951</td><td>29.5%</td></tr>
+<tr><td>异形</td><td>5711</td><td>57.1%</td></tr>
+<tr><td>外星人</td><td>1338</td><td>13.4%</td></tr>
+<tr><td>平局</td><td>0</td><td>0.0%</td></tr>
+</table>
+<p>非平局口径：人类 29.5% · 异形 57.1% · 外星人 13.4%</p>
+<h3>阶段分布（残局类型）</h3>
+<table>
+<tr><th>阶段</th><th>局数</th><th>占比</th></tr>
+<tr><td>常规</td><td>7428</td><td>74.3%</td></tr>
+<tr><td>寂灭</td><td>603</td><td>6.0%</td></tr>
+<tr><td>决斗</td><td>1969</td><td>19.7%</td></tr>
+<tr><td>未终局</td><td>0</td><td>0.0%</td></tr>
+</table>
+<h3>对局节奏</h3>
+<table>
+<tr><th>指标</th><th>均值</th></tr>
+<tr><td>平均夜数</td><td>7.21</td></tr>
+<tr><td>场均驱逐</td><td>6.43</td></tr>
+<tr><td>场均夜死</td><td>6.33</td></tr>
+<tr><td>场均查验</td><td>10.75 人次</td></tr>
+<tr><td>场均维修</td><td>4.67</td></tr>
+</table>
+<h4>夜数分布</h4>
+<table>
+<tr><th>夜数</th><th>局数</th><th>占比</th></tr>
+<tr><td>3</td><td>12</td><td>0.1%</td></tr>
+<tr><td>4</td><td>132</td><td>1.3%</td></tr>
+<tr><td>5</td><td>1261</td><td>12.6%</td></tr>
+<tr><td>6</td><td>2498</td><td>25.0%</td></tr>
+<tr><td>7</td><td>2407</td><td>24.1%</td></tr>
+<tr><td>8</td><td>1637</td><td>16.4%</td></tr>
+<tr><td>9</td><td>1052</td><td>10.5%</td></tr>
+<tr><td>10</td><td>520</td><td>5.2%</td></tr>
+<tr><td>11</td><td>268</td><td>2.7%</td></tr>
+<tr><td>12</td><td>131</td><td>1.3%</td></tr>
+<tr><td>13</td><td>46</td><td>0.5%</td></tr>
+<tr><td>14</td><td>22</td><td>0.2%</td></tr>
+<tr><td>15</td><td>7</td><td>0.1%</td></tr>
+<tr><td>16</td><td>3</td><td>0.0%</td></tr>
+<tr><td>17</td><td>1</td><td>0.0%</td></tr>
+<tr><td>18</td><td>1</td><td>0.0%</td></tr>
+<tr><td>20</td><td>1</td><td>0.0%</td></tr>
+<tr><td>21</td><td>1</td><td>0.0%</td></tr>
+</table>
+<h3>出局原因分布</h3>
+<table>
+<tr><th>死因</th><th>次数</th><th>占比</th></tr>
+<tr><td>驱逐</td><td>64273</td><td>50.4%</td></tr>
+<tr><td>异形袭击</td><td>41344</td><td>32.4%</td></tr>
+<tr><td>外星人击杀</td><td>16870</td><td>13.2%</td></tr>
+<tr><td>警长开枪</td><td>2332</td><td>1.8%</td></tr>
+<tr><td>感染致死</td><td>2789</td><td>2.2%</td></tr>
+</table>
+<h3>破坏与停摆</h3>
+<table>
+<tr><th>指标</th><th>值</th></tr>
+<tr><td>出现 ⑤ 破坏公告的局数</td><td>4136 / 10000（41.4%）</td></tr>
+<tr><td>⑤ 公告总条数</td><td>5343</td></tr>
+<tr><td>停摆 3.0 触发</td><td>2050 局</td></tr>
+<tr><td>停摆 6.0 触发</td><td>265 局</td></tr>
+<tr><td>停摆 9.0 触发</td><td>2 局</td></tr>
+</table>
+<h3>推理区分度（AUC）</h3>
+<blockquote><p>AUC = 敌对方在怀疑度排序中的排前概率；0.5 等于瞎猜。<strong>只观测、不设靶</strong>，用于判断「证据链是否真的带来区分度」。</p></blockquote>
+<table>
+<tr><th>阵营</th><th>开局</th><th>中期</th><th>残局</th></tr>
+<tr><td>人类</td><td>0.429</td><td>0.436</td><td>0.488</td></tr>
+<tr><td>异形</td><td>0.482</td><td>0.536</td><td>0.510</td></tr>
+<tr><td>外星人</td><td>0.418</td><td>0.413</td><td>0.575</td></tr>
+</table>
+<h3>通道接入度</h3>
+<table>
+<tr><th>指标</th><th>值</th></tr>
+<tr><td>已接线通道</td><td>44 / 506</td></tr>
+<tr><td>本批触发过的通道</td><td>39 个：A01, A02, A08, B03, C09, C42, C43, C45, C55, C56, D03, N04, N05, N07, N08, N09, N10, N100, N11, N149, N15, N17, N18, N182, N20, N21, N216, N22, N306, N318, N401, N403, N404, N405, N406, N407, N95, N96, N97</td></tr>
+<tr><td>激活专家</td><td>10 个：E1, E10, E11, E12, E2, E3, E4, E5, E6, E8</td></tr>
+<tr><td>通道分叉度</td><td>0.173</td></tr>
+<tr><td>证据层分叉度</td><td>0.4393</td></tr>
+</table>
+<h3>证据链</h3>
+<table>
+<tr><th>指标</th><th>值</th></tr>
+<tr><td>证据源 · fact</td><td>370115</td></tr>
+<tr><td>证据源 · claim</td><td>13583165</td></tr>
+<tr><td>证据源 · universal</td><td>273079</td></tr>
+<tr><td>折叠率</td><td>0.6178</td></tr>
+<tr><td>专家标记</td><td>7087061</td></tr>
+</table>
+<h3>仲裁与影子</h3>
+<table>
+<tr><th>指标</th><th>值</th></tr>
+<tr><td>仲裁输入</td><td>3286313</td></tr>
+<tr><td>多 Claim 率</td><td>0.0032</td></tr>
+<tr><td>影子调用</td><td>81639</td></tr>
+<tr><td>影子采纳率</td><td>0.0237</td></tr>
+</table>
+<h3>改道计数</h3>
+<table>
+<tr><th>改道类型</th><th>次数</th></tr>
+<tr><td>reason</td><td>10141461</td></tr>
+<tr><td>speak</td><td>411709</td></tr>
+<tr><td>announce</td><td>10426</td></tr>
+<tr><td>chan</td><td>15586</td></tr>
+<tr><td>chanUniv</td><td>273079</td></tr>
+<tr><td>private</td><td>312597</td></tr>
+</table>
+<h3>硬源锁定</h3>
+<table>
+<tr><th>指标</th><th>值</th></tr>
+<tr><td>每局锁定对数</td><td>2.43（中位 2）</td></tr>
+<tr><td>每夜样本</td><td>5.78</td></tr>
+<tr><td>单人私有</td><td>0.55</td></tr>
+<tr><td>小组共享</td><td>0.88</td></tr>
+<tr><td>全场共享</td><td>1</td></tr>
+</table>
+<h3>结局统计</h3>
+<table>
+<tr><th>项目</th><th>值</th></tr>
+<tr><td>胜利 · 人类</td><td>2951</td></tr>
+<tr><td>胜利 · 异形</td><td>5711</td></tr>
+<tr><td>胜利 · 外星人</td><td>1338</td></tr>
+<tr><td>胜利 · 平局</td><td>0</td></tr>
+</table>
+<h3>异常清单</h3>
+<p><strong>无异常</strong> —— 全部 10000 局完整跑完。</p>
+<hr>
+<p>本页由 <code>tools/gen_mc_report.py</code> 从蒙特卡洛原始结果（JSON）生成，数字未经手工修改；站点由 <code>tools/build_site.py</code> 重建，CI 会比对重建结果与提交内容。</p>
+<div class="foot"><span>太空杀 · 三阵营身份博弈 · 规则正文 v6.6（v66 修订版）</span><span><a href="https://github.com/hxj-2888/space-kill" rel="noopener" target="_blank">GitHub</a></span></div>
+</div>
+</body>
+</html>

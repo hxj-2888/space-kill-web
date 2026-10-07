@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>太空杀 · 星途归航 — 剧情与规则</title>
+<meta name="description" content="太空杀：15 人三阵营（人类 / 异形 / 外星人）身份博弈桌游的剧情与规则。">
+<style>
+:root {{ --bg:#0a0a0f; --card:#141420; --line:#252535; --text:#e0e0ea; --muted:#8888a0; --accent:#818cf8 }}
+* {{ margin:0; padding:0; box-sizing:border-box }}
+body {{ background:var(--bg); color:var(--text); font-family:"PingFang SC","Microsoft YaHei","Noto Sans SC",sans-serif; line-height:1.8;
+  background-image:radial-gradient(1200px 500px at 70% -10%, rgba(99,102,241,.14), transparent), radial-gradient(900px 420px at 10% 110%, rgba(124,58,237,.10), transparent) }}
+.wrap {{ max-width:64rem; margin:0 auto; padding:72px 22px 96px }}
+.kicker {{ font-size:12px; letter-spacing:.2em; text-transform:uppercase; color:var(--accent) }}
+h1 {{ font-size:clamp(30px,5.4vw,46px); letter-spacing:-.02em; color:#fff; margin:12px 0 14px }}
+.sub {{ color:var(--muted); max-width:46rem }}
+.grid {{ display:grid; grid-template-columns:repeat(auto-fit,minmax(270px,1fr)); gap:18px; margin-top:44px }}
+.card {{ display:block; background:var(--card); border:1px solid var(--line); border-radius:20px; padding:24px 22px; text-decoration:none; color:var(--text); transition:.2s }}
+.card:hover {{ transform:translateY(-3px); border-color:var(--accent); box-shadow:0 12px 32px rgba(99,102,241,.15) }}
+.card .tag {{ font-size:12px; color:var(--accent); letter-spacing:.14em; text-transform:uppercase }}
+.card h2 {{ font-size:19px; color:#fff; margin:8px 0 6px }}
+.card p {{ color:var(--muted); font-size:14px }}
+.foot {{ margin-top:56px; color:var(--muted); font-size:13px }}
+.foot a {{ color:var(--accent); text-decoration:none }}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="kicker">Space Kill · 规则正文 v6.6</div>
+  <h1>太空杀 · 星途归航</h1>
+  <p class="sub">15 人三阵营（人类 11 / 异形 3 / 外星人 1）身份博弈桌游。本站是
+    <a href="https://space-kill-web.pages.dev" rel="noopener" target="_blank">可玩网页版</a>
+    的<b>附件</b>：收录官方剧情（三条胜利线）、最新正式规则（正文 v6.6 · v66 修订版）与平衡性模拟成果。</p>
+  <div class="grid">
+    <a class="card" href="story-human.html"><div class="tag">剧情</div><h2>人类胜利线</h2><p>星途归航 · 最终版——信天翁号的二十昼夜。</p></a>
+    <a class="card" href="story-alien.html"><div class="tag">剧情</div><h2>外星人胜利线</h2><p>星途归航 · 修订版——船体深处的低语。</p></a>
+    <a class="card" href="story-xeno.html"><div class="tag">剧情</div><h2>异形胜利线</h2><p>寄生、觉醒与破壳之夜。</p></a>
+    <a class="card" href="rules.html"><div class="tag">规则</div><h2>游戏规则 v6.6</h2><p>正文 v6.6（v66 修订版）全部条款、表格与【消歧】注释。</p></a>
+    <a class="card" href="太空杀V6.6正文_v66修订版.pdf" target="_blank" rel="noopener"><div class="tag">规则 · 原件</div><h2>规则正文 PDF</h2><p>45 页权威 PDF 原件，可下载或在线阅读。</p></a>
+    <a class="card" href="sim31-matrix.html"><div class="tag">平衡性模拟</div><h2>策略矩阵报告（测试 3.1）</h2><p>异形三大流派权重化 · 感染为显式权重 · 均衡解。</p></a>
+    <a class="card" href="sim31-flows.html"><div class="tag">平衡性模拟</div><h2>异形流派核验（测试 3.1）</h2><p>击杀 / 破坏 / 感染 · 12/12 行为判据。</p></a>
+    <a class="card" href="mc-10000.html"><div class="tag">平衡性模拟</div><h2>蒙特卡洛模拟 · 10000 局</h2><p>网页版引擎离线跑完整对局 · 胜负分布 / 对局节奏 / 证据链指标。</p></a>
+    <a class="card" href="https://space-kill-web.pages.dev" rel="noopener" target="_blank"><div class="tag">可玩网页版</div><h2>太空杀 · 三阵营对抗</h2><p>直接在浏览器里玩：单机对局 · AI 托管 · 19 个夜间步骤 · 三阵营博弈。</p></a>
+    <a class="card" href="space-kill-apk-qr.png" rel="noopener" target="_blank"><div class="tag">安卓应用</div><h2>扫码下载应用</h2><p>手机扫二维码直接下载安装；文件名不含版本号，版本号在应用内。</p></a>
+  </div>
+  <div class="foot"> <a href="https://github.com/hxj-2888/space-kill" rel="noopener" target="_blank">GitHub 仓库</a></div>
+</div>
+</body>
+</html>

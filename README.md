@@ -32,6 +32,11 @@
 | 安卓安装包 | GitHub Releases 稳定链接（见下「代码托管」） |
 | 规则 / 剧情 / 模拟成果 | https://space-kill.pages.dev |
 
+> **附件站源码在本仓库的 [`attachment-site/`](attachment-site/README.md)**：规则正文、三条胜利线剧情、
+> 平衡性模拟成果（含 10000 局蒙特卡洛原始 JSON 与生成脚本）都在那里，可本地重建（`python tools/build_site.py`）。
+> 它原先的独立仓库 `hxj-2888/space-kill` 在 GitHub 上不存在（404 已搁置），Gitee 同名仓库是另一个项目 ——
+> 故并入本仓库与游戏代码一起版本化。附件站与游戏站是两套部署，白名单互不重叠。
+
 ## 运行
 
 ```bash
