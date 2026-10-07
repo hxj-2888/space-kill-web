@@ -340,6 +340,24 @@ def build():
       os.path.getsize(pdf_src) / 1048576.0))
     else:
         print('WARN 规则 PDF 原件缺失，跳过复制：%s' % pdf_src)
+
+    # 安卓下载二维码：随站分发，但它是**静态资源**而非生成产物 ——
+    # 必须由构建复制，不能只躺在 site/ 里。否则「产物可由源确定性重建」这道门禁必然失败
+    # （重建时 build 不会生成二维码，site/ 里那份会被覆盖掉）。
+    # 同时修掉一个线上缺陷：该二维码此前只存在于作品集副本里，附件站自己的 site/ 没有，
+    # 首页「扫码下载应用」卡片点进去落到 index.html 回退（Content-Type: text/html，而非图片）。
+    APK_QR_SRC = os.path.join(ROOT, 'assets', 'space-kill-apk-qr.png')
+    APK_QR_NAME = 'space-kill-apk-qr.png'
+    if os.path.exists(APK_QR_SRC):
+        qr_dst = os.path.join(OUT, APK_QR_NAME)
+        if os.path.exists(qr_dst):
+            os.remove(qr_dst)
+        shutil.copy2(APK_QR_SRC, qr_dst)
+        print('%-40s -> site/%s  (%.2f KB)' % ('assets/' + APK_QR_NAME, APK_QR_NAME,
+              os.path.getsize(APK_QR_SRC) / 1024.0))
+    else:
+        print('WARN 安卓二维码缺失，跳过复制：%s' % APK_QR_SRC)
+
     print('SITE_BUILD_OK -> site/')
 
 
