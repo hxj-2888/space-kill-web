@@ -145,7 +145,7 @@ pre {{ background:#12121e; border:1px solid var(--line); border-radius:10px; pad
 </nav>
 <div class="wrap">
 {body}
-<div class="foot"><span>太空杀 · 三阵营身份博弈 · 规则正文 v6.6（v66 修订版）</span><span><a href="https://github.com/hxj-2888/space-kill" rel="noopener" target="_blank">GitHub</a></span></div>
+<div class="foot"><span>太空杀 · 三阵营身份博弈 · 规则正文 v6.6（v66 修订版）</span><span><a href="https://github.com/hxj-2888/space-kill-web/tree/main/attachment-site" rel="noopener" target="_blank">GitHub 源码</a></span></div>
 </div>
 </body>
 </html>
@@ -196,7 +196,7 @@ h1 {{ font-size:clamp(30px,5.4vw,46px); letter-spacing:-.02em; color:#fff; margi
     <a class="card" href="https://space-kill-web.pages.dev" rel="noopener" target="_blank"><div class="tag">可玩网页版</div><h2>太空杀 · 三阵营对抗</h2><p>直接在浏览器里玩：单机对局 · AI 托管 · 19 个夜间步骤 · 三阵营博弈。</p></a>
     <a class="card" href="space-kill-apk-qr.png" rel="noopener" target="_blank"><div class="tag">安卓应用</div><h2>扫码下载应用</h2><p>手机扫二维码直接下载安装；文件名不含版本号，版本号在应用内。</p></a>
   </div>
-  <div class="foot"> <a href="https://github.com/hxj-2888/space-kill" rel="noopener" target="_blank">GitHub 仓库</a></div>
+  <div class="foot"> <a href="https://github.com/hxj-2888/space-kill-web/tree/main/attachment-site" rel="noopener" target="_blank">GitHub 源码</a></div>
 </div>
 </body>
 </html>
