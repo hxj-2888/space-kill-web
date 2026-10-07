@@ -69,6 +69,13 @@ jobs:
             echo "present=true" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Pull SpaceKill.apk from GitHub Release
+        # APK 被 .gitignore 排除（不进 git）。部署清单里的可选条目由本步拉回仓库根；
+        # Release 即安装包分发源，与 releases/latest 稳定链接同一份文件。
+        run: |
+          curl -fsSL --retry 3 -o SpaceKill.apk \
+            "https://github.com/${{ github.repository }}/releases/latest/download/SpaceKill.apk"
+
       - name: Deploy via whitelist staging (tools/deploy-pages.cjs)
         if: steps.secrets.outputs.present == 'true'
         env:
