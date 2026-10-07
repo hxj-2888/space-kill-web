@@ -121,7 +121,8 @@
          可挡**（安全室、外星人夜晚免疫），庇护类（保护 / 巡逻 / 工匠护甲 / 结茧护盾）一律不防。
          故此处须在任何抵挡层之前单独判一次，不能与下方 damage 侧层序合并。 */
       else if (type === 'poison') {
-        if (t.faction === 'xeno') {
+        /* 〔43〕夜晚免疫是经典外星人的全额减免层（6.4），按 role 判 —— 死囚不持（6.8.2） */
+        if (global.SKDerivation.isClassicXeno(t)) {
           if (t.immuneActiveNight != null && t.immuneActiveNight === g.night) res = 'blocked';
           else if (t.nightImmune > 0) { t.nightImmune -= 1; t.immuneActiveNight = g.night; res = 'blocked'; immuneUsed = true; }
         }
@@ -136,7 +137,7 @@
         /* 5.7⑧：结茧护盾被打破时，其持有者知情（不含攻击者信息） */
         priv(g, t, '你的结茧护盾被打破了。');
       }
-      else if (t.faction === 'xeno') {
+      else if (global.SKDerivation.isClassicXeno(t)) {
         if (t.immuneActiveNight != null && t.immuneActiveNight === g.night) res = 'blocked';
         else if (t.nightImmune > 0) {
           t.nightImmune -= 1; t.immuneActiveNight = g.night; res = 'blocked'; immuneUsed = true;
@@ -210,7 +211,10 @@
       out = 'fake';
     } else {
       t.infection = { real: true, appliedNight: g.night, deathNight: g.night + (fast ? 1 : 2) };
-      if (t.faction === 'xeno') t.cureSelf = Math.min(1, t.cureSelf + 1);
+      /* 〔43〕感染治疗额度是**经典外星人**的被动（6.5），按 role 判。
+         此前按 faction 判 ⇒ 死囚每次被感染都白攒一份额度，而步骤 8 的 req 又会给它派
+         xenoCure —— 请求与表单 kind 不一致，静默换成医生表单（见 steps.js 步骤 8）。 */
+      if (global.SKDerivation.isClassicXeno(t)) t.cureSelf = Math.min(1, t.cureSelf + 1);
       priv(g, t, `你身上出现感染标记，将于第 ${t.infection.deathNight} 夜致死。`);
       out = 'real';
     }
@@ -229,10 +233,10 @@
     return out;
   }
 
-  /* 清除感染的唯一入口：外星人的感染治疗额度随感染消失而作废（6.5⑥） */
+  /* 清除感染的唯一入口：外星人的感染治疗额度随感染消失而作废（6.5⑥）〔43〕按 role 判 */
   function clearInfection(g, t) {
     t.infection = null;
-    if (t.faction === 'xeno') t.cureSelf = 0;
+    if (global.SKDerivation.isClassicXeno(t)) t.cureSelf = 0;
   }
 
   /* ============ 转职 ============ */
@@ -262,7 +266,13 @@
     } else if (dir === 'tempdoc') {
       p.rescueLeft = 1; p.cureLeft = 2;
     }
-    log(g, `${p.id} 号完成转职 → ${p.roleName}`, 'info');
+    /* 〔42〕转职不再进公开日志：此前用 log()（scope='all'，无批次），而 ui.js 的决策区会把
+       「本步无批次号的日志」直接渲染出来 —— 等于把「N 号转职 → 助理工程师」当场公布给全场，
+       且连带泄露「存活已 ≤6 或已过第 6 夜」这一触发条件。依 2.8.7 转职一律不公开、
+       2.3.0⑤ 开局公告也不随转职更新。改走 priv()：本人可见，落 god() 供复盘。
+       同理，下方武装识别已在 priv 中，无问题。 */
+    priv(g, p, `你已转职为${p.roleName}。`);
+    god(g, `${p.id} 号完成转职 → ${p.roleName}`);
   }
 
   /* ============ 额度发放 ============ */
@@ -777,7 +787,9 @@ function updatePhases(g) {
   /* A21（批次〇，2.3.0）：开局职业公告——「本局全部职业构成：各职业名称及其人数」。
      构成数据与 H21 查证池同源（compositionOf 读 originRole||role，本函数同字段计数），
      防两处漂移；不含任何编号归属（2.3.0③），此后不随出局/变形/转职更新（2.3.0⑤）。
-     外星人变体注记在 A17（局变体配置）实装前固定为「经典」，届时改为声明驱动。 */
+     〔42〕外星人变体注记改为**声明驱动**：此前硬编码「经典」，一旦席位变体接线（1.1.1），
+     死囚局的开局公告会谎报「经典」—— 直接违反 2.3.0「以本局实际选定者入公告」。
+     现在按本局实际在场的外星人角色渲染；经典局输出与旧文本逐字相同（指纹中性）。 */
   function openingRosterText(g) {
     const comp = {};
     for (const r of ACT.compositionOf(g)) comp[r] = 0;   // 与查证池同源的本局构成（去重集合）
@@ -790,7 +802,15 @@ function updatePhases(g) {
       if (!comp[k]) continue;
       parts.push(`${RD.ROLE_DECL[k].name}×${comp[k]}`);
     }
-    return `开局职业公告：${parts.join('、')}；外星人变体：经典。本公告不含编号归属，此后不随出局、变形、转职更新（2.3.0）。`;
+    /* 外星人席位实际选定者（1.1.1）：经典 / 死囚二选一，按 comp 实际取值报，不猜。
+       经典变体的角色名就叫「外星人」，直接印出来会变成「外星人变体：外星人」这种废话，
+       故按 1.1.1 的席位名口径归一：经典外星人 → 「经典」，其余印角色名。 */
+    const xenoKeys = RD.keys().filter(k => RD.ROLE_DECL[k].faction === 'xeno' && comp[k]);
+    const XENO_SEAT_NAME = { xeno: '经典', convict: '死囚外星人' };
+    const xenoNote = xenoKeys.length
+      ? '外星人变体：' + xenoKeys.map(k => XENO_SEAT_NAME[k] || RD.ROLE_DECL[k].name).join('/')
+      : '外星人变体：经典';
+    return `开局职业公告：${parts.join('、')}；${xenoNote}。本公告不含编号归属，此后不随出局、变形、转职更新（2.3.0）。`;
   }
 
   /* 开局公开讨论（2.3）：第 1 夜前全场唯一一次无投票讨论 */

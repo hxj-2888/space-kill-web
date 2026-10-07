@@ -25,10 +25,31 @@
     },
 
     /* ---------- 单机 ---------- */
-    startLocal(seed, pref) {
+    startLocal(seed, pref, preferRole) {
       this.mode = 'local'; this.endData = null; this.room = null;
-      this.g = global.Setup.createGame(seed, pref);
+      /* 〔42〕接入席位变体（1.1.1「同席位开局定其一」）：此前 createGame 从不收 opts，
+         五个席位变体（猎手/毒师/工匠/窃听者/死囚外星人）虽已实装却永不触发。掷骰用独立
+         RNG 流（Setup.rollSeatPicks），不消耗 g.rng —— 故组局序列与经典局逐字节同。
+         SK_SEAT_CLASSIC=1 可临时退回全经典（对拍用）。
+         〔44〕preferRole：首页自选身份。传入后该席位掷骰被钉死到玩家选的变体（A/B 都钉），
+         席位数不变；不传时 rollSeatPicks 与 createGame 逐字节同接入前。 */
+      const picks = (global.SK_SEAT_CLASSIC === 1) ? null : global.Setup.rollSeatPicks(seed, preferRole);
+      this.g = global.Setup.createGame(seed, pref,
+        picks ? { seatPicks: picks, preferRole } : undefined);
+      this.g.seatPicks = picks || {};      // 供 UI/复盘标注本局席位构成
+      /* 自选身份的开局提示：只有「玩家点了却没给到」才说话，给到了就闭嘴。
+         走两个通道（生命周期不同，不是重复）：
+           · banner —— 立即可见。沿用寂灭/决斗/停转夜横幅的既有约定（g.banner 常驻，
+             被后续横幅覆盖）；配置类提示不该藏在「私人」标签里等人去找。
+           · priv    —— 永久私人记录，复盘可查。
+         必须在 Engine.begin 之后发：begin 会公告批次〇并建立队列，
+         插在它前面会让这条提示排在开局公告之前、读起来像上局残留。 */
       global.Engine.begin(this.g);
+      if (this.g.roleNote) {
+        const me = global.Engine.P(this.g, this.g.humanId);
+        global.Engine.banner(this.g, this.g.roleNote);
+        global.Engine.priv(this.g, me, this.g.roleNote);
+      }
       this.lastLogLen = 0;
       this.showGame();
       this.afterStep();
@@ -206,9 +227,13 @@
       }
     },
 
-    /* 开发者视角：开启后可见各 AI 私有威胁度表与票型（规则上属私有/验票官专属） */
+    /* 开发者视角：开启后可见各 AI 私有威胁度表与票型（规则上属私有/验票官专属）。
+       〔42〕受全局 ENABLE_DEV 约束（定义与按钮移除见 ui.js）：关闭时此处一并空操作，
+       使「手工构造 g.dev=true」也无法让任何 UI 渲染它。 */
     toggleDev() {
       if (!this.g) return;
+      const v = global.SK_ENABLE_DEV;
+      if (v === 0 || v === false || v === '0' || v === 'false') return;
       this.g.dev = !this.g.dev;
       if (this.mode === 'net') global.Net.send({ t: 'dev', on: this.g.dev });
       global.UI.render();
@@ -279,6 +304,7 @@
 
   document.addEventListener('DOMContentLoaded', () => {
     global.UI.init();
+    global.UI.mountRolePicker();          // 〔44〕自选身份面板（角色清单由声明层派生）
 
     document.querySelectorAll('.fp').forEach(fp => fp.onclick = () => {
       document.querySelectorAll('.fp').forEach(x => x.classList.remove('active'));
@@ -291,6 +317,19 @@
       const scr = document.getElementById('screen-start');
       if (inp && cs) cs.dataset.fac = inp.value;
       if (inp && scr) scr.dataset.fac = inp.value;
+      /* 〔44〕双向联动的反向：改阵营后，已选身份若不属于该阵营就清空并说明。
+         「随机」尤其要注意 —— 随机意味着连阵营都不定，保留一个具体身份偏好会让人
+         以为开局一定是那个身份。故随机一律清空。 */
+      const want = global.UI.preferredRole();
+      if (want) {
+        const fac = inp && inp.value;
+        const owned = (global.SKRoleDecl.ROLE_DECL[want] || {}).faction;
+        if (!fac || fac === 'random' || owned !== fac) {
+          global.UI.rpPick(null);
+          global.UI.showToast('阵营已改，自选身份「' + ((global.SKData.ROLES[want] || {}).name || want)
+            + '」不属于该阵营，已清除身份选择');
+        }
+      }
     });
 
     el('btn-start').onclick = () => {
@@ -299,7 +338,8 @@
       const seed = (el('seed').value || '').trim() || String(Date.now() % 100000000);
       const n = parseInt(seed, 10);
       const pref = (document.querySelector('input[name=fac]:checked') || {}).value || 'random';
-      Game.startLocal(isNaN(n) ? hash(seed) : n, pref);
+      /* 〔44〕自选身份（软偏好）。不选时传 null，全链路逐字节同接入前。 */
+      Game.startLocal(isNaN(n) ? hash(seed) : n, pref, global.UI.preferredRole());
     };
 
     el('btn-create').onclick = () => { if (A().musicEnabled()) { A().ensure(); A().startMusic(); } Game.connect('create'); };

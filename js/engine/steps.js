@@ -260,7 +260,8 @@
              且**不消耗任何庇护类**（保护/巡逻/护甲/护盾一概不防）。 */
           if (p.poison && !p.dying && p.poison.night + 2 === g.night) {
             let blocked = false;
-            if (p.faction === 'xeno') {
+            /* 〔43〕夜晚免疫是经典外星人的**全额减免层**（6.4），按 role 判 —— 死囚不持（6.8.2） */
+            if (ACT.isClassicXeno(p)) {
               if (p.immuneActiveNight != null && p.immuneActiveNight === g.night) blocked = true;
               else if (p.nightImmune > 0) { p.nightImmune -= 1; p.immuneActiveNight = g.night; blocked = true; }
             }
@@ -278,7 +279,8 @@
           }
           if (!p.infection || !p.infection.real) continue;
           if (p.infection.deathNight !== g.night) continue;
-          if (p.faction === 'xeno' && p.nightImmune > 0) {
+          /* 〔43〕同 6.4：夜晚免疫按 role 判（死囚不持） */
+          if (ACT.isClassicXeno(p) && p.nightImmune > 0) {
             p.nightImmune -= 1; p.immuneActiveNight = g.night;
             p.infection = null; p.cureSelf = 0;
             priv(g, p, '夜晚免疫触发：本次感染致死被拦下，感染标记同时清除。');
@@ -303,7 +305,11 @@
             if (!p.alien.dir) { if (g.night >= 3) out.push({ pid: p.id, kind: 'evolve' }); }
             else if (p.alien.converts < 2 && g.night > p.alien.evoNight) out.push({ pid: p.id, kind: 'convert' });
           }
-          if (RD.hasGrant(p.role, 'transfer') && !p.transferred && (alive(g).length <= 6 || g.night >= 6))   // D6
+          /* 〔43〕转职是**普通船员自身**的能力（4.2.1），变形者不得转职（6.8.3⑦）。
+             死囚变形后 p.role 会变成 'crew'，hasGrant 照样为真 —— 不加这道门，它就能
+             「不发动变形以外的方式」再切一次身份。 */
+          if (RD.hasGrant(p.role, 'transfer') && !p.transferred && !ACT.isMorphed(p) &&
+              (alive(g).length <= 6 || g.night >= 6))   // D6
             out.push({ pid: p.id, kind: 'transfer' });
         }
         return out;
@@ -377,7 +383,8 @@
        未蛰伏则 branch 保持 null，4b（破坏）与步骤 5（击杀）照常可选。
        6.1.1②：允许连续两夜对同一目标发动蛰伏（不设连夜限制，沉默侧限制见 0.1s）。 */
     '0.1': {
-      req: g => g.players.filter(p => p.faction === 'xeno' && !p.out && !p.branch && canAct(g, p))
+      /* 〔43〕蛰伏是**经典外星人技能**（6.1），按 role 判而非 faction —— 死囚阵营成员但无此技能（6.8.2） */
+      req: g => g.players.filter(p => ACT.isClassicXeno(p) && !p.out && !p.branch && canAct(g, p))
                          .map(p => ({ pid: p.id, kind: 'xenoCheck' })),
       form: (g, p) => ({
         kind: 'xenoCheck', title: '步骤 0.1 · 外星人蛰伏 · 查验',
@@ -416,7 +423,8 @@
        A15（6.1.2 152）：沉默【当夜生效】——覆盖期为施加当夜自步骤 0.5 起的全部编号步骤
        （0.2 窃听位于覆盖期之前不受封锁，2.8.3④附）；6.1.2(a)：不得连续两夜受沉默。 */
     '0.1s': {
-      req: g => g.players.filter(p => p.faction === 'xeno' && !p.out &&
+      /* 〔43〕沉默是蛰伏的衍生物（6.1.2），同按 role 判 —— 死囚无蛰伏故无沉默 */
+      req: g => g.players.filter(p => ACT.isClassicXeno(p) && !p.out &&
                                       p.lastXenoCheck && p.lastXenoCheck.night === g.night &&
                                       (() => { const t = P(g, p.lastXenoCheck.target);
                                                return t && !t.out && t.lastSilenceNight !== g.night - 1; })())
@@ -477,8 +485,9 @@
          伪装身份池＝船员第 2 次查证池（同步自适应，7.3.1/H21：ACT.verifyPool 全池）。
          可见性：异形队内互见、外星人仅本人可见（2.8.9⑥ 明文授予），不产生公告——god 留痕仅供复盘。
          1.4.1 明文寂灭期不冻乔装，故 EXTINCT 队列保留本步；人类全灭后乔装无收益但仍合法。 */
+      /* 乔装（7.3）按**身份**判：异形与经典外星人各 2 次；死囚阵营成员但不持（6.8.2） */
       req(g) {
-        return alive(g).filter(p => (p.faction === 'alien' || p.faction === 'xeno') &&
+        return alive(g).filter(p => (p.role === 'alien' || ACT.isClassicXeno(p)) &&
                                     p.disguiseLeft > 0 && canAct(g, p))
                        .map(p => ({ pid: p.id, kind: 'disguise' }));
       },
@@ -696,11 +705,14 @@
          （p.branch 标记）。外星人选破坏 → 跳过蛰伏(0.1)与击杀(5)；异形选破坏/结茧 → 跳过步骤 7。
          寂灭期（拍板 I1/1.4.1）：破坏分支冻结（表单禁用），结茧分支仍可选；决斗期破坏照常（1.4.2 仅取消白天）。
          结茧目标任意存活玩家（A14/5.7①），每目标同时至多 1 层，施加当夜依 7.2.6 告知。 */
-      req: g => alive(g).filter(p => (p.faction === 'alien' || (p.faction === 'xeno' && p.destroyLeft > 0)) &&
+      /* 〔43〕外星人分支按 role 判（死囚无破坏额度 6.8.2）；异形按 faction 判（变形可克隆异形）
+         —— 变形为异形者 faction 仍是 xeno，但 role==='alien'，故异形分支必须走 role 判，
+         否则「变形为异形的死囚」会掉进外星人破坏分支。 */
+      req: g => alive(g).filter(p => (p.role === 'alien' || (ACT.isClassicXeno(p) && p.destroyLeft > 0)) &&
                                      !p.branch && canAct(g, p))
                          .map(p => ({ pid: p.id, kind: 'branch' })),
       form(g, p) {
-        if (p.faction === 'xeno') {
+        if (ACT.isClassicXeno(p)) {
           const sabOpts = [];
           for (let v = 20; v <= 30; v++) sabOpts.push({ v, label: (v / 10).toFixed(1) });
           return {
@@ -736,7 +748,10 @@
           if (p.out || !d || !d.branch || d.branch === 'none') continue;
           p.branch = d.branch;                     /* 选定破坏/结茧 → 跳过步骤 7（5.8.1） */
           if (d.branch === 'destroy') {
-            if (p.faction === 'xeno' && p.destroyLeft > 0) {
+            /* 〔43〕两侧都改按 role 判。外星人侧：死囚 destroyLeft 恒 0，按 faction 判会在
+               「变形为异形的死囚」上走进 xeno 分支却因额度为 0 而**整个破坏落空**（选了没反应）。
+               异形侧：变形为异形的死囚 faction 仍是 xeno，按 faction 判拿不到异形破坏分支。 */
+            if (ACT.isClassicXeno(p) && p.destroyLeft > 0) {
               let amt10 = typeof d.num === 'number' ? d.num : 20;
               if (amt10 < 20 || amt10 > 30) amt10 = 20;
               g.net10 += amt10; p.destroyLeft -= 1; other += 1; total10 += amt10;
@@ -744,7 +759,7 @@
                  故不触发停转夜——停转夜的触发主体仅为经典外星人的破坏。 */
               if (!p.convict) g.pendingStop = true;
               god(g, `${p.id} 号（外星人）破坏 +${(amt10 / 10).toFixed(1)}${p.convict ? '（死囚，不触发停转夜 6.8.6②）' : '（次夜停转）'}`);
-            } else if (p.faction === 'alien') {
+            } else if (p.role === 'alien') {
               const big = p.alien.dir === 'destroy';
               let amt10 = typeof d.num === 'number' ? d.num : (big ? 20 : 15);
               if (amt10 < (big ? 20 : 15) || amt10 > (big ? 30 : 20)) amt10 = big ? 20 : 15;
@@ -762,7 +777,7 @@
                 exposed.push({ id: p.id, roleName: D.ROLES[p.role].name });
               }
             }
-          } else if (d.branch === 'cocoon' && p.faction === 'alien') {
+          } else if (d.branch === 'cocoon' && p.role === 'alien') {
             /* A14/5.7①：结茧指定任意 1 名存活玩家（不限阵营，含自身）；每目标同时至多 1 层，
                被打破后可再施加。目标已持盾/非法 → 落空：仍耗当夜行动、不返还、不获提示（5.7⑨）。
                7.2.6：施加当夜向被施加者送达「你获得一层护盾」，不含施加者信息。 */
@@ -1006,7 +1021,17 @@
         }
         g.countdown = Math.round(g.countdown * 100) / 100;
         g.actCounts.repair += total;
-        let txt = `维修总量 ${(total + crewTotal).toFixed(2)}（工程维修 ${total.toFixed(1)}，船员协助 ${crewTotal.toFixed(2)}）`;
+        /* 批次④合并口径（v6.6 2.1.6 / 2.8.7）：**只发布维修总量这一个数值**。
+           此前报「工程维修 X，船员协助 Y」把来源拆开了 —— 任何人都能据此反推当夜有没有人
+           协助维修、协助了多少，而「谁在修、修多少」是隐藏的行动选择（4.1.2① / 4.3），
+           不属任何公告批次。拆分口径已改为：分项只落 god()（复盘可见），公告只留合计。
+           个体暴露仍按 4.3.6 阈值触发一次，只报「编号＋呈现职业」（2.8.12④）。
+           T=0 时不发布（不发布即该夜无人维修）。 */
+        /* 分项明细降级为复盘可见：来源拆分（工程维修 vs 船员协助）是隐藏的行动选择，
+           公开批次不得携带；但复盘需要它做结算核对，故落 god() 而非丢弃。 */
+        if (total > 0 || crewTotal > 0)
+          god(g, `维修分项：工程维修 ${total.toFixed(1)}，船员协助 ${crewTotal.toFixed(2)}（协助 ${crewN} 人）`);
+        let txt = `维修总量 ${(total + crewTotal).toFixed(2)}`;
         if (exposed.length) txt += '；' + global.AnnounceIR.render(global.AnnounceIR.expose('维修者暴露', exposed));
         announce(g, '④', txt);
         if (crewN > 0) {
@@ -1021,8 +1046,9 @@
     },
 
     '5': {
-      /* 觉醒已前置至 'P-id' 身份改变子步骤（6.2：于身份改变子步骤声明，可选不强制）。 */
-      req: g => g.players.filter(p => p.faction === 'xeno' && !p.out && !p.branch && canAct(g, p))
+      /* 觉醒已前置至 'P-id' 身份改变子步骤（6.2：于身份改变子步骤声明，可选不强制）。
+         〔43〕外星人击杀是经典外星人技能，按 role 判 —— 死囚无此技能（6.8.2） */
+      req: g => g.players.filter(p => ACT.isClassicXeno(p) && !p.out && !p.branch && canAct(g, p))
                          .map(p => ({ pid: p.id, kind: 'xenoKill' })),
       form(g, p) {
         const max = p.awakened ? 2 : 1;
@@ -1177,7 +1203,12 @@
           }
           /* 6.5④：自我治疗与蛰伏(0.1)/击杀(5)/破坏(4b)共同构成外星人当夜四选一——
              本夜已选其一者（p.branch 已提交）不可再用感染治疗额度 */
-          if (p.faction === 'xeno' && !p.branch && p.infection && p.infection.real && p.cureSelf > 0 && canAct(g, p))
+          /* 〔43〕感染治疗额度按 role 判。此前按 faction 判 ⇒ 死囚被派发 kind='xenoCure'，
+             而下方 form 的分派条件是 `!p.convict`，于是 form 落到**医生表单**分支 ——
+             请求说「感染治疗」、表单给的是「治疗/救援/制药/毒药」。这正是玩家报的
+             「我明明是神探，却还能发动医生的技能」：req 与 form 的 kind 不一致，
+             静默地换了一套技能出来。 */
+          if (ACT.isClassicXeno(p) && !p.branch && p.infection && p.infection.real && p.cureSelf > 0 && canAct(g, p))
             out.push({ pid: p.id, kind: 'xenoCure' });
           /* A6 批次 32 · 6.8.4 复生：与医生救援同窗口（步骤 8，晚于 7 早于 9），
              故属抢救而非起死回生。明文授予「可见当夜濒死者」；对象为当夜任一濒死且
@@ -1189,7 +1220,7 @@
         return out;
       },
       form(g, p) {
-        if (p.faction === 'xeno' && !p.convict) {
+        if (ACT.isClassicXeno(p)) {
           return {
             kind: 'xenoCure', title: '步骤 8 · 感染治疗额度',
             desc: '仅可自用：清除自身感染，不赋予抗体。受沉默 / 感染抑制封锁时不可用；寂灭时刻中照常可用。',
@@ -1300,7 +1331,8 @@
           const d = g.decisions[p.id];
           if (p.out || !d) continue;
 
-          if (p.faction === 'xeno' && !p.convict) {
+          /* 〔43〕感染治疗额度的结算按 role 判（与 req 的 isClassicXeno 同口径） */
+          if (ACT.isClassicXeno(p)) {
             if (d.use && p.infection && p.infection.real && p.cureSelf > 0) {
               p.branch = 'cure';   /* 6.5④：四选一承诺标记 */
               clearInfection(g, p);
@@ -1780,8 +1812,9 @@
             out.push({ pid: p.id, kind: 'morph' });
             continue;                              // 死囚局无经典外星人，故不与觉醒同现
           }
-          /* 经典外星人觉醒（6.2）：第 6 夜起或全场存活≤6 名时派发（AI 在此被询问） */
-          if (p.faction === 'xeno' && !p.awakened && canAct(g, p) &&
+          /* 经典外星人觉醒（6.2）：第 6 夜起或全场存活≤6 名时派发（AI 在此被询问）。
+             〔43〕按 role 判 —— 死囚是无双刀的经典外星人（6.8.2） */
+          if (ACT.isClassicXeno(p) && !p.awakened && canAct(g, p) &&
               (g.night >= 6 || alive(g).length <= 6))
             out.push({ pid: p.id, kind: 'awaken' });
         }

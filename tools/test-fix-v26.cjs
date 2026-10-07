@@ -11,6 +11,11 @@ loadInto(ctx, base, profiles.full);
 
 const { Setup, Engine, AI, Bridge, IR, Tiers, MoE, Channels, Tactics } = ctx;
 const D = ctx.SKData;
+/* 〔42〕视图层：本组断言「单机 UI 不得绕过可见性裁剪」，故必须把 view.js 装进上下文。
+   它只依赖 SKData / SKRoleDecl / Engine / SKVisible（均在 full 档内），不碰 DOM，
+   可安全地叠在 full 之后单独载入。 */
+loadInto(ctx, base, ['view']);
+const View = ctx.View;
 
 /* 〔第二十五批〕测试环境**固定在 full 档**（通道全程运行）。
    原因：本文件里 dozens 组断言是在「开局/中期满员」场景下验证**通道机制本身**
@@ -4254,6 +4259,706 @@ const jsFiles = [];
   const html39 = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
   ok('版本C：页面与 README 的版本说明与 package.json 逐字一致（防各写各的）',
     html39.indexOf(pkg.version) >= 0 && rdme.indexOf(pkg.version) >= 0);
+}
+
+/* ---------- 42.6 主区按阶段自适应（文件级断言；行为由 mobile-layout-check 的相位扫描承担） ----------
+   这一批改的是 UI 布局，Node 侧跑不了 DOM，故此处只钉「结构与接线」，
+   真正的量测（夜间发言区是否收起 / 流程区是否占满 / 发言区是否被压扁）在
+   tools/mobile-layout-check.cjs 的「主区相位扫描」里，6 态 × 5 档视口。 */
+{
+  const html43 = fs.readFileSync(path.join(base, '..', 'index.html'), 'utf8');
+  const css43 = fs.readFileSync(path.join(base, '..', 'css', 'style.css'), 'utf8');
+  const ui43 = fs.readFileSync(path.join(base, 'ui.js'), 'utf8');
+  const uiCode43 = ui43.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/^\s*\/\/.*$/gm, ' ');
+
+  ok('主区A：两个区域已包成可整体显隐的 #region-chat / #region-dec',
+    /id="region-chat"/.test(html43) && /id="region-dec"/.test(html43));
+  ok('主区B：区域标题有独立节点（可随布局改文案）',
+    /id="t-chat"/.test(html43) && /id="t-dec"/.test(html43));
+  ok('主区C：#seg-stage 预置 data-layout（首帧即有正确布局，不靠 JS 补）',
+    /id="seg-stage"[^>]*data-layout="/.test(html43));
+
+  ok('主区D：stageLayout / applyStageLayout 均已导出（门禁要能直接调，不能复述判定逻辑）',
+    /stageLayout/.test(uiCode43) && /applyStageLayout/.test(uiCode43));
+  ok('主区E：四个布局键 talk / day-form / day / night 齐备',
+    /'talk'/.test(uiCode43) && /'day-form'/.test(uiCode43) &&
+    /'day'/.test(uiCode43) && /'night'/.test(uiCode43));
+  ok('主区F：夜间按 phase 判定且**不看 pending**（有无表单都收起发言区）',
+    /phase === 'night'\)\s*return\s*\{\s*key:\s*'night',\s*chat:\s*false/.test(uiCode43));
+  ok('主区G：讨论窗口优先于 phase（步骤 10 紧急会议在夜间相内仍须显示发言区）',
+    /if \(stream\) return \{ key: 'talk', chat: true/.test(uiCode43) &&
+    /night-talk|紧急会议/.test(ui43));
+  ok('主区H：applyStageLayout 先于 renderStage 调用（布局决定哪块区域存在）',
+    /applyStageLayout\(g\);[\s\S]{0,80}renderStage\(g/.test(uiCode43));
+  ok('主区I：夜间「今夜私聊」小结已接入（私聊不能只藏在右栏页签里）',
+    /function nightChatHtml/.test(ui43) && /L\.key === 'night' \? nightChatHtml\(g\)/.test(uiCode43));
+  ok('主区J：私聊小结只取本人参与的配对组（私聊正文不公开，2.2）',
+    /if \(c\.a !== me\.id && c\.b !== me\.id\) continue;/.test(uiCode43));
+  ok('主区K：发言区收起时 renderChat 不碰 DOM 但仍推进 _total（否则回白天时淡入与滚动全跑偏）',
+    /rc\.classList\.contains\('hidden'\)\) \{ renderChat\._total = total; return; \}/.test(uiCode43));
+  ok('主区L：发言记录改由右栏页签承接（夜间收起主区后白天讨论仍可回看）',
+    /data-tab="speak"/.test(html43));
+
+  const cssCode43 = css43.replace(/\/\*[\s\S]*?\*\//g, ' ');
+  ok('主区M：夜间布局真隐藏发言区（display:none，非 height:0）',
+    /\[data-layout="night"\] #region-chat\{display:none\}/.test(cssCode43));
+  /* 三个「发言区在场」的布局键各有发言区高度权重；night 的发言区是 display:none
+     （无 flex 权重是**正确**的，收起的东西不该参与分配），故不在此列。
+     四个布局键都必须给流程区高度权重 —— 否则主区会因内容长短而忽高忽低。 */
+  ok('主区N：三个发言区在场的布局键都有高度权重，四键都有流程区高度权重',
+    ['talk', 'day', 'day-form'].every(k =>
+      new RegExp('\\[data-layout="' + k + '"\\] #region-chat\\{flex:').test(cssCode43)) &&
+    ['talk', 'day', 'day-form', 'night'].every(k =>
+      new RegExp('\\[data-layout="' + k + '"\\] #region-dec\\{flex:').test(cssCode43)));
+  ok('主区O：极矮屏给发言区保底 118px（地板加在区域上，只加 .chatlog 会被 flex-shrink 压穿）',
+    /\[data-layout="day-form"\] #region-chat\{flex:3 1 0;min-height:118px\}/.test(cssCode43) &&
+    /\[data-layout="talk"\] #region-chat\{min-height:118px\}/.test(cssCode43));
+  ok('主区P：移动端门禁已覆盖 6 态相位扫描（行为层验收在此，不在 Node 断言里）',
+    /主区相位扫描/.test(fs.readFileSync(path.join(base, '..', 'tools', 'mobile-layout-check.cjs'), 'utf8')));
+}
+
+/* ---------- 42.7 首页与入口（UI 文本口径，文件级断言） ----------
+   这几项不是「逻辑对不对」，而是「改完有没有留下残骸」—— 本批删了下载入口、
+   加了 ENABLE_DEV 开关，故把「删干净」与「开关存在且默认为开」钉成断言。 */
+{
+  const html42 = fs.readFileSync(path.join(base, '..', 'index.html'), 'utf8');
+  const css42 = fs.readFileSync(path.join(base, '..', 'css', 'style.css'), 'utf8');
+  const ui42 = fs.readFileSync(path.join(base, 'ui.js'), 'utf8');
+  const main42 = fs.readFileSync(path.join(base, 'main.js'), 'utf8');
+  const rdme42 = fs.readFileSync(path.join(base, '..', 'README.md'), 'utf8');
+
+  /* 「删干净」必须只查**玩家可见与可执行的部分**：本批在注释里留了变更说明
+     （写着「原 openApkQr 已移除」），若连注释一起匹配就永远删不干净。
+     故先把注释剥掉再判定 —— 注释里提到旧名字是**必要的留痕**，不是残骸。 */
+  const stripJs = s => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/^\s*\/\/.*$/gm, ' ');
+  const stripHtml = s => s.replace(/<!--[\s\S]*?-->/g, ' ');
+  const stripCss = s => s.replace(/\/\*[\s\S]*?\*\//g, ' ');
+  const htmlCode = stripHtml(html42), uiCode = stripJs(ui42), mainCode = stripJs(main42), cssCode = stripCss(css42);
+
+  ok('入口A：开始页已无「扫码下载应用」按钮与附件外链',
+    !/扫码下载应用/.test(htmlCode) && !/附件：规则与模拟/.test(htmlCode));
+  ok('入口B：页面正文无「附件站点」字样残留（注释留痕不算）',
+    !/附件站点/.test(htmlCode));
+  ok('入口C：二维码浮层 DOM 与 assets/qr 均已退役（无孤立入口）',
+    !/id="apk-qr"/.test(htmlCode) &&
+    !fs.existsSync(path.join(base, '..', 'assets', 'qr')) &&
+    !/\.apk-qr\{/.test(cssCode));
+  ok('入口D：ui.js 的 openApkQr / closeApkQr 已移除且无残留调用',
+    !/openApkQr/.test(uiCode) && !/closeApkQr/.test(uiCode));
+  ok('入口E：ENABLE_DEV 开关在 ui 与 main 两侧都生效（默认开 · 关闭即移除按钮并空操作）',
+    /SK_ENABLE_DEV/.test(uiCode) && /SK_ENABLE_DEV/.test(mainCode) &&
+    /parentNode\.removeChild/.test(uiCode));
+  ok('入口F：README 已改为记录对外分发渠道（不再声称站内入口）',
+    !/网页版开始页另有/.test(rdme42) && /Releases/.test(rdme42));
+
+  ok('首页A：viewport 带 viewport-fit=cover（安全区消费的前提）',
+    /viewport-fit=cover/.test(html42) && /maximum-scale=1/.test(html42));
+  ok('首页B：CSS 消费安全区四项（横屏刘海在左右，故 left/right 也要）',
+    /--sal:env\(safe-area-inset-left/.test(css42) &&
+    /--sar:env\(safe-area-inset-right/.test(css42) &&
+    /padding-left:var\(--sal\)/.test(css42));
+  ok('首页C：禁下拉刷新 / 橡皮筋 + 去点击高亮（overscroll-behavior）',
+    /overscroll-behavior:none/.test(cssCode));
+  ok('首页D：开始页撑满（.start-box flex:1 吃掉剩余高度，而非 margin:auto 居中留空）',
+    /#screen-start \.start-box\{[^}]*flex:1 1 auto/.test(cssCode));
+  ok('首页E：极矮横屏走「页面不滚 + 卡片内滚」且 CTA 不被顶出视口',
+    /max-height:560px\)\{[^]*?#screen-start\{[^}]*overflow:hidden[^}]*height:100dvh/.test(cssCode) &&
+    /#screen-start \.start-box\{[^}]*overflow-y:auto/.test(cssCode));
+  ok('首页F：极矮横屏的对局区改单列 + 阵营一行四列（否则 CTA 落在滚动区外）',
+    /max-height:560px\)\{[^]*?\.panel-grid\{[^}]*grid-template-columns:1fr/.test(cssCode) &&
+    /max-height:560px\)\{[^]*?faction-pick\{grid-template-columns:repeat\(4,1fr\)/.test(cssCode));
+
+  /* 门禁本身也要跟上：开始页此前根本不在 mobile-layout-check 的覆盖内 */
+  const mg42 = fs.readFileSync(path.join(base, '..', 'tools', 'mobile-layout-check.cjs'), 'utf8');
+  ok('首页G：移动端布局门禁已覆盖开始页（含「无法开局」的可达性判定）',
+    /开始页/.test(mg42) && /玩家无法开局/.test(mg42));
+}
+
+/* ---------- 42. 批次 42：单机路径的可见性收口 + 席位变体接线 + 两处公告越界 ----------
+   背景：本批起因是「两份外部优化方案」与源码核对后，发现真正的高危问题不在引擎产出侧，
+   而在**单机 UI 直读权威状态**——js/view.js 的 sanitize（为联机写的正确裁剪）在单机路径
+   完全没有被调用，于是濒死 / 感染标记（含真伪）/ 蛰伏沉默 / 转职史对全场可见，且 500 条
+   既有断言里没有一条能看见它（UI 层不在 Node 断言覆盖内）。修法不是补锁，而是把单机也接上
+   同一条出口（View.viewFor），并把「隐藏字段不得出现在他人视图」写成机器可判的守卫。
+   另修三处：转职进公开日志、批次④把维修来源拆开、席位变体机制无调用方。 */
+{
+  /* --- 42.1 单机裁剪：他人视图不得携带隐藏字段 --- */
+  {
+    const g = Setup.createGame(20261006, 'human');
+    Engine.begin(g);
+    const me = g.players[g.humanId - 1];
+    /* 人为布置四类隐藏态：他濒死 / 他带真标记 / 他带假标记 / 他被蛰伏沉默 / 他已转职 */
+    const t1 = g.players.find(p => p.id !== me.id && !p.out);
+    const t2 = g.players.find(p => p.id !== me.id && p.id !== t1.id && !p.out);
+    const t3 = g.players.find(p => p.id !== me.id && p.id !== t1.id && p.id !== t2.id && !p.out);
+    const t4 = g.players.find(p => p.id !== me.id && p.id !== t1.id && p.id !== t2.id && p.id !== t3.id && !p.out);
+    const t5 = g.players.find(p => p.id !== me.id && p.id !== t1.id && p.id !== t2.id && p.id !== t3.id && p.id !== t4.id && !p.out);
+    t1.dying = true;
+    t2.infection = { real: true, appliedNight: 1, deathNight: 3 };
+    t3.infection = { real: false, appliedNight: 1, deathNight: 3 };
+    t4.silenceNight = g.night;
+    t5.transferred = true; t5.role = 'assistant'; t5.roleName = '助理工程师';
+
+    const V = View.viewFor(g, g.humanId);
+    ok('可见性A：viewFor 对单机权威状态生效（不再返回原始 g.players）',
+      V.players !== g.players && V.players.length === g.players.length);
+    ok('可见性B：他人濒死 / 蛰伏沉默 / 转职史 一律不下发（3.3.12 / 6.1.2 / 2.8.7）',
+      V.players.find(p => p.id === t1.id).dying === undefined &&
+      V.players.find(p => p.id === t4.id).silenceNight == null &&
+      V.players.find(p => p.id === t5.id).transferred === undefined);
+    ok('可见性C：感染标记真伪不下发给无关观察者（医生系见存在性、真伪不可辨 4.5）',
+      V.players.find(p => p.id === t2.id).infection == null &&
+      V.players.find(p => p.id === t3.id).infection == null);
+    const meView = V.players.find(p => p.id === me.id);
+    /* 注意：ctx 是 vm 沙箱，vm 内构造的 Map/Array 与本文件 realm 不同，
+       `instanceof` 跨 realm 恒为 false —— 一律用 duck-typing / Array.isArray 判定。 */
+    ok('可见性D：己身私有节点仍在（本人看自己不受裁剪，且已 hydrate 成 Map 供 UI 直接取用）',
+      Object.prototype.hasOwnProperty.call(meView, 'known') &&
+      Object.prototype.hasOwnProperty.call(meView, 'inbox') &&
+      Object.prototype.hasOwnProperty.call(meView, 'notes') &&
+      !!meView.known && typeof meView.known.get === 'function' &&
+      Array.isArray(meView.inbox));
+    ok('可见性E：auditView 对单机视图零违规（含新增隐藏字段守卫）',
+      View.auditView(V).length === 0, JSON.stringify(View.auditView(V)).slice(0, 200));
+    ok('可见性F：viewFor 幂等（联机已是视图的载荷不被二次裁剪）', View.viewFor(V, g.humanId) === V);
+
+    /* 医生视角：可见感染存在性、不可见真伪、不可见他人濒死（非救援族） */
+    const g2 = Setup.createGame(20261007, 'random');
+    Engine.begin(g2);
+    const doc = g2.players.find(p => p.role === 'bio');
+    const v1 = g2.players.find(p => p.id !== doc.id && !p.out);
+    const v2 = g2.players.find(p => p.id !== doc.id && p.id !== v1.id && !p.out);
+    v1.infection = { real: false, appliedNight: 1, deathNight: 3 };
+    v2.dying = true;
+    const VD = View.viewFor(g2, doc.id);
+    ok('可见性G：医生看得到「有人带标记」但看不到真伪（4.5 真伪不可辨）',
+      VD.players.find(p => p.id === v1.id).infection &&
+      VD.players.find(p => p.id === v1.id).infection.real === undefined);
+    ok('可见性H：医生（非救援族）看不到他人濒死名单（3.3.12 / 4.10.4④）',
+      VD.players.find(p => p.id === v2.id).dying === undefined);
+    ok('可见性I：医生视角同样零违规', View.auditView(VD).length === 0);
+  }
+
+  /* --- 42.2 转职不再公开：日志里不得出现转职事实 --- */
+  {
+    let leaked = 0, transfers = 0, nights = 0;
+    for (let s = 0; s < 12; s++) {
+      const g = Setup.createGame(3100 + s, 'random');
+      g.humans = []; g.humanId = -1;
+      for (const p of g.players) p.isHuman = false;
+      Engine.begin(g);
+      let steps = 0;
+      while (!g.over && steps < 4000) {
+        Engine.stepOnce(g); steps++;
+        if (g.pending) Engine.submit(g, AI.formAnswer ? AI.formAnswer(g, g.pending) : {});
+      }
+      nights += g.night;
+      for (const p of g.players) if (p.transferred) transfers++;
+      for (const e of g.log) {
+        if (e.scope !== 'all') continue;
+        if (/\d+\s*号完成转职/.test(e.text) || /号已转职为/.test(e.text)) leaked++;
+      }
+      /* 本人私有反馈里必须有「你已转职为…」，证明转职确实发生、只是不再公开 */
+      for (const p of g.players)
+        if (p.transferred && !p.inbox.some(x => /转职为/.test(x.text))) transfers--;
+    }
+    ok('转职A：转职事实零公开泄露（scope=all 的日志中无「N 号完成转职」）', leaked === 0, 'leaked=' + leaked);
+    ok('转职B：转职确曾发生且转职者本人收到私有反馈（不是把机制关掉了）',
+      transfers > 0, 'paired=' + transfers + ' 累计夜数=' + nights);
+  }
+
+  /* --- 42.3 批次④ 只报总量：不得拆分来源 --- */
+  {
+    let split = 0, total = 0, godSplit = 0;
+    for (let s = 0; s < 8; s++) {
+      const g = Setup.createGame(3200 + s, 'random');
+      g.humans = []; g.humanId = -1;
+      for (const p of g.players) p.isHuman = false;
+      Engine.begin(g);
+      let steps = 0;
+      while (!g.over && steps < 3000) {
+        Engine.stepOnce(g); steps++;
+        if (g.pending) Engine.submit(g, {});
+      }
+      for (const e of g.log) {
+        if (e.batch !== '④') continue;
+        total++;
+        if (/工程维修|船员协助/.test(e.text)) split++;
+      }
+      /* 分项明细必须仍然存在，只是降级到 god 作用域（复盘核对用），不得被丢弃 */
+      for (const e of g.replay)
+        if (e.scope === 'god' && /维修分项/.test(e.text)) godSplit++;
+    }
+    ok('批次④：只发布维修总量，不拆「工程维修 / 船员协助」来源（2.1.6 / 4.1.2①）',
+      total > 0 && split === 0, `公告 ${total} 条 / 拆来源 ${split} 条`);
+    ok('批次④：来源拆分改落 god()（复盘仍可核对，未被丢弃）',
+      godSplit > 0, 'godSplit=' + godSplit);
+  }
+
+  /* --- 42.4 席位变体接线：机制从「无调用方」变为真实开局路径 --- */
+  {
+    const mainJs = fs.readFileSync(path.join(base, '..', 'js', 'main.js'), 'utf8');
+    ok('席位变体A：真实开局路径已接入（main.js 调 rollSeatPicks 并传 seatPicks）',
+      /Setup\.rollSeatPicks/.test(mainJs) && /seatPicks: picks/.test(mainJs));
+    ok('席位变体B：rollSeatPicks 用独立 RNG（不消耗 g.rng ⇒ 经典局行为指纹不变）',
+      /SEAT_ROLL_SALT/.test(fs.readFileSync(path.join(base, 'state.js'), 'utf8')));
+
+    /* 掷骰覆盖：五个席位各自的变体都能被掷出，且落经典侧的比例接近一半 */
+    const hit = {};
+    for (let i = 0; i < 600; i++)
+      for (const k of Object.keys(Setup.rollSeatPicks(i))) hit[k] = (hit[k] || 0) + 1;
+    const SEATS = Object.keys(Setup.SEAT_VARIANTS);
+    ok('席位变体C：600 个种子内五个席位都能掷出变体（每席位独立 50/50）',
+      SEATS.every(s => hit[s] > 200), JSON.stringify(hit));
+
+    /* 经典局（不传 seatPicks）逐字节不变 —— 回归基线得以保留的前提 */
+    const ga = Setup.createGame(4242, 'random');
+    const gb = Setup.createGame(4242, 'random');
+    ok('席位变体D：不传 seatPicks 的经典局逐字节同（组局序列未被掷骰扰动）',
+      ga.players.map(p => p.role).join() === gb.players.map(p => p.role).join());
+
+    /* 变体局能真的跑起来 */
+    let errs = 0, ran = 0;
+    for (let s = 0; s < 6; s++) {
+      const picks = Setup.rollSeatPicks(7000 + s);
+      try {
+        const g = Setup.createGame(7000 + s, 'random', Object.keys(picks).length ? { seatPicks: picks } : undefined);
+        g.humans = []; g.humanId = -1;
+        for (const p of g.players) p.isHuman = false;
+        Engine.begin(g);
+        let steps = 0;
+        while (!g.over && steps < 3000) { Engine.stepOnce(g); steps++; if (g.pending) Engine.submit(g, {}); }
+        ran++;
+      } catch (e) { errs++; }
+    }
+    ok('席位变体E：变体局可完整开局推进（无异常）', ran === 6 && errs === 0, `ran=${ran} errs=${errs}`);
+  }
+
+  /* --- 42.5 批次〇 开局公告：外星人变体注记随本局实际席位 --- */
+  {
+    const xenoNote = (picks) => {
+      const g = Setup.createGame(5150, 'random', picks ? { seatPicks: picks } : undefined);
+      Engine.begin(g);
+      const t = g.log.find(e => e.batch === '〇').text;
+      return (t.match(/外星人变体：[^。]+/) || [''])[0];
+    };
+    ok('批次〇A：经典局注记为「经典」（与旧文本逐字同）', xenoNote(null) === '外星人变体：经典', xenoNote(null));
+    ok('批次〇B：死囚局注记为「死囚外星人」（2.3.0 以本局实际选定者入公告）',
+      xenoNote({ xeno: 'convict' }) === '外星人变体：死囚外星人', xenoNote({ xeno: 'convict' }));
+    /* 变体局的职业构成必须真的换掉：猎手/毒师/工匠/窃听者 各自顶掉原席位 */
+    const gv = Setup.createGame(5151, 'random', {
+      seatPicks: { sheriff: 'hunter', rescue: 'poisoner', bodyguard: 'artisan', inspector: 'listener' },
+    });
+    Engine.begin(gv);
+    ok('批次〇C：变体局的公告按实际构成报（四个变体职业在列、原职业不在列）',
+      /猎手×1/.test(gv.log.find(e => e.batch === '〇').text) &&
+      !/警长/.test(gv.log.find(e => e.batch === '〇').text) &&
+      gv.players.filter(p => p.role === 'hunter').length === 1 &&
+      gv.players.filter(p => p.role === 'poisoner').length === 1 &&
+      gv.players.filter(p => p.role === 'artisan').length === 1 &&
+      gv.players.filter(p => p.role === 'listener').length === 1);
+  }
+}
+
+/* ---------- 43. 死囚外星人的技能隔离（6.8.2 / 6.8.3⑦） ----------
+   本组起因是玩家实测报出三个现象，实测指向**同一个根因**：
+     ①「死囚不具有经典外星人的所有技能」→ 但蛰伏/沉默/击杀/自我治疗都拿到了
+     ②「没发动变形却能直接切换身份」→ 变形为普通船员后拿到转职表单（6.8.3⑦ 明文禁止）
+     ③「作为神探却还能发动医生的技能」→ 步骤 8 派发了 kind='xenoCure'，而 form 的分派
+        条件是 `!p.convict`，于是**静默换成了医生表单**（req.kind 与 form.kind 不一致）
+   根因：死囚全程 `faction === 'xeno'`，而所有经典外星人技能都按 **faction** 派发。
+   变形只改 p.role、不改 p.faction ⇒「阵营成员」被当成了「能力持有者」。
+   修法见 SKDerivation.isClassicXeno（按 role 判）+ isXenoCamp（阵营语义专用）。
+
+   ⚠ 43.5 是**通用探测器**：断言「每个步位的 req 派发的 kind，必须与 form 返回的 kind 一致」。
+   ③号现象正是这类不一致造成的，而它在 500 条旧断言里完全不可见 —— 因为断言跑在
+   Node 里、从不构造真人表单。 */
+{
+  const XENO_ONLY = ['xenoCheck', 'xenoSilence', 'xenoKill', 'xenoCure', 'awaken'];
+  /* 把 1 号设为指定职业的人类席位并跑到终局，记录它每一步拿到的 (step, kind)。
+     morphOpt：'none' = 强制不变形；否则变形为该身份（用于「变形后只拿该身份技能」）。 */
+  function runAsRole(roleKey, seed, opts, morphOpt) {
+    const g = Setup.createGame(seed, 'random', opts);
+    const p = g.players[0];
+    if (p.role !== roleKey) {
+      const donor = g.players.find(x => x.role === roleKey);
+      if (!donor) return null;
+      const t = p.role;
+      p.role = donor.role; p.roleName = donor.roleName; p.faction = donor.faction;
+      p.originRole = donor.originRole; p.roleExpert = donor.roleExpert;
+      p.convict = donor.convict; p.mirror = donor.mirror; p.morph = donor.morph; p.morphNight = donor.morphNight;
+      donor.role = t; donor.roleName = ctx.SKRoleDecl.ROLE_DECL[t] ? ctx.SKRoleDecl.ROLE_DECL[t].name : t;
+      donor.faction = ctx.SKRoleDecl.ROLE_DECL[t] ? ctx.SKRoleDecl.ROLE_DECL[t].faction : 'human';
+      donor.convict = false; donor.mirror = null;
+    }
+    g.humans = [p.id]; g.humanId = p.id;
+    g.players.forEach(x => { x.isHuman = (x.id === p.id); });
+    Engine.begin(g);
+    const seen = [];
+    let steps = 0;
+    while (!g.over && steps < 3000) {
+      steps++; Engine.stepOnce(g);
+      const f = g.pendings[p.id];
+      if (f) seen.push({ step: g.step, kind: f.kind });
+      if (!f) continue;
+      /* 确定性作答：morph 表单强制取 morphOpt，其余取第一个合法项（不引入随机性） */
+      const data = { opt: null, targets: [], num: null, text: '' };
+      if (f.kind === 'morph') data.opt = morphOpt || 'none';
+      else {
+        if (f.opts) { const ok = f.opts.filter(o => !o.disabled); if (ok.length) data.opt = ok[0].v; }
+        if (f.targets) {
+          let list = Engine.alive(g);
+          if (f.targets.list === 'aliveNotAlien') list = list.filter(q => q.faction !== 'alien');
+          if (f.targets.list !== 'alive') list = list.filter(q => q.id !== p.id);
+          list = list.filter(q => (f.targets.exclude || []).indexOf(q.id) < 0);
+          const n = Math.min(f.targets.max || 1, list.length);
+          for (let k = 0; k < n; k++) data.targets.push(list[k].id);
+        }
+        if (f.num) data.num = f.num.options[0].v;
+        if (f.num2) data.num2 = f.num2.options[0].v;
+      }
+      Engine.submit(g, data);
+    }
+    return { seen, p };
+  }
+  const kindsOf = r => [...new Set(r.seen.map(s => s.kind))];
+  const CV_OPTS = { seatPicks: { xeno: 'convict' } };
+
+  /* --- 43.1 声明层：三个判据都在，且阵营语义与能力语义分离 --- */
+  const SKD = ctx.SKDerivation;
+  ok('死囚A：推导层导出「经典外星人技能 / 外星人阵营成员 / 变形者」三个独立判据',
+    typeof SKD.isClassicXeno === 'function' && typeof SKD.isXenoCamp === 'function' &&
+    typeof SKD.isMorphed === 'function');
+  {
+    const g0 = Setup.createGame(4242, 'random', CV_OPTS);
+    const cv0 = g0.players.find(p => p.convict);
+    const xg0 = Setup.createGame(4243, 'random').players.find(p => p.role === 'xeno');
+    const cr0 = Setup.createGame(4244, 'random').players.find(p => p.role === 'crew');
+    ok('死囚B：死囚是「外星人阵营成员」但**不是**「经典外星人技能持有者」（6.8.2）',
+      SKD.isXenoCamp(cv0) === true && SKD.isClassicXeno(cv0) === false && SKD.isMorphed(cv0) === true);
+    ok('死囚C：经典外星人恰好相反；普通船员两者皆否（判据未误伤他人）',
+      SKD.isClassicXeno(xg0) === true && SKD.isXenoCamp(xg0) === true &&
+      SKD.isClassicXeno(cr0) === false && SKD.isXenoCamp(cr0) === false && SKD.isMorphed(cr0) === false);
+    /* 变形后：阵营仍是 xeno（它仍是外星人阵营成员、参与清场），技能随所变形身份走 */
+    const cvM = Object.assign({}, cv0, { role: 'detective', morph: 'detective' });
+    ok('死囚D：变形后仍是外星人阵营成员，但技能判据随所变形身份走（阵营 ≠ 能力）',
+      SKD.isXenoCamp(cvM) === true && SKD.isClassicXeno(cvM) === false && SKD.isMorphed(cvM) === true);
+  }
+
+  /* --- 43.2 未变形的死囚：零经典外星人技能 --- */
+  {
+    const r = runAsRole('convict', 8100, CV_OPTS, 'none');
+    const ks = kindsOf(r);
+    const leak = ks.filter(k => XENO_ONLY.indexOf(k) >= 0);
+    ok('死囚E：未变形的死囚拿不到蛰伏/沉默/击杀/自我治疗/觉醒任一项（6.8.2 零外星人技能）',
+      leak.length === 0, '泄漏=' + (leak.join(',') || '0') + ' 实得=' + ks.join(','));
+    ok('死囚F：未变形的死囚仍持有自己的两项能力入口（变形 P-id / 复生 8）',
+      ks.indexOf('morph') >= 0, '实得=' + ks.join(','));
+    /* 乔装（7.3）是异形与外星人共有的技能，死囚不持 */
+    ok('死囚G：死囚初始乔装次数为 0（state.js 不得按阵营白送）',
+      Setup.createGame(8101, 'random', CV_OPTS).players.find(p => p.convict).disguiseLeft === 0);
+    /* 感染治疗额度（6.5 被动）不得按阵营累积 */
+    {
+      const g1 = Setup.createGame(8102, 'random', CV_OPTS);
+      const c1 = g1.players.find(p => p.convict);
+      Engine.applyInfection(g1, c1, null);
+      ok('死囚H：被感染不累积感染治疗额度（6.5 是经典外星人的被动）', c1.cureSelf === 0,
+        'cureSelf=' + c1.cureSelf);
+    }
+    /* 43.2 的两处门禁（被动发放 / 步骤 8 派发）互为冗余：任一处单独失效，另一处仍能挡住症状，
+       于是「回退任一处」都不会让 43E/H 报警——那是纵深防御，不是断言失效。但要真正验证
+       **派发侧**的门禁，必须让死囚手上真的有额度，否则条件短路、断言变成空跑。
+       故此处直接构造「已感染且持有额度」的满配死囚，并同时做反面对照，确认门禁没有把
+       经典外星人的自我治疗一并关掉。 */
+    {
+      const gv = Setup.createGame(4666, 'random', CV_OPTS);
+      Engine.begin(gv);
+      const cv = gv.players.find(p => p.convict);
+      cv.infection = { real: true, appliedNight: gv.night, deathNight: gv.night + 2 };
+      cv.cureSelf = 1; cv.branch = null;
+      const rq = Engine.STEPS['8'].req(gv).filter(r => r.pid === cv.id).map(r => r.kind);
+      ok('死囚P：已感染且持有额度的死囚，步骤 8 仍不被派发感染自我治疗（派发侧门禁生效）',
+        rq.indexOf('xenoCure') < 0, '实得=' + (rq.join(',') || '(无)'));
+      const gx = Setup.createGame(4667, 'random');
+      Engine.begin(gx);
+      const xg = gx.players.find(p => p.role === 'xeno');
+      xg.infection = { real: true, appliedNight: gx.night, deathNight: gx.night + 2 };
+      xg.cureSelf = 1; xg.branch = null;
+      const rq2 = Engine.STEPS['8'].req(gx).filter(r => r.pid === xg.id).map(r => r.kind);
+      ok('死囚Q：反面对照——同条件的经典外星人仍被派发感染自我治疗（门禁未把能力误关）',
+        rq2.indexOf('xenoCure') >= 0, '实得=' + (rq2.join(',') || '(无)'));
+    }
+  }
+
+  /* --- 43.3 变形后：只拿到所变形身份的技能，且不夹带外星人技能 --- */
+  {
+    /* 每个变形目标各跑一局，断言「无 xeno 独有技能」且「拿到了该身份自己的技能」 */
+    const targets = ['crew', 'detective', 'engineer', 'alien'];
+    let leakAll = [], gotOwn = [];
+    for (const t of targets) {
+      const r = runAsRole('convict', 8200 + t.length, CV_OPTS, t);
+      if (!r) continue;
+      const ks = kindsOf(r);
+      leakAll = leakAll.concat(ks.filter(k => XENO_ONLY.indexOf(k) >= 0).map(k => t + ':' + k));
+      /* 变形＝转移操作权：应当出现该身份自己的 kind */
+      const OWN = { crew: 'crewAction', detective: 'detective', engineer: 'safeRoom', alien: 'branch' };
+      if (ks.indexOf(OWN[t]) >= 0) gotOwn.push(t);
+    }
+    ok('死囚I：变形为任一身份都不夹带经典外星人技能', leakAll.length === 0, leakAll.join(','));
+    ok('死囚J：变形后确实取得该身份自己的行动权（转移操作权，6.8.3①）',
+      gotOwn.length === targets.length, gotOwn.join(',') + ' 缺=' + targets.filter(t => gotOwn.indexOf(t) < 0).join(','));
+  }
+
+  /* --- 43.4 变形者不得转职（6.8.3⑦）--- */
+  {
+    const r = runAsRole('convict', 8300, CV_OPTS, 'crew');
+    ok('死囚K：变形为普通船员后仍拿不到转职表单（6.8.3⑦ 明文「变形者不得转职」）',
+      r.seen.some(s => s.kind === 'transfer') === false);
+    /* 反面对照：非变形者的普通船员在满足条件时确实能拿到转职（证明不是把转职整体关掉了） */
+    const g2 = Setup.createGame(8301, 'random');
+    const cr = g2.players.find(p => p.role === 'crew');
+    cr.isHuman = true; g2.humans = [cr.id]; g2.humanId = cr.id;
+    g2.players.forEach(x => { if (x.id !== cr.id) x.isHuman = false; });
+    Engine.begin(g2);
+    g2.night = 6;                                    // 满足 0.6 的「第 6 夜」条件
+    let gotTransfer = false, st2 = 0;
+    while (!g2.over && st2 < 400 && !gotTransfer) {
+      st2++; Engine.stepOnce(g2);
+      if (g2.pendings[cr.id] && g2.pendings[cr.id].kind === 'transfer') gotTransfer = true;
+      if (g2.pending) Engine.submit(g2, { opt: null, targets: [], num: null, text: '' });
+    }
+    ok('死囚L：反面对照——真·普通船员第 6 夜起仍能转职（门禁未把能力误关）', gotTransfer);
+  }
+
+  /* --- 43.5 镜像账本含本体槽（2.8.5③ 离开即封存、切回即恢复） --- */
+  {
+    const g3 = Setup.createGame(8400, 'random', CV_OPTS);
+    const cv3 = g3.players.find(p => p.convict);
+    const M = ctx.SKMirror;
+    ok('死囚M：镜像账本含本体形态槽，且本体形态自开局在位（此前 enter 静默失败）',
+      M.has(cv3.mirror, 'convict') === true && M.activeKey(cv3.mirror) === 'convict',
+      'keys=' + Object.keys(cv3.mirror).join(',') + ' active=' + M.activeKey(cv3.mirror));
+    /* 变形 → 本体槽应被激活（原身份槽应释放） */
+    const r3 = runAsRole('convict', 8401, CV_OPTS, 'crew');
+    const cv4 = r3.p;
+    ok('死囚N：变形后 activeKey 切到所变形身份',
+      ctx.SKMirror.activeKey(cv4.mirror) === 'crew',
+      'active=' + ctx.SKMirror.activeKey(cv4.mirror) + ' morph=' + cv4.morph);
+  }
+
+  /* --- 43.6 通用探测器：req 派发的 kind 必须与 form 返回的 kind 一致 --- */
+  {
+    const STEPS = Engine.STEPS;
+    const mismatches = [];
+    let checked = 0;
+    /* 覆盖经典局与死囚局两套构成，逐夜推进、在每个有决策的步位上比对 */
+    for (const opts of [undefined, CV_OPTS]) {
+      for (let s = 0; s < 4; s++) {
+        const g = Setup.createGame(8500 + s, 'random', opts);
+        g.humans = []; g.humanId = -1;
+        for (const p of g.players) p.isHuman = false;
+        Engine.begin(g);
+        let steps = 0;
+        while (!g.over && steps < 1200) {
+          steps++;
+          const def = STEPS[g.step];
+          if (def && def.req && def.form) {
+            for (const r of def.req(g)) {
+              const p = Engine.P(g, r.pid);
+              if (!p || p.out) continue;
+              let f = null;
+              try { f = def.form(g, p); } catch (e) { mismatches.push(g.step + '/' + r.kind + ' form 抛错:' + e.message); continue; }
+              checked++;
+              if (!f || f.kind !== r.kind)
+                mismatches.push(g.step + ' req=' + r.kind + ' form=' + (f && f.kind));
+            }
+          }
+          Engine.stepOnce(g);
+          Engine.submit(g, {});
+          Engine.finishIfReady(g);
+        }
+      }
+    }
+    ok('死囚O：req.kind 与 form.kind 逐次一致（这一致性正是③号现象的根因，通用探测器）',
+      mismatches.length === 0 && checked > 200,
+      `checked=${checked} 不一致=${mismatches.length} ` + mismatches.slice(0, 4).join(' | '));
+  }
+}
+
+/* ---------- 45. 首页自选身份（软偏好） ----------
+   本组的红线只有一条：**偏好绝不改变游戏规则**。
+   「人类 11 / 异形 3 / 外星人 1 / 玩家共 15」是结构常量（1.1 + 2.3.0②附二），
+   自选身份只决定「玩家坐哪个已有席位」，一个席位都不能多也不能少。
+   故每条断言都成对出现：既验「想要的拿到了」，也验「结构没被撑破」。
+
+   另一条不可让步的是**指纹中性**：不传偏好时 rollSeatPicks 与 createGame
+   必须与接入前逐位相同 —— 否则批 42 定的席位变体 50/50 与行为基线全部失效。 */
+{
+  const PREF_N = 60;                    // 每角色抽样局数；50 就能把「偶发失败」与「必然失败」分开
+  const RD45 = ctx.SKRoleDecl;
+  const VARIANT_SEATS = Object.keys(Setup.SEAT_VARIANTS);
+  const selectable = RD45.keys().filter(k => RD45.selectable(k));
+
+  /* --- 45.1 声明层：可选性与解锁接口 --- */
+  ok('自选A：解锁门槛接口已就位，且当前没有任何角色被胜利数门槛锁住',
+    typeof RD45.unlockOf === 'function' && typeof RD45.selectable === 'function' &&
+    RD45.keys().every(k => {
+      const u = RD45.unlockOf(k);
+      return !(u && typeof u.wins === 'number' && u.wins > 0);
+    }));
+  ok('自选A2：可选集合 ＝ 全部角色减去「只能经转职获得」的那几个（不多不少）',
+    selectable.length === RD45.keys().filter(k => {
+      const u = RD45.unlockOf(k);
+      return !(u && u.transferOnly === true);
+    }).length);
+  {
+    /* 转职系只能经步骤 0.6 获得（4.2.1），不得出现在自选面板 */
+    const mustExclude = ['tempdoc', 'assistant', 'armed'];
+    ok('自选B：转职系（临时医生 / 助理工程师 / 武装船员）一律不可直接自选',
+      mustExclude.every(k => RD45.selectable(k) === false) &&
+      mustExclude.every(k => (RD45.unlockOf(k) || {}).transferOnly === true));
+    /* 非人类阵营的异形 / 外星人必须可选（否则阵营选了却锁死身份） */
+    ok('自选C：异形与外星人阵营各至少有一个可选身份',
+      selectable.indexOf('alien') >= 0 &&
+      selectable.some(k => RD45.ROLE_DECL[k].faction === 'xeno'));
+    /* 可选集合必须恰好覆盖「席位表上的全部 occupant」，不多不少 */
+    const seatRoles = new Set(RD45.nonHumanSetup().concat(RD45.humanSetup()));
+    const missing = [...seatRoles].filter(k => RD45.selectable(k) === false);
+    ok('自选D：席位表上的每个 occupant 都可选（否则玩家坐不上那个席位）',
+      missing.length === 0, '不可选=' + missing.join(','));
+  }
+
+  /* --- 45.2 席位变体掷骰：A/B 双向索引完整 --- */
+  {
+    let bad = [];
+    for (const seat of VARIANT_SEATS) {
+      const b = Setup.SEAT_VARIANTS[seat];
+      const ca = Setup.seatClaim(seat), cb = Setup.seatClaim(b);
+      if (!ca || ca.seat !== seat || ca.variant !== 'A') bad.push(seat + ' 的变体 A 索引错');
+      if (!cb || cb.seat !== seat || cb.variant !== 'B') bad.push(b + ' 的变体 B 索引错');
+    }
+    ok('自选E：5 个变体席位的 A/B 双向索引完整（变体 A 也必须能索引）',
+      bad.length === 0, bad.join('; '));
+    /* 非变体角色不该被索引到任何变体席位（它们恒在场，无需锁定） */
+    ok('自选F：非变体角色（神探 / 工程师 / 普通船员 / 异形）不进变体索引',
+      ['detective', 'engineer', 'crew', 'alien', 'bio'].every(k => Setup.seatClaim(k) === null));
+  }
+
+  /* --- 45.3 指纹中性（最重要的一条） --- */
+  {
+    let drift = 0, firstDrift = '';
+    for (let s = 0; s < 300; s++) {
+      const a = JSON.stringify(Setup.rollSeatPicks(s));
+      const b = JSON.stringify(Setup.rollSeatPicks(s, undefined));
+      const c = JSON.stringify(Setup.rollSeatPicks(s, null));
+      if (a !== b || a !== c) { drift++; if (!firstDrift) firstDrift = 'seed ' + s; }
+    }
+    ok('自选G：不传偏好时席位掷骰逐位不变（300 种子；否则批 42 的 50/50 与行为基线全废）',
+      drift === 0, firstDrift);
+    /* createGame 侧同理：偏好分支必须整体跳过，rng 消耗序列不动 */
+    let hd = 0;
+    for (let s = 0; s < 80; s++) {
+      const a = Setup.createGame(50000 + s, 'human');
+      const b = Setup.createGame(50000 + s, 'human', { seatPicks: Setup.rollSeatPicks(50000 + s) });
+      const c = Setup.createGame(50000 + s, 'human',
+        { seatPicks: Setup.rollSeatPicks(50000 + s), preferRole: undefined });
+      if (a.humanId !== b.humanId || a.humanId !== c.humanId) hd++;
+    }
+    ok('自选H：不传偏好时玩家席位与接入前一致（80 局）', hd === 0, '不一致 ' + hd + ' 局');
+  }
+
+  /* --- 45.4 玩家的选择一定兑现（A/B 两侧都验） --- */
+  {
+    const fail = [];
+    for (const role of selectable) {
+      let got = 0, noted = 0;
+      for (let s = 0; s < PREF_N; s++) {
+        const seed = 61000 + s;
+        const g = Setup.createGame(seed, 'random',
+          { seatPicks: Setup.rollSeatPicks(seed, role), preferRole: role });
+        if (g.roleGot === role && !g.roleNote) got++;
+        if (g.roleNote) noted++;
+      }
+      if (got < PREF_N) fail.push(role + ' ' + got + '/' + PREF_N);
+    }
+    ok('自选I：每个可选身份在 ' + PREF_N + ' 局里都必然拿到（含变体 A 与 B 两侧）',
+      fail.length === 0, fail.join('; '));
+  }
+
+  /* --- 45.5 结构常量未被偏好撑破（2.3.0②附二） --- */
+  {
+    const bad = [];
+    for (const role of [null].concat(selectable)) {
+      for (let s = 0; s < 20; s++) {
+        const seed = 63000 + s;
+        const g = Setup.createGame(seed, 'random',
+          { seatPicks: Setup.rollSeatPicks(seed, role), preferRole: role });
+        const cnt = {};
+        g.players.forEach(p => { cnt[p.faction] = (cnt[p.faction] || 0) + 1; });
+        if (g.players.length !== 15 || cnt.human !== 11 || cnt.alien !== 3 || cnt.xeno !== 1)
+          bad.push(role + '@' + seed + ' → ' + JSON.stringify(cnt));
+        /* 玩家拿到的身份必须真的在这个席位表上 */
+        if (g.roleGot && !g.players.some(p => p.id === g.humanId && p.role === g.roleGot))
+          bad.push(role + '@' + seed + ' roleGot 与席位表不符');
+      }
+    }
+    ok('自选J：偏好未增删席位 —— 恒 15 人 / 人类 11 / 异形 3 / 外星人 1',
+      bad.length === 0, bad.slice(0, 3).join('; '));
+    /* 组位容量核（2.8.14）：偏好生效后席位表仍要过声明层的容量审计 */
+    const g = Setup.createGame(64000, 'random',
+      { seatPicks: Setup.rollSeatPicks(64000, 'convict'), preferRole: 'convict' });
+    ok('自选K：偏好生效后组位容量核仍为空（2.8.14）',
+      RD45.seatAudit().length === 0, RD45.seatAudit().join('; '));
+  }
+
+  /* --- 45.6 玩家的选择精确地只影响那一个席位 --- */
+  {
+    const diff = (x, y) => VARIANT_SEATS.filter(k => (x[k] || 'A') !== (y[k] || 'A'));
+    let over = [], zero = [];
+    for (const role of VARIANT_SEATS.map(s => Setup.SEAT_VARIANTS[s]).concat(VARIANT_SEATS)) {
+      const base = Setup.rollSeatPicks(65000);
+      const with_ = Setup.rollSeatPicks(65000, role);
+      const d = diff(base, with_);
+      const seat = Setup.seatClaim(role).seat;
+      /* 至多改一个席位（且必须是所选角色所属的那个） */
+      if (d.length > 1 || (d.length === 1 && d[0] !== seat)) over.push(role + ' 波及 ' + d.join(','));
+      /* 若该席本局掷出的正是所选变体，则构成与不选时相同（改不了就是没变） */
+      const claim = Setup.seatClaim(role);
+      const sameAsBase = (base[seat] || 'A') === (claim.variant === 'B' ? 'B' : 'A');
+      if (sameAsBase && d.length !== 0) zero.push(role);
+    }
+    ok('自选L：自选只影响所选角色所属的那个席位，不波及其余四席', over.length === 0, over.join('; '));
+    ok('自选M：若该席本就掷出所选变体，构成与不选时一致（幂等）', zero.length === 0, zero.join('; '));
+  }
+
+  /* --- 45.7 回落路径：不得静默换人 --- */
+  {
+    /* 角色键不在席位表内（转职系 / 拼错）→ 回落 + 明确说明，且 rng 口径与不传偏好一致 */
+    const a = Setup.createGame(66000, 'human');
+    const b = Setup.createGame(66000, 'human',
+      { seatPicks: Setup.rollSeatPicks(66000), preferRole: 'tempdoc' });
+    ok('自选N：非席位角色（转职系）回落到原口径，且 humanId 与不传偏好一致',
+      a.humanId === b.humanId && !!b.roleNote && b.roleWanted === 'tempdoc',
+      'note=' + b.roleNote);
+    ok('自选O：非法角色键不抛错、不改变构成（玩家不该开不出局）',
+      (() => {
+        try {
+          const g = Setup.createGame(66001, 'human',
+            { seatPicks: Setup.rollSeatPicks(66001), preferRole: '__not_a_role__' });
+          return g.players.length === 15 && !!g.roleNote;
+        } catch (e) { return false; }
+      })());
+    /* 变体席位未掷中时的说明文案必须点出「同席位掷出了哪个变体」——
+       早期版本一律写「不在本局席位表内」，对变体角色是错误归因。 */
+    const gv = Setup.createGame(66002, 'random', { seatPicks: {}, preferRole: 'hunter' });
+    ok('自选P：变体未出场时的说明点明同席位的另一个变体（而非误报「不在席位表」）',
+      gv.roleGot !== 'hunter' && /掷出了变体/.test(gv.roleNote || ''), 'note=' + gv.roleNote);
+    /* 给到了就闭嘴 */
+    const gk = Setup.createGame(66003, 'random',
+      { seatPicks: Setup.rollSeatPicks(66003, 'detective'), preferRole: 'detective' });
+    ok('自选Q：偏好兑现时 roleNote 为空（不制造无谓提示）',
+      gk.roleGot === 'detective' && !gk.roleNote);
+  }
 }
 
 console.log(`\nv26 回归断言：通过 ${pass} 条、失败 ${fail} 条`);

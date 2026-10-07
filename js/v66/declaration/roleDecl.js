@@ -134,6 +134,35 @@
   /* 转职分支（2.8.14②：转职为真实职业变化，组位随之变更，形态属基础位之三分支） */
   const TRANSFER_BRANCHES = ['base:eng', 'base:arms', 'base:doc'];
 
+  /* ---------- 角色可选性门槛（自选身份面板的唯一数据源） ----------
+     自选身份面板（首页单机区）需要「哪些角色可选 / 哪些置灰」的判据。按声明层纪律，
+     门槛必须在这里声明一次，UI 只读不判 —— 与 faction/group/seats 同一套规矩。
+
+     取值 null ＝ 无门槛（当前全部角色均可选）。将来要加养成门槛，只改本表，
+     UI 与 state.js 零改动。形状：{ wins: 累计获胜场次下限 }。
+
+     ⚠ 与 2.3.0②附二 的边界：本表只能**限制玩家能选哪个已有角色**，
+       绝不能用来增删席位 —— 「人类 11 / 玩家 15」是结构常量（1.1）。 */
+  const ROLE_UNLOCK = {
+    crew: null, engineer: null, detective: null, sheriff: null, hunter: null,
+    bio: null, rescue: null, poisoner: null, bodyguard: null, artisan: null,
+    inspector: null, listener: null,
+    alien: null, xeno: null, convict: null,
+    /* 转职系（assistant / armed / tempdoc）不在席位表内，恒不可直接选 ——
+       它们只能经 0.6 转职获得（4.2.1）。此处显式标注，避免 UI 误列为可选。 */
+    assistant: { transferOnly: true }, armed: { transferOnly: true }, tempdoc: { transferOnly: true },
+  };
+  /** 某角色的可选性门槛；未声明者按「无门槛」处理（加角色不必改这里） */
+  function unlockOf(key) {
+    if (!has(key)) return null;
+    return Object.prototype.hasOwnProperty.call(ROLE_UNLOCK, key) ? ROLE_UNLOCK[key] : null;
+  }
+  /** 是否可由玩家在开局界面直接选择（转职系与被门槛锁住的角色不可） */
+  function selectable(key) {
+    const u = unlockOf(key);
+    return !u || u.transferOnly !== true;
+  }
+
   /* ---------- 角色声明表（13 个已实装角色） ----------
      说明：本表 faction/group/isBase/seat/actionStep/judgeMode/charges/process/
      blocked/visibility 等字段的取值来源逐条标注；尚未逐条核对完九关的字段以
@@ -667,5 +696,6 @@
     keys, has, resolveDecl, audit, seatAudit, namespaceAudit, idleLedger,
     baseHumanRoles, humanRoles, verifyPoolAll, verifyPoolOf, rolesOfFaction, rolesOfGroup, attendWeight, attendFloor: ATTEND_FLOOR, groupOf, humanSetup,
     rolesWith, hasGrant, capClassOf, rolesWithCapClass, transferRoles, nonHumanSetup, roleTotals, repairExposeAtOf,
+    unlockOf, selectable, ROLE_UNLOCK,
   };
 })(typeof window !== 'undefined' ? window : globalThis);

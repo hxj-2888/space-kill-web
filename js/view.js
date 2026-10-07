@@ -40,10 +40,15 @@
 
     const o = {
       id: p.id, name: p.name,
+      /* 真人席位标记：非规则信息，仅供 UI 决定「自动讯问」按钮等交互是否可用 */
+      isHuman: !!p.isHuman,
       out: p.out, outType: p.outType, cause: p.cause, outNight: p.outNight,
       revealed: p.revealed || null,
       repairExposed: !!p.repairExposed, destroyedExposed: !!p.destroyedExposed,
-      transferred: !!p.transferred, claimedRole: p.claimedRole || null,
+      /* 〔42〕transferred 不再下发：转职依 2.8.7 一律不公开（批次〇也不随转职更新，2.3.0⑤），
+         谁转过职、转到哪，一律不得进入他人视图。此前 ui.js 的两处显示都在 god 分支内、
+         读的是本地权威状态，故移除下发不影响 DEV 与己身面板。 */
+      claimedRole: p.claimedRole || null,
       accusers: (p.accuseHistory || []).map(a => a.id),   // 公开发言中的指控，全体可知
     };
 
@@ -162,6 +167,20 @@
 
   /* ---------- K3 契约：replay 的唯一发放口 + 视图审计 ---------- */
 
+  /* 〔42〕单机路径的可见性收口（2026-10-06）
+     背景：此前单机模式的 UI 直接读权威状态 g（见 ui.js render/ renderRoster），完全不经过
+     sanitize —— 于是「濒死 / 感染标记（含真伪）/ 蛰伏沉默」这些只有医生系、救援族与异形队友
+     可见的信息（3.3.12 / 4.5 / 4.10.4④ / 6.1.2）在单机界面全量可见。联机侧一直是干净的
+     （本文件的 sanitize 就是为它写的），单机是个漏口。
+     修法不是「在 UI 补几把锁」，而是让单机也走同一条出口：UI 一律渲染 viewFor() 的结果。
+     viewFor 对已经是视图的载荷（联机 hydrate 后的对象）原样返回，故本函数是幂等的收口点，
+     也让 auditView() 对单机与联机同时生效。 */
+  function viewFor(g, pid) {
+    if (!g) return null;
+    if (g.view) return g;                 // 已是视图载荷（联机）——不再二次裁剪
+    return hydrate(build(g, pid != null ? pid : g.humanId));
+  }
+
   /** 完整回放的**唯一**发放口：仅终局后（2.6.3）；对局进行中返回 null。
       调用点（server 的 end 消息 / main 的 endData）一律经此，不得直接读 g.replay。 */
   function replayOf(g) {
@@ -181,8 +200,17 @@
     const me = view.humanId;
     for (const p of (view.players || [])) {
       if (p.id === me) continue;
-      for (const f of ['inbox', 'known', 'checkPool', 'crewChecks', 'notes'])
-        if (Object.prototype.hasOwnProperty.call(p, f)) bad.push(`${p.id} 号出现他人的私有节点 ${f}（违 B4）`);
+      /* 〔42〕空容器不算违规：hydrate 会给每个玩家补 known=new Map() 以便 UI 直接调用 .get()，
+         空 Map 不携带任何信息，B4 要禁的是「有内容的他人私有节点」。此前 auditView 只在
+         JSON 载荷（hydrate 之前）上跑，故未暴露这条误报；现在单机也经 viewFor → hydrate，
+         断言会恒报 14 条噪声。 */
+      for (const f of ['inbox', 'known', 'checkPool', 'crewChecks', 'notes']) {
+        if (!Object.prototype.hasOwnProperty.call(p, f)) continue;
+        const v = p[f];
+        const empty = v == null || (typeof v.size === 'number' && v.size === 0) ||
+                      (Array.isArray(v) && !v.length) || v === '';
+        if (!empty) bad.push(`${p.id} 号出现他人的私有节点 ${f}（违 B4）`);
+      }
     }
     /* B4：他人现成状态的投影不得含历史字段 */
     for (const p of (view.players || [])) {
@@ -194,6 +222,35 @@
     if (view.omniscient && me != null) {
       const self = (view.players || []).find(p => p.id === me);
       if (self && !self.out) bad.push('未出局者却带全知标识（违 G6）');
+    }
+    /* 〔42〕隐藏态字段守卫（2.8.7 默认不公开 + 各自专门条款）：
+       下列字段只对「本人 / 医生系 / 救援族 / 异形队友 / 全知视角」可出现，
+       出现在任何其他玩家的视图里即为越界。此前单机 UI 直读权威状态，此类越界根本不会被
+       任何断言看见 —— 现在单机也经 viewFor，本守卫对单机与联机同时生效。 */
+    const self2 = (view.players || []).find(p => p.id === me);
+    if (self2) {
+      const viewerRole = self2.role, viewerFac = self2.faction;
+      const isDoc = RD.hasGrant(viewerRole, 'treat');
+      const isRescuer = RD.hasGrant(viewerRole, 'save');
+      const omniHere = !!view.omniscient;
+      for (const p of (view.players || [])) {
+        if (p.id === me) continue;
+        const team = viewerFac === 'alien' && p.faction === 'alien';
+        /* 医生见感染存在性但真伪不可辨（4.5）；异形队友可辨真伪（3.3④）——故真值出现即越界 */
+        if (p.infection && p.infection.real !== undefined && !(team && !isDoc))
+          bad.push(`${p.id} 号的感染标记真伪外泄（违 2.8.7 / 4.5）`);
+        if (p.dying === true && !(isRescuer || team || omniHere || view.dev))
+          bad.push(`${p.id} 号的濒死状态外泄（违 3.3.12 / 4.10.4④）`);
+        /* 蛰伏沉默只对施加者本人可见（6.1.2）；医生系也无此可见性 */
+        if (p.silenceNight != null && !team)
+          bad.push(`${p.id} 号的蛰伏沉默状态外泄（违 2.8.7 / 6.1.2）`);
+        /* 转职一律不公开（2.8.7 / 2.3.0⑤）——包括「是否转职过」这个事实本身 */
+        if (p.transferred !== undefined)
+          bad.push(`${p.id} 号的转职状态外泄（违 2.8.7）`);
+        /* 原职业底册同理 */
+        if (p.originRole !== undefined)
+          bad.push(`${p.id} 号的原职业底册外泄（违 2.8.12④）`);
+      }
     }
     return bad;
   }
@@ -209,5 +266,5 @@
     return view;
   }
 
-  global.View = { build, hydrate, replayOf, auditView, isOmniscient, currentState };
+  global.View = { build, hydrate, replayOf, auditView, isOmniscient, currentState, viewFor };
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -95,6 +95,25 @@
   /** 判定：某角色是否可在该行动位出手（执行层唯一入口，替代 role=== 枚举） */
   function canActAt(roleKey, step) { return rolesAt(step).indexOf(roleKey) >= 0; }
 
+  /* ---------- 阵营成员 ≠ 能力持有者（6.8.2 / 6.8.3 的关键分野） ----------
+     死囚外星人全程 `faction === 'xeno'`（它**是**外星人阵营成员，参与清场与胜负判定，
+     engine.js 的胜负统计必须继续按 faction 判），但它**不持经典外星人的任何技能**：
+     蛰伏查验 / 蛰伏沉默 / 破坏 / 双刀击杀 / 夜晚免疫 / 感染治疗额度 / 乔装。
+     变形后 `p.role` 变成所变形身份、`p.faction` 仍是 xeno —— 于是**凡是按 faction 派发
+     经典外星人技能的步位，都会同时漏给「未变形的死囚」和「变形后的死囚」**。
+     这正是「死囚没有经典外星人技能却能发动」与「变形成神探却还能开医生表单」的同一个根因。
+
+     正确判据是**按 role 判**：经典外星人的能力只在 `role === 'xeno'` 时成立。
+     死囚本体形态 role==='convict'、变形后 role===<所变形身份>，两者都自动不成立 ——
+     既不必到处打 convict 补丁，也天然覆盖变形后的每一种身份。 */
+  function isClassicXeno(p) { return !!p && p.role === 'xeno'; }
+
+  /** 反向：是否为「外星人阵营成员」（胜负、清场等**阵营**语义用这个，切勿与上面混用） */
+  function isXenoCamp(p) { return !!p && p.faction === 'xeno'; }
+
+  /** 变形者：死囚变形后不得转职（6.8.3⑦）——转职是普通船员自身的能力，不是通用能力 */
+  function isMorphed(p) { return !!p && !!(p.convict || p.morph != null); }
+
   /* ================= C4：观测 → 产出处 ================= */
 
   /** 某广播批次由哪些步骤产出（2.1.6 时点 × 附录 A 步骤表） */
@@ -187,6 +206,7 @@
   global.SKDerivation = {
     rolesAt, rolesAtAll, actionSlots, declaredActors, participantsOf, coverageGap,
     sendersAt, sendersOf, grantSenders, canActAt,
+    isClassicXeno, isXenoCamp, isMorphed,
     stepsOfBatch, mechanismsProducing, stepsOfPrivate, observationsOf,
     compositionOf, hasAliveHolder, verifyPool, inVerifyPool,
     audit,

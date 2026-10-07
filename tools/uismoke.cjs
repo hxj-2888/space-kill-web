@@ -14,16 +14,41 @@ function mkEl(id) {
     onclick: null, onchange: null, oninput: null,
   };
 }
+/* 标签页按钮：ui.js 的 renderSide 靠 `#nb-tabs .tab` 的 onclick 切换右侧栏（阵营页 = selfPanel），
+   原先桩里恒返回 []，于是**整个标签页切换从未被覆盖过** —— 死囚面板显示四条用不了的外星人技能
+   正是从这里漏过去的（43）。此处从 index.html 解析出真实 data-tab，避免与页面结构漂移。 */
+const TAB_NAMES = (() => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const block = html.match(/id="nb-tabs"[\s\S]*?<\/div>/);
+  return block ? [...block[0].matchAll(/data-tab="([^"]+)"/g)].map(m => m[1]) : [];
+})();
+const TAB_ELLS = TAB_NAMES.map(name => { const e = mkEl('tab-' + name); e.dataset.tab = name; return e; });
+
 const document = {
   getElementById: id => (cache[id] = cache[id] || mkEl(id)),
-  querySelectorAll: () => [], querySelector: () => null, addEventListener: () => {},
+  querySelectorAll: sel => (sel.indexOf('#nb-tabs .tab') >= 0 ? TAB_ELLS : []),
+  querySelector: () => null, addEventListener: () => {},
+};
+const clickTab = name => {
+  const t = TAB_ELLS.find(e => e.dataset.tab === name);
+  if (!t || typeof t.onclick !== 'function') throw new Error('标签页 ' + name + ' 不可点击（ui.js 未绑定 onclick）');
+  t.onclick();
 };
 const ctx = { console, Math, Date, JSON, Object, Array, Set, Map, Number, String, Boolean, parseInt, parseFloat, isNaN, isFinite, document, alert(){}, setInterval(){ return 1; }, clearInterval(){} };
 ctx.window = ctx; ctx.globalThis = ctx;
+ctx.addEventListener = () => {};          // ui.js init() 绑定 window 事件；桩里只需不抛
+/* 定时器一律不触发：ui.js 用 setTimeout 做「稍后再渲染」与提示条自动消失，
+   若在桩里同步执行会引入真实环境不会有的重入（曾导致 renderForm 读到半初始化状态）。 */
+ctx.setTimeout = () => 1;
+ctx.clearTimeout = () => {};
+ctx.document.body = { appendChild() {}, remove() {}, classList: { add() {}, remove() {}, toggle() {} } };
 loadInto(ctx, base, profiles.ui);
 
 const { Setup, Engine, View, UI, Game } = ctx;
 let errs = 0;
+/* init() 负责把 onclick 绑到标签页/音频/发送键上；桩里 body.appendChild 等未实现，
+   故只跑一次并单独计数——标签页切换的覆盖依赖它。 */
+try { UI.init(); } catch (e) { errs++; console.log('  [异常] UI.init：' + (e && e.message)); }
 
 function answer(g) {
   const f = g.pending, me = Engine.P(g, g.humanId);
@@ -60,4 +85,74 @@ for (let s = 0; s < 30; s++) {
     if (errs > 2) break;
   }
 }
+/* ---------- 43. 阵营页（selfPanel）不得按阵营罗列能力 ---------- *
+ * 死囚阵营是 xeno、但一条经典外星人技能都不持（6.8.2）。面板此前按 faction 罗列，
+ * 于是死囚看到「夜晚免疫／双刀／破坏／感染治疗额度」四条它用不了的东西，而它真正持有的
+ * 变形与复生一条都不显示；变形后更荒唐——外星人资产与所变形身份���资产并排出现。
+ * 这里断言的是**渲染出来的 HTML**，不是源码：源码改对了但渲染仍旧错，是这类回归的常见形态。
+ *
+ * 比对方式是**整行标签**，不是子串：「感染治疗额度」含「治疗额度」，用 indexOf 判定
+ * 会让「外星人行漏进来了」这件事被判成通过。行结构固定为 <div class="kv"><span>标签</span>… */
+const XENO_PANEL_ROWS = ['夜晚免疫', '双刀', '破坏', '感染治疗额度'];
+const panelOf = () => (cache['side-body'] || {}).innerHTML || '';
+const rowLabels = html => [...html.matchAll(/<span>([^<]{1,24})<\/span>/g)].map(m => m[1]);
+let panelChecked = 0, panelFails = [];
+{
+  /* startLocal 自己掷席位变体（main.js 无 picks 入参），故在此临时接管掷骰以便确定性地
+     构造死囚局；用完即还原，不留残留。 */
+  const realRoll = ctx.Setup.rollSeatPicks;
+  ctx.Setup.rollSeatPicks = () => ({ xeno: 'convict' });
+  try {
+    Game.startLocal(9700, 'xeno');
+  } finally {
+    ctx.Setup.rollSeatPicks = realRoll;
+  }
+  Game.fast = true;
+  const g = Game.g;
+  const me = Engine.P(g, g.humanId);
+  if (!me || !me.convict) { panelFails.push('未能构造出人类为死囚的对局'); }
+  else {
+    UI.render(); clickTab('camp');
+    let labels = rowLabels(panelOf());
+    panelChecked++;
+    const leaked = XENO_PANEL_ROWS.filter(k => labels.indexOf(k) >= 0);
+    if (leaked.length) panelFails.push('未变形的死囚面板出现外星人资产行：' + leaked.join(','));
+    ['复生额度', '镜像账本', '当前形态'].forEach(k => {
+      if (labels.indexOf(k) < 0) panelFails.push('死囚面板缺少自有能力行：' + k);
+    });
+
+    /* 变形为救援医生（rescue）：面板应转为救援/治疗两行（医生技能），且仍无外星人资产。
+       变形经引擎的 P-id 步位提交，不直接改字段（否则测不到真实渲染路径）。
+       选 rescue 而非神探，是因为它有无条件出现的资产行——神探的「已查验池」要查过人才有，
+       用它做断言会把「还没查过人」误判成回归。 */
+    let n = 0, morphed = false;
+    while (!g.over && n < 4000) {
+      n++; Game.tick();
+      if (g.pending && !Game.pendingResolved) {
+        if (g.step === 'P-id' && g.pending.kind === 'morph' && !morphed) {
+          const pick = (g.pending.opts || []).find(o => o.v === 'rescue' && !o.disabled);
+          if (pick) { Game.submit({ opt: pick.v, targets: [], num: null, text: '' }); morphed = true; continue; }
+        }
+        Game.submit(answer(g));
+      }
+    }
+    if (!morphed || me.role !== 'rescue') panelFails.push('死囚未能变形为救援医生（role=' + me.role + '）');
+    else {
+      UI.render(); clickTab('camp');
+      labels = rowLabels(panelOf()); panelChecked++;
+      const leaked2 = XENO_PANEL_ROWS.filter(k => labels.indexOf(k) >= 0);
+      if (leaked2.length) panelFails.push('变形为救援后面板仍出现外星人资产行：' + leaked2.join(','));
+      ['救援额度', '治疗额度'].forEach(k => {
+        if (labels.indexOf(k) < 0) panelFails.push('变形为救援医生后面板未切到医生资产（缺「' + k + '」行）');
+      });
+      if (labels.indexOf('当前形态') < 0) panelFails.push('变形后应显示当前形态行');
+    }
+  }
+  panelFails.forEach(m => { errs++; console.log('  [异常] 阵营页 43：' + m); });
+  if (!panelFails.length) console.log(`  阵营页 43：${panelChecked} 次渲染断言通过（死囚资产隔离）`);
+}
+
 console.log(errs ? `冒烟失败：${errs} 处异常` : '冒烟通过：30 局（本地+视图+复盘渲染）无异常');
+/* 失败必须落到退出码上：否则 `npm run test:all` 一路绿灯，回归直接溜过去。
+   （实测：断言命中时本脚本仍以 0 退出。） */
+process.exitCode = errs ? 1 : 0;

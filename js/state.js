@@ -86,7 +86,12 @@
       transferred: false, brew: null, bounty: 0,
       /* A19 乔装（7.3）：disguise 仅发动当夜有效（船员查验基准 2.8.1③之三①），按夜限定、
          白天不延续——crew 查验只发生在同夜步骤 2，夜号比对即完成失效，无须显式清除。
-         次数：每个体全局 2 次（7.3.1；经典局 3×2＋外星人 1×2＝8）。 */
+         次数：每个体全局 2 次（7.3.1；经典局 3×2＋外星人 1×2＝8）。
+         〔43〕判据由 (roleKey==='alien' || roleKey==='xeno') 改为**角色键白名单**：
+         此前写 `roleKey === 'xeno'`，而 roleKey 只可能是 'xeno'，看似等价；真正的坑是
+         「按阵营给技能」这条思路本身 —— 死囚阵营是 xeno，变形后 roleKey 又是别的身份，
+         技能到底该给谁就说不清了。此处改为显式列举授予乔装的身份，与 6.8.2「死囚不持
+         经典外星人任何技能」一致（死囚只能靠变形拿到它所变形身份的技能）。 */
       disguise: null, disguiseLeft: (roleKey === 'alien' || roleKey === 'xeno') ? 2 : 0,
       /* 西塔性格三档（AI 规格 4.x）：局内独立抽取，与职业无关。
          v26：删除 tau / tauGrudge / pBase 三个【只写不读】的死字段——
@@ -118,6 +123,73 @@
      角色没有行为」）。经典局（不传 opts）走原路径：不消耗任何额外 rng，行为与席位表逐字节同。 */
   const SEAT_VARIANTS = { sheriff: 'hunter', inspector: 'listener', rescue: 'poisoner', bodyguard: 'artisan', xeno: 'convict' };
   const SEAT_VARIANT_READY = { sheriff: true, inspector: true, rescue: true, bodyguard: true, xeno: true };   // 批次 29/31/32 全部放开
+
+  /* 〔42〕席位变体掷骰（1.1.1「同席位开局定其一」）
+     此前机制全备（映射 + READY 表 + 校验 + 变形池）却从无调用方：createGame 只在
+     opts.seatPicks 显式给出时才替换，而 main.js 的开局路径从不传 opts —— 于是猎手 / 毒师 /
+     工匠 / 窃听者 / 死囚外星人这五个已实装角色在真实对局里是死内容。
+     本函数是补上的那一环：每席位独立 50/50（各自掷一次，互不影响）。
+
+     ⚠️ 用**独立 RNG**，绝不共用 g.rng：席位替换发生在 shuffle 之前，若在此消耗主 rng，
+        后续 shuffle/名字洗牌/西塔抽样/破坏阈值全部后移 → 全部种子敏感断言与行为指纹漂移。
+        独立流保证「不传 seatPicks 的经典局」与接入前逐字节同，回归基线得以保留。
+
+     变体概率：独立 50/50 ⇒ 全经典局 1/32、全变体局 1/32。死囚局没有经典外星人
+     （6.8.2），故该局没有蛰伏 / 双刀觉醒 / 破坏 / 夜晚免疫 / 感染治疗额度 / 停转夜 ——
+     这是规则的必然结果，不是缺陷；批次〇的开局公告由 engine.openingRosterText 按实际
+     构成渲染（见该函数），不会误报「经典」。 */
+  const SEAT_ROLL_SALT = 0x5EED5EED;   // 固定盐值：同种子 ⇒ 同变体组合，可复现
+
+  /* 〔44〕自选身份 ↔ 席位的双向索引（1.1.1「同席位开局定其一」）。
+     自选身份面板要靠它回答两个问题：
+       · 玩家点的这个角色，本局有没有可能出场？→ 变体 B 需看掷骰，变体 A 恒在场
+       · 玩家点了它，要不要锁定某个席位的掷骰？→ 5 个变体席位要锁，其余席位恒定
+     故每个变体席位产出**两条**记录：变体 A（原 occupant）与变体 B（SEAT_VARIANTS 的值）。
+     非变体席位（工程师 / 神探 / 普通船员 / 异形）不在此表 —— 它们恒在场，无需锁定。 */
+  function seatClaim(roleKey) {
+    for (const from of Object.keys(SEAT_VARIANTS)) {
+      if (from === roleKey) return { seat: from, variant: 'A' };
+      if (SEAT_VARIANTS[from] === roleKey) return { seat: from, variant: 'B' };
+    }
+    return null;
+  }
+  function seatOfVariant(roleKey) {
+    const c = seatClaim(roleKey);
+    return c && c.variant === 'B' ? c.seat : null;
+  }
+
+  /* 〔44〕preferRole：玩家在首页自选的身份（软偏好）。
+     变体 B 在掷骰里只有 50% 概率出场，玩家点了却拿不到是纯粹的挫败。单机只有玩家一人选，
+     不存在抢位，故在此**把该席位的掷骰锁定到玩家选的变体**。
+
+     ⚠️ 2.3.0②附二 的边界：这只改「该席位定哪个变体」，席位数与在场人数一字未动
+        （猎杀位仍是 1 个，只是 occupant 由警长换成猎手）。绝不能借偏好增删席位。
+
+     ⚠️ 指纹中性：prefRole 不传时本函数逐字节同接入前（多一次比较，不动 rng）。
+        传了偏好才会改变该局构成 —— 这是玩家主动选择的必然结果，不是行为漂移。
+        只在 preferRole 恰好是某席位的变体 B 时才覆盖那一席，其余席位仍各自 50/50。 */
+  function rollSeatPicks(seed, preferRole) {
+    const r = new RNG((Number(seed) >>> 0) ^ SEAT_ROLL_SALT);
+    const picks = {};
+    /* 玩家的自选要把某个席位**钉死**，A/B 两侧都要管：
+       选变体 B（如猎手）⇒ 该席位锁定为 B；选变体 A（如警长）⇒ 锁定为 A（不掷出变体）。
+       早期版本只认 B，于是「选警长」有 50% 概率拿到猎手 —— 玩家点 A 却换成了 B。 */
+    const claim = preferRole ? seatClaim(preferRole) : null;
+    for (const from of Object.keys(SEAT_VARIANTS)) {
+      if (!SEAT_VARIANT_READY[from]) continue;
+      /* 每一席都照常掷 —— 包括被锁定的那一席。锁定只改**取值**，不改是否掷：
+           若锁定席跳过 rng，其后四席的序列整体前移，「玩家选了猎手」就会连带改变
+           工匠/窃听者/毒师/死囚出不出现。照常掷 ⇒ 每席结果只由（种子, 盐, 席位序）决定，
+           玩家的选择精确地只影响他选的那一席。 */
+      const hit = r.next() < 0.5;
+      if (claim && claim.seat === from) {
+        if (claim.variant === 'B') picks[from] = SEAT_VARIANTS[from];
+      } else if (hit) {
+        picks[from] = SEAT_VARIANTS[from];
+      }
+    }
+    return picks;
+  }
 
   function createGame(seed, prefFaction, opts) {
     const rng = new RNG(seed);
@@ -180,22 +252,67 @@
     for (const p of g.players) {
       if (p.role !== 'convict') continue;
       const M = global.SKMirror;
-      p.mirror = M.build(M.morphPool(g, roles.filter((r, k) => roles.indexOf(r) === k)));
+      /* 〔43〕本体形态也必须是一张镜像槽。morphPool 只给「可变形身份」（池内不含 convict，
+         正确 —— 不能变形成自己），于是此前 M.enter(mirror,'convict',0) **静默返回 false**
+         （enter 对不存在的槽直接 return false），后果是：
+           · activeKey() 恒为 null，本体形态从未登记为「当前在位」；
+           · steps.js 变形时 `M.has(mirror, p.morph || 'convict')` 恒假 ⇒ 离开本体形态时
+             状态无处封存，切回时也无状态可恢复（2.8.5③ 形同虚设）。
+         故在此显式追加本体槽 —— 它不是变形目标，只是「当前形态」的记账位置。 */
+      const pool = M.morphPool(g, roles.filter((r, k) => roles.indexOf(r) === k));
+      p.mirror = M.build(['convict'].concat(pool.filter(r => r !== 'convict')));
       M.enter(p.mirror, 'convict', 0);              // 本体形态自开局在位
       p.morph = null;                               // 本体形态（未变形）
     }
 
-    /* 指定玩家席位 */
+    /* 指定玩家席位。
+       〔44〕软偏好：opts.preferRole 是玩家在首页自选的身份（角色键）。
+       本函数的语义是「尽量满足，实在没有就回落到原有随机口径并说明原因」——
+       方案文档 §二 要求它是软偏好而非硬性指定，故此���不做任何规则校验。
+
+       ⚠️ 指纹中性（最重要的一条约束）：preferRole 未传时，本分支整体跳过，
+          rng 消耗序列与接入前逐位相同。绝不能把判断写成「先掷一次再决定用不用」。
+
+       preferRole 给了但本局无人持有该角色时（只可能是变体 B 未出场，或角色键非法）：
+         回落口径 = 与不传偏好时**完全一致**的阵营/随机口径，并记 g.roleNote 说明原因，
+         绝不抛错、绝不改变构成 —— 一个写错的角色键不该让玩家开不出局。 */
     let hid;
-    if (prefFaction && prefFaction !== 'random') {
-      const cand = g.players.filter(p => p.faction === prefFaction);
-      hid = rng.pick(cand).id;
-    } else {
-      hid = 1 + rng.int(15);
+    const wantRole = (opts && opts.preferRole) || null;
+    let roleNote = '';
+    if (wantRole) {
+      const cand = g.players.filter(p => p.role === wantRole);
+      if (cand.length) {
+        hid = rng.pick(cand).id;
+      } else {
+        /* 回落说明必须说清「为什么没给到」。两种情形文案不同：
+             变体席位未掷中 → 玩家要的那个变体这一局没出场（同席位掷出了另一个变体）
+             非变体席位     → 角色键不在席位表内（拼错、或转职系只能靠 0.6 获得） */
+        const claim = global.Setup && global.Setup.seatClaim ? global.Setup.seatClaim(wantRole) : null;
+        const wantName = (D.ROLES[wantRole] && D.ROLES[wantRole].name) || wantRole;
+        if (claim) {
+          const other = claim.variant === 'B' ? D.ROLES[claim.seat] : D.ROLES[SEAT_VARIANTS[claim.seat]];
+          roleNote = `你自选的「${wantName}」本局未出场 —— 同席位掷出了变体「${other ? other.name : '—'}」，已按原口径随机分配。`;
+        } else {
+          roleNote = `你自选的「${wantName}」不在本局席位表内（转职系职业只能经步骤 0.6 获得），已按原口径随机分配。`;
+        }
+      }
+    }
+    if (hid == null) {
+      if (prefFaction && prefFaction !== 'random') {
+        const cand = g.players.filter(p => p.faction === prefFaction);
+        hid = rng.pick(cand).id;
+      } else {
+        hid = 1 + rng.int(15);
+      }
     }
     g.humanId = hid;
     g.humans = [hid];
     g.players.forEach(p => { p.isHuman = (p.id === hid); });
+    /* 自选身份的开局留痕：want = 玩家要的，got = 实际拿到的。
+       roleNote 非空 = 发生过回落，UI 据此给出说明（不得静默换人）。 */
+    g.roleWanted = wantRole;
+    g.roleGot = g.players[hid - 1].role;
+    g.roleNote = roleNote;
 
     /* 西塔独立抽取：激进 25 / 正常 50 / 保守 75，人群比例 15:70:15（v22）。
        每局独立随机分配，不做硬兜底——可以出现全激进或全保守（用户方案）。 */
@@ -244,5 +361,5 @@
     return g;
   }
 
-  global.Setup = { createGame, makePlayer };
+  global.Setup = { createGame, makePlayer, rollSeatPicks, seatClaim, seatOfVariant, SEAT_VARIANTS, SEAT_VARIANT_READY };
 })(typeof window !== 'undefined' ? window : globalThis);

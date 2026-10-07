@@ -2,7 +2,12 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="theme-color" content="#070b14" />
+<meta name="color-scheme" content="dark" />
 <title>太空杀 · 三阵营对抗</title>
 <link rel="icon" href="favicon.ico" sizes="any" />
 <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png" />
@@ -16,25 +21,23 @@
   <!-- ============ 开始界面（v33：顶部工具条 + 本局配置预览 + 阵营卡片 + CTA 主按钮 + 联机禁用态） ============ -->
   <section id="screen-start" class="screen">
     <div class="start-box">
-      <!-- 标题行 + 右上角紧凑工具条（音效 / 规则速览 / 附件，归属明确） -->
+      <!-- 标题行 + 右上角紧凑工具条（音乐 / 音效 / 规则速览，归属明确） -->
       <div class="start-top">
         <h1>太空杀 <span class="sub">三阵营对抗</span></h1>
         <div class="start-actions" id="start-actions">
           <button id="btn-music-start" class="act" title="背景音乐开关（与音效独立）">♫ 音乐：开</button>
           <button id="btn-sfx-start" class="act" title="音效开关（与音乐独立）">🔔 音效：开</button>
           <button id="btn-rules-start" class="act">📖 规则速览</button>
-          <button id="btn-apk-qr" class="act" title="扫码下载安卓应用">📱 扫码下载应用</button>
-          <a class="act" href="https://space-kill.pages.dev" target="_blank" rel="noopener"
-             title="规则全文 / 剧情 / 蒙特卡洛模拟成果（独立站点）">📎 附件：规则与模拟</a>
         </div>
       </div>
 
-      <!-- 预览版说明：本作仍在迭代，AI 判断与语言是后续主要投入方向 -->
+      <!-- 预览版说明：本作仍在迭代，AI 判断与语言是后续主要投入方向
+           〔42〕原「附件站点」外链与「扫码下载应用」入口已按拍板移除：游戏内不做分发下载、
+           不做附件站跳转。APK 的对外分发改由 GitHub Releases 承担（见 README）。
+           〔45〕首页新增「自选身份」（软偏好），见下方 .role-pick。 -->
       <div class="preview-note">
-        <span class="pn-badge">新架构测试2.1preview</span>
-        <span><b>太空杀 新架构测试2.1preview</b> · 可玩测试版（新架构重构后首次整包发布），后续将全力优化 <b>AI 判断逻辑</b> 与 <b>AI 语言</b>。
-          规则全文、剧情与蒙特卡洛模拟成果见
-          <a class="pn-link" href="https://space-kill.pages.dev" target="_blank" rel="noopener">附件站点</a>。</span>
+        <span class="pn-badge">新架构测试2.2preview</span>
+        <span><b>太空杀 新架构测试2.2preview</b> · 可玩测试版 —— 本版新增<b>自选身份</b>，并修正死囚外星人的技能隔离。后续将全力优化 <b>AI 判断逻辑</b> 与 <b>AI 语言</b>。</span>
       </div>
 
       <!-- 本局配置预览条：这是即将开局的预设，不是实时战况；总数与分项呈包含关系 -->
@@ -60,6 +63,29 @@
             <label class="fp fp-human"><input type="radio" name="fac" value="human" /><span class="fp-ico">🧑‍🚀</span><span class="fp-nm">人类</span><span class="fp-ds">修船 · 查验 · 撑到倒计时归零</span></label>
             <label class="fp fp-alien"><input type="radio" name="fac" value="alien" /><span class="fp-ico">👾</span><span class="fp-nm">异形</span><span class="fp-ds">潜伏 · 击杀 · 感染，三人小队共享情报</span></label>
             <label class="fp fp-xeno"><input type="radio" name="fac" value="xeno" /><span class="fp-ico">👽</span><span class="fp-nm">外星人</span><span class="fp-ds">独狼搅局 · 夜行免疫 · 觉醒双刀</span></label>
+          </div>
+          <!-- 〔44〕自选身份：软偏好。不选 = 系统随机分配原样不变；选了则尽量给到。
+               双向联动规则见 js/ui.js 的 mountRolePicker：选身份会带上阵营，改阵营会清掉冲突的身份。 -->
+          <div class="role-pick" id="role-pick">
+            <div class="rp-head">
+              <span class="rp-cap">选择身份<em>可选 · 不选则由系统随机分配</em></span>
+              <span class="rp-slot">
+                <button type="button" class="rp-chip" id="role-chip" aria-haspopup="dialog">未选择 🎲</button>
+                <button type="button" class="act tiny" id="role-clear" hidden>清除</button>
+              </span>
+            </div>
+            <p class="tiny rp-note" id="role-note" hidden></p>
+          </div>
+          <!-- 身份选择面板：沿用规则速览的覆盖层结构（#rules-overlay 同款），不自造 modal 体系。
+               角色清单由声明层派生（SKRoleDecl），此处不含任何角色字面量。 -->
+          <div id="role-overlay" class="hidden" role="dialog" aria-modal="true" aria-labelledby="role-overlay-title">
+            <div class="lg-head">
+              <span class="sec" id="role-overlay-title">选择身份 <span class="rp-sub">软偏好 · 不选则由系统随机分配</span></span>
+              <button type="button" class="ov-close" id="role-close" title="关闭（Esc）">✕</button>
+            </div>
+            <p class="tiny rp-hint">15 人配置为结构常量（人类 11 / 异形 3 / 外星人 1）。本面板只决定<strong>你坐哪个席位</strong>，不增删席位。选到「变体」时，该席位本局就定为它。</p>
+            <div class="rp-grid" id="role-grid"></div>
+            <div class="rp-foot"><button type="button" class="act" id="role-none">不指定身份（交给系统随机）</button></div>
           </div>
           <!-- 种子 = 高级/调试项，折叠收起，不再干扰核心决策 -->
           <details class="adv">
@@ -130,14 +156,7 @@
       <span>竖屏无法容纳三栏布局，旋转手机后即可进入对局</span>
     </div>
 
-    <!-- 扫码下载应用：悬浮层，不占布局流（UI 硬规则）· 二维码为构建期静态图，运行时零外部依赖 -->
-    <div id="apk-qr" class="apk-qr hidden">
-      <div class="apk-qr-box">
-        <div class="apk-qr-head"><span class="apk-qr-t">扫码下载安卓应用</span><button id="apk-qr-close" class="apk-qr-x" title="关闭（Esc）">✕</button></div>
-        <img class="apk-qr-img" src="assets/qr/space-kill-apk.png" alt="太空杀安卓应用下载二维码" width="220" height="220">
-        <p class="apk-qr-tip">手机相机 / 微信扫一扫即可下载安装<br>文件名不含版本号，版本号在应用内</p>
-      </div>
-    </div>
+    <!-- 〔42〕扫码下载浮层已移除（游戏内不做分发下载），对应 assets/qr/ 与 openApkQr 一并退役 -->
 
     <!-- 顶部状态条：阶段名 + 主倒计时 + 净破坏 + 决策窗口进度，统一收拢全场计时信息 -->
     <div class="topbar">
@@ -172,12 +191,20 @@
       </section>
 
       <!-- 中栏 5：发言流水（70%）→ 决策/事件区（30%）→ 操作行 → 输入组 -->
-      <section class="seg seg-stage">
-        <div class="seg-t">公开发言流水（当天）</div>
-        <div id="chatlog" class="chatlog"></div>
-        <div class="seg-t">决策 · 事件</div>
-        <div id="stage-body" class="stage-body"></div>
-        <div id="stage-actions" class="stage-actions"></div>
+      <!-- 中栏：两个可按阶段整体隐藏的「区域」。
+           〔43〕主区 = f(阶段)：白天以公开发言为主（发言 + 投票表单），
+           夜间以流程为主（私聊 / 决策 / 公告报告），发言区在夜间整体收起。
+           区域整体显隐由 ui.js 的 UI.stageLayout 写入 #seg-stage 的 data-layout 驱动。 -->
+      <section class="seg seg-stage" id="seg-stage" data-layout="day">
+        <div class="region" id="region-chat">
+          <div class="seg-t" id="t-chat">公开发言流水（当天）</div>
+          <div id="chatlog" class="chatlog"></div>
+        </div>
+        <div class="region" id="region-dec">
+          <div class="seg-t" id="t-dec">决策 · 事件</div>
+          <div id="stage-body" class="stage-body"></div>
+          <div id="stage-actions" class="stage-actions"></div>
+        </div>
         <div class="input-dock">
           <!-- 决策窗口收缩进度线（≤30s 青转橙红并脉冲），恒定 3px 高不占增量 -->
           <div class="input-timeline"><i id="input-timeline-fill"></i></div>
@@ -202,6 +229,9 @@
           <button class="tab active" data-tab="pub">公告</button>
           <button class="tab" data-tab="priv">私人</button>
           <button class="tab" data-tab="camp">阵营</button>
+          <!-- 〔43〕发言记录页签：夜间主区收起公开发言区后，白天讨论的全文仍要可回看
+               （renderSide 的 'speak' 分支本就存在，此前无入口）。 -->
+          <button class="tab" data-tab="speak">发言</button>
         </div>
         <div id="side-body" class="side-body"></div>
         <div class="side-foot">

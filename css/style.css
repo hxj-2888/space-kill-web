@@ -19,9 +19,24 @@ body{
     radial-gradient(900px 480px at 88% -12%, rgba(84,42,74,.30) 0%, transparent 55%),
     radial-gradient(1400px 900px at 50% 120%, rgba(16,38,70,.5) 0%, transparent 60%),
     var(--bg);
+  /* 〔42〕底色显式给深空色，不留浏览器默认白/灰（iOS Safari 地址栏收起、
+     overscroll 回弹到顶/底时露出的都是 body 背景） */
+  background-color:var(--bg);
   color:var(--txt);
   font-family:"Microsoft YaHei","PingFang SC",-apple-system,Segoe UI,sans-serif;
   font-size:14px;line-height:1.6;
+  /* 〔42〕禁下拉刷新 / 橡皮筋：触屏下拉会露出 html 底色并让固定高度布局跳动 */
+  overscroll-behavior:none;
+  -webkit-tap-highlight-color:transparent;
+  -webkit-text-size-adjust:100%;
+}
+/* 〔42〕安全区：横屏时刘海/圆角在左右两侧，故 left/right 也要让位。
+   viewport-fit=cover（index.html）已就位，这里只消费 env()。 */
+:root{
+  --sat:env(safe-area-inset-top,0px);
+  --sar:env(safe-area-inset-right,0px);
+  --sab:env(safe-area-inset-bottom,0px);
+  --sal:env(safe-area-inset-left,0px);
 }
 /* v33 修铺满视口：去掉写死的 max-width:1500px（宽屏左右黑边元凶）与固定 padding
    （与 #screen-game 的 height:100vh 叠加会产生 28px 底部溢出空隙）；
@@ -409,7 +424,9 @@ button.icon.dev.on{color:var(--warn);border-color:#6a5518;background:#3a2e0e;box
 .start-actions .act:hover{color:var(--txt);border-color:var(--accent)}
 
 /* ============ v32 横屏标准布局：一屏三段 + 右上五圆钮 + 底部收敛条（放弃竖屏适配） ============ */
-#screen-game{display:flex;flex-direction:column;height:100vh;min-width:1080px;overflow:hidden}
+#screen-game{display:flex;flex-direction:column;height:100vh;min-width:1080px;overflow:hidden;
+  /* 〔42〕横屏时刘海在左右两侧，故 left/right 也要让位（此前只补了 game 页的 top/bottom 无着落） */
+  padding-left:var(--sal);padding-right:var(--sar)}
 #screen-game .orb-bar{
   display:flex;gap:6px;justify-content:flex-end;align-items:center;
   padding:8px 12px 0;flex:0 0 auto;
@@ -767,8 +784,35 @@ button.act.ghost:hover{color:var(--txt);border-color:var(--line2);box-shadow:non
    ---------- 6. 首页 v33：工具条 / 配置预览 / 阵营卡片 / 折叠 / CTA / 禁用态 ------
    圆角规范：外卡 16px · 面板 12px · 按钮 10px · 图标 8px；8px 网格间距；≥24px 安全边距
    ================================================================================ */
-#screen-start{padding:24px 16px}
-#screen-start .start-box{max-width:980px;margin:4vh auto;padding:32px;border-radius:16px}
+/* 〔42〕首页纵向撑满：.start-box 此前是定高内容卡（margin:4vh auto），屏幕越高下方留空越多。
+   改为「页面 flex 撑满 + 卡片内部再 flex 分配」：
+     · 页面（.screen-start 自身）display:flex 垂直排列，卡片 margin:auto 居中但可被拉伸
+     · 卡片 display:flex 垂直 flex，min-height:0（否则内部内容一多就撑破而不是内部滚动）
+     · .panel-grid 对局区 flex:1 吃掉全部剩余高度 —— 它是填充主力
+   兜底（超高/超宽屏仍填不满）：对局区 max-height 封顶，剩余空间留给卡片自身背景，
+   不用拉伸字号去失真。 */
+#screen-start{
+  padding:24px 16px;padding-top:calc(24px + var(--sat));padding-bottom:calc(24px + var(--sab));
+  padding-left:calc(16px + var(--sal));padding-right:calc(16px + var(--sar));
+  display:flex;flex-direction:column;
+}
+#screen-start .start-box{
+  max-width:980px;width:100%;margin:0 auto;padding:32px;border-radius:16px;
+  display:flex;flex-direction:column;min-height:0;
+  /* 〔42〕必须让卡片本身吃掉多余高度：margin:auto 只居中、不参与拉伸，
+     加上 flex:1 后卡片才真正随屏幕高度变高（超高屏的对局区由下层 max-height 封顶）。 */
+  flex:1 1 auto;max-height:100%;
+}
+/* 对局区：吃掉全部剩余高度（阵营卡片随之等高拉伸）。
+   封顶 760px 是兜底：极端超高屏（21:9 竖屏 / 4K 竖屏）不再把卡片拉到荒谬高度，
+   剩余高度由页面背景承担 —— 不拉伸字号去填，避免失真（等比原则优先于填满）。 */
+#screen-start .panel-grid{flex:1 1 auto;min-height:0;align-items:stretch;max-height:760px}
+#screen-start .mode-card{display:flex;flex-direction:column;min-height:0}
+/* 固定区块不参与伸缩 */
+#screen-start .start-top,#screen-start .preview-note,#screen-start .config-strip,#screen-start .adv{flex:0 0 auto}
+#screen-start button.cta{flex:0 0 auto;margin-top:auto}
+/* 〔42〕极矮横屏（手机 375~390 高）的开始页适配见本文件末尾 v42 段 —— 必须放在最后：
+   同特异性靠后取胜，而上面 #screen-start .faction-pick 的 2×2 桌面规则在其后。 */
 
 /* 标题行 + 右上角紧凑工具条（明确归属，不再悬空） */
 #screen-start .start-top{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap}
@@ -825,6 +869,10 @@ button.act.ghost:hover{color:var(--txt);border-color:var(--line2);box-shadow:non
 }
 #screen-start .fp-nm{grid-column:2;grid-row:1;font-size:15px;font-weight:600;color:var(--txt);line-height:1.3}
 #screen-start .fp-ds{grid-column:2;grid-row:2;font-size:12px;color:var(--dim);line-height:1.4}
+/* 〔42〕阵营卡片等高拉伸：grid 行高改为「名称 auto + 说明 1fr」，说明文字占满余量
+   （卡片内部原先上下留白 —— 卡等高了但内容仍聚在顶部）。图标跨两行居中不变。 */
+#screen-start .fp{grid-template-rows:auto 1fr}
+#screen-start .fp-ds{align-self:start}
 #screen-start .fp.active::after{
   content:'✓';position:absolute;top:-6px;right:-6px;width:18px;height:18px;
   display:flex;align-items:center;justify-content:center;
@@ -1092,9 +1140,9 @@ button.act:active,button.primary:active{transform:scale(.97);box-shadow:inset 0 
 #screen-start .dev-body{padding:16px 20px 20px}
 
 /* ============================================================
-   v34 网页版新增：预览版说明条 + 附件（规则与模拟站）入口
-   说明：本站是「可玩网页版」；规则 / 剧情 / 模拟成果站点作为其附件挂在
-         space-kill.pages.dev，此处只做入口与状态说明，不复制其内容。
+   v34 网页版新增：预览版说明条
+   〔42〕原「附件（规则与模拟站）」入口已按拍板移除：游戏内不做附件跳转、不做分发下载，
+        配套站点与 APK 的对外分发改由 README 记录的渠道承担（站内不再有入口）。
    ============================================================ */
 .preview-note{
   display:flex;align-items:center;gap:10px;flex-wrap:wrap;
@@ -1110,29 +1158,8 @@ button.act:active,button.primary:active{transform:scale(.97);box-shadow:inset 0 
 .preview-note .pn-link{color:var(--accent);text-decoration:none;border-bottom:1px solid rgba(0,229,176,.4)}
 .preview-note .pn-link:hover{color:#fff;border-bottom-color:#fff}
 
-/* ============ 扫码下载应用（悬浮层·不占布局流·定尺寸不引起布局变动） ============
-   入口在开始页工具条（#btn-apk-qr）。二维码是构建期生成的静态 PNG
-   （portfolio/space-kill-3.0/tools/gen_qr_apk.py），运行时零外部请求。 */
-.apk-qr{
-  position:fixed;inset:0;z-index:70;display:flex;align-items:center;justify-content:center;
-  background:rgba(3,7,14,.78);padding:16px;
-}
-.apk-qr-box{
-  width:268px;padding:14px 14px 12px;border-radius:14px;text-align:center;
-  background:var(--panel);border:1px solid var(--line);box-shadow:0 18px 48px rgba(0,0,0,.55);
-}
-.apk-qr-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
-.apk-qr-t{font-size:13px;font-weight:700;color:var(--txt);letter-spacing:.02em}
-.apk-qr-x{
-  flex:none;width:24px;height:24px;border-radius:50%;padding:0;
-  background:transparent;border:1px solid var(--line);color:var(--dim);
-  font-size:12px;font-family:inherit;cursor:pointer;
-}
-.apk-qr-x:hover{color:var(--txt);border-color:var(--accent)}
-.apk-qr-img{display:block;width:220px;height:220px;margin:0 auto;border-radius:10px;background:#fff;padding:6px}
-.apk-qr-tip{margin:10px 0 0;font-size:11px;line-height:1.6;color:var(--dim)}
-
-/* 附件入口：与 button.act 同款的链接形态（既有样式只覆盖 button） */
+/* 〔42〕扫码下载浮层样式（.apk-qr*）已随入口一并退役：游戏内不做分发下载，
+   保留这 18 行只会让人误以为还能挂回来。a.act 保留（规则/外链类按钮仍可能用到）。 */
 a.act{
   display:inline-flex;align-items:center;gap:6px;text-decoration:none;
   background:linear-gradient(180deg,var(--panel2),var(--bg2));
@@ -1251,9 +1278,7 @@ a.act:active{transform:none}
   #screen-game .seg-side.open{transform:none}
   #screen-game .seg-side .side-foot{padding-top:6px;margin-top:6px}
 
-  /* 悬浮层在窄屏同样受约束 */
-  .apk-qr-box{width:232px;padding:10px}
-  .apk-qr-img{width:196px;height:196px}
+  /* 〔42〕.apk-qr* 窄屏覆写已随浮层退役一并移除（此前是给扫码层在窄屏收窄尺寸用的） */
 
   /* ---- 追加修正（Playwright 844×390 实测抓出）----
      顶栏被内容撑到 1020px 宽、右端 orb 组溢出视口：flex 子项默认 min-width:auto，
@@ -1282,4 +1307,231 @@ a.act:active{transform:none}
 /* 极矮横屏（≤400px，如 iPhone SE 横屏 375）：收紧发言区，保住输入框不出屏 */
 @media (orientation:landscape) and (max-height:400px){
   #screen-game .seg-stage .chatlog{min-height:84px}
+}
+
+/* ============================================================
+   v42 · 首页撑满 + 安全区 + 竖屏适配（2026-10-06）
+   ------------------------------------------------------------
+   必须放在文件末尾：同特异性靠后取胜，需压过 v32/v33 的首页规则。
+
+   ① 首页纵向撑满（超高屏不再大片留白）
+      .start-box 由「定高内容卡」改为 flex:1 吃掉剩余高度，.panel-grid 再吃掉卡片内余量。
+   ② 安全区：横屏时刘海在左右，故消费 env(safe-area-inset-left/right)（上方 :root 已定义变量）。
+   ③ 极矮横屏的开始页：内容固有高度 ≈719px > 390px 视口，必须**页面不滚、卡片内滚**，
+      否则「开始对局」按钮被顶出视口且整页不会滚（最坏情况：玩家卡在开始页）。
+      同时阵营选择改回一行四列，把对局区高度砍半，CTA 得以留在首屏。
+   ============================================================ */
+@media (orientation:landscape) and (max-height:560px){
+  /* height 而非只靠 min-height：max-height:100% 需要父级有确定高度才生效 */
+  #screen-start{
+    padding:10px 12px;padding-top:calc(10px + var(--sat));padding-bottom:calc(10px + var(--sab));
+    overflow:hidden;height:100vh;height:100dvh;min-height:0;
+  }
+  #screen-start .start-box{
+    padding:14px 16px;max-height:100%;min-height:0;
+    overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;
+  }
+  #screen-start .start-box h1{font-size:21px}
+  #screen-start .start-top{gap:8px}
+  #screen-start .preview-note{padding:6px 10px;font-size:11px;line-height:1.45}
+  #screen-start .preview-note .pn-badge{font-size:10px}
+  #screen-start .config-strip{margin:8px 0;padding:5px 10px}
+  #screen-start .cfg-unit b{font-size:17px}
+  #screen-start .cfg-unit{padding:2px 10px}
+  #screen-start .cfg-unit i{font-size:10px}
+  #screen-start .panel-grid{
+    max-height:none;flex:0 0 auto;
+    /* 对局区改单列：联机卡是折叠的一行提示条（≈30px），让出整幅宽度给阵营选择。
+       保持双列时「单机对局」只占一半宽，阵营四列各 ≈85px —— 文字挤成一条竖线，不可读。 */
+    grid-template-columns:1fr;
+  }
+  #screen-start .mode-card{padding:10px 12px}
+  /* 一行四列：每列 ≈190px，够放名称 + 两行说明 */
+  #screen-start .faction-pick{grid-template-columns:repeat(4,1fr);margin-bottom:8px;gap:6px}
+  #screen-start .fp{padding:7px;column-gap:7px;grid-template-columns:22px 1fr;row-gap:1px}
+  #screen-start .fp-ico{width:22px;height:22px;font-size:14px}
+  #screen-start .fp-nm{font-size:13px}
+  #screen-start .fp-ds{font-size:10.5px;line-height:1.35}
+  #screen-start .mode-card h2{font-size:13px;margin:0 0 8px}
+  /* 卡片内滚时不再靠「CTA 顶到底部」，贴着内容排布即可 */
+  #screen-start button.cta{margin-top:8px;padding:9px 20px}
+}
+/* 更矮（iPhone SE 横屏 375 及以下）：预览说明只留首行，其余交给滚动 */
+@media (orientation:landscape) and (max-height:400px){
+  #screen-start .preview-note{
+    display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;
+  }
+  #screen-start .start-box h1{font-size:19px}
+}
+
+/* ============================================================
+   v43 · 主区按阶段自适应（2026-10-06）
+   ------------------------------------------------------------
+   布局键由 ui.js 的 UI.stageLayout 写入 #seg-stage[data-layout]：
+     talk      实时讨论窗口（D-open / D-talk / M-talk / M-speech）→ 发言区为主
+     day       白天自动步骤 → 发言区为主
+     day-form  白天待决策（投票 / 留言 / 窃听报告）→ 发言区副位但不隐藏
+     night     夜间（不论有无表单）→ **发言区整体收起**，主区只剩私聊 / 决策 / 公告
+
+   为什么必须写在文件末尾：v32/v35 的 `.chatlog{flex:8 1 0}`、`.stage-body{flex:2 1 0}`
+   与 `.chatlog{min-height:104px}` 都是无条件规则，靠后 + 更高特异性（多一个属性选择器）取胜。
+
+   ⚠ 收起用 display:none 而非 height:0 —— 空盒子仍占边距，且移动端手势/焦点可能落进不可见区。
+   ============================================================ */
+
+/* 区域容器：flex 列，各占一份；隐藏由 JS 加 .hidden（全局 .hidden 已是 display:none!important） */
+#screen-game .region{display:flex;flex-direction:column;min-height:0}
+
+/* ---- talk：发言为主，决策压到副位 ---- */
+#screen-game .seg-stage[data-layout="talk"] #region-chat{flex:8 1 0}
+#screen-game .seg-stage[data-layout="talk"] #region-dec{flex:2 1 0}
+#screen-game .seg-stage[data-layout="talk"] .stage-body{max-height:none}
+
+/* ---- day：发言为主 ---- */
+#screen-game .seg-stage[data-layout="day"] #region-chat{flex:7 1 0}
+#screen-game .seg-stage[data-layout="day"] #region-dec{flex:3 1 0}
+
+/* 极矮屏（手机横屏）下三个「发言为主」的布局都要给发言区保底，否则讨论窗口被压成一条缝 */
+@media (orientation:landscape) and (max-height:560px){
+  #screen-game .seg-stage[data-layout="talk"] #region-chat{min-height:118px}
+  #screen-game .seg-stage[data-layout="day"] #region-chat{min-height:118px}
+}
+
+/* ---- day-form：投票/留言时决策为主，发言保留可对照 ---- */
+#screen-game .seg-stage[data-layout="day-form"] #region-chat{flex:3 1 0}
+#screen-game .seg-stage[data-layout="day-form"] #region-dec{flex:5 1 0}
+
+/* ---- night：只有流程区，且吃掉全部高度（不再有 52vh 上限压着） ---- */
+#screen-game .seg-stage[data-layout="night"] #region-chat{display:none}
+#screen-game .seg-stage[data-layout="night"] #region-dec{flex:1 1 0}
+#screen-game .seg-stage[data-layout="night"] .stage-body{flex:1 1 auto;max-height:none}
+
+/* 夜间主区：决策表单常有 4~6 个选项 + 目标选择，去掉上限让其自然撑开并内部滚动。
+   区域内部：标题固定，.stage-body 吃掉剩余高度并滚动 —— 否则表单一多就顶出主区。 */
+#screen-game .region > .seg-t{flex:0 0 auto}
+#screen-game .region > #stage-body{flex:1 1 0;min-height:0}
+#screen-game .region > #stage-actions{flex:0 0 auto}
+#screen-game .region > #chatlog{flex:1 1 0;min-height:0}
+#screen-game .region > #chatlog{min-height:120px}
+
+/* 手机横屏：三栏已并单列，发言区与流程区上下排列；
+   各布局键的高度分配沿用上表（放在末尾以压过 v35 段的 flex:8/flex:2 无条件规则） */
+@media (orientation:landscape) and (max-height:560px){
+  #screen-game .seg-stage[data-layout="talk"] #region-chat{flex:8 1 0}
+  #screen-game .seg-stage[data-layout="talk"] #region-dec{flex:2 1 0}
+  #screen-game .seg-stage[data-layout="talk"] .stage-body{max-height:none}
+
+  #screen-game .seg-stage[data-layout="day"] #region-chat{flex:7 1 0}
+  #screen-game .seg-stage[data-layout="day"] #region-dec{flex:3 1 0}
+
+  /* 极矮屏下投票表单可能比发言区更重要，但发言不能低于 84px（否则看不见在讨论什么）。
+     ⚠ 地板必须加在**区域**（flex 子项）上而不是只加在 .chatlog 上：
+     min-height 只约束 .chatlog 自身，父区域仍会被 flex-shrink 压到比它更小，
+     结果是 .chatlog 溢出被裁 —— 实测 844×390 投票时发言区只剩 54px（门禁实测值）。
+     118px = 区域标题 33 + 发言区下限 84。 */
+  #screen-game .seg-stage[data-layout="day-form"] #region-chat{flex:3 1 0;min-height:118px}
+  #screen-game .seg-stage[data-layout="day-form"] #region-dec{flex:5 1 0}
+
+  /* 夜间：发言区收起后，流程区吃掉全部剩余高度 —— 主区不再有大面积留空 */
+  #screen-game .seg-stage[data-layout="night"] #region-chat{display:none}
+  #screen-game .seg-stage[data-layout="night"] #region-dec{flex:1 1 0}
+  #screen-game .seg-stage[data-layout="night"] .stage-body{flex:1 1 auto;max-height:none}
+
+  #screen-game .region > #chatlog{min-height:84px}
+}
+/* ================================================================================
+ * v45 批次 · 首页自选身份（软偏好）
+ * ----------------------------------------------------------------------------
+ * 本块必须留在文件末尾：它要压过 v32 段对 .mode-card / .fp 的既有规则，
+ * 且手机横屏（max-height:560）下的卡片高度约束要与 v43 的相位块互不干扰。
+ *
+ * 结构取舍：面板沿用 #rules-overlay 的覆盖层形态（fixed + inset:0 + z-index:60）
+ * 而不是新造一套 .modal —— 两套弹层体系并存在同一屏上，点击穿透与 Esc 行为
+ * 会分叉，而它们的关闭手势必须一致。
+ * ============================================================================ */
+
+#screen-start .role-pick{
+  margin-top:12px;padding:10px 12px;border:1px solid var(--line);
+  border-radius:12px;background:rgba(255,255,255,.04);
+}
+#screen-start .role-pick .rp-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:space-between}
+#screen-start .rp-cap{display:flex;align-items:baseline;gap:8px;font-size:13px;color:var(--txt)}
+#screen-start .rp-cap em{font-style:normal;color:var(--dim2);font-size:11px}
+#screen-start .rp-slot{display:flex;align-items:center;gap:8px}
+/* 热区保底：视觉尺寸随版式走，命中区单独撑到 ≥32px（桌面指针足够；
+   手机横屏的热区保底由下方 max-height 断点抬到 40px） */
+#screen-start .rp-chip{
+  font-family:inherit;font-size:13px;cursor:pointer;color:var(--txt);
+  background:var(--panel2);border:1px solid var(--line2);border-radius:9px;
+  padding:7px 12px;min-height:32px;transition:border-color .18s,background .18s;
+}
+#screen-start .rp-chip:hover{border-color:var(--accent)}
+#screen-start .rp-chip.has-role{border-color:var(--accent);color:#fff;background:#0e2138}
+#screen-start .rp-note{margin:8px 0 0;color:#ffc46b}
+
+/* ---- 覆盖层 ---- */
+#role-overlay{
+  position:fixed;inset:0;z-index:60;overflow:auto;
+  background:linear-gradient(180deg,rgba(8,13,25,.97),rgba(6,10,20,.98));
+  backdrop-filter:blur(6px);padding:18px 18px 36px;
+}
+#role-overlay.hidden{display:none}
+#role-overlay .lg-head{max-width:1180px;margin:0 auto 8px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+#role-overlay .lg-head .sec{margin:0;font-size:17px;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+#role-overlay .rp-sub{font-size:12px;color:var(--dim);font-weight:400}
+#role-overlay .rp-hint{max-width:1180px;margin:0 auto 14px;color:var(--dim);font-size:12px}
+#role-overlay .rp-hint strong{color:var(--txt)}
+
+/* ---- 角色卡网格 ----
+   网格而非横向滑动：玩家要横向对比技能（方案文档 §二 明确要求）。
+   桌面 3 列、窄屏 2 列；卡片 min-height:132px 保证 desc 有地方放而不被压成两行。 */
+#role-overlay .rp-grid{
+  max-width:1180px;margin:0 auto;display:grid;gap:12px;
+  grid-template-columns:repeat(3,1fr);align-items:stretch;
+}
+#role-overlay .rp-card{
+  position:relative;display:grid;grid-template-columns:1fr;gap:4px;
+  min-height:132px;text-align:left;font-family:inherit;cursor:pointer;
+  padding:12px 13px 12px 16px;overflow:hidden;
+  background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:12px;
+  transition:border-color .18s,background .18s,transform .18s;
+}
+#role-overlay .rp-card:hover{border-color:var(--line2);transform:translateY(-1px)}
+#role-overlay .rp-card .rp-bar{position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--dim2)}
+#role-overlay .rp-card.f-human .rp-bar{background:var(--fac-human)}
+#role-overlay .rp-card.f-alien .rp-bar{background:var(--fac-alien)}
+#role-overlay .rp-card.f-xeno  .rp-bar{background:var(--fac-xeno)}
+#role-overlay .rp-nm{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:15px;color:#fff;font-weight:600}
+#role-overlay .rp-gr{font-size:11px;color:var(--dim2)}
+#role-overlay .rp-ds{font-size:12px;color:var(--dim);line-height:1.55}
+#role-overlay .rp-tag{
+  font-size:10px;font-weight:400;padding:1px 6px;border-radius:20px;
+  border:1px solid var(--line2);color:var(--dim2);
+}
+#role-overlay .rp-tag-v{border-color:rgba(167,139,250,.5);color:#c4b0ff}
+#role-overlay .rp-tag-lock{border-color:rgba(255,196,107,.5);color:#ffc46b}
+#role-overlay .rp-card.active{border-color:var(--accent);background:#0e2138;box-shadow:0 0 0 1px var(--accent) inset,var(--glow)}
+/* 解锁门槛接口：ROLE_UNLOCK 当前全为 null，故此态不会出现。
+   将来设门槛后，卡片置灰 + pointer-events:none（方案文档 §二 锁定态要求）。 */
+#role-overlay .rp-card.locked{opacity:.45;pointer-events:none;filter:grayscale(.6)}
+#role-overlay .rp-foot{max-width:1180px;margin:16px auto 0}
+
+/* 窄屏：两列。顺序在两档之间保持不变（网格按行填充），只是卡片变窄。 */
+@media(max-width:900px){
+  #role-overlay .rp-grid{grid-template-columns:repeat(2,1fr)}
+}
+
+/* 手机横屏（项目已定的强制横屏）：面板内部滚动，卡片压到两列且抬高热区。
+   不用 rem 等比缩放 —— 项目走 px + 断点，且有 Playwright 门禁守着既有版式。 */
+@media (orientation:landscape) and (max-height:560px){
+  #role-overlay{padding:10px 12px 20px}
+  #role-overlay .rp-grid{grid-template-columns:repeat(3,1fr);gap:8px}
+  #role-overlay .rp-card{min-height:96px;padding:8px 9px 8px 13px;gap:2px}
+  #role-overlay .rp-nm{font-size:13px}
+  #role-overlay .rp-ds{font-size:11px;line-height:1.4}
+  #screen-start .rp-chip{min-height:40px}
+  #screen-start .role-pick{margin-top:8px;padding:8px 10px}
+}
+@media (orientation:landscape) and (max-width:820px){
+  #role-overlay .rp-grid{grid-template-columns:repeat(2,1fr)}
 }

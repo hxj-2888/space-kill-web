@@ -2,6 +2,7 @@
 (function (global) {
   const D = global.SKData;
   const RD = global.SKRoleDecl;                  // v6.6 阶段 2（D6/D8）：能力标签与职业余额表由声明层派生
+const SKD = global.SKDerivation;               // 〔43〕阵营成员 ≠ 能力持有者：面板也必须按 role 判，否则给死囚显示四条用不了的技能
   const E = global.Engine;
   const el = id => document.getElementById(id);
   let tab = 'pub';
@@ -19,6 +20,13 @@
   /* v22 缺陷修复：D.ROLES 键防御性访问——k.role / excludes / claimedRole 来自 NLP 解析
      与历史数据，非法键（如旧别名 'doc'）此前会直接崩（审查：未保护字典访问） */
   const roleNameOf = k => (k && D.ROLES[k]) ? D.ROLES[k].name : (k || '—');
+
+  /* 〔42〕他人状态的唯一可见性出口（2026-10-06）
+     名单与玩家详情里凡是「别的玩家」的数据，一律取自 View.viewFor(g) 的 players（已 sanitize），
+     不再直读 g.players。此前单机直读权威状态，导致濒死 / 感染标记（含真伪）/ 蛰伏沉默
+     对所有人可见（3.3.12 / 4.5 / 4.10.4④ / 6.1.2）。己身状态与 DEV 专属分支仍读原始 g：
+     本人私有数据与开发者视角本就可以看到真值。 */
+  const othersOf = (g, V) => (V && V.players) ? V.players : g.players;
 
   /* ---------- HUD 与计时（v32：收敛行 + 防闪动——只在值变化时写 DOM；身份牌已移除，
      玩家身份经点击名单自己卡片查看，职业备注在卡片内标注） ---------- */
@@ -125,24 +133,29 @@
   /* ---------- 玩家名单：全员常驻（出局者带 💀 标记），点击任意玩家框查看详情 ---------- */
   let popPid = null;   // 当前详情弹窗的玩家 id
 
-  function renderRoster(g) {
+  function renderRoster(g, V) {
     const me = E.P(g, g.humanId);
     /* v34 C3：决策态卡片状态数据——
        发言中 = 当天最新一条公开发言的编号；已投票 = 票源仅对验票官/异形/DEV 可见（规则内合法）；
        被提名 = 验票官指控目标；自己角标与出局纹理为纯样式叠加 */
-    const canSeeVotes = (me && (me.role === 'inspector' || me.faction === 'alien')) || !!g.dev;
-    const votes = canSeeVotes ? (g.votes || g.voteSources || {}) : null;
+    /* 〔42〕票源可见性改由 View 裁决（V.votes 已在 sanitize 内按 inspector/alien/dev 门控），
+       UI 不再自行判定 —— 避免「UI 一份判断、视图一份判断」两处口径漂移。 */
+    const votes = (V && V.votes) || null;
     const logArr = g.chatLog || [];
     const lastChat = logArr.length ? logArr[logArr.length - 1] : null;
     const talkingId = lastChat && lastChat.night === g.night ? lastChat.id : null;
     /* 存活在前、出局在后（各自按编号排序）；出局者不再移出名单 */
-    const rows = g.players.slice().sort((a, b) =>
+    const rows = othersOf(g, V).slice().sort((a, b) =>
       (a.out ? 1 : 0) - (b.out ? 1 : 0) || a.id - b.id);
     el('roster').innerHTML = rows.map(p => {
       const tags = [];
       if (p.out) {
         tags.push(`<span class="tag hot">💀 ${p.outType === 'vote' ? '驱逐' : (D.CAUSE_NAME[p.cause] || '死亡')}</span>`);
       } else {
+        /* 〔42〕濒死 / 感染标记（含真伪）/ 蛰伏沉默 三类标签此前直读 g.players，对全场可见。
+           现在 p 来自 View.sanitize：这三个字段只有「本人 / 医生系 / 救援族 / 异形队友」才被下发，
+           故「看不见」自动表现为标签不出现 —— 无需在此再写一遍权限判断（避免两处口径漂移）。
+           医生看到的感染只有 {exists:true}（真伪不可辨，4.5），异形队友可见真伪（3.3④）。 */
         if (p.dying) tags.push('<span class="tag hot">濒死</span>');
         if (p.infection) tags.push(p.infection.real === false ? '<span class="tag ok">假标记</span>' : '<span class="tag warn">带标记</span>');
         if (p.repairExposed) tags.push('<span class="tag ok">维修暴露</span>');
@@ -209,12 +222,15 @@
   }
 
   /* 玩家详情弹窗：开发者模式下展示完整信息（身份/技能/各 AI 视角威胁度/指控记录） */
-  function renderPlayerPop(g) {
+  function renderPlayerPop(g, V) {
     const pop = el('p-pop');
     if (!pop) return;
     if (popPid == null) { pop.classList.add('hidden'); return; }
     const me = E.P(g, g.humanId);
     const p = g.players.find(x => x.id === popPid);
+    /* 〔42〕非 DEV 分支只读裁剪后的 pv（他人私有字段根本不在其中）；DEV 分支继续读原始 p，
+       因为开发者视角本就可以看到真值 —— 两条取数路径显式分开，不互相污染。 */
+    const pv = (V && V.players ? V.players.find(x => x.id === popPid) : null) || p;
     if (!p) { pop.classList.add('hidden'); popPid = null; return; }
     const god = !!g.dev;
     /* 联机载荷（dev.skills）与本地权威状态（g.players）双轨取数 */
@@ -284,11 +300,11 @@
         }).join('');
       }
     } else {
-      /* 非开发者：只展示公开可知信息 */
-      const k = knownLabel(g, me, p);
+      /* 非开发者：只展示公开可知信息（数据源 = View.sanitize 后的 pv） */
+      const k = knownLabel(g, me, pv);
       html += `<div class="kv"><span>身份</span><span>${k ? esc(k) : '未知'}</span></div>`;
-      if (p.out) html += `<div class="kv"><span>出局</span><span>${p.outType === 'vote' ? '💀 第' + p.outNight + ' 夜被驱逐' : '💀 第' + p.outNight + ' 夜死于' + (D.CAUSE_NAME[p.cause] || '—')}</span></div>`;
-      if (p.accusers && p.accusers.length) html += `<div class="kv"><span>曾被指控</span><span>${p.accusers.join('、')} 号</span></div>`;
+      if (pv.out) html += `<div class="kv"><span>出局</span><span>${pv.outType === 'vote' ? '💀 第' + pv.outNight + ' 夜被驱逐' : '💀 第' + pv.outNight + ' 夜死于' + (D.CAUSE_NAME[pv.cause] || '—')}</span></div>`;
+      if (pv.accusers && pv.accusers.length) html += `<div class="kv"><span>曾被指控</span><span>${pv.accusers.join('、')} 号</span></div>`;
       if (!g.dev) html += `<div class="empty">开启 DEV 后可查看完整私有信息（技能 / 各 AI 视角威胁度 / 记事本）。</div>`;
     }
     pop.innerHTML = html;
@@ -305,14 +321,89 @@
     return out;
   }
 
+  /* 〔43〕主区 = f(阶段)：区域布局的唯一裁决点
+     ------------------------------------------------------------
+     改造前：#chatlog 与 #stage-body 是两个**常驻** DOM，各占一半高度，与当前阶段无关。
+       夜里没有公开发言，发言区照样占着半屏（显示「暂无公开发言」），真正要看的
+       私聊 / 决策 / 公告报告被挤在半屏里 —— 这是「主区留空」的根因。
+
+     四个布局键（写入 #seg-stage[data-layout]，由 CSS v43 段消费）：
+       talk     实时讨论窗口（D-open / D-talk / M-talk / M-speech）——公开发言即主流程，
+                决策区压到副位。**不看 phase**：步骤 10 紧急会议虽在夜间相内，
+                但它本质是讨论窗口，收起发言区等于让玩家看不见自己在讨论什么。
+       day-form 白天待决策表单（D-vote 投票 / D-will 留言 / D-report 窃听报告）——
+                发言区压到副位但**不隐藏**：投票时要对照刚才的发言。
+       day      白天自动步骤 —— 发言区为主。
+       night    夜间（不论是否有表单）—— **发言区整体收起**，主区只剩
+                私聊 / 决策 / 公告报告。
+
+     为什么夜间连表单也不留发言区：夜间没有任何公开发言（发言流水按 `t.night === g.night`
+     过滤，夜里本就是空的），留着它等于一块永远写着「暂无公开发言」的死区。
+     白天的发言全文改由右栏「发言」页签随时回看。 */
+  function stageLayout(g) {
+    const phase = (g && g.phase) || 'day';
+    const stream = !!(g && g.pending && g.pending.stream);
+    const form = !!(g && g.pending && !g.pending.stream);
+    if (stream) return { key: 'talk', chat: true, dec: true, tChat: '公开发言流水（本轮）', tDec: '本轮要点' };
+    if (phase === 'night') return { key: 'night', chat: false, dec: true, tChat: '', tDec: '夜间流程 · 私聊 / 决策 / 公告' };
+    if (form) return { key: 'day-form', chat: true, dec: true, tChat: '公开发言流水（当天）', tDec: '待你操作' };
+    return { key: 'day', chat: true, dec: true, tChat: '公开发言流水（当天）', tDec: '决策 · 事件' };
+  }
+
+  /* 〔43〕夜间「今夜私聊」小结 —— 夜间主区收起发言区后，私聊必须在主区看得见，
+     否则玩家在 0c 之后完全没有回看自己那几句私聊的地方（原先只能翻右栏「私人」页签，
+     而私聊内容不公开（2.2），这里只放**我自己参与**的那一场。
+     数据源两处，均为本人合法持有：
+       · g.nightChats —— 步骤 0c 落的结构化副本，只取含我的配对组
+       · p.inbox      —— 私聊回复与异形队内频道（队内消息本就只对队友可见，3.3④）
+     绝不渲染别人的配对组：批次①只公告「谁和谁配对」，正文不公开（2.2）。 */
+  function nightChatHtml(g) {
+    const me = E.P(g, g.humanId);
+    if (!me) return '';
+    const lines = [];
+    for (const c of (g.nightChats || [])) {
+      if (c.a !== me.id && c.b !== me.id) continue;     // 只看我参与的那一场
+      for (const ln of (c.lines || [])) lines.push({ who: c.a === me.id ? c.b : c.a, text: ln });
+    }
+    for (const e of (me.inbox || [])) {
+      if (e.night !== g.night) continue;
+      if (!/（私聊）：|（队内）：/.test(e.text)) continue;
+      lines.push({ who: null, text: e.text });
+    }
+    if (!lines.length) return '';
+    const body = lines.map(l =>
+      `<div class="say"><span class="who">${l.who != null ? l.who + ' 号 ↔ 我' : '私聊'}</span>：${esc(l.text)}</div>`).join('');
+    return `<div class="sec">今夜私聊（仅你参与的一场 · 正文不公开）</div>` + body;
+  }
+
+  /* 把布局写进 DOM：区域显隐 + 标题 + 供 CSS 消费的 data-layout。
+     区域用 display:none 整体收起（不是 height:0）——空盒子仍然吃边距，且
+     移动端手势/焦点可能落进不可见区域。 */
+  function applyStageLayout(g) {
+    const L = stageLayout(g);
+    const seg = el('seg-stage');
+    if (seg) seg.dataset.layout = L.key;
+    const rc = el('region-chat'), rd = el('region-dec');
+    if (rc) rc.classList.toggle('hidden', !L.chat);
+    if (rd) rd.classList.toggle('hidden', !L.dec);
+    const tc = el('t-chat'), td = el('t-dec');
+    if (tc) tc.textContent = L.tChat;
+    if (td) td.textContent = L.tDec;
+    return L;
+  }
+
   function renderStage(g) {
     const head = el('stage-head'), body = el('stage-body'), acts = el('stage-actions');
+    const L = stageLayout(g);
+    /* 〔43〕夜间把「今夜私聊」插在决策区最上方：夜间主区只有这一块，
+       私聊小结是玩家此刻最可能想回看的东西，必须在第一步（而不是藏在右栏页签里）。 */
+    const nightChat = L.key === 'night' ? nightChatHtml(g) : '';
     if (g.pending && g.pending.stream) {
-      renderTalkForm(g, head, body, acts);
+      renderTalkForm(g, head, body, acts, nightChat);
       renderChat(g);
       return;
     }
-    if (g.pending) { renderForm(g, head, body, acts); }
+    if (g.pending) { renderForm(g, head, body, acts, nightChat); }
     else {
       const logs = lastStepLogs(g);
       const stepName = g.stepDone ? (E.STEP_NAME[g.stepDone] || g.stepDone) : '准备';
@@ -320,7 +411,7 @@
       const me0 = E.P(g, g.humanId);
       const myPriv = me0 && me0.inbox
         ? me0.inbox.filter(e => e.night === g.night && e.step === g.stepDone) : [];
-      body.innerHTML = announceHtml(g) +
+      body.innerHTML = announceHtml(g) + nightChat +
         logs.filter(e => !e.batch).map(e => `<div class="evt ${e.kind === 'good' ? 'good' : e.kind === 'bad' ? 'bad' : 'info'}">${esc(e.text)}</div>`).join('') +
         myPriv.map(e => `<div class="prv">私密：${esc(e.text)}</div>`).join('') ||
         '<div class="empty">本步无公开事件。</div>';
@@ -345,10 +436,14 @@
 
   function renderChat(g) {
     const box = el('chatlog');
+    const total = (g.chatLog || []).length;
+    /* 〔43〕区域被收起时不碰 DOM，但仍推进 _total —— 否则回到白天时会把
+       「整夜累积的新发言」误判成一条新增，淡入动画与滚动定位都会跑偏。 */
+    const rc = el('region-chat');
+    if (rc && rc.classList.contains('hidden')) { renderChat._total = total; return; }
     const streaming = !!(g.pending && g.pending.stream);
     box.classList.toggle('streaming', streaming);
     /* v33：新消息进入时只给最后一条加 200ms 淡入上移动画（整列表重渲染不闪烁） */
-    const total = (g.chatLog || []).length;
     const grew = total > (renderChat._total || 0);
     renderChat._total = total;
     /* v32（用户拍板）：公开发言记录只显示【当天】——非当前昼夜循环的历史发言不进列表 */
@@ -388,10 +483,10 @@
     return `<div class="annbox"><div class="sec">本步公告 · 第 ${box.night} 夜 ${esc(E.STEP_NAME[box.step] || box.step || '')}</div>${items}</div>`;
   }
 
-  function renderTalkForm(g, head, body, acts) {
+  function renderTalkForm(g, head, body, acts, nightChat) {
     const f = g.pending;
     head.innerHTML = `<h2>${esc(f.title)}</h2><span class="st">实时讨论 · 剩余 <b id="form-left">${f.duration || 0}</b>s</span>`;
-    body.innerHTML = announceHtml(g) + `<p class="hint" style="margin:0 0 8px">${esc(f.desc || '')}</p>`;
+    body.innerHTML = announceHtml(g) + (nightChat || '') + `<p class="hint" style="margin:0 0 8px">${esc(f.desc || '')}</p>`;
     const askNote = g.pendingAsk
       ? `<div class="evt bad" style="margin:0 0 8px">⚠ <b>${g.pendingAsk.asker} 号正在质询你</b>——请在下方输入框正面回答（说明身份/昨晚行动可洗清嫌疑；含糊或拒绝会抬高你的威胁度）。</div>`
       : '';
@@ -435,12 +530,12 @@
     return al.filter(p => p.id !== me.id);
   }
 
-  function renderForm(g, head, body, acts) {
+  function renderForm(g, head, body, acts, nightChat) {
     const f = g.pending, me = E.P(g, g.humanId);
     head.innerHTML = `<h2>${esc(f.title)}</h2><span class="st">等待你的决策 · 剩余 <b id="form-left">${f.duration || 0}</b>s</span>`;
     formState = { opt: null, targets: [], num: null, num2: null, text: '' };
 
-    let html = announceHtml(g) + `<p class="hint" style="margin:0 0 8px">${esc(f.desc || '')}</p>`;
+    let html = announceHtml(g) + (nightChat || '') + `<p class="hint" style="margin:0 0 8px">${esc(f.desc || '')}</p>`;
 
     if (f.opts) {
       html += `<div class="opts" id="f-opts">` + f.opts.map((o, i) =>
@@ -571,13 +666,19 @@
     if (p.silenceNight === g.night) rows.push(kv('沉默', '今夜主动技能被封锁（投票与私聊不受影响）'));
     if (p.shield) rows.push(kv('结茧护盾', `${p.shield} 层`));
     rows.push(kv('感染抑制', `${p.suppressLeft} / 3`));
-    if (p.faction === 'alien') {
+    /* 〔43〕异形资产按 role 判：变形为异形的死囚确实克隆了异形能力（6.8.3⑧），
+       而它的 faction 恒为 xeno —— 按 faction 判会让变形后的异形能力在面板上消失。 */
+    if (p.role === 'alien') {
       rows.push(kv('刀数', p.alien.dir === 'kill' ? '出刀无冷却' : `${p.alien.kills} / 2`));
       rows.push(kv('进化方向', p.alien.dir ? { destroy: '破坏', infect: '感染', kill: '击杀' }[p.alien.dir] : '未进化'));
       rows.push(kv('累计破坏量', `${(p.alien.destroyTotal || 0).toFixed(1)} / 6.0`));
       rows.push(kv('额外出刀', `${p.alien.extraKill} 次`));
     }
-    if (p.faction === 'xeno') {
+    /* 〔43〕经典外星人资产按 role 判。此前按 faction 判 ⇒ 死囚面板上白列「夜晚免疫／双刀／
+       破坏／感染治疗额度」四条它一条都用不了的技能，同时它真正持有的变形与复生却一条都不显示；
+       变形后更荒唐——「双刀」与所变形身份的资产同时并排出现（异形除外：变形为异形时按
+       6.8.3⑧ 克隆除社交与队内共享外的一切能力，故异形资产走上面的 role 分支）。 */
+    if (SKD.isClassicXeno(p)) {
       rows.push(kv('夜晚免疫', `${p.nightImmune} / 2 次（仅免疫伤害；被感染濒死也会消耗一次）`));
       rows.push(kv('双刀', p.awakened ? '已觉醒（第 6 夜或存活≤6 达成，不可逆）' : '未觉醒（第 6 夜或存活≤6 触发）'));
       rows.push(kv('破坏', `${p.destroyLeft} / 1（+2.0~3.0 自选，次夜为停转夜）`));
@@ -585,6 +686,16 @@
       const silenced = g.players.filter(x => !x.out && x.silenceNight != null && x.silenceNight > g.night);
       if (silenced.length) rows.push(`<div class="sec">已沉默名单</div>` + silenced.map(x =>
         `<div class="kv"><span>${x.id} 号</span><span>覆盖期：第 ${x.silenceNight} 夜（夜间主动技能封锁，投票/私聊不受影响）</span></div>`).join(''));
+    }
+    /* 〔43〕死囚自有的两项能力（6.8.2：能力仅变形＋复生＋作为阵营成员参与清场）此前无处显示。 */
+    if (p.convict) {
+      rows.push(kv('当前形态', p.morph
+        ? `变形为「${roleNameOf(p.morph)}」${p.morphNight != null ? `（第 ${p.morphNight} 夜起，冷却至第 ${p.morphNight + 3} 夜）` : ''}`
+        : '本体形态（死囚）'));
+      rows.push(kv('复生额度', `${p.reviveLeft} / 2 次（步骤 8，可自救，不占行动权）`));
+      rows.push(kv('镜像账本', p.mirror
+        ? Object.keys(p.mirror).map(k => (k === 'convict' ? '本体' : roleNameOf(k))).join('、')
+        : '—'));
     }
     if (RD.hasGrant(p.role, 'shoot')) {                                    // D6：能力标签（枪手族）
       /* 4.4.3：警长额外子弹两项——第 5 夜起 +1、全场存活≤6 +1，各自全局仅此 1 次、可叠加（至多 +2）。
@@ -720,8 +831,10 @@
     if (RD.hasGrant(p.role, 'repair')) parts.push(`维修${(p.repairTotal || 0).toFixed(1)}/${RD.repairExposeAtOf(p.role) || 0}·追加${p.extraRepair}`);   // D6
     if (p.role === 'bio') parts.push(`治疗${p.healLeft}·自救${p.selfSaveLeft}`);
     if (RD.hasGrant(p.role, 'save')) parts.push(`救援${p.rescueLeft}·治疗${p.cureLeft}`);   // D6：能力标签（救援族）
-    if (p.faction === 'alien') parts.push(`刀${p.alien ? p.alien.kills : '—'}·护盾${p.shield || 0}·破坏${((p.alien && p.alien.destroyTotal) || 0).toFixed(1)}`);
-    if (p.faction === 'xeno') parts.push(`免疫${p.nightImmune}·双刀${p.awakened ? '✓' : '✗'}`);
+    if (p.role === 'alien') parts.push(`刀${p.alien ? p.alien.kills : '—'}·护盾${p.shield || 0}·破坏${((p.alien && p.alien.destroyTotal) || 0).toFixed(1)}`);
+    /* 〔43〕按 role 判：否则死囚的花名册行会对**所有人**显示「免疫0·双刀✗」这两条它并不持有的技能 */
+    if (SKD.isClassicXeno(p)) parts.push(`免疫${p.nightImmune}·双刀${p.awakened ? '✓' : '✗'}`);
+    if (p.convict) parts.push(p.morph ? `变形为${roleNameOf(p.morph)}` : '本体形态');
     if (p.role === 'inspector') parts.push(`会议${p.meetingLeft}`);
     if (p.antibodyNight != null && p.antibodyNight >= g.night) parts.push('抗体');
     if (p.brew) parts.push(`制药${p.brew.progress}/${(global.SKProcess && global.SKProcess.get('brew').nights) || 2}`);   // C11：进度上限由声明给出
@@ -783,7 +896,7 @@
     return html;
   }
 
-  function renderSide(g) {
+  function renderSide(g, V) {
     const me = E.P(g, g.humanId);
     const box = el('side-body');
     document.querySelectorAll('#nb-tabs .tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
@@ -815,15 +928,23 @@
       ).join('') : '<div class="empty">暂无私人反馈</div>';
     } else if (tab === 'camp') {
       box.innerHTML = selfPanel(g, me) + campPanel(g, me);
+    /* 出局记录：〔42〕改读 View.sanitize 后的 pv —— 出局者的身份本就经 ⑥死亡 / ⑩驱逐 公告公开
+       （2.3.4 / 4.10.6，含真实阵营与呈现职业），故取 p.revealed 即是合法口径；
+       原先直读 g.players 的 roleName/faction/transferred 里，transferred（转职史）
+       与 originRole（原职业底册）依 2.8.7 / 2.8.12④ 一律不公开，已一并去掉。 */
     } else if (tab === 'out') {
-      const rows = g.players.filter(p => p.out);
+      const src = othersOf(g, V);
+      const rows = src.filter(p => p.out);
       /* 职业余额表（显示方案 1.3）：总数由声明层派生（人类席位来自 2.8.14 组位表，
          非人类名额来自各阵营角色的 seats）——取代此前写死的 totals 与角色键清单。
          D6/D8：加角色/改席位只改声明，本表自动跟上。 */
       const totals = RD.roleTotals();
+      /* 〔42〕已揭示职业一律取 p.revealed.role（公告授权的那一份），不再用
+         originRole||role —— 后者会把「转职前的底册」与「真身」一并带出来。 */
+      const revealedRole = p => (p.revealed && p.revealed.role) || null;
       let balance = '<div class="sec">职业余额表（已揭示出局 / 总数）</div>';
       for (const r of RD.keys().filter(k => totals[k] > 0)) {
-        const outN = g.players.filter(p => p.out && (p.originRole || p.role) === r).length;
+        const outN = src.filter(p => p.out && revealedRole(p) === r).length;
         const left = totals[r] - outN;
         const facTag = D.ROLES[r].faction !== 'human' ? `（${D.FACTION[D.ROLES[r].faction].name}）` : '';
         balance += `<div class="kv"><span>${esc(D.ROLES[r].name)}${facTag}</span>` +
@@ -833,12 +954,12 @@
       const causes = ['gun', 'alien', 'xeno', 'infect'];
       let stat = '<div class="sec">死因统计（逐夜累计，仅供自行比对）</div>';
       for (const c of causes) {
-        const list = g.players.filter(p => p.out && p.outType !== 'vote' && p.cause === c);
+        const list = src.filter(p => p.out && p.outType !== 'vote' && p.cause === c);
         stat += `<div class="kv"><span>${esc(D.CAUSE_NAME[c] || c)}</span><span>累计 ${list.length} 人${list.length ? '（' + list.map(p => p.id + ' 号·第' + p.outNight + '夜').join('、') + '）' : ''}</span></div>`;
       }
       box.innerHTML = (rows.length ? rows.map(p =>
         `<div class="kv"><span>${p.id} 号 ${esc(p.name)}</span>
-         <span>${facName(p.faction)} · ${esc(p.roleName)}${p.transferred ? '（原职业：普通船员）' : ''} · ${p.outType === 'vote' ? '驱逐' : D.CAUSE_NAME[p.cause]} · 第${p.outNight}夜</span></div>`).join('')
+         <span>${facName(p.faction)} · ${esc(p.roleName)} · ${p.outType === 'vote' ? '驱逐' : D.CAUSE_NAME[p.cause]} · 第${p.outNight}夜</span></div>`).join('')
         : '<div class="empty">暂无出局者</div>') + balance + stat;
     } else {
       const known = g.players.filter(p => p.id !== me.id && ((me.known && me.known.has(p.id)) || p.revealed))
@@ -1027,7 +1148,15 @@
       }
     } catch (_) { /* 隐私模式等 localStorage 不可用时静默跳过 */ }
     if (g.over) { hideTalkBar(); const ov = el('dev-overlay'); if (ov) ov.classList.add('hidden'); renderOver(g); return; }
-    renderHud(g); renderRoster(g); renderPlayerPop(g); renderStage(g); renderSide(g);
+    /* 〔42〕本次渲染的可见性出口：所有「别的玩家」的数据一律经 View.viewFor 裁剪。
+       联机时 Game.g 本身就是视图载荷（viewFor 幂等原样返回），单机时在这里现裁一次。
+       裁剪失败不得静默退回明文 —— 那等于把漏口重新打开，故抛错由 showFatal 接住。 */
+    let V = null;
+    try { V = global.View.viewFor(g, g.humanId); }
+    catch (e) { showFatal('视图裁剪失败：' + (e && e.message ? e.message : e)); return; }
+    renderHud(g); renderRoster(g, V); renderPlayerPop(g, V);
+    applyStageLayout(g);            /* 〔43〕主区布局：必须在 renderStage 之前 —— 它决定哪块区域存在 */
+    renderStage(g, V); renderSide(g, V);
     /* 开发者浮层：显隐由「上帝模式 && 浮层开关」双条件决定——✕ 关闭后重渲染不会再弹出 */
     const ov = el('dev-overlay');
     if (ov) {
@@ -1115,11 +1244,23 @@
   }
 
   /* DEV 视角切换（ui 层实现，本地直接改状态；联机由 Game.toggleDev 转发）
-     g.dev = 上帝模式（名单揭示+威胁度，粘滞）；devOvOpen = 总览浮层显隐（独立控制，✕/Esc 仅关浮层） */
+     g.dev = 上帝模式（名单揭示+威胁度，粘滞）；devOvOpen = 总览浮层显隐（独立控制，✕/Esc 仅关浮层）
+
+     〔42〕ENABLE_DEV 全局开关：当前处于 preview 阶段，DEV 是必要的调试工具，故保留；
+     但必须能被一处关掉而不动其他代码。约定 window.SK_ENABLE_DEV：
+       · 未设置 ⇒ 默认开启（preview 现状不变）
+       · 设为 0 / false / '0' ⇒ 关闭：#btn-dev 按钮直接移除（非 display:none，
+         避免正式版 DOM 里还留着调试入口），且 toggleDevView / Game.toggleDev 变成空操作，
+         即使有人手工改 g.dev 也没有任何 UI 会去渲染它。
+     正式发布时在 index.html 加一行 <script>window.SK_ENABLE_DEV = 0;</script> 即可。 */
+  function devEnabled() {
+    const v = global.SK_ENABLE_DEV;
+    return !(v === 0 || v === false || v === '0' || v === 'false');
+  }
   let devOvOpen = false;
   function toggleDevView() {
     const g = global.Game.g;
-    if (!g) return;
+    if (!g || !devEnabled()) return;
     /* DEV 是纯开关：开着时再点一次即整体关闭（上帝模式、总览、详情弹窗一并收起） */
     if (!g.dev) { g.dev = true; devOvOpen = true; }
     else { g.dev = false; devOvOpen = false; popPid = null; }
@@ -1128,6 +1269,139 @@
     if (b) b.classList.toggle('on', g.dev);
     render(g);
   }
+
+  /* 〔44〕首页「自选身份」面板（软偏好）
+   * ------------------------------------------------------------------
+   * 数据全部来自声明层，本文件不含任何角色字面量 —— 加角色只改 roleDecl（K1 纪律）。
+   * 可选性 / 组位 / 席位 / 变体归属分别读 SKRoleDecl.selectable、GROUP_TABLE、
+   * Setup.seatClaim；本文件只渲染与联动，不做任何规则判断。
+   *
+   * 为什么是「软偏好」而非硬指定：玩家点某角色 → createGame 尽量把该席位给他；
+   * 若本局该席位掷出了另一个变体，Setup.rollSeatPicks 会把那一席钉死到玩家选的变体
+   * （A/B 两侧都钉，见 seatClaim）。只有角色键根本不在席位表内（转职系 / 拼错）
+   * 才回落，并由 g.roleNote 说明原因 —— 不得静默换人。
+   *
+   * 双向联动：选身份 → 阵营卡片跟随该身份的阵营；改阵营 → 若已选身份不属于该阵营，
+   *   则清空并 toast 说明，不留互相矛盾的状态。
+   */
+  const RP_STATE = { role: null };
+
+  /* 可选角色清单：按 阵营序 → 组位 seatOrder → 声明序 排列，
+     使卡片顺序与开局公告（批次〇）的构成口径一致，而不是按字典序。 */
+  function rpRoleList() {
+    const FAC_ORDER = { human: 0, alien: 1, xeno: 2 };
+    const order = g => (g && RD.GROUP_TABLE[g] && RD.GROUP_TABLE[g].seatOrder != null)
+      ? RD.GROUP_TABLE[g].seatOrder : 99;
+    const rows = [];
+    for (const k of RD.keys()) {
+      if (!RD.selectable(k)) continue;
+      const d = RD.ROLE_DECL[k];
+      const claim = global.Setup && global.Setup.seatClaim ? global.Setup.seatClaim(k) : null;
+      rows.push({
+        key: k, faction: d.faction,
+        group: d.group,
+        groupName: d.group && RD.GROUP_TABLE[d.group] ? RD.GROUP_TABLE[d.group].name : '',
+        seats: d.seats || 0, desc: d.desc || '',
+        /* 变体归属（1.1.1）：标出来是为了让玩家明白「选它 = 锁定那个席位」，
+           而不是以为自己在配置一个额外的席位。 */
+        variant: claim ? claim.variant : null,
+      });
+    }
+    return rows.sort((a, b) => (FAC_ORDER[a.faction] - FAC_ORDER[b.faction])
+      || (order(a.group) - order(b.group)));
+  }
+
+  function rpCardHtml(r) {
+    const act = RP_STATE.role === r.key;
+    /* 〔44〕解锁门槛接口：当前 ROLE_UNLOCK 全为 null，故无角色被置灰。
+       将来设门槛后，这里按 unlockOf(r.key) 渲染 disabled + 进度文案即可，UI 结构不必改。 */
+    const u = RD.unlockOf(r.key);
+    const locked = !!(u && typeof u.wins === 'number' && u.wins > 0);
+    const seatTag = r.variant
+      ? `<span class="rp-tag rp-tag-v" title="1.1.1 同席位开局定其一；选中即锁定该席位">变体 ${esc(r.variant)}</span>`
+      : `<span class="rp-tag" title="该席位恒定，不参与变体掷骰">常驻</span>`;
+    const lockTag = locked ? `<span class="rp-tag rp-tag-lock">累计获胜 ${esc(u.wins)} 局解锁</span>` : '';
+    return `<button type="button" class="rp-card f-${esc(r.faction)}${act ? ' active' : ''}${locked ? ' locked' : ''}"
+        data-role="${esc(r.key)}" aria-pressed="${act ? 'true' : 'false'}"${locked ? ' disabled' : ''}>
+      <span class="rp-bar"></span>
+      <span class="rp-nm">${esc(roleNameOf(r.key))}${seatTag}${lockTag}</span>
+      <span class="rp-gr">${esc(r.groupName || facName(r.faction))}${r.seats ? ' · ' + r.seats + ' 席' : ''}</span>
+      <span class="rp-ds">${esc(r.desc)}</span>
+    </button>`;
+  }
+
+  function renderRoleGrid() {
+    const grid = el('role-grid');
+    if (!grid) return;
+    grid.innerHTML = rpRoleList().map(rpCardHtml).join('');
+  }
+
+  function rpSyncRow() {
+    const chip = el('role-chip'), clear = el('role-clear'), note = el('role-note');
+    if (!chip) return;
+    const k = RP_STATE.role;
+    chip.textContent = k ? `${roleNameOf(k)} · ${facName(RD.ROLE_DECL[k].faction)}` : '未选择 🎲';
+    chip.classList.toggle('has-role', !!k);
+    if (clear) clear.hidden = !k;
+    /* 回落说明只在「本局真的没给到所选身份」时出现，不是常驻文案 */
+    if (note) {
+      const g = global.Game && global.Game.g;
+      const fell = !!(g && g.roleNote && k && g.roleGot && g.roleGot !== k);
+      note.hidden = !fell;
+      if (fell) note.textContent = g.roleNote;
+    }
+  }
+
+  /* 选中身份 → 阵营卡片跟随（身份是更强的信号）。找不到对应 radio 就不动（防御性）。 */
+  function rpFollowFaction(roleKey) {
+    const f = RD.ROLE_DECL[roleKey].faction;
+    const inp = document.querySelector('input[name=fac][value=' + f + ']');
+    if (inp) inp.checked = true;
+    const scr = el('screen-start');
+    if (scr) scr.dataset.fac = f;
+    const cs = document.querySelector('.config-strip');
+    if (cs) cs.dataset.fac = f;
+    const fp = document.querySelector('#screen-start .fp.f-' + f);
+    if (fp) fp.classList.add('active');
+    document.querySelectorAll('#screen-start .fp').forEach(x => { if (x !== fp) x.classList.remove('active'); });
+  }
+
+  function rpPick(roleKey) {
+    RP_STATE.role = roleKey || null;
+    if (RP_STATE.role) rpFollowFaction(RP_STATE.role);
+    rpSyncRow();
+    renderRoleGrid();
+    const m = el('role-overlay');
+    if (m) m.classList.add('hidden');
+  }
+
+  function mountRolePicker() {
+    renderRoleGrid();
+    rpSyncRow();
+    const grid = el('role-grid');
+    if (grid) grid.onclick = e => {
+      const b = e.target && e.target.closest ? e.target.closest('.rp-card') : null;
+      if (b && b.dataset && b.dataset.role) rpPick(b.dataset.role);
+    };
+    if (el('role-chip')) el('role-chip').onclick = () => {
+      renderRoleGrid();
+      const m = el('role-overlay');
+      if (m) m.classList.remove('hidden');
+    };
+    if (el('role-close')) el('role-close').onclick = () => { const m = el('role-overlay'); if (m) m.classList.add('hidden'); };
+    if (el('role-none')) el('role-none').onclick = () => rpPick(null);
+    if (el('role-clear')) el('role-clear').onclick = () => rpPick(null);
+    if (el('role-overlay')) el('role-overlay').onclick = e => {
+      if (e.target && e.target.id === 'role-overlay') el('role-overlay').classList.add('hidden');
+    };
+    /* Esc 关闭：与规则速览同款手势（首页弹层不该只能靠点 ✕） */
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') { const m = el('role-overlay'); if (m) m.classList.add('hidden'); }
+    });
+  }
+
+  /** 供 main.js 开局时读取：当前自选身份的角色键（未选 = null） */
+  function preferredRole() { return RP_STATE.role; }
 
   /* 全局错误可见化：预览/内嵌环境里 JS 异常不再无声失败 */
   /* 轻提示（非致命）：自动讯问的填入确认 / 讨论窗口外点击提示等 */
@@ -1209,12 +1483,7 @@
       if (e.target && e.target.closest && e.target.closest('#btn-rules')) { openRules(); return; }
       if (e.target && e.target.closest && e.target.closest('#btn-rules-side')) { openRules(); return; }   // v33：右栏底部规则入口
       if (e.target && e.target.closest && e.target.closest('#btn-rules-start')) { openRules(); return; }
-      /* 〔批次 40〕扫码下载应用：全站唯一的 APK 入口形态——不给直链，只给二维码。
-         二维码为构建期静态图，点开即显，不发起任何外部请求。 */
-      if (e.target && e.target.closest && e.target.closest('#btn-apk-qr')) { openApkQr(); return; }
-      if (e.target && e.target.closest && e.target.closest('#apk-qr-close')) { closeApkQr(); return; }
       if (e.target && e.target.closest && e.target.closest('#btn-side-toggle')) { toggleSideDrawer(); return; }
-      if (e.target && e.target.id === 'apk-qr') { closeApkQr(); return; }   // 点遮罩关闭
       if (e.target && e.target.closest && e.target.closest('#btn-rules-close')) { closeRules(); return; }
       /* v32：单机暂停 / 退出（仅单机模式显示按钮）；〔批次 38b〕orb 只留图标，汉字说明在 title */
       if (e.target && e.target.closest && e.target.closest('#btn-pause')) {
@@ -1262,7 +1531,7 @@
       if (e.target && e.target.closest && e.target.closest('#btn-p-close')) { popPid = null; render(global.Game.g); }
     });
     document.addEventListener('keydown', e => {
-      if (e && e.key === 'Escape') { closeRules(); closeApkQr(); closeDevView(); popPid = null; render(global.Game.g); }
+      if (e && e.key === 'Escape') { closeRules(); closeDevView(); popPid = null; render(global.Game.g); }
     });
     /* v32：职业备注 select（change 不经 click 委托，单独监听；个人笔记不进 AI 账本） */
     document.addEventListener('change', e => {
@@ -1278,6 +1547,14 @@
     });
     window.addEventListener('error', e => showFatal('脚本错误：' + (e.message || '未知')));
     syncSideToggle();   // 〔批次 41〕进入对局前先按当前视口决定是否显示抽屉按钮
+    /* 〔42〕ENABLE_DEV 关闭时**移除** DEV 按钮节点（不是 display:none）——正式版 DOM 里
+       不该留一个点不动的调试入口。若为 hidden 则既留了残骸，也让门禁断言难以判定「已移除」。 */
+    if (!devEnabled()) {
+      const bd = el('btn-dev');
+      if (bd && bd.parentNode) bd.parentNode.removeChild(bd);
+      const chip = el('dev-chip');
+      if (chip && chip.parentNode) chip.parentNode.removeChild(chip);
+    }
   }
 
   function closeDevView() {
@@ -1309,17 +1586,9 @@
     else if (sideDrawerQuery.addListener) sideDrawerQuery.addListener(onChange);   //旧版 WebView
   }
 
-  /* ---------- 扫码下载应用（〔批次 40〕全站唯一 APK 入口形态） ----------
-     只给二维码、不给 APK 直链：手机端扫码即可下载安装，电脑端也不必搬运链接。
-     悬浮层不占布局流（UI 硬规则），Esc / 点遮罩 / ✕ 三种方式关闭。 */
-  function openApkQr() {
-    const q = el('apk-qr');
-    if (q) q.classList.remove('hidden');
-  }
-  function closeApkQr() {
-    const q = el('apk-qr');
-    if (q) q.classList.add('hidden');
-  }
+  /* 〔42〕扫码下载浮层已退役（游戏内不做分发下载）：原 openApkQr/closeApkQr 与其
+     DOM 节点、assets/qr/space-kill-apk.png 一并移除。APK 对外分发改由 GitHub Releases
+     承担（见 README），站内不再有下载入口，故也不需要任何打开/关闭逻辑。 */
 
   /* ---------- 规则速览（全屏覆盖页，v32：开始页顶部按钮打开） ---------- */
   function openRules() {
@@ -1421,5 +1690,7 @@
     return html;
   }
 
-  global.UI = { render, init, updateTimer, renderRoom, renderReplayBody };
+  global.UI = { render, init, updateTimer, renderRoom, renderReplayBody, stageLayout, applyStageLayout,
+    mountRolePicker, preferredRole, rpPick, renderRoleGrid };
 })(typeof window !== 'undefined' ? window : globalThis);
+
