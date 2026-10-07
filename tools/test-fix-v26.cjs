@@ -9,6 +9,21 @@ const base = path.join(__dirname, '..', 'js');
 const ctx = makeCtx({ RegExp });
 loadInto(ctx, base, profiles.full);
 
+/* CSS 以「清单 + 分片」组织（css/style.css 只含 @import，规则在各 0N-*.css 分片）。
+   CSS 结构断言需要的是有效样式全文：按清单顺序展开 @import（递归，visited 防环）。
+   展开结果与拆分前的单文件逐字节一致。 */
+function readCss() {
+  const cssDir = path.join(__dirname, '..', 'css');
+  const seen = new Set();
+  const load = (name) => {
+    if (seen.has(name)) return '';
+    seen.add(name);
+    return fs.readFileSync(path.join(cssDir, name), 'utf8')
+      .replace(/@import\s+url\("\.\/([^"]+)"\);/g, (_, dep) => load(dep));
+  };
+  return load('style.css');
+}
+
 const { Setup, Engine, AI, Bridge, IR, Tiers, MoE, Channels, Tactics } = ctx;
 const D = ctx.SKData;
 /* 〔42〕视图层：本组断言「单机 UI 不得绕过可见性裁剪」，故必须把 view.js 装进上下文。
@@ -3837,7 +3852,7 @@ const jsFiles = [];
   {
     const ui = fs.readFileSync(path.join(base, 'ui.js'), 'utf8');
     const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-    const css = fs.readFileSync(path.join(__dirname, '..', 'css', 'style.css'), 'utf8');
+    const css = readCss();
     ok('拟人C：复盘盒含「原始／叙事」并排页签，且默认原始（可回退、叙事为增量视图）',
       /rp-modes/.test(html) && /data-m="raw"/.test(ui) && /rpMode = 'raw'/.test(ui),
       'html=' + /rp-modes/.test(html) + ' 默认=' + /rpMode = 'raw'/.test(ui));
@@ -4267,7 +4282,7 @@ const jsFiles = [];
    tools/mobile-layout-check.cjs 的「主区相位扫描」里，6 态 × 5 档视口。 */
 {
   const html43 = fs.readFileSync(path.join(base, '..', 'index.html'), 'utf8');
-  const css43 = fs.readFileSync(path.join(base, '..', 'css', 'style.css'), 'utf8');
+  const css43 = readCss();
   const ui43 = fs.readFileSync(path.join(base, 'ui.js'), 'utf8');
   const uiCode43 = ui43.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/^\s*\/\/.*$/gm, ' ');
 
@@ -4322,7 +4337,7 @@ const jsFiles = [];
    加了 ENABLE_DEV 开关，故把「删干净」与「开关存在且默认为开」钉成断言。 */
 {
   const html42 = fs.readFileSync(path.join(base, '..', 'index.html'), 'utf8');
-  const css42 = fs.readFileSync(path.join(base, '..', 'css', 'style.css'), 'utf8');
+  const css42 = readCss();
   const ui42 = fs.readFileSync(path.join(base, 'ui.js'), 'utf8');
   const main42 = fs.readFileSync(path.join(base, 'main.js'), 'utf8');
   const rdme42 = fs.readFileSync(path.join(base, '..', 'README.md'), 'utf8');

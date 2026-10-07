@@ -1,0 +1,307 @@
+/* ============ v32 我的账本（玩家席位自己的推理资产） ============ */
+#ledger-overlay{
+  position:fixed;inset:0;z-index:60;overflow:auto;display:block;
+  background:linear-gradient(180deg,rgba(8,13,25,.96),rgba(6,10,20,.98));
+  backdrop-filter:blur(6px);padding:20px 18px 40px;
+}
+#ledger-overlay.hidden{display:none}
+#ledger-overlay .lg-head{max-width:1080px;margin:0 auto 12px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+#ledger-overlay .lg-head .sec{margin:0;font-size:17px}
+#ledger-body{max-width:1080px;margin:0 auto}
+#ledger-body .sec{margin:14px 0 6px;font-size:13px;letter-spacing:1px;color:var(--accent)}
+.lg-row{display:flex;align-items:center;gap:10px;padding:4px 8px;border-bottom:1px dashed var(--line);font-size:13px}
+.lg-row b{flex:0 0 130px}
+.lg-bar{flex:1;display:flex;height:10px;border-radius:5px;overflow:hidden;background:#0a1220;border:1px solid var(--line)}
+.lg-bar i{display:block;height:100%}
+.lg-bar .ba{background:#e05252}
+.lg-bar .bk{background:#c887e0}
+.lg-bar .bh{background:#3f9e6e}
+.lg-num{flex:0 0 auto;color:var(--dim2);font-variant-numeric:tabular-nums}
+.lg-ev{display:flex;gap:10px;align-items:baseline;padding:3px 8px;border-bottom:1px dashed var(--line);font-size:12px}
+.lg-ev .who{color:var(--dim);flex:0 0 auto}
+.lg-ev .lg-src{flex:1;color:var(--dim2)}
+.lg-ev .lg-tier{color:var(--warn);flex:0 0 auto}
+.lg-ev .lg-d{flex:0 0 52px;text-align:right;font-variant-numeric:tabular-nums;font-weight:700}
+.lg-ev .lg-d.neg{color:#5ce6a8}
+.lg-ev .lg-d.pos{color:#e05252}
+
+/* ============ v32 行动面板（当前步骤的全部操作，全屏覆盖屏蔽主页） ============ */
+#act-overlay{
+  position:fixed;inset:0;z-index:60;overflow:auto;
+  background:linear-gradient(180deg,rgba(8,13,25,.97),rgba(6,10,20,.98));
+  backdrop-filter:blur(6px);padding:20px 18px 40px;
+}
+#act-overlay.hidden{display:none}
+#act-overlay .lg-head{max-width:1080px;margin:0 auto 12px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+#act-overlay .lg-head .sec{margin:0;font-size:17px}
+#act-overlay .lg-head h2{margin:0;font-size:20px;letter-spacing:1px}
+#act-overlay .stage-head{margin-bottom:8px}
+#act-body{max-width:1080px;margin:0 auto}
+#act-acts{max-width:1080px;margin:14px auto 0;border-top:1px solid var(--line);padding-top:12px}
+
+/* ============ v32 开始页顶部三键 + 规则速览覆盖页 ============ */
+.start-actions{
+  display:flex;gap:8px;align-items:center;justify-content:center;
+  margin:6px 0 16px;flex-wrap:wrap;
+}
+.start-actions .act{font-family:inherit;font-size:13px;white-space:nowrap}
+#rules-overlay{
+  position:fixed;inset:0;z-index:60;overflow:auto;
+  background:linear-gradient(180deg,rgba(8,13,25,.97),rgba(6,10,20,.98));
+  backdrop-filter:blur(6px);padding:20px 18px 40px;
+}
+#rules-overlay.hidden{display:none}
+#rules-overlay .lg-head{max-width:1080px;margin:0 auto 12px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+#rules-overlay .lg-head .sec{margin:0;font-size:17px}
+#rules-overlay .rg-body{max-width:1080px;margin:0 auto}
+
+/* ============ v32 HUD 两行紧凑版（防闪：JS 层只在值变化时写 DOM） ============ */
+.hud.hud-compact{flex-wrap:nowrap;gap:14px;min-height:0}
+.hud-line1{display:flex;gap:18px;align-items:baseline}
+.hud-line1 .hi{font-size:12px;color:var(--dim2);letter-spacing:1px;white-space:nowrap}
+.hud-line1 .hi b{font-size:18px;color:#fff;font-variant-numeric:tabular-nums;margin-left:4px;text-shadow:0 0 12px rgba(0,229,176,.25)}
+.hud-line1 .hi.dim b{font-size:14px;color:var(--dim)}
+.hud-line2{display:flex;gap:10px;align-items:center;flex:1;min-width:0}
+/* 身份标牌：小卡 + 标黄（用户拍板：一眼认出自己的牌，不再撑大方框） */
+#hud-me{
+  display:inline-flex;align-items:center;gap:6px;white-space:nowrap;
+  padding:3px 10px;border-radius:8px;
+  background:rgba(255,204,77,.10);border:1px solid rgba(255,204,77,.55);
+  font-size:13px;font-weight:700;color:#ffcc4d;line-height:1.4;
+}
+#hud-me .d{font-size:11px;font-weight:400;color:rgba(255,204,77,.75)}
+/* 名单：身份符号直接跟在名字后（异形▲红 / 外星人◆紫 / 人类●绿） */
+.fs{font-style:normal;font-size:12px;margin-left:2px}
+.fs.f-a{color:#e05252}
+.fs.f-x{color:#c887e0}
+.fs.f-h{color:#5ce6a8}
+/* ============ 开始页三按钮：同一行 + 边缘淡化（无明显方框） ============ */
+.start-actions .act{
+  background:transparent;border-color:rgba(255,255,255,.10);color:var(--dim);
+  font-size:12px;letter-spacing:1px;
+}
+.start-actions .act:hover{color:var(--txt);border-color:var(--accent)}
+
+/* ============ v32 横屏标准布局：一屏三段 + 右上五圆钮 + 底部收敛条（放弃竖屏适配） ============ */
+#screen-game{display:flex;flex-direction:column;height:100vh;min-width:1080px;overflow:hidden;
+  /* 〔42〕横屏时刘海在左右两侧，故 left/right 也要让位（此前只补了 game 页的 top/bottom 无着落） */
+  padding-left:var(--sal);padding-right:var(--sar)}
+#screen-game .orb-bar{
+  display:flex;gap:6px;justify-content:flex-end;align-items:center;
+  padding:8px 12px 0;flex:0 0 auto;
+}
+.orb{
+  width:34px;height:34px;border-radius:50%;padding:0;
+  display:inline-flex;align-items:center;justify-content:center;
+  font-size:12px;font-family:inherit;font-weight:700;
+  background:transparent;border:1px solid rgba(255,255,255,.14);color:var(--dim);
+  cursor:pointer;white-space:nowrap;overflow:hidden;
+}
+.orb:hover{color:var(--txt);border-color:var(--accent)}
+.orb[style*='none'] + .orb{margin-left:0}
+/* 〔批次 38b〕BGM 播放速度条状滑杆（orb 行内嵌，accent 色轨+发光滑块） */
+.tempo-ctl{display:inline-flex;align-items:center;gap:6px;padding:0 4px}
+#tempo-slider{-webkit-appearance:none;appearance:none;width:92px;height:4px;border-radius:2px;
+  background:var(--line2);outline:none;cursor:pointer}
+#tempo-slider::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:12px;height:12px;border-radius:50%;
+  background:var(--accent);box-shadow:0 0 8px rgba(0,229,176,.5);cursor:pointer}
+#tempo-slider::-moz-range-thumb{width:12px;height:12px;border:none;border-radius:50%;
+  background:var(--accent);box-shadow:0 0 8px rgba(0,229,176,.5);cursor:pointer}
+#tempo-val{font-size:11px;color:var(--dim);font-variant-numeric:tabular-nums;min-width:40px;text-align:left}
+#screen-game .board{
+  flex:1 1 auto;display:grid;grid-template-columns:230px 1fr 320px;
+  gap:0 18px;min-height:0;
+  margin:6px 14px;padding:0 14px;
+  background:var(--panel2);border:1px solid var(--line);border-radius:13px;
+}
+#screen-game .seg{display:flex;flex-direction:column;min-height:0;padding:10px 0;overflow:hidden}
+#screen-game .seg + .seg{border-left:1px solid var(--line);padding-left:14px}
+#screen-game .seg-roster{overflow:auto}
+#screen-game .seg-stage{padding:10px 14px;overflow:auto}
+#screen-game .seg-side{overflow:auto}
+.seg-t{font-size:12px;letter-spacing:1px;color:var(--accent);margin:8px 0 6px}
+.seg-t:first-child{margin-top:0}
+#screen-game .chatlog{flex:1 1 auto;min-height:120px}
+#screen-game .side-body{flex:0 0 auto;max-height:46%;overflow:auto}
+/* 底部收敛条（页面底部之上）：倒计时 / 净破坏 / 决策窗口 / 身份标牌 */
+#screen-game .stat-bar{
+  flex:0 0 auto;display:flex;gap:26px;align-items:center;
+  margin:8px 14px 10px;padding:6px 16px;
+  background:var(--panel2);border:1px solid var(--line);border-radius:10px;
+}
+#screen-game .stat-bar .hi{font-size:12px;color:var(--dim2);letter-spacing:1px;white-space:nowrap}
+#screen-game .stat-bar .hi b{font-size:18px;color:#fff;font-variant-numeric:tabular-nums;margin-left:4px;text-shadow:0 0 12px rgba(0,229,176,.25)}
+#screen-game .stat-bar .hi.dim b{font-size:14px;color:var(--dim)}
+#screen-game .stat-bar .hud-me{margin-left:auto}
+/* 身份标牌：透明底 + 黄色边缘光晕（用户拍板：不做黄色填充卡） */
+#screen-game .hud-me{
+  display:inline-flex;align-items:center;gap:6px;white-space:nowrap;
+  padding:2px 10px;border-radius:8px;
+  background:transparent;border:1px solid transparent;
+  box-shadow:0 0 10px rgba(255,204,77,.45), inset 0 0 8px rgba(255,204,77,.12);
+  font-size:13px;font-weight:700;color:#ffcc4d;line-height:1.5;
+}
+#screen-game .hud-me .d{font-size:11px;font-weight:400;color:rgba(255,204,77,.72)}
+/* 名单：身份符号跟在名字后（👾异形 / 👽外星人 / 🧑‍🚀人类 备选 ▲◆●），不再撑独立行 */
+#screen-game .pl .idn{display:none}
+.fs{font-style:normal;font-size:13px;margin-left:4px}
+/* 放弃竖屏适配：移除窄屏折行规则（覆盖旧的媒体查询），横屏一屏承载 */
+
+/* ============ v32 修正：五钮贴最右侧 + 窄预览窗口底部横向滚动（不截断内容） ============ */
+#screen-game{position:relative;overflow-x:auto;overflow-y:hidden}
+#screen-game .board{min-width:1040px}
+#screen-game .stat-bar{min-width:1040px}
+#screen-game .orb-bar{position:absolute;top:8px;right:12px;justify-content:flex-end;padding:0}
+
+/* ============ v32 视觉修正（用户拍板）：削平圆角 / 去最外围大方框 / 开始页三按钮同行 ============ */
+/* 1) 全部方框削成纯正矩形（仅右上角五圆钮保持圆形）
+      v33：作用域收窄到游戏页 #screen-game——首页按新圆角规范（外卡 16 / 面板 12 / 按钮 10 / 图标 8） */
+#screen-game .panel, #screen-game .board, #screen-game .seg, #screen-game .pl, #screen-game .opt, #screen-game .tag,
+#screen-game .evt, #screen-game .say, #screen-game .an, #screen-game .kv, #screen-game .prv, #screen-game .chatbox, #screen-game .chatlog,
+#screen-game .roster, #screen-game .dead, #screen-game .side-body, #screen-game .stat-bar, #screen-game .hud-me,
+#screen-game .act, #screen-game .icon, #screen-game button, #screen-game input, #screen-game select, #screen-game textarea,
+#screen-game .opts, #screen-game .tabs, #screen-game .tab, #screen-game .rules,
+#screen-game .dev-overlay, #screen-game .ov-close, #screen-game .devchip, #screen-game .probe-row, #screen-game .talk-preview{
+  border-radius:0 !important;
+}
+#screen-game .orb{border-radius:50% !important}   /* 五圆钮例外：保持圆形 */
+/* 2) 去掉最外围大方框：board 与 stat-bar 不再带边框/底色，三段直接落在页面上 */
+#screen-game .board{background:transparent;border:none;padding:0 8px}
+#screen-game .seg + .seg{border-left:none;padding-left:8px}
+#screen-game .stat-bar{background:transparent;border:none}
+/* 3) 开始页顶部三按钮：强制并列一行，不换行 */
+.start-actions{flex-wrap:nowrap;gap:10px;justify-content:center;overflow:visible}
+.start-actions .act{white-space:nowrap}
+
+/* ============ v32 修正：五钮行在最上、收敛行其次、board 无外框、列宽按内容 ============ */
+#screen-game .orb-bar{
+  position:static;display:flex;gap:6px;justify-content:flex-end;align-items:center;
+  width:100%;padding:8px 14px 0;flex:0 0 auto;
+}
+#screen-game .stat-line{
+  display:flex;gap:26px;align-items:center;
+  margin:6px 14px 0;padding:6px 16px;
+  background:var(--panel2);border:1px solid var(--line);border-radius:0;
+}
+#screen-game .stat-line .hi{font-size:12px;color:var(--dim2);letter-spacing:1px;white-space:nowrap}
+#screen-game .stat-line .hi b{font-size:18px;color:#fff;font-variant-numeric:tabular-nums;margin-left:4px;text-shadow:0 0 12px rgba(0,229,176,.25)}
+#screen-game .stat-line .hi.dim b{font-size:14px;color:var(--dim)}
+#screen-game .stat-line .hud-me{margin-left:auto}
+/* 身份标牌：不做黄光，用既有蓝色系边框光效 */
+#screen-game .hud-me{
+  display:inline-flex;align-items:center;gap:6px;white-space:nowrap;
+  padding:2px 10px;border-radius:0;
+  background:transparent;border:1px solid var(--accent);
+  box-shadow:0 0 10px rgba(0,229,176,.35);
+  font-size:13px;font-weight:700;color:var(--txt);line-height:1.5;
+}
+#screen-game .hud-me .d{font-size:11px;font-weight:400;color:var(--dim)}
+/* 三段列宽按内容切割（名单/右侧贴合内容，中段弹性），横向不超出 */
+#screen-game .board{grid-template-columns:minmax(210px,max-content) 1fr minmax(280px,max-content);min-width:1000px}
+
+/* ============ v32 修正：细线严格分区 + 竖柱防膨胀 + orb 激活黄光 ============ */
+/* 细线严格划分各区域（覆盖此前的 none） */
+#screen-game .seg + .seg{border-left:1px solid var(--line);padding-left:12px}
+/* 竖柱防膨胀：固定列宽 + 内部滚动 + 长文本折行——重渲染绝不允许撑宽柱子 */
+#screen-game .board{grid-template-columns:250px 1fr 300px;min-width:1020px}
+#screen-game .board .seg{min-width:0;max-width:100%;overflow:hidden}
+#screen-game .board .seg > *{max-width:100%}
+#screen-game .roster,#screen-game .dead,#screen-game .chatlog,#screen-game .side-body{
+  overflow:auto;word-break:break-word;
+}
+#screen-game .roster .pl{max-width:100%}
+/* orb 激活态：黄光边缘（DEV 开启 / 音效开启） */
+#screen-game .orb.on{
+  border-color:#ffcc4d;color:#ffcc4d;
+  box-shadow:0 0 10px rgba(255,204,77,.5), inset 0 0 6px rgba(255,204,77,.15);
+}
+
+/* ============ v32 布局总规则（用户拍板）：任何信息的出现都不允许元素体积变动 ============
+   实现：三柱高度恒定（= 视口高）；柱内固定块 flex:0 0 auto，唯一弹性块（stage-body /
+   chatlog / side-body）flex:1 1 auto + min-height:0 内部滚动吸收一切增量；
+   banner / p-pop / dev-overlay 全部悬浮定位，不占布局流。 */
+
+/* 圆钮行：整页最上方右上角（悬浮，不占布局流） */
+#screen-game .orb-bar{
+  position:absolute;top:8px;right:12px;left:auto;width:auto;
+  padding:0;gap:6px;z-index:30;
+}
+/* 右柱顶部让出圆钮悬浮空间（圆钮行高 ≈42px） */
+#screen-game .seg-side{padding-top:48px}
+
+/* 收敛行（倒计时/净破坏/决策窗口）：第二柱顶部固定块 */
+#screen-game .seg-stage .stat-line{
+  margin:0;padding:0 0 8px;flex:0 0 auto;
+  background:transparent;border-top:none;
+}
+#screen-game .seg-stage .stat-line .hi{font-size:12px;color:var(--dim2);letter-spacing:1px;white-space:nowrap}
+#screen-game .seg-stage .stat-line .hi b{font-size:18px;color:#fff;font-variant-numeric:tabular-nums;margin-left:4px;text-shadow:0 0 12px rgba(0,229,176,.25)}
+#screen-game .seg-stage .stat-line .hi.dim b{font-size:14px;color:var(--dim)}
+/* 计时细条：固定 5px 高，紧贴收敛行下方（不吃分隔线） */
+#screen-game .seg-stage .timerbar{margin:0 0 10px;flex:0 0 auto;border-top:none;padding-top:0}
+
+/* 柱内纵向分隔：同柱不同内容块之间统一细线（第一块无顶线）；
+   舞台柱分隔线通栏（负 margin 抵消柱横向内边距，细线左右接底到柱边缘） */
+#screen-game .seg > * + *{border-top:1px solid var(--line);margin-top:8px;padding-top:8px}
+#screen-game .seg-stage > * + *{
+  margin-left:-14px;margin-right:-14px;padding-left:14px;padding-right:14px;
+}
+/* 双线豁免：stage-head 自带底线 / stage-actions 自带顶线，统一后去重 */
+#screen-game .stage-head{border-bottom:none;padding-bottom:0;margin-bottom:0}
+#screen-game .seg-stage .stage-actions{border-top:none;padding-top:0}
+/* timerbar/stat-line 已在上方单独豁免顶线 */
+
+/* 三柱体积恒定：柱只滚动内部，永不撑宽/撑高 */
+#screen-game .seg-stage{overflow:hidden}
+#screen-game .seg-roster,#screen-game .seg-side{overflow:hidden}
+#screen-game .stage-body{flex:1 1 auto;min-height:0;max-height:none;overflow:auto}
+#screen-game .stage-head,#screen-game .stage-actions,#screen-game .talk-preview,#screen-game .talkrow{flex:0 0 auto}
+#screen-game .chatlog{flex:1 1 auto;min-height:0;max-height:none}
+/* 名单：固定高度（15 人 5 行 × 72px 卡 + 4 × 5px 间隙 = 380px）+ 内滚动；发言记录弹性吸收 */
+#screen-game .roster{flex:0 0 auto;height:380px;max-height:none}
+#screen-game .side-body{flex:1 1 auto;min-height:0;max-height:none}
+
+/* 名单小卡：高度锁定 72px（标题 22 + 身份 12 + 标签区 22 + 内边距/间隙）——
+   标签行自动折行（不再单行省略号硬挤），溢出兜底裁切；DEV 开关不改变卡片体积。
+   卡片背景与页面同色（透明）：不再出现「深色方框附着在浅色背景墙」的色块感，仅以边框分区 */
+#screen-game .pl{height:72px;overflow:hidden;gap:2px;padding:6px 8px;background:transparent}
+#screen-game .pl .top{flex:0 0 auto;height:22px}
+#screen-game .pl .did{flex:0 0 auto}
+#screen-game .pl .tags{
+  flex:1 1 auto;min-height:0;display:flex;flex-wrap:wrap;
+  align-content:flex-start;gap:2px 4px;overflow:hidden;
+}
+
+/* DEV 透视：真实身份注在名字下方（单行截断，绝不出框、绝不改变卡片体积——行高恒定预留） */
+#screen-game .pl .did{
+  font-size:10px;line-height:12px;height:12px;
+  color:#ffcc4d;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;
+}
+/* 非 DEV 时无 did 行：卡片高度由 height:56px 锁死，两态体积一致 */
+
+/* banner：悬浮于顶部中央（出现/消失不推移任何布局） */
+#screen-game .banner{
+  position:fixed;top:10px;left:50%;transform:translateX(-50%);
+  z-index:40;margin-bottom:0;max-width:72vw;white-space:normal;
+}
+
+/* ============ v32 修正（用户拍板）：三柱永不压缩——窄视口保持柱宽，底部横向滚动 ============
+   board 自身无边框无底色（看不到框的边缘）；三柱间竖线为内容分区而非容器边界。
+   最小宽度恢复（三柱挤在一起比滚动条更不可接受），滚动条即窄视口下的正常横向浏览。 */
+#screen-game{overflow-x:auto;overflow-y:hidden}
+#screen-game .board{min-width:1110px;grid-template-columns:310px 1fr 330px}
+
+/* ============ v32 修正：右柱 330px 扩容 + 条目排版重排（左柱加宽不挤占右柱） ============
+   公告/发言条目：字号 12.5 → 12px、内边距收紧、行高统一 1.55、长句自动折行——
+   330px 柱宽下每行约容纳 24 个汉字，常规公告 1~2 行排完，不再有挤压感 */
+#screen-game .side-body{font-size:12px;word-break:break-word;line-height:1.55}
+#screen-game .side-body .an{font-size:12px;padding:4px 6px;gap:6px;line-height:1.55}
+#screen-game .side-body .logline{font-size:12px;padding:5px 6px;line-height:1.55}
+/* 键值行（阵营页签/私人页签等）长说明折行：label 固定、value 弹性换行——
+   说明文字一律左对齐（从左侧续行），不再右对齐贴边产生裁切感 */
+#screen-game .side-body .kv{flex-wrap:wrap;row-gap:2px}
+#screen-game .side-body .kv span{min-width:0}
+#screen-game .side-body .kv span:last-child{flex:1 1 auto;white-space:normal;word-break:break-word;text-align:left}
+/* 右柱兜底：任何直接子元素都不得横向撑破柱宽 */
+#screen-game .side-body > *{max-width:100%}
+
