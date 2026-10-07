@@ -26,7 +26,9 @@ const WRANGLER = process.env.WRANGLER_CMD || 'wrangler';
 // 站点图标随页面一起部署（缺了会被 Cloudflare 回退成 404，浏览器退回默认空白图标）
 // SpaceKill.apk = 安卓版安装包（由 android/build.cmd 自动复制到仓库根，见该脚本注释）；
 // _headers = 该 APK 的附件下载响应头。三者缺一都会导致线上"能点但下不到"。
-const SITE_ENTRIES = ['index.html', 'css', 'js', 'audio', 'assets', 'favicon.ico', 'icon-32.png', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png', 'SpaceKill.apk', '_headers'];
+// （assets/ 已随第四十二批扫码浮层退役删除，不再是站点资源——2026-10-07 CI 首跑时该
+//   死条目被 fail-loud 检查拦下，现移除。）
+const SITE_ENTRIES = ['index.html', 'css', 'js', 'audio', 'favicon.ico', 'icon-32.png', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png', 'SpaceKill.apk', '_headers'];
 
 const stage = path.join(os.tmpdir(), 'space-kill-pages-deploy');
 fs.rmSync(stage, { recursive: true, force: true });
