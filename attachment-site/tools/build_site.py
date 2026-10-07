@@ -47,6 +47,16 @@ SIM31 = [
     # 网页版引擎的大规模蒙特卡洛（由 tools/gen_mc_report.py 从原始 JSON 生成，勿手改数字）
     (os.path.join('公测3.1', 'sim_output', '蒙特卡洛10000局.md'), 'mc-10000.html',
      '蒙特卡洛模拟 · 10000 局', '网页版引擎离线跑完整对局 · 胜负 / 节奏 / 证据链'),
+    (os.path.join('公测3.1', 'sim_output', 'cross_convergence.md'), 'sim31-cross.html',
+     '策略交叉收敛报告', '测试 3.1 · 12 组合交叉对打 · Phase A/B 收敛验证'),
+]
+
+# 公测3.1 的静态成品随站分发（自包含 HTML / 原始数据），构建时复制——
+# 与二维码同理：必须由构建产出，否则「产物可由源确定性重建」门禁失败
+SIM31_STATIC = [
+    # (来源路径, 输出文件名, 缺失时的处理)
+    (os.path.join('公测3.1', 'sim_output', 'report.html'), 'sim31-report.html'),
+    (os.path.join('公测3.1', 'sim_output', 'perspective_report.csv'), 'sim31-perspective.csv'),
 ]
 
 RE_CHAPTER = re.compile(r'^第[0-9一二三四五六七八九十百零两]+[章节篇部回]')
@@ -193,6 +203,9 @@ h1 {{ font-size:clamp(30px,5.4vw,46px); letter-spacing:-.02em; color:#fff; margi
     <a class="card" href="sim31-matrix.html"><div class="tag">平衡性模拟</div><h2>策略矩阵报告（测试 3.1）</h2><p>异形三大流派权重化 · 感染为显式权重 · 均衡解。</p></a>
     <a class="card" href="sim31-flows.html"><div class="tag">平衡性模拟</div><h2>异形流派核验（测试 3.1）</h2><p>击杀 / 破坏 / 感染 · 12/12 行为判据。</p></a>
     <a class="card" href="mc-10000.html"><div class="tag">平衡性模拟</div><h2>蒙特卡洛模拟 · 10000 局</h2><p>网页版引擎离线跑完整对局 · 胜负分布 / 对局节奏 / 证据链指标。</p></a>
+    <a class="card" href="sim31-report.html" target="_blank" rel="noopener"><div class="tag">平衡性模拟</div><h2>认知模型模拟报告（公测 3.1）</h2><p>高水平玩家认知模型 · 5000 局 · 阵营胜率与 95% CI（bootstrap）。</p></a>
+    <a class="card" href="sim31-cross.html"><div class="tag">平衡性模拟</div><h2>策略交叉收敛报告（测试 3.1）</h2><p>12 组合交叉对打 · Phase A/B 收敛验证 · 目标均衡校准。</p></a>
+    <a class="card" href="sim31-perspective.csv" download><div class="tag">模拟数据</div><h2>视角行为数据（CSV）</h2><p>逐动作准确率 / 后验 / 越界标记原始数据，供二次分析。</p></a>
     <a class="card" href="https://space-kill-web.pages.dev" rel="noopener" target="_blank"><div class="tag">可玩网页版</div><h2>太空杀 · 三阵营对抗</h2><p>直接在浏览器里玩：单机对局 · AI 托管 · 19 个夜间步骤 · 三阵营博弈。</p></a>
     <a class="card" href="space-kill-apk-qr.png" rel="noopener" target="_blank"><div class="tag">安卓应用</div><h2>扫码下载应用</h2><p>手机扫二维码直接下载安装；文件名不含版本号，版本号在应用内。</p></a>
   </div>
@@ -357,6 +370,18 @@ def build():
               os.path.getsize(APK_QR_SRC) / 1024.0))
     else:
         print('WARN 安卓二维码缺失，跳过复制：%s' % APK_QR_SRC)
+
+    # 公测3.1 静态成品（自包含报告 HTML / 原始数据 CSV）：缺失只告警不失败，与 PDF 同策略
+    for rel, out_name in SIM31_STATIC:
+        src = os.path.join(ROOT, rel)
+        if os.path.exists(src):
+            dst = os.path.join(OUT, out_name)
+            if os.path.exists(dst):
+                os.remove(dst)
+            shutil.copy2(src, dst)
+            print('%-40s -> site/%s  (%.1f KB)' % (rel, out_name, os.path.getsize(src) / 1024.0))
+        else:
+            print('WARN 公测3.1 静态成品缺失，跳过复制：%s' % src)
 
     print('SITE_BUILD_OK -> site/')
 

@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>策略交叉收敛报告 · 太空杀</title>
+<meta name="description" content="测试 3.1 · 12 组合交叉对打 · Phase A/B 收敛验证">
+<style>
+:root { --bg:#0a0a0f; --card:#141420; --line:#252535; --text:#e0e0ea; --muted:#8888a0; --accent:#818cf8; }
+* { margin:0; padding:0; box-sizing:border-box }
+body { background:var(--bg); color:var(--text); font-family:"PingFang SC","Microsoft YaHei","Noto Sans SC",sans-serif; line-height:1.9 }
+nav { position:sticky; top:0; z-index:10; display:flex; align-items:center; gap:14px; padding:14px 22px; background:rgba(10,10,15,.92); backdrop-filter:blur(8px); border-bottom:1px solid var(--line) }
+nav .brand { font-weight:700; letter-spacing:.02em; color:#fff; text-decoration:none; margin-right:auto }
+nav a.tab { color:var(--muted); text-decoration:none; font-size:14px; padding:5px 12px; border-radius:999px; transition:.15s }
+nav a.tab:hover { color:#fff }
+nav a.tab.on { color:#fff; background:var(--line) }
+.wrap { max-width:52rem; margin:0 auto; padding:48px 22px 96px }
+.filebox { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px 18px; margin:10px 0; text-decoration:none; color:var(--text); display:block }
+.filebox:hover { border-color:var(--accent) }
+.filebox .t { font-weight:700; color:#fff }
+.filebox .s { color:var(--muted); font-size:13px; margin-top:3px }
+.kicker { font-size:12px; letter-spacing:.18em; text-transform:uppercase; color:var(--accent); margin-bottom:10px }
+h1 { font-size:clamp(26px,4.6vw,38px); letter-spacing:-.02em; margin-bottom:28px; color:#fff }
+h2 { font-size:20px; color:#fff; margin:44px 0 14px; padding-left:12px; border-left:3px solid var(--accent) }
+p { margin:12px 0; color:#c9c9d9; font-size:16px }
+hr { border:none; border-top:1px solid var(--line); margin:32px 0 }
+table { border-collapse:collapse; width:100%; margin:18px 0; font-size:14.5px }
+th, td { border:1px solid var(--line); padding:8px 12px; text-align:left; vertical-align:top; color:#c9c9d9 }
+th { background:#181826; color:#fff; white-space:nowrap }
+ul, ol { margin:12px 0 12px 26px; color:#c9c9d9; font-size:16px }
+li { margin:6px 0 }
+blockquote { margin:18px 0; padding:12px 18px; border-left:3px solid var(--accent); background:#12121e; border-radius:0 10px 10px 0 }
+blockquote p { color:var(--muted); font-size:15px }
+code { background:#1c1c2c; border:1px solid var(--line); border-radius:5px; padding:1px 6px; font-size:13.5px; color:#a5b4fc }
+pre { background:#12121e; border:1px solid var(--line); border-radius:10px; padding:14px; overflow-x:auto; color:#c9c9d9; font-size:13px }
+.foot { margin-top:64px; padding-top:20px; border-top:1px solid var(--line); color:var(--muted); font-size:13px; display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap }
+.foot a { color:var(--accent); text-decoration:none }
+</style>
+</head>
+<body>
+<nav>
+  <a class="brand" href="index.html">🚀 太空杀 · 星途归航</a>
+  <a class="tab" href="story-human.html">剧情</a>
+  <a class="tab" href="rules.html">规则</a>
+  <a class="tab on" href="sim31-matrix.html">平衡性</a>
+  <a class="tab" href="mc-10000.html">蒙特卡洛</a>
+  <a class="tab" href="https://space-kill-web.pages.dev" rel="noopener" target="_blank">可玩网页版 ↗</a>
+</nav>
+<div class="wrap">
+<h1>太空杀 测试3.1 策略交叉收敛报告</h1>
+<p>目标均衡：人类 40 / 异形 35 / 外星人 25 ｜ Phase A=300局/格，Phase B=800局/格</p>
+<h3>Phase A：阵营内横向对比（基准对手 std/aggro/std）</h3>
+<table>
+<tr><th>阵营</th><th>策略</th><th>人类%</th><th>异形%</th><th>外星%</th><th>平均夜数</th></tr>
+<tr><td>人类</td><td>std</td><td>49.0</td><td>25.0</td><td>26.0</td><td>8.4</td></tr>
+<tr><td>人类</td><td>passive</td><td>47.3</td><td>28.7</td><td>24.0</td><td>7.9</td></tr>
+<tr><td>人类</td><td>aggro</td><td>44.0</td><td>31.3</td><td>24.7</td><td>8.0</td></tr>
+<tr><td>人类</td><td>skeptic</td><td>40.0</td><td>26.7</td><td>33.3</td><td>8.2</td></tr>
+<tr><td>人类</td><td>guardian</td><td>44.7</td><td>26.0</td><td>29.3</td><td>8.0</td></tr>
+<tr><td>异形</td><td>kill</td><td>46.7</td><td>25.0</td><td>28.3</td><td>8.2</td></tr>
+<tr><td>异形</td><td>sab</td><td>49.7</td><td>18.3</td><td>29.7</td><td>13.2</td></tr>
+<tr><td>异形</td><td>infect</td><td>47.7</td><td>17.0</td><td>35.3</td><td>8.4</td></tr>
+<tr><td>外星人</td><td>std</td><td>44.0</td><td>26.7</td><td>29.3</td><td>8.5</td></tr>
+<tr><td>外星人</td><td>hunter</td><td>43.3</td><td>26.7</td><td>30.0</td><td>8.1</td></tr>
+<tr><td>外星人</td><td>kingmaker</td><td>51.0</td><td>30.3</td><td>18.7</td><td>8.1</td></tr>
+</table>
+<p>各阵营前 2：人类 ['std', 'passive'] ｜ 异形 ['kill', 'sab'] ｜ 外星人 ['hunter', 'std']</p>
+<h3>Phase B：前 2 名 2×2×2 精测（800 局/格）</h3>
+<table>
+<tr><th>人类</th><th>异形</th><th>外星</th><th>人类%</th><th>异形%</th><th>外星%</th><th>夜数</th></tr>
+<tr><td>std</td><td>kill</td><td>hunter</td><td>44.5</td><td>23.5</td><td>32.0</td><td>8.1</td></tr>
+<tr><td>std</td><td>kill</td><td>std</td><td>47.1</td><td>24.9</td><td>28.0</td><td>8.2</td></tr>
+<tr><td>std</td><td>sab</td><td>hunter</td><td>51.5</td><td>14.8</td><td>32.5</td><td>11.2</td></tr>
+<tr><td>std</td><td>sab</td><td>std</td><td>50.0</td><td>14.4</td><td>34.2</td><td>11.5</td></tr>
+<tr><td>passive</td><td>kill</td><td>hunter</td><td>43.5</td><td>29.4</td><td>27.1</td><td>8.2</td></tr>
+<tr><td>passive</td><td>kill</td><td>std</td><td>46.0</td><td>24.6</td><td>29.4</td><td>8.2</td></tr>
+<tr><td>passive</td><td>sab</td><td>hunter</td><td>52.6</td><td>14.4</td><td>31.0</td><td>12.5</td></tr>
+<tr><td>passive</td><td>sab</td><td>std</td><td>52.6</td><td>16.8</td><td>29.5</td><td>10.9</td></tr>
+</table>
+<h3>稳定性（己方胜率跨 4 格标准差）</h3>
+<table>
+<tr><th>阵营</th><th>策略</th><th>己方均值%</th><th>标准差</th></tr>
+<tr><td>人类</td><td>std</td><td>48.3</td><td>2.69</td></tr>
+<tr><td>人类</td><td>passive</td><td>48.7</td><td>4.04</td></tr>
+<tr><td>异形</td><td>kill</td><td>25.6</td><td>2.24</td></tr>
+<tr><td>异形</td><td>sab</td><td>15.1</td><td>0.99</td></tr>
+<tr><td>外星</td><td>hunter</td><td>30.7</td><td>2.11</td></tr>
+<tr><td>外星</td><td>std</td><td>30.3</td><td>2.37</td></tr>
+</table>
+<h3>定版推荐（贴近目标 + 低波动）</h3>
+<p>最接近目标 40/35/25 的组合：<strong>passive ｜ kill ｜ hunter</strong>（43.5 / 29.4 / 27.1，距离 7.0 pp）</p>
+<ul><li>人类 std：均值 48.3%，跨对手标准差 2.69</li><li>人类 passive：均值 48.7%，跨对手标准差 4.04</li><li>异形 kill：均值 25.6%，跨对手标准差 2.24</li><li>异形 sab：均值 15.1%，跨对手标准差 0.99</li><li>外星 hunter：均值 30.7%，跨对手标准差 2.11</li><li>外星 std：均值 30.3%，跨对手标准差 2.37</li></ul>
+<div class="foot"><span>太空杀 · 三阵营身份博弈 · 规则正文 v6.6（v66 修订版）</span><span><a href="https://github.com/hxj-2888/space-kill-web/tree/main/attachment-site" rel="noopener" target="_blank">GitHub 源码</a></span></div>
+</div>
+</body>
+</html>
