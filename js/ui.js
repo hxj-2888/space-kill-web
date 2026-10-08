@@ -581,16 +581,33 @@ const SKD = global.SKDerivation;               // 〔43〕阵营成员 ≠ 能�
       }
     }
 
-    if (f.num) {
-      html += `<div class="sec">${esc(f.num.label)}</div>
-        <select id="f-num">${f.num.options.map(o => `<option value="${o.v}">${esc(o.label)}</option>`).join('')}</select>`;
-      formState.num = f.num.options[0].v;
-    }
-    if (f.num2) {
-      html += `<div class="sec">${esc(f.num2.label)}</div>
-        <select id="f-num2">${f.num2.options.map(o => `<option value="${o.v}">${esc(o.label)}</option>`).join('')}</select>`;
-      formState.num2 = f.num2.options[0].v;
-    }
+    /* ⚠ num / num2 的选项**可能为空**，此处曾直接取 `options[0].v` 而炸：
+       `TypeError: Cannot read properties of undefined (reading 'v')` at ui.js:587。
+       触发态已定位：船员步骤 2 的「首次查验池」为空（`steps.js:597` 的
+       `firstPool.map(...)`）—— 池按 4.1.1③ 移除「全部持有者已出局」的职业，
+       当所有基础人类职业都没有存活持有者时（多名船员已转职的残局）池即为空，
+       而表单把「身份①」标为必答 ⇒ 玩家被要求填一个**没有选项的必答项**。
+       uismoke 以 SK_SMOKE_RNG=117 + 对局种子 912 稳定复现。
+       * 上面那半句（必答项无选项）是**引擎/规则面的问题，待产品裁定**；
+         这里只做 UI 侧的防御 —— 一个渲染函数不该因为数据缺项而抛异常崩掉整局。
+       修法：空 options 时显式说明「无可选项」并**不写 formState**，
+             让提交走引擎自己的合法性判定，而不是在这里替它编一个默认值。 */
+    const numSlot = (key, label) => {
+      const slot = f[key];
+      if (!slot) return '';
+      const opts = Array.isArray(slot.options) ? slot.options : [];
+      if (!opts.length) {
+        return `<div class="sec">${esc(slot.label)}</div>`
+          + `<div class="evt warn">本项当前无可选项（相关对象可能已全部出局）。`
+          + `请改选其他行动，或向裁判询问。</div>`;
+      }
+      return `<div class="sec">${esc(slot.label)}</div>
+        <select id="f-${key}">${opts.map(o => `<option value="${o.v}">${esc(o.label)}</option>`).join('')}</select>`;
+    };
+    if (f.num) html += numSlot('num');
+    if (f.num2) html += numSlot('num2');
+    if (f.num && Array.isArray(f.num.options) && f.num.options.length) formState.num = f.num.options[0].v;
+    if (f.num2 && Array.isArray(f.num2.options) && f.num2.options.length) formState.num2 = f.num2.options[0].v;
     if (f.text) {
       html += `<div class="sec">${esc(f.text.label)}</div><textarea id="f-form-text" placeholder="输入你想说的话……"></textarea>`;
     }

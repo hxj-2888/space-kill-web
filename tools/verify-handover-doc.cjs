@@ -231,6 +231,29 @@ add('正文对账工具缺件时报错退出、不静默跳过',
   /未对账就退出/.test(alignTool) && /process\.exit\(2\)/.test(alignTool));
 add('正文对账工具不改产品代码（只读、只报）',
   /不改任何产品代码/.test(alignTool) && !/require\([^)]*roleDecl[^)]*\)\s*;?\s*\n?\s*\w+\s*=/.test(alignTool));
+/* —— 冒烟测试的确定性（2026-10-08 第四批新增）——
+   一个时绿时红的测试等于没有测试。这组断言盯的是「可复现性」本身，
+   不盯任何具体读数 —— 它不会因为玩法改动而变红，只会因为有人把随机塞回来而变红。 */
+const smoke = fs.readFileSync(ROOT + 'tools/uismoke.cjs', 'utf8');
+const uiJs = fs.readFileSync(ROOT + 'js/ui.js', 'utf8');
+/* ⚠ 断言必须打在**代码**上，不能打在注释上 —— 首版直接 grep 源码，
+ *   结果被自己写的说明文字（「原先是 Math.random…」）判红。
+ *   这类「文本存在性」断言一旦目标文件里出现解释性注释就必然失效，
+ *   而失效方向往往是**永远为真**（更糟）。故先剥注释再判。 */
+const stripComment = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
+const smokeCode = stripComment(smoke);
+const uiCode = stripComment(uiJs);
+add('冒烟测试不再用 Math.random 挑选项（同种子必须逐字可复现）',
+  smokeCode.indexOf('Math.random()') < 0
+  && /SK_SMOKE_RNG/.test(smoke) && /function pickRnd/.test(smokeCode));
+add('UI 渲染对空选项列表防御：num/num2 统一走 numSlot，且不再裸取 options[0]',
+  /numSlot\('num'\)/.test(uiCode) && /numSlot\('num2'\)/.test(uiCode)
+  && /opts\.length/.test(uiCode) && /无可选项/.test(uiCode)
+  && !/<select id="f-num2?"\>/.test(uiCode));
+add('必答项无选项作为**可见死面**打印，且不静默跳过',
+  /\[死面\]/.test(smoke) && /deadFaces/.test(smokeCode));
+add('文档记录「空查验池」这一待裁定项（不替规则做决定）',
+  /无可查身份|必答项无选项|verifyPool/.test(doc) && /待产品裁定|待裁定/.test(doc));
 add('提取件已 gitignore（复制规则文本进仓库等于制造第二份规则）',
   /_v66正文_提取\.txt/.test(fs.readFileSync(ROOT + '.gitignore', 'utf8')));
 add('文档记录当前基线（第四批 72.7%，第三批 73.5% 作为误判留档）',

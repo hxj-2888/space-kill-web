@@ -46,21 +46,62 @@ loadInto(ctx, base, profiles.ui);
 
 const { Setup, Engine, View, UI, Game } = ctx;
 let errs = 0;
-/* init() 负责把 onclick 绑到标签页/音频/发送键上；桩里 body.appendChild 等未实现，
-   故只跑一次并单独计数——标签页切换的覆盖依赖它。 */
+
+/* ⚠ 可复现性：这一处原先用 Math.random() 挑选项，于是**同一份代码每次跑的路径不同**。
+ * 后果实测到过：2026-10-08 连续两轮里，`node tools/uismoke.cjs` 一次 exit=0、一次 exit=1
+ * （「冒烟失败：1 处异常」），紧接着重跑 5 轮共 150 局又全绿 —— 一个**时绿时红**的冒烟
+ * 等于没有冒烟：红了没人知道是不是自己刚改的，绿了也不能证明什么。
+ * 本仓库的验收规矩是「故意改坏实现必挂」；一个靠运气决定红绿的测试连这条都谈不上。
+ *
+ * 改为**可播种的确定性 LCG**：同一 SK_SMOKE_RNG 下逐局逐帧完全一致，红了可原样复现。
+ * 扫遍多组种子由 tools 侧的扫描脚本驱动（一次跑多组），不必改本文件。
+ * ⚠ 注意 uismoke 走 vm/runInContext，host 的 Math.random 补丁对它无效 —— 必须改这里。
+ * ⚠ 只替换**选项挑选**这一处随机；对局本身已由 createGame 的种子决定，不受影响。 */
+const RNG_SEED = Number(process.env.SK_SMOKE_RNG || 20261008);
+let __rs = RNG_SEED >>> 0;
+function pickRnd() { __rs = (Math.imul(__rs, 1103515245) + 12345) >>> 0; return __rs / 4294967296; }
+
+/* 死面命中记录：某一步的**必答项没有可选项**。不计入失败，但必须打印出来 ——
+   冒烟绿了不等于没有死面，只等于没有崩。 */
+const deadFaces = Object.create(null);
+
 try { UI.init(); } catch (e) { errs++; console.log('  [异常] UI.init：' + (e && e.message)); }
 
 function answer(g) {
   const f = g.pending, me = Engine.P(g, g.humanId);
   const data = { opt: null, targets: [], num: null, text: '测试发言' };
-  if (f.opts) { const ok = f.opts.filter(o => !o.disabled); if (ok.length) data.opt = ok[Math.floor(Math.random() * ok.length)].v; }
+  if (f.opts) { const ok = f.opts.filter(o => !o.disabled); if (ok.length) data.opt = ok[Math.floor(pickRnd() * ok.length)].v; }
   if (f.targets) {
     let list = Engine.alive(g).filter(p => p.id !== me.id);
     if (f.targets.list === 'aliveNotAlien') list = list.filter(p => p.faction !== 'alien');
     list = list.filter(p => (f.targets.exclude || []).indexOf(p.id) < 0);
     for (let k = 0; k < Math.min(f.targets.max || 1, list.length); k++) data.targets.push(list[k].id);
   }
-  if (f.num) data.num = f.num.options[0].v;
+  /* ⚠ num 槽的 options **可能为空**（见 js/ui.js 同处注释：船员首次查验池在
+   * 「所有基础人类职业都没有存活持有者」的残局下为空，而表单仍把身份①标为必答）。
+   * 本行原先无脑取 options[0].v，于是同一个空池先炸 UI 再炸冒烟本身。
+   *
+   * 空池时该提交什么，是**产品裁定**（无身份可查时船员是否只能放弃行动），
+   * 冒烟不替它决定 —— 这里只做「选一个不需要 num 的选项」，也就是选项表里
+   * 标着放弃/不提交的那一个，并把这一局**单独记成一条死面命中**让输出看得见。
+   * 静默自动跳过才是危险的那种处理：红绿都看不出来。 */
+  let emptyRequired = false;
+  for (const key of ['num', 'num2']) {
+    const slot = f[key];
+    if (!slot) continue;
+    const opts = Array.isArray(slot.options) ? slot.options : [];
+    if (!opts.length) { emptyRequired = true; continue; }
+    data[key] = opts[0].v;
+  }
+  if (emptyRequired && Array.isArray(f.opts) && f.opts.length) {
+    /* 优先挑「放弃/不提交」类选项 —— 真实玩家在无选项时也只能这么走。 */
+    const waive = f.opts.filter(o => !o.disabled
+      && /放弃|不提交|不出手|放弃行动|不行动/.test(o.label || ''));
+    data.opt = (waive.length ? waive[0] : f.opts.filter(o => !o.disabled)[0] || f.opts[0]).v;
+    const which = f.num && !(f.num.options || []).length ? 'num' : 'num2';
+    const dkey = f.kind + '.' + which;
+    deadFaces[dkey] = (deadFaces[dkey] || 0) + 1;
+  }
   return data;
 }
 
@@ -152,6 +193,14 @@ let panelChecked = 0, panelFails = [];
   if (!panelFails.length) console.log(`  阵营页 43：${panelChecked} 次渲染断言通过（死囚资产隔离）`);
 }
 
+/* 死面命中（必答项无可选项）不计入退出码 —— 它是**引擎面的待裁定问题**，不是渲染崩溃；
+   但必须打印，且打印里带复现参数，否则「绿」会被读成「没有死面」。 */
+const dfKeys = Object.keys(deadFaces);
+if (dfKeys.length) {
+  console.log('  [死面] 必答项无可选项：' + dfKeys.map(k => k + ' ×' + deadFaces[k]).join('、'));
+  console.log('        （不计入退出码：这是引擎面待裁定项，UI 与冒烟均已不崩。'
+    + '复现：SK_SMOKE_RNG=' + RNG_SEED + ' 对局种子 912）');
+}
 console.log(errs ? `冒烟失败：${errs} 处异常` : '冒烟通过：30 局（本地+视图+复盘渲染）无异常');
 /* 失败必须落到退出码上：否则 `npm run test:all` 一路绿灯，回归直接溜过去。
    （实测：断言命中时本脚本仍以 0 退出。） */
