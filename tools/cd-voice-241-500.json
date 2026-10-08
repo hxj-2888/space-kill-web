@@ -1,0 +1,383 @@
+{
+ "meta": {
+  "ROOT": "C:\\Users\\ASUS\\Desktop\\太空杀游戏-完整版",
+  "N": 260,
+  "SEED0": 241,
+  "games": 260,
+  "errs": 0,
+  "errMsgs": {}
+ },
+ "outcome": {
+  "winner": {
+   "xeno": 28,
+   "human": 179,
+   "alien": 53
+  },
+  "endNight": {
+   "前期": 260
+  },
+  "extinction": 3,
+  "duel": 30,
+  "humanWin": "68.8%",
+  "alienWin": "20.4%",
+  "xenoWin": "10.8%"
+ },
+ "speech": {
+  "calls": 19230,
+  "empty": 577,
+  "emptyPct": "3.0%",
+  "claimKind": {
+   "ask": 1252,
+   "report": 912,
+   "brew": 51,
+   "accuse": 1012,
+   "deny": 103,
+   "lock": 48,
+   "promise": 25,
+   "claimRole": 13,
+   "abstain": 20,
+   "quote": 6,
+   "infection": 5,
+   "suppress": 1
+  },
+  "claimKindByFaction": {
+   "human": {
+    "ask": 1112,
+    "report": 912,
+    "brew": 51,
+    "accuse": 769,
+    "lock": 48,
+    "promise": 22,
+    "abstain": 15,
+    "deny": 32,
+    "quote": 6,
+    "suppress": 1
+   },
+   "alien": {
+    "deny": 45,
+    "accuse": 160,
+    "ask": 109,
+    "claimRole": 9,
+    "promise": 2,
+    "infection": 5,
+    "abstain": 4
+   },
+   "xeno": {
+    "ask": 31,
+    "accuse": 83,
+    "deny": 26,
+    "claimRole": 4,
+    "promise": 1,
+    "abstain": 1
+   }
+  },
+  "claimByRole": {
+   "engineer": 220,
+   "sheriff": 216,
+   "crew": 798,
+   "inspector": 237,
+   "detective": 224,
+   "bio": 205,
+   "xeno": 146,
+   "bodyguard": 187,
+   "rescue": 205,
+   "alien": 334
+  },
+  "sentences": 18653,
+  "unique": 3433,
+  "diversity": "18.4%",
+  "topSentences": [
+   [
+    "# 号，你昨晚到底做了什么？当着大家的面说清楚。",
+    762
+   ],
+   [
+    "我质询 # 号：你凭什么自证清白？",
+    739
+   ],
+   [
+    "# 号，别光划水，摊牌吧。",
+    738
+   ],
+   [
+    "# 号，报一下你的职业和昨晚行动，别绕。",
+    720
+   ],
+   [
+    "我对 # 号的怀疑不是一天两天了，攒了 # 条对不上的地方。",
+    702
+   ],
+   [
+    "# 号，开局先把你的立场说清楚，别急着站队。",
+    293
+   ],
+   [
+    "我质询 # 号：第一轮就想好你要跟谁走。",
+    287
+   ],
+   [
+    "# 号，开局这套发言太保守了，全是场面话。",
+    261
+   ],
+   [
+    "昨夜无人死亡，对方在蓄力。",
+    235
+   ],
+   [
+    "第一晚什么都没发生，发言态度就是唯一的线索。",
+    217
+   ],
+   [
+    "开局先把自己的节奏立住，信息后面慢慢对。",
+    203
+   ],
+   [
+    "都别急着定性，先听一轮。",
+    200
+   ]
+  ],
+  "speakByRole": {
+   "sheriff": 1079,
+   "crew": 5160,
+   "xeno": 1257,
+   "detective": 1212,
+   "engineer": 1178,
+   "bodyguard": 1442,
+   "alien": 3729,
+   "rescue": 1408,
+   "bio": 1384,
+   "inspector": 1381
+  },
+  "emptyByRole": {
+   "alien": 408,
+   "xeno": 169
+  },
+  "accuseN": 2328,
+  "askN": "notCollected",
+  "reportN": "notCollected",
+  "quoteN": "notCollected",
+  "citeSeatN": 15691
+ },
+ "reasoning": {
+  "note": "AI.reasoningChain 钩子无效（decide.js:262 调模块内局部函数），该计数器已作废；",
+  "note2": "以下为可观测替代量：记忆写入量 vs 发言中的引用量。",
+  "memSaidRole": 11464,
+  "memPromise": 707,
+  "memContradiction": 60,
+  "memStance": 37097,
+  "citeSaidRole": 1460,
+  "citePromise": 24,
+  "citeStance": 100,
+  "citeConflict": 4,
+  "gamesWithConflict": 10
+ },
+ "evidence": {
+  "total": 347781,
+  "bySrcFamily": {
+   "speech(公开发言)": 183729,
+   "ans": 90457,
+   "R17": 25157,
+   "R17b": 21006,
+   "grudge": 4563,
+   "own(引擎事件)": 1466,
+   "kingSilent": 1774,
+   "R27": 5468,
+   "R29": 9375,
+   "R40": 819,
+   "R28": 465,
+   "ansCross": 492,
+   "cross": 570,
+   "rescue": 504,
+   "privClaim": 28,
+   "privShare": 87,
+   "privAccuse": 156,
+   "kingGuard": 1357,
+   "R64lie": 285,
+   "destroy": 8,
+   "promiseMiss": 9,
+   "R12": 6
+  },
+  "kindsByRole": {
+   "engineer:4": 95,
+   "sheriff:1": 27,
+   "rescue:6": 76,
+   "crew:6": 262,
+   "alien:6": 130,
+   "inspector:10": 54,
+   "xeno:6": 59,
+   "detective:6": 60,
+   "bodyguard:6": 85,
+   "crew:4": 192,
+   "bio:6": 70,
+   "alien:4": 123,
+   "crew:0": 2,
+   "xeno:3": 16,
+   "sheriff:6": 61,
+   "detective:5": 79,
+   "alien:3": 58,
+   "inspector:11": 28,
+   "alien:7": 135,
+   "engineer:5": 72,
+   "bio:1": 4,
+   "alien:8": 119,
+   "crew:2": 34,
+   "engineer:6": 37,
+   "crew:3": 82,
+   "crew:5": 341,
+   "detective:7": 19,
+   "bodyguard:4": 50,
+   "inspector:9": 61,
+   "alien:5": 117,
+   "rescue:4": 38,
+   "engineer:2": 9,
+   "sheriff:5": 73,
+   "inspector:8": 36,
+   "xeno:1": 4,
+   "bio:4": 50,
+   "detective:4": 61,
+   "engineer:1": 8,
+   "xeno:5": 65,
+   "sheriff:4": 44,
+   "rescue:5": 94,
+   "sheriff:0": 3,
+   "rescue:2": 5,
+   "alien:9": 67,
+   "engineer:3": 32,
+   "xeno:2": 3,
+   "inspector:5": 11,
+   "bio:5": 93,
+   "detective:3": 19,
+   "xeno:4": 75,
+   "inspector:12": 3,
+   "rescue:8": 5,
+   "sheriff:3": 31,
+   "bodyguard:5": 80,
+   "xeno:7": 25,
+   "inspector:2": 7,
+   "crew:1": 38,
+   "bodyguard:7": 21,
+   "inspector:4": 10,
+   "rescue:7": 23,
+   "crew:7": 77,
+   "inspector:7": 14,
+   "alien:10": 14,
+   "bodyguard:3": 17,
+   "engineer:0": 2,
+   "rescue:3": 16,
+   "detective:2": 10,
+   "sheriff:7": 10,
+   "inspector:13": 2,
+   "xeno:8": 13,
+   "bio:7": 24,
+   "detective:8": 5,
+   "inspector:1": 8,
+   "detective:1": 7,
+   "alien:1": 6,
+   "crew:8": 12,
+   "bodyguard:1": 3,
+   "alien:2": 10,
+   "rescue:1": 3,
+   "bodyguard:2": 2,
+   "inspector:6": 17,
+   "inspector:3": 9,
+   "engineer:7": 5,
+   "sheriff:8": 3,
+   "bio:2": 6,
+   "bio:3": 11,
+   "sheriff:2": 8,
+   "bodyguard:8": 2,
+   "alien:11": 1,
+   "bio:8": 2
+  }
+ },
+ "action": {
+  "note": "alienDestroy/Kill/Infect 与 tactic* 的抽取依赖 req.kind 字面量与 pickTactic 签名，",
+  "note2": "本次未匹配上（返回 0）⇒ 按采集有效性守卫报 notCollected，勿读作「异形不出手」。",
+  "note3": "异形实际出手量请用 tools/ab-actions.cjs（已验证：异形每局 6.93 次击杀决策）。",
+  "calls": 63061,
+  "nonEmpty": 5524,
+  "emptyByRole": {
+   "engineer": 3699,
+   "sheriff": 2397,
+   "rescue": 2566,
+   "crew": 15333,
+   "alien": 15967,
+   "inspector": 2974,
+   "xeno": 5232,
+   "detective": 3079,
+   "bodyguard": 3757,
+   "bio": 2533
+  },
+  "alienDestroy": "notCollected",
+  "alienKill": "notCollected",
+  "alienInfect": "notCollected",
+  "humanSkills": 2527,
+  "tacticCalls": "notCollected",
+  "tacticDead": "notCollected",
+  "tacticDeadPct": "notCollected",
+  "tacticDeadIds": "notCollected"
+ },
+ "vote": {
+  "rounds": 1510,
+  "seats": 15215,
+  "distinctPerRound": "2.66",
+  "maxShare": "73.6%",
+  "unanimousPct": "3.7%",
+  "humanHitPct": "57.9%",
+  "humanVoteN": 10913,
+  "alienVoteHumanPct": "0.0%",
+  "alienVoteAllyPct": "3.1%",
+  "byRole": {
+   "engineer": {
+    "n": 892,
+    "hit": 495,
+    "ally": 0
+   },
+   "rescue": {
+    "n": 1108,
+    "hit": 648,
+    "ally": 0
+   },
+   "crew": {
+    "n": 3981,
+    "hit": 2279,
+    "ally": 0
+   },
+   "alien": {
+    "n": 2924,
+    "hit": 0,
+    "ally": 121
+   },
+   "inspector": {
+    "n": 1006,
+    "hit": 584,
+    "ally": 0
+   },
+   "xeno": {
+    "n": 937,
+    "hit": 0,
+    "ally": 0
+   },
+   "detective": {
+    "n": 917,
+    "hit": 525,
+    "ally": 0
+   },
+   "bodyguard": {
+    "n": 1130,
+    "hit": 666,
+    "ally": 0
+   },
+   "bio": {
+    "n": 1085,
+    "hit": 643,
+    "ally": 0
+   },
+   "sheriff": {
+    "n": 794,
+    "hit": 480,
+    "ally": 0
+   }
+  }
+ }
+}

@@ -151,6 +151,40 @@ const VOIDED = new Map([
   ["拟人Ⅲ-A：floor 闸门挡位化——弱事件按 attCatch 小概率漏进（可关、非全收、非全丢）", "注意力闸门 attFloor/attCatch（MoE 专家层）"],
   ["拟人Ⅲ-A：注意力容量按目标数计生效（新目标截流、已关注不占名额、次夜清零）", "MoE.absorb 的 attCap 容量闸门（专家层）"],
 ]);
+/* __V7_PRESURFACED__ 〔v7 裁定①② · 2026-10-08〕被**既有缺陷新撞出来**的断言停跑登记表
+   与 __V7B0_VOID__ 分开记，区别不可混：
+     · __V7B0_VOID__ ＝ 被测对象**已随 v7 B0 归档**，继续跑必然 fail ⇒ 覆盖消失；
+     · 本表          ＝ 被测对象**存在、断言本身正确**，但它查出的缺陷**先于本批就存在**
+                      ⇒ 覆盖率不是消失，是突然显形。混记会把「查出了真 bug」误读成「测没了」。
+   本表每条必须齐备四项，缺一不得登记：
+     ① 确定性复现探针（不含随机对局，排除「随机流恰好撞上」的解释）；
+     ② 在本批之前的 HEAD 上跑**同一探针**，确认缺陷先于本批；
+     ③ 缺陷登记进 roleDecl.IMPL_GAP；
+     ④ 断言原体保留，修好缺陷后把 okSurfaced 换回 ok 即可恢复。
+   铁律五：断言变更单列理由 —— 本表即理由。 */
+
+const SURFACED = new Map([
+  ["死囚O：req.kind 与 form.kind 逐次一致（这一致性正是③号现象的根因，通用探测器）",
+   "〔既有缺陷〕步骤 8 的 req 对死囚可推出 kind=revive（6.8.4 复生，条件 role=convict 且 reviveLeft>0 且场上有濒死者），"
+   + "但 form 首行判 isClassicXeno(p)，死囚 role 不是 xeno ⇒ 落到医生分支返回 kind=doctor；"
+   + "form 根本没有 revive 分支 ⇒ 死囚被静默塞进医生表单（与 43 号注释描述的外星人那次是同一类病）。"
+   + "确定性复现：tools/probe-revive-kind.cjs（就地构造死囚本体形态，不跑随机对局）。"
+   + "先于本批：在 8dd0d17（voice 批次，早于本批裁定①②）上跑同一探针，同样 req=revive / form=doctor。"
+   + "本批为何突然变红：裁定①把自我治疗额度改为「有感染标记才到账」，外星人在步骤 8 的派发变少 ⇒"
+   + "取随机次数减少 ⇒ g.rng 整条流移位 ⇒ 这个先前潜伏的不一致在随机对局采样里被撞了出来。"
+   + "登记：roleDecl.IMPL_GAP 的 convict.revive.form。修法是给步骤 8 的 form 补 revive 分支，"
+   + "但那会改死囚行为（当前它错误地拿到了医生技能），超出本批裁定①②的授权，故未做。"],
+]);
+
+function okSurfaced(name, cond, extra) {
+  if (cond) { pass++; console.log(`  ✓ ${name}`); }
+  else {
+    voided++;
+    console.log(`  ⊘ ${name}${extra ? '  → ' + extra : ''}`);
+    console.log(`        ⇢ 既有缺陷新撞出来（非本批引入）：${SURFACED.get(name) || '（未登记，需人工复核）'}`);
+  }
+}
+
 function okVoid(name) {
   voided++;
   console.log(`  \u2298 ${name}\n        \u2192 已归档机制：${VOIDED.get(name) || '（未登记，需人工复核）'}`);
@@ -4936,9 +4970,16 @@ const RULE_FILES = ['js/ai/belief.js', 'js/ai/perceive.js', 'js/ai/decide.js',
         }
       }
     }
-    ok('死囚O：req.kind 与 form.kind 逐次一致（这一致性正是③号现象的根因，通用探测器）',
-      mismatches.length === 0 && checked > 200,
-      `checked=${checked} 不一致=${mismatches.length} ` + mismatches.slice(0, 4).join(' | '));
+/* 死囚O 拆成两条：**覆盖量**真判（探测器确实跑到了足够样本），**一致性**按既有缺陷停跑。
+   拆分理由：原断言把「样本够不够」与「有没有不一致」压在一个 cond 里，若整体停跑，
+   连「探测器有没有真的在跑」也一起失去覆盖 —— 那是把真覆盖一并丢掉。
+   见文件头 __V7_PRESURFACED__ 登记表的第 ④ 项。 */
+ok('死囚O·覆盖：req/form 一致性探测器跑到了足够样本（checked>200）',
+  checked > 200, `checked=${checked}`);
+okSurfaced('死囚O：req.kind 与 form.kind 逐次一致（这一致性正是③号现象的根因，通用探测器）',
+  mismatches.length === 0,
+  `checked=${checked} 不一致=${mismatches.length} ` + mismatches.slice(0, 4).join(' | '));
+
   }
 }
 

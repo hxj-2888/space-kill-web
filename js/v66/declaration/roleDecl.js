@@ -141,7 +141,7 @@
     sniffMissesSafeRoom: '嗅探不显示全额减免（安全室／夜晚免疫）⇒「未呈现保护」≠「可一击致死」',
     canSaveAnyone: '救援可救任意濒死者，不限阵营（含自身、异形、外星人）⇒ 救敌是合法选项',
     poisonHitsAlly: '毒药不辨阵营，队友与自身皆为合法目标；误伤无第三方补救，容错为零',
-    checkRevealsSelf: '被查验者会收到来源类别为「神探」的私人反馈 ⇒ 每查验一人即向该目标暴露场上��神探',
+    checkRevealsSelf: '被查验者会收到来源类别为「神探」的私人反馈 ⇒ 每查验一人即向该目标暴露场上唯一的神探神探',
     meetingRevealsSelf: '紧急会议开场即公告其编号与身份（批次⑦）⇒ 发动即暴露身份',
     reportNotFaithful: '窃听报告可自由改写、系统不校正，且附「不保真」标注 ⇒ 引用它需自担可信度',
     noAttackFeedback: '工匠护甲不公开而持有者自知、无受袭感知',
@@ -155,8 +155,9 @@
               故救援用 `save` 而非 `rescue`（后者已是角色键）。 */
   const GRANT_VOCAB = {
     treat:       '治疗 / 清感染 / 持有感染标记记忆（4.5）',
-    /* 〔批次 31〕制药：医生职���族通有（3.3.1 药剂进程），生化医师/救援医师/临时医生/毒师
+    /* 〔批次 31〕制药：医生族通有（3.3.1 药剂进程），生化医师/救援医师/临时医生/毒师
        皆可投入。与 treat 分列——制药是**生产**（进程型产出、2.9）而非即时清除（治疗）。 */
+    /* 【注】上面「医生职���族通有」一句的中间有 3 个字符丢失且无法确证原文（可能是「职业」也可能是「职能」），故重写为「医生族通有」并不臆造具体字；与卡里的「医生族通有制药」一致。 */
     brew:        '制药·药剂生产（3.3.1；医生族通有，含毒师，进程型产出 2.9⑧不新增批次）',
     repair:      '维修 / 协助维修（4.3 / 4.1.2①；含累计维修暴露口径）',
     extraRepair: '追加维修（4.3.3；工程师独属，合计上限 −3.0）',
@@ -245,17 +246,21 @@
       grants: ['transfer'],
       attend: { infra: 1.15, verify: 1.1 },                      // D7：自 tiers.js ATTEND.focus 迁入
       attendAway: { lethal: 0.7, infect: 0.7 },
-      actionStep: '2', actionSteps: ['2', '0.6'],   // 2 查验/协助维修；0.6 转职（4.2.1①）
+      actionStep: '2', actionSteps: ['2', '4a', '0.6'],   // 2 查验；4a 协助维修（卡载独立窗口，与 2 当夜互斥，见下方备注）；0.6 转职（4.2.1①）
       judgeMode: 'check',                                         // 4.1.1 船员查证＝check 模式（唯一可被乔装欺骗）
-      /* 〔v7 速查卡对账 · 已实装，仅落位与卡不同〕速查卡载协助维修属步骤 4a；
-         实现把它折进了步骤 2 的 crewAction 菜单（steps.js:584-586 的 'repair*' 前缀 opt，
-         七档 a ∈ [0.20,0.50] 步长 0.05，与卡逐档相符），结算见 steps.js:1012-1039。
-         故 **不补 actionSteps 的 '4a'** —— 引擎不在 4a 派发船员，补了就是造幽灵步位
-         （v7 B0 已因此类误判吃过教训：visible.js 被误归档致 View.build 抛错）。
-         落位差异已留痕于 IMPL_GAP['crew.assistRepair.stepPlacement']。 */
-      charges: { verify: Infinity, assistRepair: Infinity },   // assistRepair 已实装（步骤 2 菜单内，前缀式 opt 'repair*'）；落位与卡不同，见 IMPL_GAP
+      /* 【v7 裁定② · 2026-10-08】协助维修落位已对齐卡序：拆成独立窗口步骤 4a。
+         初版实现把它折进步骤 2 的 crewAction 菜单（前缀式 opt 'repair'+a），
+         二选一靠「同一张菜单」隐式成立，落位差异曾登记为 informational。
+         现按裁定拆出：步骤 2 只开查验（kind='crewAction'），步骤 4a 开协助维修窗口
+         （kind='crewRepair'，7 档 a∈[0.20,0.50] 步长 0.05，与卡载逐档相符）。
+         互斥现为真互斥：步骤 2 真查验者写 p.branch=「check」，被 4a 的 !p.branch 过滤掉。
+         ⚠ 三路效用比较（uCheck / uRepair / 不做）**仍留在步骤 2**不动，
+           使行动组合与改动前逐字一致，变的只是「行动在哪一步花掉」；
+           若改成两步各自重新决策，uCheck 与 uRepair 不再互相比较，会系统性偏向查验 ——
+           属策略权重的系统性偏移，超出本批授权，未做。 */
+      charges: { verify: Infinity, assistRepair: Infinity },   // assistRepair 已实装（独立窗口 4a，kind='crewRepair'，7 档 assist+value opt）
       visibility: { batch: ['③'], private: ['7.2.1'], selfOnly: false },
-      /* 〔v7 速查卡 · AI 职责面〕卡：「步骤 2 查验 ｜ 步骤 4a 协助维修（二者当夜二选一，亦可依 2.4 放弃行动）」。assistRepair 未实装（见 charges 旁登记）。 */
+      /* 【v7 裁定②】卡：「步骤 2 查验 ｜ 步骤 4a 协助维修（二者当夜二选一，亦可依 2.4 放弃行动）」。assistRepair 已实装且落位已对齐（独立窗口 4a，kind='crewRepair'）——此前此处写「未实装」是第三轮对账时基于标识符检索的误判，早已更正。 */
       duty: { mutex: ['verify', 'assistRepair'],
               senses: ['selfClaimLog', 'repairAssistN'],
               cost: null },
@@ -416,7 +421,7 @@
       charges: { verify: Infinity, announce: Infinity },
       visibility: { batch: ['③'], private: ['7.2.1'], selfOnly: false },
       batchDelta: ['神探公告另附转职者原职业标注（4.7.5）'],
-      /* 〔v7 速查卡 · AI 职责面〕卡：「步骤 2：查验 或 发布官方公告（二者二选一）」+「恒依呈现职业如实作答、不作假（不报阵营）」+「每查验一人即向该目标暴露场上���神探」。 */
+      /* 〔v7 速查卡 · AI 职责面〕卡：「步骤 2：查验 或 发布官方公告（二者二选一）」+「恒依呈现职业如实作答、不作假（不报阵营）」+「每查验一人即向该目标暴露场上唯一的神探神探」。 */
       duty: { mutex: ['verify', 'announce'],
               senses: ['checkPool', 'presentedRoleOnly'],
               cost: 'checkRevealsSelf' },
@@ -738,6 +743,43 @@
      卡载但引擎零实现的规则面：**不补声明**（补了即造幽灵步位），登记在此，
      以免「声明里写着」被误读为「已经能用」。 */
   const IMPL_GAP = {
+    /* 〔v7 裁定③ · 2026-10-08〕异形「破坏」实际占用率极低。**记录在案，不改策略权重。**
+       卡载四选一（破坏／结茧在步骤 4b，出刀／感染在步骤 7）：破坏未进化 ＋1.5~2.0、
+       破坏进化 ＋2.0~3.0，全局 1 次、触发停转夜。实测（报数区，种子 241-500，260 局）：
+       4b 决策 2866 次中 destroy 仅 63 次＝**2.2%**，cocoon 534 次＝18.6%，none 79.2%；
+       结茧 : 破坏 = 8.48 : 1；260 局里只有 37 局出现过破坏。
+       复现：node tools/probe-alien-destroy-rate.cjs <ROOT> 260 241。
+       ⚠ 成因线索（未验证、未修）：decide.js 的 alienAct / branch 效用里 uDestroy 从未压过
+         uAct（出刀）与 uCocoon，即破坏的期望收益恒低于另外两支。是否属策略设定或权重错误，
+         **本批未判定**——裁定③只要求记录，故不做任何推断性改动。 */
+    'alien.destroyRate': {
+      card: '破坏／结茧在步骤 4b，出刀／感染在步骤 7，四选一；破坏全局 1 次、触发停转夜',
+      measured: '报数区 241-500（260 局）：4b 决策 2866 次 → destroy 63（2.2%）、cocoon 534（18.6%）、none 2269（79.2%）；结茧:破坏 = 8.48:1；仅 37/260 局出现破坏',
+      verdict: 'recorded（裁定③：记录在案即可，不改策略权重）',
+      repro: 'node tools/probe-alien-destroy-rate.cjs <REPO_ROOT> 260 241',
+      openQuestion: '成因未判定：decide.js 里 uDestroy 似从未压过 uAct/uCocoon。属策略设定还是权重错误需单独判定；若要动必须单独批次 + 同种子 A/B。',
+    },
+    /* 〔既有缺陷 · 2026-10-08 由裁定①的副作用暴露〕步骤 8 的 req 对死囚可推出 kind=revive
+       （6.8.4 复生：role=convict 且 reviveLeft>0 且场上有濒死者），但 form 的首行判
+       isClassicXeno(p)，死囚 role 不是 xeno ⇒ 落到医生分支返回 kind=doctor；**form 根本没有
+       revive 分支**，于是死囚被静默塞进医生表单，能拿到治疗／救援／制药／毒药——
+       与 43 号注释描述的外星人那次是同一类病（req 与 form 的 kind 不一致，静默换了一套技能）。
+       确定性复现：tools/probe-revive-kind.cjs（就地构造死囚本体形态，不跑随机对局），
+       在 8dd0d17（voice 批次，早于裁定①②）上同样复现 ⇒ **先于本批存在**。
+       本批为何变红：裁定①把自我治疗额度改为「有感染标记才到账」，外星人在步骤 8 的派发变少 ⇒
+       取随机次数减少 ⇒ g.rng 整条流移位 ⇒ 这个潜伏缺陷在随机对局采样里被撞了出来。
+       另一条方法论教训：**随机探针对这类缺陷不可靠**（流一动就变红/变绿），确定性探针才靠得住。
+       修法：给步骤 8 的 form 补 revive 分支。但那会改死囚行为（当前它错误地拿到了医生技能），
+       超出本批裁定①②的授权，故未做。断言处置见 test-fix-v26 的 __V7_PRESURFACED__ 登记表。 */
+    'convict.revive.form': {
+      card: '6.8.4 复生：与医生救援同窗口（步骤 8），全局 2 次，每夜至多用当前持有额度；不占当夜行动权',
+      declared: 'convict.actionSteps 含 8；charges 有 revive 全局次数（state.js:63 reviveLeft 初始 2）',
+      impl: 'req 侧已实装（steps.js 步骤 8 推 kind=revive）；**form 侧无 revive 分支**，一律落医生表单',
+      verdict: 'gap（既有缺陷，先于 2026-10-08 裁定①②；确定性可复现）',
+      repro: 'node tools/probe-revive-kind.cjs <REPO_ROOT>  —— req=revive 而 form=doctor',
+      impact: '死囚被静默赋予医生技能（治疗／救援／制药／毒药），且真正的复生能力无法发动',
+      openQuestion: '修法＝给步骤 8 的 form 补 revive 分支。属死囚行为改动，需单独批次与用户确认。',
+    },
     /* 〔v7 速查卡对账 · 第三轮更正〕本条初版结论「引擎零实现」是**错的**，已更正。
        错因：检索用了标识符 assistRepair，而实现采「前缀式 opt 命名」
        （steps.js:584-586 `({ v: 'repair' + v.toFixed(2), label: '协助维修 −' + ... })`），
@@ -752,9 +794,9 @@
        补了即造幽灵步位），但须留痕以免日后被误读为「卡与实现一致」。 */
     'crew.assistRepair.stepPlacement': {
       card: '步骤 4a 协助维修（与步骤 2 查验当夜二选一；值 a ∈ [0.20,0.50] 步长 0.05 共 7 档）',
-      impl: '已实装，但落位在步骤 2 的 crewAction 菜单内（steps.js:565-590），非独立的 4a 行动位',
-      verdict: 'informational：互斥语义等价（同一张菜单二选一），仅为落位与卡不同。已留痕，未改实现。',
-      note: '若日后要严格对齐卡序，需把协助维修拆成独立的 4a 派发 —— 那会改变船员行动窗口，属独立批次。',
+      impl: '已实装且落位已对齐：步骤 2 只开 crewAction（查验），步骤 4a 开 crewRepair（协助维修）；互斥由 p.branch=「check」 与 4a 的 !p.branch 实现',
+      verdict: 'done（裁定② · 2026-10-08 让协助维修拆成独立窗口，与查验互斥）',
+      note: '行动组合未变：三路效用比较（uCheck/uRepair/不做）仍在步骤 2，4a 只执行预留。若日后要「两步各自重新决策」的语义，需单独批次并单独 A/B。',
     },
     /* 〔v7 速查卡对账 · 第二轮发现〕外星人自我治疗（步骤 8，kind='xenoCure'）：
        声明层未登记额度，全仓检索 cureSelf 只有三处——state.js:40 初始化为 0、
@@ -766,19 +808,21 @@
                      ② 赋予抗体（卡内明示，当前 steps.js:1336 分支未见赋予）
                      ③ 与蛰伏／击杀／破坏的当夜互斥（已写入 duty.mutex） */
     /* 〔v7 速查卡补充 · 2026-10-08〕已补齐。保留此条不改名，作为「补引擎」的落地留痕：
-       · 额度到账：engine.js 夜间到账区新增 `if (p.role === 'xeno') p.cureSelf = 1;`
-         ——原先 cureSelf 全仓从无赋正值（state.js:40 初始化 0、steps.js:285 使用后置 0），
-         导致 req（:1211）与结算（:1336）恒不命中、自我治疗为死代码；
-       · 赋予抗体：steps.js 自我治疗结算补写 antibodyNight/antibodyBy
-         （卡两处明写：§外星人核心能力、§v6.5 修订要点⑩抗体赋予主体含外星人自我治疗）。
-       ⚠ 额度口径仍是**推断**：卡的外星人额度行未列自我治疗，故按「每夜 1 次」实现。
-         待正文确认；若另有终身 N 次，改 engine.js 到账常量 + 本文件 charges 两处即可。 */
+        · 额度到账：engine.js 夜间到账区赋 cureSelf —— 原先 cureSelf 全仓从无赋正值
+          （state.js:40 初始化 0、steps.js:285 使用后置 0），导致 req（:1211）与
+          结算（:1336）恒不命中、自我治疗为死代码；
+        · 赋予抗体：steps.js 自我治疗结算补写 antibodyNight/antibodyBy
+          （卡两处明写：§外星人核心能力、§v6.5 修订要点⑩抗体赋予主体含外星人自我治疗）。
+        [ruling] 额度口径已由用户裁定（2026-10-08），不再是推断：
+          **每夜有感染标记自动赋予一次额度**。卡的外星人额度行未列自我治疗，
+          初版按「疑为每夜回复」无条件赋 1；现改为以感染标记为前置条件。 */
     'xeno.cureSelf': {
       card: '自我治疗（步骤 8）：清除自身感染并赋予抗体，占用当夜行动名额；与蛰伏/击杀/破坏四选一',
-      declared: 'charges.cureSelf = Infinity（每夜 1 次，见下方推断说明）；duty.mutex 含 selfHeal',
-      impl: '已实装：engine.js 每夜到账 cureSelf=1；steps.js 结算写 antibodyNight 并清感染',
-      verdict: 'done（额度口径待正文确认）',
-      openQuestion: '卡未给自我治疗额度。当前实现＝每夜 1 次（受当夜行动名额约束）。若正文为终身 N 次，需改两处常量。',
+      declared: 'charges.cureSelf = Infinity（额度按裁定随感染标记逐夜发放）；duty.mutex 含 selfHeal',
+      impl: '已实装：engine.js 在有感染标记的夜晚到账 cureSelf=1；steps.js 结算写 antibodyNight 并清感染',
+      verdict: 'done（额度口径已裁定，见 ruling）',
+      ruling: '用户裁定 2026-10-08：每夜有感染标记自动赋予一次额度。理由——自我治疗的效果是「清除自身感染并赋予抗体」，无感染标记时该动作无对象，额度与效果同条件成立才自洽。行为变化：无感染标记的外星人当夜不再得到额度（窗口收窄，属裁定的直接后果而非副作用）。',
+      openQuestion: '额度是否跨夜累积未规定。当前实现＝只在有标记时赋值、不清零，故未用额度保留到下一夜。若裁定要求累积或到期作废，改 engine.js 一行即可。',
     },
     /* 〔v7 速查卡对账 · 第二轮发现〕毒师制药：角色声明层 grants 已含 'brew'（卡内明载
        医生族通有制药 3.3.1），但进程注册表 SKProcess.brew.owner = [bio, rescue, tempdoc]

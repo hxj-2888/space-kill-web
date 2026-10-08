@@ -319,15 +319,18 @@
       if (p.role === 'sheriff' && n === 5) grantBullets(p, 1, '第 5 夜：额外获得 1 发子弹');
       /* 6.4：外星人夜晚免疫第 7 夜额外 1 次（与警长子弹的夜次无关，各自依其条款） */
       if (p.role === 'xeno' && n === 7) { p.nightImmune = Math.min(2, p.nightImmune + 1); priv(g, p, '第 7 夜：额外获得 1 次夜晚免疫。'); }
-      /* 〔v7 速查卡补充 · 2026-10-08〕外星人自我治疗额度到账——补死代码缺口。
-         引擎原有 req（steps.js:1211 `p.cureSelf > 0`）与结算（:1336）都在，但
-         cureSelf 全仓从无赋正值（state.js:40 初始化 0、steps.js:285 使用后置 0）
-         ⇒ 两处分支恒不命中，自我治疗永远不可用。
-         卡的口径是「占用当夜行动名额」，外星人额度行未列自我治疗 ⇒ 按每夜到账
-         1 次、用尽即止处理；到账即用尽，当夜第二次仍被行动名额挡住，不会一夜两次。
-         ⚠ 卡未明写额度，本行为**推断**，已登记 roleDecl.IMPL_GAP['xeno.cureSelf']。
-         只给经典外星人（p.role==='xeno'；死囚不持经典技能 6.8.2）。 */
-      if (p.role === 'xeno') p.cureSelf = 1;
+  /* [v7 速查卡补充 · 2026-10-08]外星人自我治疗额度到账——补死代码缺口。
+     引擎原有 req（steps.js:1211 `p.cureSelf > 0`）与结算（:1336）都在，但
+     cureSelf 全仓从无赋正值（state.js:40 初始化 0、steps.js:285 使用后置 0）
+     ⇒ 两处分支恒不命中，自我治疗永远不可用。
+     只给经典外星人（p.role==='xeno'；死囚不持经典技能 6.8.2）。
+     [ruling] 额度口径（用户裁定 2026-10-08，覆盖此前的推断）：
+       **每夜有感染标记自动赋予一次额度**。速查卡的外星人额度行未列自我治疗，
+       初版遂按「疑为每夜回复」实现（无条件赋 1）并登记待正文确认；现改为按
+       感染标记发放——自我治疗的效果是「清除自身感染并赋予抗体」，没有感染标记
+       时该动作本就没有对象，额度与效果同时到账才自洽。
+       未用掉的额度保留到下一夜（本行只在有标记时赋值，不清零、不累加）。 */
+  if (p.role === 'xeno' && p.infection) p.cureSelf = 1;
       if (p.bounty > 0) {
         grantBullets(p, p.bounty, `悬赏：回复 ${p.bounty} 发子弹`);
         p.bounty = 0;
@@ -508,10 +511,20 @@ function updatePhases(g) {
       case 'awaken':    return { do: d.opt === 'yes' };
       /* A19 乔装（7.3）：opt＝伪装身份键或 'none'（不乔装）。 */
       case 'disguise':  return { opt: d.opt || 'none' };
+      /* ⚠ 裁定②后本分支已成死码：步骤 2 的表单不再提供 'repair*' 档（协助维修移到
+         独立的 4a 窗口，走下面的 crewRepair 分支），故真人提交不可能再以此开头。
+         保留它只为在表单若被改回时仍能正确解析；AI 侧不受影响——AI 走 decide.js 的
+         crewAction 返回值（{mode:'repair', value} 作预留），不经本函数。 */
       case 'crewAction':return d.opt === 'check' ? { mode: 'check', target: t[0],
                               ids: [d.num, d.num2].filter(v => typeof v === 'string' && v !== 'none') }
                             : d.opt && d.opt.indexOf('repair') === 0 ? { mode: 'repair', value: parseFloat(d.opt.slice(6)) }
                             : { mode: 'none' };
+      /* 〔v7 裁定②〕4a 的独立协助维修窗口：opt 形如 'assist0.20'…'assist0.50'（7 档，
+         卡载 a∈[0.20,0.50] 步长 0.05），或 'none' 放弃。与步骤 2 的查验当夜互斥
+         （步骤 2 真查验者已被 4a 的 !p.branch 过滤，不会走到这里）。 */
+      case 'crewRepair': return d.opt && d.opt.indexOf('assist') === 0
+                             ? { mode: 'crewRepair', value: parseFloat(d.opt.slice(6)) }
+                             : { mode: 'none' };
       case 'detective': return { mode: d.opt || 'none', target: t[0] };
       case 'patrol':    return { use: d.opt === 'yes', targets: t };
       case 'guard':     return { target: t[0] != null ? t[0] : null };

@@ -791,6 +791,18 @@
         }
         return { mode: 'none' };
       }
+      case 'crewRepair': {                                 // 【v7 裁定②】4a 的独立协助维修窗口
+        /* 此处**不重做**三路效用比较——那已在步骤 2 的 crewAction 里完成。这里只「执行预留」：
+           · 步骤 2 选了查验     → 已写 p.branch=「check」，4a 根本不派发到它（互斥）；
+           · 步骤 2 选了协助维修 → p.repairValue 已被预留，直接按该值出手；
+           · 步骤 2 选了放弃     → p.repairValue 为 null，当夜不出手。
+           ⇒ 行动组合与接入前逐字一致，变的只是「行动在哪一步花掉」。
+           若在此重算 uRepair 并与 0 比较，就变成「两步各自决策」：uCheck 与 uRepair
+           不再互相比较，只要 uCheck>0 就去查验，uRepair 更大的那些夜晚反而放弃维修 ——
+           那是策略权重的系统性偏移，超出本批授权，不做。 */
+        if (p.repairValue == null) return { mode: 'none' };
+        return { mode: 'crewRepair', value: p.repairValue };
+      }
       case 'detective': {                                  // ④ 查验 vs 发布
         const unchecked = al.filter(x => !p.checkPool.has(x.id));
         let uCheck = 40 * (unchecked.length / Math.max(1, al.length));   // v31 批 2：let（预告履行链会加权重）

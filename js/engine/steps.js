@@ -17,6 +17,16 @@
     const ACT = global.SKDerivation;      // v6.6 阶段 2（C5 倒排）：行动位 → 候选发出者
     const PROC = global.SKProcessEngine;  // v6.6 阶段 2（C11 进程注册表）：制药等进程型产出
     const PROCD = global.SKProcess;       // 进程声明（表单文案由声明生成）
+    /* 【v7 裁定②】协助维修持有者判定。
+       SKRoleDecl **未导出** chargeOf 访问器（只有 hasGrant 读 grants），charges 只能按
+       ROLE_DECL[role].charges 直读——与 derivation/actions.js 的 rolesAt 读 actionStep 同一路。
+       ⚠ 此前这里写 `RD.chargeOf && RD.chargeOf(...)`：因 chargeOf 为 undefined，守卫短路为假，
+         船员表单永不出现（互斥探针实测 crewRepair 命中 0 次才暴露）。
+       req 与 form 共用本函数，两者判据因此**按构造同源**，不会像上次那样各自漂移。 */
+    const hasAssistRepair = p => {
+      const d = RD.ROLE_DECL[p.role];
+      return !!(d && d.charges && d.charges.assistRepair != null);
+    };
     const {
       D,
       NORMAL,
@@ -578,12 +588,11 @@
           const idOpts = laterPool.map(r => ({ v: r, label: D.ROLES[r].name }));
           return {
             kind: 'crewAction', title: '步骤 2 · 船员行动',
-            desc: '每夜「查验」（验证式：提交待查证身份，系统答是/否）或「协助维修」二选一。身份①为必答项；身份②仅第 2 次及以后对该目标的查验生效（可提交 1~2 个，各自独立作答）。' +
+            desc: '每夜「查验」（验证式：提交待查证身份，系统答是/否）。协助维修属卡载的独立窗口（步骤 4a），二者当夜二选一：此处查验即当夜不再有协助维修窗口。' +
+                  '身份①为必答项；身份②仅第 2 次及以后对该目标的查验生效（可提交 1~2 个，各自独立作答）。' +
                   (g.stopNight ? ' ⚠ 停转夜（来源：外星人破坏）：本夜维修无效、倒计时不流逝。' : ''),
             opts: [{ v: 'check', label: '查验 1 名玩家（验证式）' }]
-                  .concat([0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5].map(v =>
-                    ({ v: 'repair' + v.toFixed(2), label: `协助维修 −${v.toFixed(2)}`, sub: '同时削减倒计时与净破坏量' + (g.stopNight ? '（停转夜无效）' : '') })))
-                  .concat([{ v: 'none', label: '放弃行动' }]),
+              .concat([{ v: 'none', label: '放弃行动（本夜不协助维修）' }]),
             targets: formPlayers('aliveOthers', 1, 0),
             num: { label: '待查证身份①（第 1 次查验限开局公告人类职业）',
                    options: firstPool.map(r => ({ v: r, label: D.ROLES[r].name })) },   // H21：首次池（不再误用全池）
@@ -618,6 +627,12 @@
           const d = g.decisions[p.id]; if (!d || p.out) continue;
 
           if (p.role === 'crew' && d.mode === 'repair') p.repairValue = d.value || 0.3;
+        /* 【v7 裁定②】查验与协助维修当夜互斥（卡：二者当夜二选一）。
+           本行不设置任何新判断——上面的三路效用比较（uCheck / uRepair / 不做）与改动前逐字一致，
+           此处只把「若本夜真查验」这一事实登记为 branch，供 4a 的 !p.branch 过滤使用。
+           二者互斥由此真正成立（而非靠「同一张菜单」的隐式保证）。
+           p.branch 每夜由 engine.js 的到账后重置清零，不会跨夜残留。 */
+        if (p.role === 'crew' && d.mode === 'check') p.branch = 'check';
 
           if (p.role === 'crew' && d.mode === 'check' && d.target) {
             const t = P(g, d.target); checks += 1;
@@ -939,11 +954,42 @@
       },
     },
 
+  /* 【v7 裁定②】协助维修持有者判定。
+     SKRoleDecl **未导出** chargeOf 访问器（只有 hasGrant 读 grants），charges 只能按
+     ROLE_DECL[role].charges 直读——与 derivation/actions.js 的 rolesAt 读 actionStep 同一路。
+     ⚠ 此前这里写 `RD.chargeOf && RD.chargeOf(...)`：因 chargeOf 为 undefined，守卫短路为假，
+       船员表单永不出现（互斥探针实测 crewRepair 命中 0 次才暴露）。
+     req 与 form 共用本函数，两者判据因此**按构造同源**，不会像上次那样各自漂移。 */
     '4a': {
       /* 3.2 停转夜：维修选项保持可选（保留「放弃行动」与「行动无效」的可区分性），结算时判无效并随 ④ 公告 */
-      req: g => alive(g).filter(p => ACT.canActAt(p.role, '4a') && canAct(g, p))   // C5：行动位声明驱动（维修）
-                        .map(p => ({ pid: p.id, kind: 'repair' })),
+      /* 【v7 裁定②】派发过滤改用 actionSlots 而非 canActAt：
+         canActAt 只认**主**行动位（derivation/actions.js 的 rolesAt 按 actionStep === step 过滤），
+         次要行动位对它无效 ⇒ 声明了的 '4a' 只落在纸面，派发认不到（等于造一个报不出的幽灵步位）。
+         改用 actionSlots 后，本步会同时接纳「主行动位属 4a」与「次要行动位含 4a」的角色；
+         今日除船员外无任何角色把 4a 列为次要位 ⇒ 此改动当前行为保持。
+         !p.branch 即卡上的互斥：步骤 2 真查验的船员已写 branch='check'，本步不再向他派发。 */
+      req: g => alive(g).filter(p => ACT.actionSlots(p.role).indexOf('4a') >= 0 && !p.branch && canAct(g, p))
+        /* kind 必须与 form 用**同一个判据**（hasAssistRepair），否则 req.kind ↔ form.kind 会分叉
+           （探针断言「死囚O：req.kind ↔ form.kind 逐次一致」即为此存在）。
+           assistRepair 持有者（含变形成船员的死囚——按 role 判，变身后即成立）走 crewRepair。 */
+        .map(p => ({ pid: p.id, kind: hasAssistRepair(p) ? 'crewRepair' : 'repair' })),
       form(g, p) {
+        /* 【v7 裁定②】船员协助维修：卡载独立窗口步骤 4a，与步骤 2 的查验当夜互斥。
+           7 档自选值 a ∈ [0.20,0.50] 步长 0.05（卡载逐档相符）；已真做了查验的船员被本步
+           req 的 !p.branch 过滤掉，故不会同时出现在两个窗口。
+           引擎不手写角色键（D6）：以 charge 键 assistRepair 的持有者为唯一判据。 */
+        /* 判据与 req.map 共用 hasAssistRepair（见其定义处注释）。 */
+        if (hasAssistRepair(p)) {
+          return {
+            kind: 'crewRepair', title: '步骤 4a · 协助维修',
+            desc: '协助维修：同时削减倒计时与净破坏量（步骤 2 已用查验的船员当夜不会出现在此处）。' +
+                  (g.stopNight ? ' ⚠ 停转夜：本夜维修无效、倒计时不流逝。' : ''),
+            opts: [0.20, 0.25, 0.30, 0.35, 0.40, 0.45, 0.50]
+              .map(v => ({ v: 'assist' + v.toFixed(2), label: `协助维修 −${v.toFixed(2)}`,
+                sub: '同时削减倒计时与净破坏量' + (g.stopNight ? '（停转夜无效）' : '') }))
+              .concat([{ v: 'none', label: '放弃协助维修' }]),
+          };
+        }
         /* v6.6 2.3 表 #5/#6：维修与追加维修各 −1.0~1.5 六档自选（工程师合计最高 −3.0） */
         const tiers = [1.0, 1.1, 1.2, 1.3, 1.4, 1.5].map(v => ({ v, label: v.toFixed(1) }));
         const opts = [{ v: 'repair', label: '维修（−1.0~1.5 自选）', sub: '倒计时与净破坏量同额削减' }];
@@ -964,7 +1010,15 @@
            一并失效，不递补至再下一夜，故消费（清零）必须先于提前返回。 */
         const cut = g.repairCutNext || 0;
         g.repairCutNext = 0;
-        if (g.stopNight) { announce(g, '④', '停转夜（来源：外星人破坏）：本夜维修无效、倒计时不流逝。'); return; }
+      if (g.stopNight) {
+        announce(g, '④', '停转夜（来源：外星人破坏）：本夜维修无效、倒计时不流逝。');
+        /* 〔v7 裁定②〕作废船员在步骤 2 预留的协助维修档值。本行原就提前 return，
+           在玩家循环之前，故那批预留值既没结算也没清零（实测残留 48 次，
+           且**全部**发生在停转夜、非停转夜 0 次，与本提前 return 完全吻合）。
+           停转夜维修本就无效 ⇒ 正确处置是消费掉它，而不是让它悬着。 */
+        for (const q of g.players) if (!q.out && q.role === 'crew') q.repairValue = null;
+        return;
+      }
         /* A20（3.2.6②/2.8.13⑥）：次夜维修效力削减——上夜破坏进化异形执行破坏所设定（g.repairCutNext），
            作用于本夜 4a 全部维修类产出（工程师维修/追加维修/协助维修），于自选值之上按比例折算，
            结果保留 2 位小数即实际结算值，同额计入倒计时削减、净破坏量削减与维修暴露累计。 */
@@ -1008,6 +1062,12 @@
               priv(g, p, '你已暴露：编号与职业已向全体玩家公开。');
             }
           }
+        /* 【v7 裁定②】协助维修的值现在从**本步**的决策取：
+           步骤 2 只在三路比较里预留档值（见上方 repair 预留行），真正的开窗与提交在步骤 4a。
+           此处再从 g.decisions 取一次：若本步未收到 crewRepair 提交（如硬编码直接设
+           repairValue 的旧路径）则保留原值，以允许既有确定性验证继续通过。 */
+        if (p.role === 'crew' && g.decisions[p.id] && g.decisions[p.id].mode === 'crewRepair')
+          p.repairValue = g.decisions[p.id].value;
           if (p.role === 'crew' && p.repairValue) {
             const rv = r2(p.repairValue * fac);            // A20：协助维修同折算（3.2.6②）
             g.countdown -= rv;
