@@ -1,16 +1,16 @@
 # 太空杀 · 三阵营对抗（网页版）
 
-> 当前版本：**太空杀 新架构测试2.2preview**（规则口径 v6.6 · 引擎 v66）· 安卓版 `SpaceKill.apk` 同版本号（versionCode 8）
+> 当前版本：**太空杀 V1preview**（规则口径 v6.6 · 引擎 v66）· 安卓版 `SpaceKill.apk` 同版本号（versionCode 9）
 >
-> **批次 45（2026-10-07）**：首页**自选身份**。**批次 44**：死囚外星人技能隔离。详见文末。
+> **批次 47（2026-10-08）**：异形协调靠**对内机制**（队内频道不参与行动协调）；**空查验池船员**不再派发步骤 2（满足条件转职／协助维修）。详见文末。
 
 依据《太空杀规则正式版 v2.0》与《太空杀系统显示方案》实现的**可玩前端原型**：
 真实计时窗口、实时公开讨论、私聊双向确认与聊天、六分区记事本、上帝视角复盘、合成 BGM 与音效、
 零依赖 WebSocket 联机（空席位 / 断线者由 AI 托管）。
 
-## 新架构测试2.2preview（可玩测试版）
+## V1preview（可玩测试版）
 
-> **本作为可玩测试版（新架构测试2.2preview）。** 后续将**全力优化 AI 判断逻辑与 AI 语言** —— 包括证据链推理、
+> **本作为可玩测试版（V1preview）。** 后续将**全力优化 AI 判断逻辑与 AI 语言** —— 包括证据链推理、
 > 指控与辩护的措辞、公开发言的博弈深度。当前 AI 行为可完整跑通对局，但语言与判断质量
 > 仍在迭代中，请以「可玩测试版」而非「完成品」预期体验。
 
@@ -233,4 +233,4 @@ android\build.cmd           # 需要 JDK 17 + Android SDK 34 + 7-Zip；产物自
 
 - 签名口令从**根目录 `.env`** 读（`KEYSTORE_PASS` / `KEY_PASS`，已被 `.gitignore` 排除）；签名密钥 `android/release.keystore` 同样不入库。**请与 `.env`、`release.keystore` 一起离线备份**——丢失后无法给已安装用户推送升级版本。
 - 版本号取自 `package.json`：`version` → APK `versionName`，`androidVersionCode` → `versionCode`（**每次发布必须递增**，否则无法覆盖安装）。
-- **当前产物（2.2preview）**：`SpaceKill.apk` 4,497,919 字节（4.29MB），`versionName=新架构测试2.2preview` / `versionCode=8`，证书 SHA-256 `29ad3df4…`（与 2.1preview 同签名 ⇒ 可覆盖安装）。
+- **当前产物（V1preview）**：`SpaceKill.apk` 4,547,991 字节（4.34MB），`versionName=V1preview` / `versionCode=9`，APK SHA-256 `FCE7C5AE…25D05`；证书 SHA-256 `29ad3df4…`（与 2.2preview 同签名 ⇒ 可覆盖安装）。
