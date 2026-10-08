@@ -388,7 +388,18 @@
       name: '外星人', faction: 'xeno', group: null, isBase: false,  // 2.8.14⑤ 不设组位
       desc: '查验／击杀／破坏三选一；夜晚免疫；第 6 夜起可觉醒双刀。',
       seats: 1,
-      actionStep: '0.1', actionSteps: ['0.1', '0.1s', '4b', '5'],   // 0.1 蛰伏；0.1s 沉默窗；4b 破坏；5 击杀/双刀（6.1/6.6）
+      /* 〔v7 B0 顺带修正 · 声明与引擎派发不一致，非本批引入〕
+         引擎步位 'P-id'（身份改变子步骤 2.1.1）的 req 会向**经典外星人**派发 awaken
+         （6.2 觉醒：第 6 夜起或存活≤6；见 js/engine/steps.js 'P-id'.req），
+         但本行原只登记 ['0.1','0.1s','4b','5']，缺 'P-id' ⇒ C1 覆盖审计判为缺口
+         （coverageGap('P-id',['xeno']) = ['xeno']）。
+         该缺口在**拆除前的基线**同样存在（基线 declaredActors('P-id') 亦只有 ['convict']），
+         只是当时采样未命中；B0 后通道不再消费 rng、随机序列前移，才被审计扫到。
+         故属既有声明缺陷被暴露，不是 B0 引入的回归。
+         无行为风险：按 roleDecl.js:42 的契约，actionSteps 全列表「供覆盖审计与 C1 收口」，
+         引擎派发过滤读的是主行动位 actionStep（本行仍为 '0.1'，未改）。
+         死囚（上一段）已按同一口径登记 'P-id'，此处补齐即两角色对齐。 */
+      actionStep: '0.1', actionSteps: ['0.1', '0.1s', '4b', '5', 'P-id'],   // 0.1 蛰伏；0.1s 沉默窗；4b 破坏；5 击杀/双刀（6.1/6.6）；P-id 觉醒（6.2）
       judgeMode: 'presented',                   // 蛰伏查验 6.1.1① 报编号与呈现职业
       charges: { check: Infinity, kill: Infinity, destroy: Infinity, nightImmune: 2 },
       /* C13（2026-10-04）：此处曾有 process:{nights:2,on:'0.6',product:'doubleBlade'} 的错误

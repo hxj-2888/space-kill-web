@@ -1,0 +1,80 @@
+=== 瑙掕壊宸紓鍖栨帰閽堬紙%d 灞€锛?d 涓鑹诧級===
+
+鈹€鈹€ L1 淇℃伅宸細姣忚鑹插钩鍧囨寔鏈夌殑绉佹湁淇℃伅閫氶亾绉嶇被 鈹€鈹€
+  瑙掕壊          闃佃惀    灞€鏁?   澶滄     閫氶亾绉嶇被/澶? 鏄庣粏
+  crew        human 800   6148   2           crewCheck:0.61 known:0.74
+  engineer    human 200   1676   1           known:0.76
+  sheriff     human 200   1676   1           known:0.76
+  hunter      human 0     0      0           
+  bio         human 200   1676   2           known:0.76 infectList:0.18
+  rescue      human 200   1676   2           known:0.76 infectList:0.22
+  artisan     human 0     0      0           
+  poisoner    human 0     0      0           
+  convict     xeno  0     0      0           
+  detective   human 200   1676   2           known:0.76 check:0.62
+  bodyguard   human 200   1676   1           known:0.76
+  inspector   human 200   1676   2           known:0.76 ballot:0.76
+  listener    human 0     0      0           
+  armed       human 0     431    2           crewCheck:0.98 known:1.00
+  assistant   human 0     54     2           crewCheck:1.00 known:1.00
+  tempdoc     human 0     71     3           crewCheck:1.00 known:1.00 infectList:0.32
+  alien       alien 600   5028   1           known:1.00
+  xeno        xeno  200   1676   1           known:0.76
+
+  淇℃伅閫氶亾绉嶇被锛歮in=0 max=3 鍧囧€?1.22  鏋佸樊=3
+
+鈹€鈹€ L2 鍐崇瓥宸細姣忚鑹叉瘡灞€鐨勫闂磋鍔?鈹€鈹€
+  瑙掕壊          鏌ラ獙     鑸瑰憳鏌?    缁翠慨     寮€鏋?    鍑绘潃     鎶曠エ     鎶曠エ鍛戒腑      
+  crew        0.00   6.76    1.07   0.00   0.00   3.72   37.3%     
+  engineer    0.00   0.00    0.00   0.00   0.00   3.62   38.0%     
+  sheriff     0.00   0.00    0.00   0.23   0.00   3.42   36.6%     
+  hunter      0.00   0.00    0.00   0.00   0.00   0.00   -         
+  bio         0.00   0.00    0.00   0.00   0.00   4.63   41.9%     
+  rescue      0.00   0.00    0.00   0.00   0.00   4.71   38.0%     
+  artisan     0.00   0.00    0.00   0.00   0.00   0.00   -         
+  poisoner    0.00   0.00    0.00   0.00   0.00   0.00   -         
+  convict     0.00   0.00    0.00   0.00   0.00   0.00   -         
+  detective   2.17   0.00    0.00   0.00   0.00   3.56   38.6%     
+  bodyguard   0.00   0.00    0.00   0.00   0.00   4.81   37.4%     
+  inspector   0.00   0.00    0.00   0.00   0.00   3.81   31.4%     
+  listener    0.00   0.00    0.00   0.00   0.00   0.00   -         
+  armed       0.00   424.00  0.00   74.00  0.00   262.00 48.1%     
+  assistant   0.00   54.00   0.00   0.00   0.00   40.00  45.0%     
+  tempdoc     0.00   71.00   0.00   0.00   0.00   63.00  38.1%     
+  alien       0.00   0.00    0.00   0.00   2.57   4.95   10.3%     
+  xeno        0.00   0.00    0.00   0.00   2.69   3.81   29.8%     
+
+鈹€鈹€ L3 琛ㄨ揪宸細鍚勮鑹插彂瑷€鐨?Claim 绫诲瀷鍒嗗竷锛堟瘡瑙掕壊鍙戣█鏁板綊涓€锛夆攢鈹€
+  瑙掕壊          鍙戣█鏁?    绌哄彂瑷€     accuse   ask      claimRo  lock     deny     promise  abstain  quote    vote     
+  crew        3802    0.0%    26       54       0        1        0        0        0        0        0        
+  engineer    931     0.0%    28       52       0        0        1        0        0        0        0        
+  sheriff     886     0.0%    23       55       0        0        0        0        0        0        0        
+  hunter      0       -       -        -        -        -        -        -        -        -        -        
+  bio         1133    0.0%    23       55       0        0        0        0        0        0        0        
+  rescue      1153    0.0%    24       52       0        0        0        0        0        0        0        
+  artisan     0       -       -        -        -        -        -        -        -        -        -        
+  poisoner    0       -       -        -        -        -        -        -        -        -        -        
+  convict     0       -       -        -        -        -        -        -        -        -        -        
+  detective   921     0.0%    31       53       0        1        0        1        0        0        0        
+  bodyguard   1174    0.0%    31       50       0        0        0        1        0        0        0        
+  inspector   1101    0.0%    34       54       0        0        0        0        0        0        0        
+  listener    0       -       -        -        -        -        -        -        -        -        -        
+  armed       268     0.0%    16       54       0        0        0        0        0        0        0        
+  assistant   40      0.0%    30       50       0        0        0        0        0        0        0        
+  tempdoc     65      0.0%    22       52       0        0        0        0        0        0        0        
+  alien       4502    11.0%   21       17       0        0        1        0        0        0        0        
+  xeno        992     14.6%   38       15       0        0        1        0        0        0        0        
+
+鈹€鈹€ 琛ㄨ揪鐩镐技搴︼紙涓や袱 Jaccard锛氳秺楂樿秺鍍忓厠闅嗕綋锛夆攢鈹€
+  缁勬暟=78  骞冲潎 Jaccard=0.101
+  鏈€鍍忕殑 6 瀵癸細
+    engineer/bodyguard        0.185
+    engineer/sheriff          0.183
+    engineer/rescue           0.180
+    sheriff/bio               0.177
+    bio/bodyguard             0.175
+    engineer/bio              0.171
+  鏈€涓嶅儚鐨?3 瀵癸細
+    bodyguard/assistant       0.017
+    crew/assistant            0.013
+    assistant/alien           0.009

@@ -1,15 +1,30 @@
-/* 结合层（Bridge）：语言 ⇄ 推理 ⇄ 行为的唯一咽喉。
+/* 结合层（Bridge）：语言 ⇄ 行为 的唯一咽喉。
    全部公开发言——无论出自玩家还是 AI——都必须经过 Bridge.say()：
-     语言层产出 Claim IR → 推理层按 kind 路由到既有 AI 钩子（不新增权重）→ 写入证据台账
-     → 由 AI 的 suspOf（认知层怀疑度）/ dangerOf（行动层危险度）影响其投票 / 决策 / 下一轮发言（行为）。
-      （v31 批 0 口径修正：旧注释写的 `threatOf` 是 suspOf 的历史别名，名字与行为层实际读取的
-        dangerOf 不符，已删除别名并把调用点显式化。）
+     语言层产出 Claim IR → 按 kind 路由到既有 AI 钩子 → 写入证据台账。
+      （v31 批 0：旧注释的 threatOf 是 suspOf 历史别名，已删。）
+   〔v7 B0 · 2026-10-08 · 推理引擎拆除〕
+     原「语言 ⇄ 推理 ⇄ 行为」三段中的**推理段已整体拆除**：MoE（路由/仲裁/饱和/影子）、
+     通道库（506 条总表 + 执行器）、13 专家模块全部归档至 infer/_retired/ 与
+     corpus/_retired/（回退点 git branch v7-pre-teardown @709acd7）。
+     拆除依据（实测）：通道库三档消融边际贡献 +0.002（full 0.500 vs off 0.498，top1 反升）；
+     dangerOf AUC 0.4999（随机）、全量负向证据 0.3378（反向）——评分制无可保留成果。
+     本文件保留：**玩家与 AI 走同一条管道**（设计约束①不变）。
+     Claim 入账改走 AI.addEvent，与拆除前 MoE.absorb 的 passthrough 分支逐字段等价
+     （原样透传 delta/tier/src/grudge/speakerId/chan）。
+     B1 起改写 vision.record（角色私有素材）；B3 起决策不再读分数，改读素材。
    设计约束：
      ① 玩家与 AI 走同一条管道，杜绝「同一句话两种效力」；
-     ② 本阶段只做类型路由，已经存在的钩子照原样调用，缺席钩子的类型（defend/rally/abstain/
-        bind/各类私有体验）只进证据台账、不改估值——等待后续数值方案给出权重；
+     ② 本阶段只做类型路由，已经存在的钩子照原样调用；
      ③ 质询-应答闭环在这里闭合，不再散落在引擎与 AI 两侧。 */
 (function (global) {
+  /* 〔v7 B0〕Claim 入账统一出口：MoE 归档后，直写 belief 台账。
+     行为等价性：MoE.absorb 的 passthrough 分支原样透传下列全部字段，故幅度不变。 */
+  const AIadd = (g, viewerId, claim) => {
+    const AI = global.AI;
+    if (!AI || !AI.addEvent) return;
+    AI.addEvent(g, viewerId, claim.target, claim.delta, claim.grudge, claim.src,
+      claim.kind, claim.tier, claim.speakerId, claim.chan, claim.expert);
+  };
   const emptySig = () => ({
     mention: [], accuse: [], accTiers: {}, claim: null, ask: [], report: [], quote: [],
     voteIds: [], defend: [], rally: null, abstain: false, pass: false, roleBind: [], intents: [], conf: 1,
@@ -117,8 +132,8 @@
               for (const o of g.players) {
                 if (o.out || o.id === speakerId || o.id === c.targets[0]) continue;
                 /* v32 批 4′（统一入账口）：路径①改道 MoE.absorb（参数透传）；批 5′ 补 evt=verify（宣称对账族） */
-                global.MoE.absorb(g, o.id, [{ target: c.targets[0], delta: signed, grudge: false,
-                  src: `locksay:${speakerId}:${c.targets[0]}:${g.night}`, kind: 'claim', tier, speakerId }], { path: 'speak', evt: 'verify' });
+                AIadd(g, o.id, { target: c.targets[0], delta: signed, grudge: false,
+                    src: `locksay:${speakerId}:${c.targets[0]}:${g.night}`, kind: 'claim', tier, speakerId });
               }
               recordEvidence(g, speakerId, c, `查验汇报→目标侧入账（${f} / ${tier}）`);
             }
@@ -137,8 +152,8 @@
               for (const o of g.players) {
                 if (o.out || o.id === speakerId || o.id === c.targets[0]) continue;
                 /* v32 批 4′（统一入账口）：路径①改道 MoE.absorb（参数透传）；批 5′ 补 evt=verify */
-                global.MoE.absorb(g, o.id, [{ target: c.targets[0], delta: mag, grudge: false,
-                  src: `excludesay:${speakerId}:${c.targets[0]}:${g.night}`, kind: 'claim', tier, speakerId }], { path: 'speak', evt: 'verify' });
+                AIadd(g, o.id, { target: c.targets[0], delta: mag, grudge: false,
+                    src: `excludesay:${speakerId}:${c.targets[0]}:${g.night}`, kind: 'claim', tier, speakerId });
               }
               recordEvidence(g, speakerId, c, `排除宣称→目标侧弱证据（${tier}，B3 方向 a）`);
             }
@@ -182,11 +197,10 @@
              破坏宣称另挂延迟兑现结算（N01/N02/N03 + F02，见 ai.settleClaims）。 */
           for (const o of g.players) {
             if (o.out || o.id === speakerId) continue;
-            /* v32 批 4′（统一入账口）：路径①改道 MoE.absorb（参数透传）；批 5′ 补 evt：破坏/维修宣称 → infra，治疗/感染/制药/救援宣称 → infect */
-            global.MoE.absorb(g, o.id, [{ target: speakerId, delta: T.SCORE[T.RULE.expClaim], grudge: false,
-              src: `exp:${c.kind}:${speakerId}:${g.night}`, kind: 'claim', tier: T.RULE.expClaim, speakerId }],
-              { path: 'speak', evt: (c.kind === 'destroy' || c.kind === 'repair') ? 'infra'
-                : (c.kind === 'cure' || c.kind === 'infection' || c.kind === 'brew' || c.kind === 'rescue') ? 'infect' : null });
+            /* 〔v7 B0〕推理引擎拆除：原改道 MoE.absorb（evt 族仅供注意力调制用，
+               MoE 归档后无消费方）→ 直写 AI.addEvent，字段与幅度逐项不变。 */
+            AIadd(g, o.id, { target: speakerId, delta: T.SCORE[T.RULE.expClaim], grudge: false,
+              src: `exp:${c.kind}:${speakerId}:${g.night}`, kind: 'claim', tier: T.RULE.expClaim, speakerId });
           }
           if (c.kind === 'destroy') {
             if (!p.pendingDestroy) p.pendingDestroy = [];
@@ -211,8 +225,8 @@
               const caught = (o.checkPool && o.checkPool.has(speakerId)) || (o.crewChecks && o.crewChecks.has(speakerId));
               if (!caught) continue;
               /* v32 批 4′（统一入账口）：路径①改道 MoE.absorb（参数透传）；批 5′ 补 evt=verify（证伪型对账族） */
-              global.MoE.absorb(g, o.id, [{ target: speakerId, delta: T ? T.SCORE[T.RULE.denyLie] : 33, grudge: false,
-                src: `denyLie:${speakerId}:${o.id}:${g.night}`, kind: 'claim', tier: T ? T.RULE.denyLie : 'A-', speakerId }], { path: 'speak', evt: 'verify' });
+              AIadd(g, o.id, { target: speakerId, delta: T ? T.SCORE[T.RULE.denyLie] : 33, grudge: false,
+                  src: `denyLie:${speakerId}:${o.id}:${g.night}`, kind: 'claim', tier: T ? T.RULE.denyLie : 'A-', speakerId });
             }
           }
           break;

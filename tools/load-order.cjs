@@ -20,7 +20,14 @@ const vm = require('vm');
    顺序：角色声明表 → 事件族契约（两者无相互依赖） */
 const DECL_STACK = ['v66/declaration/traits', 'v66/declaration/roleDecl', 'v66/declaration/capabilityRegistry', 'v66/contract/eventFamily', 'v66/declaration/processRegistry', 'v66/execution/process', 'v66/derivation/actions', 'v66/derivation/mirror'];
 
-/* —— 有序清单：新增文件只改这一处 —— */
+/* —— 有序清单：新增文件只改这一处——
+ *〔v7 B0 · 2026-10-08〕推理引擎拆除：infer/{registry,predicates,moe,channels.run,visible}、
+ *   infer/modules/e1~e11、corpus/{channels.data,channels.retired,channels} 共 16 项已移入
+ *   _retired/ 归档（可追溯，见 git branch v7-pre-teardown @709acd7），并自本清单摘除。
+ *   依据：通道库三档消融边际贡献 +0.002（full 0.500 vs off 0.498，top1 反升）；
+ *        dangerOf AUC 0.4999 / 全量负向 0.3378 —— 评分制无可保留成果。
+ *   注意：引擎侧 10 处 absorbPrivate 调用点与 AI 层对 MoE 的 50 处引用属 B1+ 改造对象，
+ *        本批只归档与摘除加载，不改逻辑。 */
 const ORDER = [
   'rng',
   ...DECL_STACK,
@@ -34,26 +41,13 @@ const ORDER = [
   'lang/narrator',     /* N1 复盘叙事：终局编年史（终局后才运行，引擎零消费——故不进 ENGINE_STACK） */
   'infer/speakable',
   'infer/tiers',
-  'infer/registry',
   /* v33 模块化：跨域谓词 → 六个证据域模块 → 执行器（channels.run 只合并与执行） */
-  'infer/predicates',
-  'infer/modules/e1-destroy',
-  'infer/modules/e2-infection',
-  'infer/modules/e3-ballot',
-  'infer/modules/e4-verify',
-  'infer/modules/e11-network',
-  'infer/modules/e56-protect',
-  'infer/modules/e8-claims',
-  'infer/modules/e10-aggregate',
-  'infer/moe',
-  'infer/channels.run',
   'corpus/tactics',
   'corpus/voice',      /* 〔批次 35〕定制发言语气层（θ 档开场/口头禅/私聊开场；decide.speak 出口调用） */
-  'corpus/channels.data',
-  'corpus/channels.retired',   // 判据失效台账（须先于 channels.js：后者挂载查询接口）
-  'corpus/channels',
-  'infer/pipeline',
-  'infer/visible',
+    'infer/pipeline',
+    'infer/visible',   /* 〔v7 B0 回退〕可见性过滤（防透视投递侧唯一实现）：
+                        view.js:101/123 与 ui.js:655 的 SKVisible.canSee 来源。
+                        它是**防透视层**而非通道机制，B0 误归档，已回退。 */
   'ai/util',
   'ai/memory',          /* 拟人层 A：长期记忆（跨夜归并的印象；decide/perceive 于读时取用） */
   'ai/cloud',          /* v4.0 批次 17a：粒子云（与旧 belief 并存，17a 零接线；依赖 tiers 的 PRIOR_E） */

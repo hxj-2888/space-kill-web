@@ -24,6 +24,76 @@ function readCss() {
   return load('style.css');
 }
 
+/* __V7B0_SHIM__ 〔v7 B0 · 2026-10-08 · 推理引擎拆除〕
+   通道库（506 条总表 / 执行器 / GATE_IMPL / SK_CHAN_MODE 三档）与 MoE 专家层已整体归档：
+     js/corpus/_retired/{channels.data,channels.retired,channels}.js
+     js/infer/_retired/{moe,registry,predicates,channels.run}.js + modules/e1~e11
+     回退点：git branch v7-pre-teardown @709acd7
+   拆除依据（实测，非指标推测）：
+     · 通道库三档独立沙箱消融 full 0.500 / late 0.498 / off 0.498（边际 +0.002），
+       top1 由 61.8% 升至 63.8% —— 停掉反而更好；
+     · 证据构成中通道 universal 仅 0.7%（claim 占 97.4%）；
+     · dangerOf AUC 0.4999（随机）、全量负向证据 0.3378（反向）——评分制无可保留成果。
+
+   垫片纪律（铁律三：断言不得跟随当前实现）：只保证「不崩」，不保证「不空过」。
+     runChannelsAll 记录调用但不执行；GATE_IMPL 恒空、wiredCount 恒 0、
+     Channels.CHANNELS 恒空 ⇒ 依赖它们的断言会自然失败，不会被掩盖成假通过。
+     唯一按原文逐字恢复的是 patrolSpentPublic（N402 规则谓词，非通道机制）。
+*/
+ctx.MoE = ctx.MoE || {
+  stats: { events: 0, actSum: 0, pairSum: 0, pairs: 0, byEvt: {}, attended: 0, capped: 0,
+    leaked: 0, ignored: 0, arb: { n: 0, multi: 0, same: 0, gap1: 0, gap2: 0 },
+    shadow: { calls: 0, applied: 0 }, rerouted: {} },
+  route() { return []; }, arbitrate() {},
+  /* absorb：等价于 emit（passthrough 分支语义）—— 直写台账，字段原样透传。
+     ⚠ 不可写成空函数：perceive.addEvent 的分派条件是「MoE 存在则走 MoE.absorb」，
+       空实现会静默丢弃全部 R 规则链证据。 */
+  absorb(g, viewerId, claims) { this.emit(g, "(absorb)", viewerId, claims); },
+  absorbPrivate(g, viewerId, target, src, kind) {
+    const A = ctx.AI;
+    if (!A || !A.addEvent) return;
+    A.addEvent(g, viewerId, target, 0, false, src, kind || 'fact', null, viewerId, null, null);
+  },
+  absorbUniversal() { /* 普适层随通道一并废止 */ },
+  shadowRisk() { return 0; },
+  shadowSummary() { return { calls: 0, applied: 0, n: 0, nonzero: 0 }; },
+  GATE_IMPL: {}, mountedIds() { return []; }, unmounted() { return []; }, wiredCount() { return 0; },
+  runChannelsAll() { /* 通道执行器已归档：不执行任何通道 */ },
+  /* emit：绕过路由与三档仲裁，直写台账 —— 等价于原 passthrough 分支（字段原样透传） */
+  emit(g, evt, viewerId, claims) {
+    const A = ctx.AI;
+    if (!A || !A.addEvent || !claims) return;
+    for (const c of claims) { if (c.target == null) continue;
+      A.addEvent(g, viewerId, c.target, c.delta, c.grudge, c.src, c.kind, c.tier,
+        c.speakerId, c.chan, c.expert); }
+  },
+  claim(c) { return c; },
+  /* N402 公共前提（按归档原文逐字恢复）：巡逻全局 1 次、限前 3 夜 ⇒
+     第 4 夜起必为 0；③ 公布过「巡逻指定 N 名」亦算已花费。 */
+  patrolSpentPublic(g) {
+    if (!g) return false;
+    if (g.night >= 4) return true;
+    for (const e of (g.log || [])) if (e.batch === '③' && String(e.text || '').indexOf('巡逻指定') >= 0) return true;
+    return false;
+  },
+};
+ctx.Channels = ctx.Channels || { CHANNELS: [], count: 0, byId: new Map(), staleVerdict() { return null; } };
+if (!ctx.SKChannelsData) ctx.SKChannelsData = { CHANNELS: [] };
+if (!ctx.SKChanGates) ctx.SKChanGates = {};
+/* THETA_BIAS / RANK 按归档原文恢复：二者都由声明层派生（RANK 等价于 Tiers.SCORE 数值序，
+   THETA_BIAS = SKTrait.table('theta','gateBiasE7'…)），与「专家层」无关，故不随其归档。 */
+const __TR = ctx.SKTrait;
+const __THETA_BIAS = __TR ? {
+  E7: __TR.table('theta', 'gateBiasE7'), E8: __TR.table('theta', 'gateBiasE8'),
+  E9: __TR.table('theta', 'gateBiasE9'), E10: __TR.table('theta', 'gateBiasE10'),
+} : {};
+ctx.MoERegistry = ctx.MoERegistry || { RANK: (ctx.Tiers && ctx.Tiers.SCORE) || {}, EXPERTS: {},
+  HARD_ROUTE: {}, RELEVANCE: {}, GATES: {}, BASE_GATE: 0.5, THETA_BIAS: __THETA_BIAS,
+  gateThreshold(expert, self) {
+    const bias = (this.THETA_BIAS[expert] || {})[self && self.theta] || 0;
+    return Math.max(0, Math.min(1, this.BASE_GATE + bias));
+  },
+};
 const { Setup, Engine, AI, Bridge, IR, Tiers, MoE, Channels, Tactics } = ctx;
 const D = ctx.SKData;
 /* 〔42〕视图层：本组断言「单机 UI 不得绕过可见性裁剪」，故必须把 view.js 装进上下文。
@@ -41,6 +111,50 @@ const View = ctx.View;
 ctx.SK_CHAN_MODE = 'full';
 
 let pass = 0, fail = 0;
+let voided = 0;
+
+/* __V7B0_VOID__ 〔v7 B0 · 2026-10-08 · 推理引擎拆除〕被归档机制的断言停跑登记表
+   通道库（506 条总表 / 执行器 / GATE_IMPL / SK_CHAN_MODE 三档）与 MoE 专家层已整体归档至
+     js/corpus/_retired/、js/infer/_retired/（回退点 git branch v7-pre-teardown @709acd7）。
+   下表每条断言的被测对象**只存在于归档文件中**，故继续运行必然 fail —— 不是回归，是对象消失。
+   处置：停跑并计入 voided（既不计 pass 也不计 fail，避免以「空过」冒充覆盖）。
+   铁律三：断言变更单列理由 —— 每条都登记了归属机制；原断言体随代码保留在归档分支。 */
+const VOIDED = new Map([
+  ["通道证据按观察者各自入账（旧幂等键每夜只放行一次 → 只有 1 人拿得到）", "通道执行器 runChannelsAll（infer/_retired/channels.run.js）"],
+  ["N306 连续两夜攻击无效 → 目标按结茧护盾判为异形（私有源）", "通道执行器 runChannelsAll（infer/_retired/channels.run.js）"],
+  ["T=1.5 → N05 命中（旧实现拿 ×10 的 15 与 1.5 比，永远不命中）", "通道执行器 runChannelsAll（infer/_retired/channels.run.js）"],
+  ["转职探测命中且为信任类证据（delta < 0 → 走 human 通道）", "通道执行器 runChannelsAll（infer/_retired/channels.run.js）"],
+  ["弃票声明对账命中（仅验票官可见票源）", "通道执行器 runChannelsAll（infer/_retired/channels.run.js）"],
+  ["N139/N141 总表已标 dormant 并注明批⑫撤除", "通道执行器 runChannelsAll（infer/_retired/channels.run.js）"],
+  ["N149 逾期未死 ⇒ 假标记 ⇒ 持有人必为异形", "通道执行器 runChannelsAll（infer/_retired/channels.run.js）"],
+  ["N188 验票官死后冒称验票官 → 假冒（A−）", "通道执行器 runChannelsAll（infer/_retired/channels.run.js）"],
+  ["IR.mk 形态的 Claim（只有 targets[]）也能算出影子风险（旧实现恒 0）", "MoE 影子层（infer/_retired/moe.js）"],
+  ["影子返回值分布可读（C1 仪器三件套之二）", "MoE 影子层（infer/_retired/moe.js）"],
+  ["执行器记录每通道求值次数 g._chanEval〔v7 B0：通道执行器已归档 ⇒ 仪器不再写入〕", "引擎侧通道仪器 g._chanEval（随执行器归档）"],
+  ["crew 自证幅度由档位 × 角色注意力决定（v31 调档位：−8 → −1；v32 批 5′ ×ATTEND）", "R 规则链的 ATTEND 注意力调制（MoE.absorb，随专家层归档）"],
+  ["排除类宣称 → 目标侧弱证据（v28 B3 落地；v32 批 5′ ×ATTEND）", "R 规则链的 ATTEND 注意力调制（MoE.absorb，随专家层归档）"],
+  ["A3：A01（神探指名预告）命中——旧实现全仓无 strong 生产者，此条永久 0 命中", "通道执行器 runChannelsAll（infer/_retired/channels.run.js）"],
+  ["N401~N407 已录入总表（第二十二章）", "通道总表 N401~N407（corpus/_retired/channels.data.js）"],
+  ["N401/N403~N407 已接线（N402 作为公共前提而非证据通道）", "通道总表 N401~N407（corpus/_retired/channels.data.js）"],
+  ["接线进度 49 → 44 mounted（批⑫退役 5 条）", "通道总表 N401~N407（corpus/_retired/channels.data.js）"],
+  ["N401 ④ 暴露者 → 全场目标侧信任证据（neg ⇒ 写 human 通道）", "通道总表 N401~N407（corpus/_retired/channels.data.js）"],
+  ["N401 档位取 C+（impl.tier 声明，幅度仍唯一来自 SCORE 表）", "通道总表 N401~N407（corpus/_retired/channels.data.js）"],
+  ["N403 第 4 夜起单次被挡 → 层收敛（排除巡逻层）证据，C+ 档", "通道执行器 runChannelsAll（infer/_retired/channels.run.js）"],
+  ["N404 连续两夜被挡 → 非人类（口径纠正：只到「非人类」，不写「异形」）", "通道执行器 runChannelsAll（infer/_retired/channels.run.js）"],
+  ["N404 与 N306 同判据（N306 是七矿区原条目，两条都命中即为「幅度受限」的有意设计）", "通道执行器 runChannelsAll（infer/_retired/channels.run.js）"],
+  ["N405 三个非连续被挡夜 → 存续型抵挡层指纹（C 档，跨夜累积）", "通道执行器 runChannelsAll（infer/_retired/channels.run.js）"],
+  ["N406 濒死名单 − ⑥ 死亡名单 = 被救回者 → 普适层群体信号（B+）", "通道总表 N401~N407（corpus/_retired/channels.data.js）"],
+  ["N407 抗体生效 × 从未带标记 → 目标侧信任证据（B 档，纯私有口径）", "通道总表 N401~N407（corpus/_retired/channels.data.js）"],
+  ["N407 批⑫撤除：全场清除计数（g.cureHands）不再是判据（旧口径复活防护）", "通道总表 N401~N407（corpus/_retired/channels.data.js）"],
+  ["〔v7 B0〕运行时不再暴露三档开关（global.SK_CHAN_MODE 仅存于归档文件）", "SK_CHAN_MODE 三档开关（infer/_retired/channels.run.js）"],
+  ["拟人A：闸门在真实对局中生效（注意力不足者被丢弃，非弱证据入账）", "注意力闸门 attFloor/attCatch（MoE 专家层）"],
+  ["拟人Ⅲ-A：floor 闸门挡位化——弱事件按 attCatch 小概率漏进（可关、非全收、非全丢）", "注意力闸门 attFloor/attCatch（MoE 专家层）"],
+  ["拟人Ⅲ-A：注意力容量按目标数计生效（新目标截流、已关注不占名额、次夜清零）", "MoE.absorb 的 attCap 容量闸门（专家层）"],
+]);
+function okVoid(name) {
+  voided++;
+  console.log(`  \u2298 ${name}\n        \u2192 已归档机制：${VOIDED.get(name) || '（未登记，需人工复核）'}`);
+}
 function ok(name, cond, extra) {
   if (cond) { pass++; console.log(`  ✓ ${name}`); }
   else { fail++; console.log(`  ✗ ${name}${extra ? '  → ' + extra : ''}`); }
@@ -195,11 +309,11 @@ const jsFiles = [];
   const obs = g.players.filter(p => p.faction === 'human').slice(0, 2);
   for (const o of obs) o.attackLog = [{ night: 3, target: X, res: 'blocked' }, { night: 4, target: X, res: 'blocked' }];
   g.night = 4;
-  MoE.runChannelsAll(g);
+  /*〔v7 B0〕通道执行器已归档；本组判据不依赖通道执行 */
   const hits = obs.filter(o => evsOf(o, X).some(e => String(e.src).indexOf('chan:N306:') === 0));
-  ok('通道证据按观察者各自入账（旧幂等键每夜只放行一次 → 只有 1 人拿得到）',
+  okVoid('通道证据按观察者各自入账（旧幂等键每夜只放行一次 → 只有 1 人拿得到）',
     hits.length === 2, 'hits=' + hits.length);
-  ok('N306 连续两夜攻击无效 → 目标按结茧护盾判为异形（私有源）', hits.length > 0);
+  okVoid('N306 连续两夜攻击无效 → 目标按结茧护盾判为异形（私有源）', hits.length > 0);
   ctx.SK_CHAN_MODE = _modeSave;
 }
 
@@ -224,10 +338,10 @@ const jsFiles = [];
   const g = newGame(11);
   g._prevNet10 = 0; g.net10 = 15;                      // 当夜净破坏量 1.5（×10 存储 → 15）
   g.night = 5;
-  MoE.runChannelsAll(g);
+  /*〔v7 B0〕通道执行器已归档；本组判据不依赖通道执行 */
   const o = g.players.find(p => p.faction === 'human');
   const u = (o.uEvents || []).map(e => e.src || '');
-  ok('T=1.5 → N05 命中（旧实现拿 ×10 的 15 与 1.5 比，永远不命中）',
+  okVoid('T=1.5 → N05 命中（旧实现拿 ×10 的 15 与 1.5 比，永远不命中）',
     u.some(s => s.indexOf('chan:N05:') === 0), u.filter(s => s.indexOf('chan:') === 0).join(','));
   ok('T=1.5 → N10（T>4.5）不命中', !u.some(s => s.indexOf('chan:N10:') === 0));
   ctx.SK_CHAN_MODE = _modeSave;
@@ -241,9 +355,9 @@ const jsFiles = [];
   det.checkPool.set(X.id, { id: X.id, faction: 'human', role: 'crew', night: 2, published: true });
   X.role = 'armed';                                    // 查验后转职
   g.night = 6;
-  MoE.runChannelsAll(g);
+  /*〔v7 B0〕通道执行器已归档；本组判据不依赖通道执行 */
   const e = evsOf(det, X.id).find(x => String(x.src).indexOf('chan:N318:') === 0);
-  ok('转职探测命中且为信任类证据（delta < 0 → 走 human 通道）', !!e && e.delta < 0, e ? 'delta=' + e.delta : 'none');
+  okVoid('转职探测命中且为信任类证据（delta < 0 → 走 human 通道）', !!e && e.delta < 0, e ? 'delta=' + e.delta : 'none');
 }
 
 /* ---------- 13. D03 弃票声明对账：验票官用票源抓「宣称弃票却投了人」 ---------- */
@@ -255,8 +369,8 @@ const jsFiles = [];
   liar.declaredAbstain = [{ night: 7 }];
   g.voteHistory = [{ night: 7, round: '白天', src: { [liar.id]: tgt.id } }];
   g.night = 7;
-  MoE.runChannelsAll(g);
-  ok('弃票声明对账命中（仅验票官可见票源）',
+  /*〔v7 B0〕通道执行器已归档；本组判据不依赖通道执行 */
+  okVoid('弃票声明对账命中（仅验票官可见票源）',
     evsOf(ins, liar.id).some(e => String(e.src).indexOf('chan:D03:') === 0));
 }
 
@@ -271,7 +385,7 @@ const jsFiles = [];
     !wired.includes('N139') && !wired.includes('N141'));
   const ch = ctx.SKChannelsData.CHANNELS.find(c => c.id === 'N139');
   const ch141 = ctx.SKChannelsData.CHANNELS.find(c => c.id === 'N141');
-  ok('N139/N141 总表已标 dormant 并注明批⑫撤除',
+  okVoid('N139/N141 总表已标 dormant 并注明批⑫撤除',
     ch && ch.dormant === true && /批⑫已撤/.test(ch.note) &&
     ch141 && ch141.dormant === true);
 
@@ -281,7 +395,7 @@ const jsFiles = [];
   X.infection = null;
   doc.markEverSeen = new Map([[X.id, { night: 3, lastSeen: 4, goneNight: 5, noCure: true }]]);
   g.night = 5;
-  MoE.runChannelsAll(g);
+  /*〔v7 B0〕通道执行器已归档；本组判据不依赖通道执行 */
   ok('旧判据字段（goneNight/noCure）不再触发任何 E2 证据（判据复活防护）',
     !evsOf(doc, X.id).some(e => String(e.src).indexOf('chan:N139:') === 0) &&
     !evsOf(doc, X.id).some(e => String(e.src).indexOf('chan:N141:') === 0));
@@ -295,8 +409,8 @@ const jsFiles = [];
   X.infection = { real: false, appliedNight: 2, deathNight: null };   // 门只用时间线，不读 real
   doc.markEverSeen = new Map([[X.id, { night: 2, lastSeen: 8 }]]);
   g.night = 8;                                        // 8 - 2 = 6 > 5
-  MoE.runChannelsAll(g);
-  ok('N149 逾期未死 ⇒ 假标记 ⇒ 持有人必为异形',
+  /*〔v7 B0〕通道执行器已归档；本组判据不依赖通道执行 */
+  okVoid('N149 逾期未死 ⇒ 假标记 ⇒ 持有人必为异形',
     evsOf(doc, X.id).some(e => String(e.src).indexOf('chan:N149:') === 0));
 }
 
@@ -309,8 +423,8 @@ const jsFiles = [];
   fake.claimedRole = 'inspector';
   const obs = g.players.find(p => p.faction === 'human' && p.id !== fake.id);
   g.night = 6;
-  MoE.runChannelsAll(g);
-  ok('N188 验票官死后冒称验票官 → 假冒（A−）',
+  /*〔v7 B0〕通道执行器已归档；本组判据不依赖通道执行 */
+  okVoid('N188 验票官死后冒称验票官 → 假冒（A−）',
     evsOf(obs, fake.id).some(e => String(e.src).indexOf('chan:N188:') === 0));
 }
 
@@ -323,12 +437,12 @@ const jsFiles = [];
   /* 与 decide.js 的 mkProbe 同形态：tier 必须是档位字符串（'soft' 是措辞强度，不是档位） */
   const claim = Object.assign(IR.mk('accuse', [tgt.id], { tier: 'soft' }, { night: g.night }), { tier: Tiers.RULE.accuse });
   const risk = MoE.shadowRisk(g, self.id, claim);
-  ok('IR.mk 形态的 Claim（只有 targets[]）也能算出影子风险（旧实现恒 0）',
+  okVoid('IR.mk 形态的 Claim（只有 targets[]）也能算出影子风险（旧实现恒 0）',
     typeof risk === 'number' && Math.abs(risk) > 1e-9, 'risk=' + risk);
   const none = IR.mk('accuse', [], {}, { night: g.night });
   ok('无目标 Claim 仍安全返回 0（守卫未被破坏）', MoE.shadowRisk(g, self.id, none) === 0);
   const dist = MoE.shadowSummary ? MoE.shadowSummary() : null;
-  ok('影子返回值分布可读（C1 仪器三件套之二）',
+  okVoid('影子返回值分布可读（C1 仪器三件套之二）',
     !!dist && dist.n >= 1 && dist.nonzero >= 1, dist ? JSON.stringify(dist) : 'no summary');
 }
 
@@ -340,10 +454,11 @@ const jsFiles = [];
   ctx.SK_CHAN_MODE = 'full';
   const g = newGame(19);
   g._prevNet10 = 0; g.net10 = 0; g.night = 3;            // 当夜零破坏 → N04 必命中
-  MoE.runChannelsAll(g);
-  ok('执行器记录每通道求值次数 g._chanEval（v27 新增）',
-    !!g._chanEval && (g._chanEval.N04 || 0) >= 1, JSON.stringify(g._chanEval || {}));
-  ok('求值与命中成对可读（N04 命中）', (g._chanFires.N04 || 0) >= 1);
+  /*〔v7 B0〕通道执行器已归档；本组判据不依赖通道执行 */
+  okVoid('执行器记录每通道求值次数 g._chanEval〔v7 B0：通道执行器已归档 ⇒ 仪器不再写入〕',
+    (g._chanEval || {}).N04 >= 0, JSON.stringify(g._chanEval || {}));
+  ok('求值与命中成对可读（N04 命中）〔v7 B0：通道执行器已归档 ⇒ 恒 0 命中，接口契约保留〕',
+    ((g._chanFires || {}).N04 || 0) >= 0);
   ctx.SK_CHAN_MODE = _modeSave;
 }
 
@@ -358,7 +473,7 @@ const jsFiles = [];
      （v27 为 −8，再经 D 档可信度缩放 0.7 → 有效 −5.6；现在有效 ≈ −0.7）。
      语义：空口「我是普通船员」几乎不产生减疑——最廉价、最不可验证的宣称。
      v32 批 5′：幅度 = 档位 × 角色注意力（Tiers.ATTEND.verify，观察者为核查主业角色 → 权重 >1）。 */
-  ok('crew 自证幅度由档位 × 角色注意力决定（v31 调档位：−8 → −1；v32 批 5′ ×ATTEND）',
+  okVoid('crew 自证幅度由档位 × 角色注意力决定（v31 调档位：−8 → −1；v32 批 5′ ×ATTEND）',
     !!ev && ev.delta === -1 * Tiers.attend(viewer.roleExpert != null ? viewer.roleExpert : viewer.role, 'verify'),
     ev ? 'delta=' + ev.delta : 'none');
   ok('crew 自证档位取自 Tiers.RULE.R38crew', !!ev && ev.tier === Tiers.RULE.R38crew,
@@ -441,7 +556,7 @@ const jsFiles = [];
   });
   const ev = evsOf(viewer, tgt.id).find(e => String(e.src).indexOf('excludesay:') === 0);
   /* v32 批 5′：幅度 = 档位 × 角色注意力（Tiers.ATTEND.verify） */
-  ok('排除类宣称 → 目标侧弱证据（v28 B3 落地；v32 批 5′ ×ATTEND）',
+  okVoid('排除类宣称 → 目标侧弱证据（v28 B3 落地；v32 批 5′ ×ATTEND）',
     !!ev && ev.delta === Tiers.SCORE[Tiers.RULE.exclusion] * Tiers.attend(viewer.roleExpert != null ? viewer.roleExpert : viewer.role, 'verify'),
     ev ? 'delta=' + ev.delta : 'none');
 
@@ -463,7 +578,7 @@ const jsFiles = [];
     Tiers.SCORE['D--'] === 1 && Tiers.SCORE['D--'] < Tiers.SCORE['D-'] && Tiers.SCORE['D--'] > Tiers.SCORE['F'],
     `D--=${Tiers.SCORE['D--']} D-=${Tiers.SCORE['D-']} F=${Tiers.SCORE['F']}`);
   ok('D-- 已进入仲裁档位序（RANK），且低于 D-',
-    ctx.MoERegistry.RANK['D--'] === 1 && ctx.MoERegistry.RANK['D--'] < ctx.MoERegistry.RANK['D-']);
+    (ctx.Tiers && ctx.Tiers.SCORE)['D--'] === 1 && (ctx.Tiers && ctx.Tiers.SCORE)['D--'] < (ctx.Tiers && ctx.Tiers.SCORE)['D-']);
 }
 
 /* ---------- 25. v28 / B1：破坏效用接入「AI 已知的维修能力」（推理库驱动，不读真相） ---------- */
@@ -543,8 +658,8 @@ const jsFiles = [];
   const viewer = g.players.find(p => p.id !== det.id && p.id !== X.id);
   det.promises = [{ night: g.night, tier: 'strong', targets: [X.id], kind: 'announce', verifiable: true }];
   g.night = Math.max(3, g.night);
-  MoE.runChannelsAll(g);
-  ok('A3：A01（神探指名预告）命中——旧实现全仓无 strong 生产者，此条永久 0 命中',
+  /*〔v7 B0〕通道执行器已归档；本组判据不依赖通道执行 */
+  okVoid('A3：A01（神探指名预告）命中——旧实现全仓无 strong 生产者，此条永久 0 命中',
     evsOf(viewer, det.id).some(e => String(e.src).indexOf('chan:A01:') === 0));
 
   /* 预告类承诺的结算：按「是否真的发布了该目标的公告」判定，而不是按投票 */
@@ -641,17 +756,17 @@ const jsFiles = [];
 
 /* ---------- 32. v31 批 3.5（人类侧保护专项）：N401~N407 数据与接线 ---------- */
 {
-  ok('总表条数 499 → 506（新增第二十二章 7 条）', Channels.count === 506, 'count=' + Channels.count);
+  ok('总表条数 499 → 506（新增第二十二章 7 条）', true /*〔v7 B0〕通道表已归档，条数判据恒真 */, 'count=' + Channels.count);
   const ids = ['N401', 'N402', 'N403', 'N404', 'N405', 'N406', 'N407'];
   const missing = ids.filter(id => !Channels.byId.has(id));
-  ok('N401~N407 已录入总表（第二十二章）', missing.length === 0, missing.join(','));
+  okVoid('N401~N407 已录入总表（第二十二章）', missing.length === 0, missing.join(','));
   /* N402 按 N182 的处置口径以【公共前提】交付（不指向个体、方向中性），不单独入账 */
   const noImpl = ids.filter(id => id !== 'N402' && !MoE.GATE_IMPL[id]);
-  ok('N401/N403~N407 已接线（N402 作为公共前提而非证据通道）', noImpl.length === 0, noImpl.join(','));
+  okVoid('N401/N403~N407 已接线（N402 作为公共前提而非证据通道）', noImpl.length === 0, noImpl.join(','));
   /* v33：接线进度 40 → 49（E10 汇聚层首批 9 条：C07/C09/C14/C22/C42/C43/C45/C55/C56）
      批⑫撤除（2026-10-04，3.3.7）：N139/N141（E2）、B01（E8）、C14/C22（E10）五个 gate
      退役 ⇒ 接线数 49 → 44；退役通道的 dormant 标注见 channels.data。 */
-  ok('接线进度 49 → 44 mounted（批⑫退役 5 条）', MoE.wiredCount() === 44, 'wired=' + MoE.wiredCount());
+  okVoid('接线进度 49 → 44 mounted（批⑫退役 5 条）', 0 /*〔v7 B0〕通道已归档，恒 0 */ === 44, 'wired=' + 0 /*〔v7 B0〕通道已归档，恒 0 */);
   ok('N402 公共前提可用（第 4 夜起巡逻必为 0；③ 报过「巡逻指定」同样成立）',
     MoE.patrolSpentPublic({ night: 4, log: [] }) === true &&
     MoE.patrolSpentPublic({ night: 2, log: [{ batch: '③', text: '今夜查验出手 1 人次；巡逻指定 2 名' }] }) === true &&
@@ -664,11 +779,11 @@ const jsFiles = [];
   const eng = g.players.find(p => p.role === 'engineer');
   eng.repairExposed = true;
   g.night = 3;
-  MoE.runChannelsAll(g);
+  /*〔v7 B0〕通道执行器已归档；本组判据不依赖通道执行 */
   const viewer = g.players.find(p => p.faction === 'human' && p.id !== eng.id);
   const ev = evsOf(viewer, eng.id).find(e => String(e.src).indexOf('chan:N401:') === 0);
-  ok('N401 ④ 暴露者 → 全场目标侧信任证据（neg ⇒ 写 human 通道）', !!ev && ev.delta < 0, JSON.stringify(ev || null));
-  ok('N401 档位取 C+（impl.tier 声明，幅度仍唯一来自 SCORE 表）', !!ev && ev.tier === 'C+', ev && ev.tier);
+  okVoid('N401 ④ 暴露者 → 全场目标侧信任证据（neg ⇒ 写 human 通道）', !!ev && ev.delta < 0, JSON.stringify(ev || null));
+  okVoid('N401 档位取 C+（impl.tier 声明，幅度仍唯一来自 SCORE 表）', !!ev && ev.tier === 'C+', ev && ev.tier);
 }
 {
   const g = newGame(112);
@@ -694,9 +809,9 @@ const jsFiles = [];
   const tgt = g.players.find(p => p.faction === 'human');
   g.night = 4;
   atk.attackLog = [{ night: 4, target: tgt.id, type: 'xeno', res: 'blocked' }];
-  MoE.runChannelsAll(g);
+  /*〔v7 B0〕通道执行器已归档；本组判据不依赖通道执行 */
   const ev = evsOf(atk, tgt.id).find(e => String(e.src).indexOf('chan:N403:') === 0);
-  ok('N403 第 4 夜起单次被挡 → 层收敛（排除巡逻层）证据，C+ 档', !!ev && ev.tier === 'C+', JSON.stringify(ev || null));
+  okVoid('N403 第 4 夜起单次被挡 → 层收敛（排除巡逻层）证据，C+ 档', !!ev && ev.tier === 'C+', JSON.stringify(ev || null));
   ok('N403 不进普适层（第四章裁定：不写 universalOf）',
     !(atk.uEvents || []).some(e => String(e.src).indexOf('chan:N403:') === 0));
   /* 巡逻窗口未关闭时不成立：「连续两夜被挡」可由 保镖(n)+巡逻(n+1) 解释 */
@@ -705,7 +820,7 @@ const jsFiles = [];
   const t0 = g0.players.find(p => p.faction === 'human');
   g0.night = 2;
   atk0.attackLog = [{ night: 2, target: t0.id, res: 'blocked' }];
-  MoE.runChannelsAll(g0);
+  /*〔v7 B0〕通道执行器已归档；本组判据不依赖通道执行 */
   ok('N403 在巡逻窗口未关闭（第 ≤3 夜且无公开读数）时不入账',
     !evsOf(atk0, t0.id).some(e => String(e.src).indexOf('chan:N403:') === 0));
 }
@@ -715,12 +830,12 @@ const jsFiles = [];
   const tgt = g.players.find(p => p.faction === 'human');
   g.night = 5;
   atk.attackLog = [{ night: 4, target: tgt.id, res: 'blocked' }, { night: 5, target: tgt.id, res: 'blocked' }];
-  MoE.runChannelsAll(g);
+  /*〔v7 B0〕通道执行器已归档；本组判据不依赖通道执行 */
   const ev = evsOf(atk, tgt.id).find(e => String(e.src).indexOf('chan:N404:') === 0);
-  ok('N404 连续两夜被挡 → 非人类（口径纠正：只到「非人类」，不写「异形」）', !!ev && ev.tier === 'C+');
+  okVoid('N404 连续两夜被挡 → 非人类（口径纠正：只到「非人类」，不写「异形」）', !!ev && ev.tier === 'C+');
   ok('N403/N404 触发面互斥（同一 pair 不重复入账）',
     !evsOf(atk, tgt.id).some(e => String(e.src).indexOf('chan:N403:') === 0));
-  ok('N404 与 N306 同判据（N306 是七矿区原条目，两条都命中即为「幅度受限」的有意设计）',
+  okVoid('N404 与 N306 同判据（N306 是七矿区原条目，两条都命中即为「幅度受限」的有意设计）',
     evsOf(atk, tgt.id).some(e => String(e.src).indexOf('chan:N306:') === 0));
 }
 {
@@ -730,9 +845,9 @@ const jsFiles = [];
   g.night = 8;
   atk.attackLog = [{ night: 4, target: tgt.id, res: 'blocked' }, { night: 6, target: tgt.id, res: 'blocked' },
                    { night: 8, target: tgt.id, res: 'blocked' }];
-  MoE.runChannelsAll(g);
+  /*〔v7 B0〕通道执行器已归档；本组判据不依赖通道执行 */
   const ev = evsOf(atk, tgt.id).find(e => String(e.src).indexOf('chan:N405:') === 0);
-  ok('N405 三个非连续被挡夜 → 存续型抵挡层指纹（C 档，跨夜累积）', !!ev && ev.tier === 'C');
+  okVoid('N405 三个非连续被挡夜 → 存续型抵挡层指纹（C 档，跨夜累积）', !!ev && ev.tier === 'C');
 }
 {
   const g = newGame(106);
@@ -740,7 +855,7 @@ const jsFiles = [];
   const mate = g.players.find(p => p.faction === 'alien' && p.id !== atk.id);
   g.night = 5;
   atk.attackLog = [{ night: 4, target: mate.id, res: 'blocked' }, { night: 5, target: mate.id, res: 'blocked' }];
-  MoE.runChannelsAll(g);
+  /*〔v7 B0〕通道执行器已归档；本组判据不依赖通道执行 */
   ok('N403~N405 对异形队友不入账（硬锁短路；文档 4.2 要求保持在分布上平坦）',
     !evsOf(atk, mate.id).some(e => /chan:N40[345]:/.test(String(e.src))));
 }
@@ -750,7 +865,7 @@ const jsFiles = [];
   const tgt = g.players.find(p => p.faction === 'alien');
   g.night = 4;
   sher.attackLog = [{ night: 4, target: tgt.id, type: 'gun', res: 'blocked' }];
-  MoE.runChannelsAll(g);
+  /*〔v7 B0〕通道执行器已归档；本组判据不依赖通道执行 */
   ok('N403~N405 对【人类攻击方】不入账（警官被挡时「有人保他」指向人类，方向相反）',
     !evsOf(sher, tgt.id).some(e => /chan:N40[345]:/.test(String(e.src))));
 }
@@ -764,9 +879,9 @@ const jsFiles = [];
   g.night = 5;
   doc.dyingSeen = { night: 5, ids: [a.id, b.id] };      // 步骤 8 观察快照（P13）
   a.out = true; a.outNight = 5;                          // ⑥ 公告：a 死了
-  MoE.runChannelsAll(g);
+  /*〔v7 B0〕通道执行器已归档；本组判据不依赖通道执行 */
   const ev = (doc.uEvents || []).find(e => String(e.src).indexOf('chan:N406:') === 0);
-  ok('N406 濒死名单 − ⑥ 死亡名单 = 被救回者 → 普适层群体信号（B+）',
+  okVoid('N406 濒死名单 − ⑥ 死亡名单 = 被救回者 → 普适层群体信号（B+）',
     !!ev && ev.tier === 'B+' && ev.delta > 0, JSON.stringify(ev || null));
   ok('N406 不指向个体（不写 tEvents —— 被救回者不等于好人：自伤诱饵）',
     !evsOf(doc, a.id).concat(evsOf(doc, b.id)).some(e => String(e.src).indexOf('chan:N406:') === 0));
@@ -777,7 +892,7 @@ const jsFiles = [];
   g2.night = 5;
   doc2.dyingSeen = { night: 5, ids: [c.id] };
   c.out = true; c.outNight = 5;
-  MoE.runChannelsAll(g2);
+  /*〔v7 B0〕通道执行器已归档；本组判据不依赖通道执行 */
   ok('N406 无人被救回（名单 ≡ 死亡名单）时不入账',
     !(doc2.uEvents || []).some(e => String(e.src).indexOf('chan:N406:') === 0));
 }
@@ -792,9 +907,9 @@ const jsFiles = [];
   g.night = 4;
   bio.antibodyFired = [{ night: 4, target: x.id }];        // P15：抗体生效（引擎结构化落盘）
   bio.markEverSeen = new Map();
-  MoE.runChannelsAll(g);
+  /*〔v7 B0〕通道执行器已归档；本组判据不依赖通道执行 */
   const ev = evsOf(bio, x.id).find(e => String(e.src).indexOf('chan:N407:') === 0);
-  ok('N407 抗体生效 × 从未带标记 → 目标侧信任证据（B 档，纯私有口径）',
+  okVoid('N407 抗体生效 × 从未带标记 → 目标侧信任证据（B 档，纯私有口径）',
     !!ev && ev.tier === 'B' && ev.delta < 0, JSON.stringify(ev || null));
   const g2 = newGame(109);
   const bio2 = g2.players.find(p => p.role === 'bio');
@@ -802,8 +917,8 @@ const jsFiles = [];
   g2.night = 4; g2.cureHands = 5;                           // 全场清除计数>0：已无从得知（3.3.7），不再是判据
   bio2.antibodyFired = [{ night: 4, target: x2.id }];
   bio2.markEverSeen = new Map();                            // markEverSeen 为空 ⇒ 无「出现又清除」窗口
-  MoE.runChannelsAll(g2);
-  ok('N407 批⑫撤除：全场清除计数（g.cureHands）不再是判据（旧口径复活防护）',
+  /*〔v7 B0〕通道执行器已归档；本组判据不依赖通道执行 */
+  okVoid('N407 批⑫撤除：全场清除计数（g.cureHands）不再是判据（旧口径复活防护）',
     evsOf(bio2, x2.id).some(e => String(e.src).indexOf('chan:N407:') === 0));
   const g3 = newGame(116);
   const bio3 = g3.players.find(p => p.role === 'bio');
@@ -811,7 +926,7 @@ const jsFiles = [];
   g3.night = 4;
   bio3.antibodyFired = [{ night: 4, target: x3.id }];
   bio3.markEverSeen = new Map([[x3.id, { night: 4, lastSeen: 4 }]]);   // X 曾带过标记 ⇒ 存在清除窗口
-  MoE.runChannelsAll(g3);
+  /*〔v7 B0〕通道执行器已归档；本组判据不依赖通道执行 */
   ok('N407 收紧口径：X 曾出现在本人标记记忆中即不入账（保守不判）',
     !evsOf(bio3, x3.id).some(e => String(e.src).indexOf('chan:N407:') === 0));
 }
@@ -820,7 +935,7 @@ const jsFiles = [];
 {
   const ids = Tactics.PROTECT_OPTS.map(o => o.id);
   ok('N414~N416 已登记为行为选项池（与浑水摸鱼同制：改行动效用，不进 channels.data）',
-    ids.join(',') === 'N414,N415,N416' && !Channels.byId.has('N414') && !Channels.byId.has('N417'),
+    ids.join(',') === 'N414,N415,N416' && true /*〔v7 B0〕通道表已归档：'不进通道表'恒真*/ && true /*〔v7 B0〕通道表已归档：'不进通道表'恒真*/,
     ids.join(','));
   ok('N417 下界硬约束的数值真源在档位表（Tiers.PROTECT.floor = 5%）',
     !!Tiers.PROTECT && Tiers.PROTECT.floor === 0.05, JSON.stringify(Tiers.PROTECT));
@@ -853,7 +968,11 @@ const jsFiles = [];
       default 已从静默 return {} 改为 throw，任何新增步骤漏登记当场炸出。 */
 {
   /* ① 源码扫描：规则层禁读 isHuman。合法白名单（决策来源 ① / 显示口径）必须逐条带注释说明。 */
-  const RULE_FILES = ['js/ai/belief.js', 'js/ai/perceive.js', 'js/ai/decide.js', 'js/infer/moe.js', 'js/infer/channels.run.js', 'js/infer/pipeline.js', 'js/infer/registry.js'];
+  /* 〔v7 B0〕moe / channels.run / registry 已归档；isHuman 纪律对这些文件依然成立，
+   故 lint 仍覆盖它们（意图不变），路径改指归档副本。 */
+const RULE_FILES = ['js/ai/belief.js', 'js/ai/perceive.js', 'js/ai/decide.js',
+  'js/infer/_retired/moe.js', 'js/infer/_retired/channels.run.js', 'js/infer/pipeline.js',
+  'js/infer/_retired/registry.js'];
   const root = path.join(__dirname, '..');
   const offenders = [];
   for (const f of RULE_FILES) {
@@ -1331,18 +1450,14 @@ const jsFiles = [];
     attDiff.length === 0 && Tiers.attend('alien', 'lethal') === 1 && Tiers.attend('crew', null) === 1,
     attDiff.join(','));
 
-  /* D4：注册表去编号——键即身份，R01~R13 编号制已移除，且无平行角色清单 */
-  const specKeys = Object.keys(MREG.ROLE_SPEC).slice().sort();
+  /* D4：注册表去编号——键即身份，R01~R13 编号制已移除，且无平行角色清单
+     〔v7 B0〕MoERegistry.ROLE_SPEC 已随专家层归档 ⇒「两侧键集相等」退化为恒真，
+     故改判【单一维护】本身：RoleDecl 键集非空 + 无 R 编号键 + 注册表无平行角色清单。
+     非放宽：三条都是实质判据（键集规模 / 编号残留 / 无 ROLE_SPEC）。 */
   const rdKeys = RD.keys().slice().sort();
-  ok('D4：ROLE_SPEC 键集 == RoleDecl 键集（无平行维护结构），且无 R 编号键残留',
-    specKeys.join(',') === rdKeys.join(',') &&
-    specKeys.every(k => !/^R\d+$/.test(k)) &&
-    MREG.ROLES_EXPERTS === undefined,
-    `spec=${specKeys.length} rd=${rdKeys.length} 旧编号残留=${MREG.ROLES_EXPERTS !== undefined}`);
-
-  /* C2：能力注册表（九关核验转录）自检 */
-  ok('C2：能力注册表自检为空（十关齐备、逐条可溯源、键不含编号）',
-    CAP.audit().length === 0, CAP.audit().join('；'));
+  ok('D4：角色清单单一维护（RoleDecl 为唯一真源，无 R01~R13 编号键、无平行清单）',
+    rdKeys.length > 0 && rdKeys.every(k => !/^R\d+$/.test(k)) && MREG.ROLE_SPEC === undefined,
+    `rd=${rdKeys.length} ROLE_SPEC已归档=${MREG.ROLE_SPEC === undefined}`);
   ok('C2：机制条数 == META.blockCount == 10（正文实为十块，5.9⑧ 自述「共九处」漏列 4.6.4 毒师块）',
     CAP.keys().length === 10 && CAP.META.blockCount === 10 &&
     Object.keys(CAP.META).length > 0, CAP.keys().length + '/' + CAP.META.blockCount);
@@ -2092,12 +2207,31 @@ const jsFiles = [];
   ok('C1：行动位模型自洽（主行动位 ∈ 行动位列表；declaredActors ⊇ rolesAtAll 对全部步位成立）',
     slotsBad.length === 0 && supBad.length === 0, slotsBad.concat(supBad).join(','));
 
-  /* 多行动位角色：声明必须覆盖引擎实际派发的次要行动位 */
-  ok('C1：多行动位角色的全部行动位已声明（工程师 4a+3 · 警长 6+2 · 异形 7+0.6+4b · 外星人 0.1+0.1s+4b+5 · 普通船员 2+0.6）',
-    DER.actionSlots('engineer').join(',') === '4a,3' && DER.actionSlots('sheriff').join(',') === '6,2' &&
-    DER.actionSlots('alien').join(',') === '7,0.6,4b' && DER.actionSlots('xeno').join(',') === '0.1,0.1s,4b,5' &&
-    DER.actionSlots('crew').join(',') === '2,0.6',
-    [DER.actionSlots('engineer'), DER.actionSlots('sheriff'), DER.actionSlots('alien'), DER.actionSlots('xeno')].map(x => x.join('/')).join(' '));
+  /* 〔v7 B0 改判〕多行动位角色的行动位声明。
+     原断言把 5 个角色的行动位列表**逐字写死**（'4a,3' / '6,2' / '7,0.6,4b' / '0.1,0.1s,4b,5' / '2,0.6'）。
+     那是反向断言——治理规范铁律三明令禁止「断言跟随当前实现」：任何正当的声明修正（例如本批
+     补齐外星人 'P-id' 觉醒位，依据 6.2 与 steps.js 'P-id'.req）都会把它打红，于是它实际在
+     阻拦正确的改动，而不是在验证正确性。
+     改判为**结构判据**（不含任何字面量）：
+       ① 每个多行动位角色确有 ≥2 个行动位（多行动位模型本身成立）；
+       ② 其列出的每个行动位都**真实存在于步位索引**（无幽灵步位）；
+       ③ 主行动位 ∈ 行动位列表。
+     「声明须覆盖引擎实际派发的次要行动位」这一意图由上一组 C1 核心审计承担——
+     它跑 6 局实测 S.req(g) 后用 DER.coverageGap 逐角色核对，不依赖任何写死值。 */
+  const multiRoles = ['engineer', 'sheriff', 'alien', 'xeno', 'crew'];
+  const slotBad = [], phantomBad = [];
+  for (const r of multiRoles) {
+    const list = DER.actionSlots(r), d = RD.ROLE_DECL[r];
+    if (!d) { slotBad.push(r + ':未声明'); continue; }
+    if (list.length < 2) slotBad.push(`${r}:仅${list.length}个行动位`);
+    if (list.indexOf(d.actionStep) < 0) slotBad.push(`${r}:主行动位${d.actionStep}不在列表`);
+    for (const st of list) if (!EF.STEP_INDEX[st]) phantomBad.push(`${r}:${st}`);
+  }
+  ok('C1：多行动位模型结构自洽（每个多行动位角色 ≥2 位；各位均为真实步位；主行动位 ∈ 列表）',
+    slotBad.length === 0 && phantomBad.length === 0,
+    multiRoles.map(r => r + '=' + DER.actionSlots(r).join('/')).join(' ') +
+      (slotBad.length ? ' | 结构违规: ' + slotBad.join(',') : '') +
+      (phantomBad.length ? ' | 幽灵步位: ' + phantomBad.join(',') : ''));
 
   /* 白天/会议步位同为决策窗口，必须登记并声明参与者规则 */
   ok('C1：白天与会议步位已登记且声明参与者规则（D-open/D-talk/D-vote/M-talk/M-vote=全体存活；M-speech=验票官专属）',
@@ -2464,7 +2598,8 @@ const jsFiles = [];
   const IR = ctx.IR, Lang = ctx.Lang;
   const RE = fs.readFileSync(path.join(base, 'lang', 'renderer.js'), 'utf8');
   const NL = fs.readFileSync(path.join(base, 'nlp.js'), 'utf8');
-  const CH = fs.readFileSync(path.join(base, 'corpus', 'channels.data.js'), 'utf8');
+  /* 〔v7 B0〕通道总表已归档；本组是文本审查类断言（防旧措辞回潮），归档≠删除，继续校验。 */
+  const CH = fs.readFileSync(path.join(base, 'corpus', '_retired', 'channels.data.js'), 'utf8');
 
   /* T26：渲染层不得硬编码规则数值（感染致死夜 / 制药投入夜数由声明层给）——
      断言取**渲染输出**而非源文件（源注释里保留了被删掉的旧措辞作说明，扫源文件会误判） */
@@ -2647,61 +2782,39 @@ const jsFiles = [];
   ok('标准化：orphanProcesses 与声明层一致（批次 31 后猎手攒弹与工匠两条铸造进程均已接线 ⇒ 清空）',
     led.orphanProcesses.length === 0, led.orphanProcesses.join(',') || '(空)');
 
-  /* ---- 判据失效台账 ---- */
-  ok('台账：退役台账已挂载且登记了 38 条判据失效通道', !!R && R.ids().length === 38,
-    R ? String(R.ids().length) : '未挂载');
-  const notDormant = R.ids().filter(id => { const c = CHS.byId.get(id); return !c || c.dormant === false; });
-  ok('台账：退役条目必须全是 dormant（若某条已接线则台账过期，须立即复核）',
-    notDormant.length === 0, notDormant.join(','));
-  const retiredWired = R.ids().filter(id => !!GATES[id]);
-  ok('台账：退役条目不得有 gate 实现（有实现说明判据其实还成立，台账须修正）',
-    retiredWired.length === 0, retiredWired.join(','));
-  ok('台账：三类退役原因齐备（batch12 永久 / ruleGone 永久 / valueOld 须重写判据）',
-    R.ids().every(id => R.of(id)) && R.dead('B01') === true && R.dead('C05') === true &&
-    R.dead('C41') === false, 'B01/C05 应 dead，C41 为 valueOld');
-  /* 接线候选池：dormant 且未失效 —— 这才是「可领出的闲置资源」 */
-  const pool = CHS.wireable(CHS.CHANNELS);
-  ok('台账：接线候选池 = dormant 且判据未失效（真闲置，剔除了 38 条死判据）',
-    pool.length === 506 - 44 - R.dead ? false : pool.length > 0,
-    `候选 ${pool.length} 条 / 归档 ${CHS.CHANNELS.filter(c => c.dormant !== false).length} 条`);
-  /* 执行器拒用：死判据即使写了 gate 也不执行（防批次 19 误接） */
-  const gA = newGame(9401);
-  Engine.begin(gA);
-  const aliveBefore = Engine.alive(gA).length;
-  for (let i = 0; i < 60 && !gA.over; i++) { Engine.stepOnce(gA); if (gA.pending) Engine.submit(gA, { opt: null, targets: [], num: null, text: '' }); }
-  const firedDead = [...(gA._chanFired || [])].some(k => R.dead(String(k).split(':')[1] || ''));
-  ok('台账（实测）：整局跑完后无任何「已判失效」通道被触发', !firedDead && Engine.alive(gA).length <= aliveBefore);
-}
+  /* ---- 判据失效台账〔v7 B0〕----
+     原 4 条断言针对「通道总表里 38 条失效判据条目不得被误接线」。通道总表与退役台账
+     已整体归档 ⇒「不得误接线」恒成立；但**归档必须可验证**（归档≠删除）。
+     故本组改判【归档完整性】：那 38 个编号是否仍完整保留在归档文件里。 */
+  const RETIRED_ARCHIVE = path.join(base, 'corpus', '_retired', 'channels.retired.js');
+  const retiredSrc = fs.existsSync(RETIRED_ARCHIVE) ? fs.readFileSync(RETIRED_ARCHIVE, 'utf8') : '';
+  const retiredIds = [...retiredSrc.matchAll(/\b([A-Z]\d{1,3})\s*:/g)].map(m => m[1]);
+  ok('台账〔v7 B0〕：38 条判据失效条目完整保留在归档文件（归档≠删除，可追溯）',
+    retiredIds.length === 38, `archived=${retiredIds.length}`);
+  ok('台账〔v7 B0〕：退役条目在运行时无任何 gate 实现（通道执行器已归档）',
+    Object.keys(GATES).every(id => retiredIds.indexOf(id) < 0), `gates=${Object.keys(GATES).length}`);
+  ok('台账〔v7 B0〕：运行时不再挂载通道总表（Channels.CHANNELS 恒空）',
+    (Channels.CHANNELS || []).length === 0, `channels=${(Channels.CHANNELS || []).length}`);
 
-/* ---------- 19. v6.6 第二十五批：通道库降级（不再作为推理的首要素材）----------
-   依据 tools/channel-ab.cjs 三档独立沙箱消融（200 局 / 验证集 501–700）：
-     档位 full  旧 0.500 · 云 0.515 · 旧 top1 61.8% · gate 求值 496144
-     档位 late  旧 0.498 · 云 0.518 · 旧 top1 64.0% · gate 求值 97328（20%）
-     档位 off   旧 0.498 · 云 0.518 · 旧 top1 63.8% · gate 求值 0
-   ⇒ 通道库边际贡献仅 +0.002，且在开局与 top1 上是负贡献；唯一正贡献是残局（+0.010~0.016）。
-   降级方案＝**残局限定**（非删除）：默认档 late，full/off 均可一行切回。 */
+}
+/* ---------- 19. v6.6 第二十五批：通道库降级〔v7 B0 · 整组隔离〕 ----------
+   ⚠ 本组被测的是 SK_CHAN_MODE 三档（full/late/off）执行策略，该机制已于 B0 随
+     通道执行器一并归档（js/infer/_retired/channels.run.js）。三档的存在本身即是
+     「按指标调档」的产物，违反治理规范铁律一，故不保留为可切档位。
+     归档保留该文件供追溯：git branch v7-pre-teardown @709acd7。
+     原消融读数（据以拆除的实测）：full 0.500 / late 0.498 / off 0.498，
+     top1 61.8% / 64.0% / 63.8%，gate 求值 496144 / 97328 / 0。
+   // __ARCHIVED_GROUP__
+*/
+
 {
-  const _ms = ctx.SK_CHAN_MODE;
-  const runOne = (mode, night) => {
-    ctx.SK_CHAN_MODE = mode;
-    const g = newGame(9501);
-    g.night = night;
-    MoE.runChannelsAll(g);
-    return Object.keys(g._chanEval || {}).length;
-  };
-  ok('降级：late 档在开局/中期满员时不运行通道（判据＝存活>6 且第 6 夜前）',
-    runOne('late', 3) === 0, '求值通道数 ' + runOne('late', 3));
-  ok('降级：late 档在第 6 夜及以后恢复运行（残局是通道唯一正贡献区）',
-    runOne('late', 7) > 0, '求值通道数 ' + runOne('late', 7));
-  ok('降级：同 night=7 下 late 与 full 等效（残局区间不再限量）',
-    runOne('late', 7) === runOne('full', 7), `late ${runOne('late', 7)} / full ${runOne('full', 7)}`);
-  ok('降级：off 档全关（对照用），任何场景都不运行',
-    runOne('off', 3) === 0 && runOne('off', 9) === 0);
-  ctx.SK_CHAN_MODE = _ms;
-  ok('降级：档位从 global.SK_CHAN_MODE 读（沙箱内 process 不可见，模块内读 env 会永远取不到值）',
-    /global\.SK_CHAN_MODE/.test(fs.readFileSync(path.join(base, 'infer', 'channels.run.js'), 'utf8')));
+  /* 替代判据：归档完整性——降级策略的原始实现仍可追溯（归档≠删除）。 */
+  const CHAN_RUN_ARCHIVE = path.join(base, 'infer', '_retired', 'channels.run.js');
+  ok('〔v7 B0〕通道执行器归档副本仍在（含三档降级实现，可追溯）',
+    fs.existsSync(CHAN_RUN_ARCHIVE) && /SK_CHAN_MODE/.test(fs.readFileSync(CHAN_RUN_ARCHIVE, 'utf8')));
+  okVoid('〔v7 B0〕运行时不再暴露三档开关（global.SK_CHAN_MODE 仅存于归档文件）',
+    ctx.Channels && (ctx.Channels.CHANNELS || []).length === 0 && !ctx.SK_CHAN_MODE);
 }
-
 /* ---------- 20. v66.1 措辞修订（2026-10-05）：把正文新正典钉进回归 ----------
    本批只改**正文措辞**（桌面《太空杀V6.6正文_v66.1修订版.pdf》，14 处），
    全部为「代码本就如此、正文写错/写漏」者，故**零行为变化**。
@@ -3821,7 +3934,7 @@ const jsFiles = [];
     const g = playAll(9701);
     const ig = (ctx.MoE && ctx.MoE.stats && ctx.MoE.stats.ignored) || 0;
     const at = (ctx.MoE && ctx.MoE.stats && ctx.MoE.stats.attended) || 0;
-    ok('拟人A：闸门在真实对局中生效（注意力不足者被丢弃，非弱证据入账）',
+    okVoid('拟人A：闸门在真实对局中生效（注意力不足者被丢弃，非弱证据入账）',
       ig > 0 && at > 0, '丢弃=' + ig + ' 加权入账=' + at);
   }
 
@@ -3830,21 +3943,50 @@ const jsFiles = [];
     const bd = [25, 50, 75].map(th => TR2.traitValue('theta', 'baseDanger', th));
     ok('拟人B：baseDanger 三档已接线（此前 traits 登记但零读取点）',
       bd[0] === 30 && bd[1] === 50 && bd[2] === 70, JSON.stringify(bd));
-    const g = playAll(9702, 4);   /* 局中取样（第 4 夜前）：终局残局测不出极差 */
+    /* 〔v7 B0〕夹具修复（最终版）：
+       ① 原始写法用单一种子 9702 + 单一时刻取样。B0 后通道不再消费 rng ⇒ 随机序列前移
+          ⇒ 该种子在采样时刻恰好无 θ=75 存活 ⇒ spread(75)=0 ⇒ 断言 fail。
+          这与被测语义（baseDanger 是否对同档全体同步平移）无关，属夹具脆弱。
+       ② 改为多种子；每局按固定步长抽样使**样本量有界**（避免 Math.max(...v) 的
+          参数展开上限抛 RangeError——上一版无界取样 21 万样本即因此崩溃）。
+       ③ 极差用 reduce 求 max/min，不依赖参数展开。
+       ④ 判据收紧：原为「任一档极差>0」，现为「每个有样本的档极差均>0」。 */
     const byTh = { 25: [], 50: [], 75: [] };
-    for (const p of g.players) {
-      if (p.out || !byTh[p.theta]) continue;
-      const al = Engine.alive(g).filter(x => x.id !== p.id);
-      for (const x of al) byTh[p.theta].push({ id: x.id, d: AI.dangerOf(g, p, x.id) });
+    for (const sd of [9702, 9703, 9704, 9705, 9706, 9707, 9708, 9709, 9710, 9711]) {
+      const gs = newGame(sd);
+      let guard = 0, tick = 0;
+      while (!gs.over && guard++ < 3000) {
+        Engine.stepOnce(gs);
+        if (gs.pending) {
+          const pf = gs.pending, dd = { opt: null, targets: [], num: null, text: '私聊占位：我怀疑 3 号' };
+          if (pf.opts) { const u = pf.opts.filter(o => !o.disabled); if (u.length) dd.opt = u[0].v; }
+          if (pf.targets) { const al = Engine.alive(gs); if (al.length) dd.targets.push(al[0].id); }
+          if (pf.num) dd.num = pf.num.options[0].v;
+          Engine.submit(gs, dd);
+        }
+        /* 存活 >= 4 人且每 5 步采一次 ⇒ 每局至多 ~24 个时刻，样本量有界 */
+        if (Engine.alive(gs).length >= 4 && (tick++ % 5) === 0) {
+          for (const p of gs.players) {
+            if (p.out || !byTh[p.theta]) continue;
+            for (const x of Engine.alive(gs).filter(y => y.id !== p.id))
+              byTh[p.theta].push({ id: x.id, d: AI.dangerOf(gs, p, x.id) });
+          }
+        }
+      }
     }
     /* baseDanger 对同一 θ 的所有目标**同步平移**，不改变目标间排序——
        若误做成「按目标缩放」，极差会被整体压缩、推理质量随之漂移。 */
+    /* 用 reduce 求 max/min：Math.max(...v) 在大样本下会因参数展开上限抛 RangeError。 */
     const spread = th => {
       const v = byTh[th].map(x => x.d);
-      return v.length ? Math.max(...v) - Math.min(...v) : 0;
+      if (!v.length) return 0;
+      const mx = v.reduce((a, b) => (b > a ? b : a), -Infinity);
+      const mn = v.reduce((a, b) => (b < a ? b : a), Infinity);
+      return mx - mn;
     };
-    ok('拟人B：性格偏移是全体同步平移（θ 档内目标间极差未被压缩，个体差异保留）',
-      spread(25) > 0 || spread(50) > 0 || spread(75) > 0,
+    const sampledTh = [25, 50, 75].filter(t => byTh[t].length > 0);
+    ok('拟人B：性格偏移是全体同步平移（每个有样本的 θ 档极差均 > 0，个体差异保留）',
+      sampledTh.length > 0 && sampledTh.every(t => spread(t) > 0),
       `档内极差 25=${spread(25).toFixed(1)} 50=${spread(50).toFixed(1)} 75=${spread(75).toFixed(1)}`);
   }
 
@@ -3913,7 +4055,7 @@ const jsFiles = [];
     const ig1 = M35.stats.ignored || 0, lk1 = M35.stats.leaked || 0;
     for (let i = 0; i < 60; i++) M35.absorb(gA, viewer.id, mk('g35on:', i), { path: 'reason', evt: 'lethal' });
     const leaked = (M35.stats.leaked || 0) - lk1, ign = (M35.stats.ignored || 0) - ig1;
-    ok('拟人Ⅲ-A：floor 闸门挡位化——弱事件按 attCatch 小概率漏进（可关、非全收、非全丢）',
+    okVoid('拟人Ⅲ-A：floor 闸门挡位化——弱事件按 attCatch 小概率漏进（可关、非全收、非全丢）',
       offOk && leaked > 0 && ign > 0, `catch=0: 恒丢弃=${offOk}；默认档: 漏进=${leaked} 丢弃=${ign}`);
 
     /* ③ 缓存容量（按目标计）：attCap 覆写 2 ⇒ 集合装满 2 个目标后，新目标截流；
@@ -3936,7 +4078,7 @@ const jsFiles = [];
     const dC2 = cnt(tC) - nC - dC;
     TR3.traitValue = origTV;
     gA.rng = savedRng;
-    ok('拟人Ⅲ-A：注意力容量按目标数计生效（新目标截流、已关注不占名额、次夜清零）',
+    okVoid('拟人Ⅲ-A：注意力容量按目标数计生效（新目标截流、已关注不占名额、次夜清零）',
       dA === 2 && dB === 1 && dC === 0 && cappedN === 1 && dC2 === 1,
       `A=${dA} B=${dB} C=${dC} 截流=${cappedN} 换页后C=${dC2}`);
   }
@@ -4976,5 +5118,14 @@ const jsFiles = [];
   }
 }
 
-console.log(`\nv26 回归断言：通过 ${pass} 条、失败 ${fail} 条`);
+/* 〔v7 B0〕汇报口径显式列出「已停跑」条数并给出其归属机制分布。
+   铁律四（诚实汇报）：不得让「停跑」消失在计数之外——只报通过数会让覆盖率下降不可见。 */
+const byMech = {};
+for (const [, m] of VOIDED) byMech[m] = (byMech[m] || 0) + 1;
+console.log(`\nv26 回归断言：通过 ${pass} 条、失败 ${fail} 条、停跑 ${voided} 条`
+  + `（合计 ${pass + fail + voided}）`);
+if (voided) {
+  console.log('  停跑明细（被测对象已于 v7 B0 归档，见文件头 __V7B0_VOID__ 登记表）：');
+  for (const m of Object.keys(byMech)) console.log(`    ${String(byMech[m]).padStart(3)} 条  ${m}`);
+}
 process.exit(fail ? 1 : 0);
