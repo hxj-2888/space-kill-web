@@ -194,6 +194,24 @@ add('文档记录钩位错一格的教训（派发观测必须包住 req 函数�
 add('文档记录变体口径的新报数（65.4%）', /65\.4/.test(doc));
 add('文档记录裁定③ 两口径读数之差（2\.2% → 3\.4%）', /3\.4%/.test(doc));
 
+/* ── 真人/AI 对等（2026-10-08 批次：human-ai-parity）──
+   这一段核对的不是「AI 强不强」，而是「AI 有没有比真人多拿东西」。
+   铁律一：指标只读；但「AI 透视」是**规则性违例**（卡未授权 + 视图不下发），
+   属铁律一允许进 gate 的那一类回归断言。 */
+const HP = rd('human-ai-parity-241-300-variants.json');
+add('对等探针产物带席位口径栏', HP.meta.seatMode === 'variants');
+add('动作空间对等：AI 交了表单外的 opt/target/num 均为 0',
+  HP.d1_actionSpace.outOfForm === 0 && HP.d1_actionSpace.targetOutOfForm === 0
+  && HP.d1_actionSpace.numOutOfForm === 0);
+add('动作空间对等：派发 100% 有表单可对照',
+  HP.d1_actionSpace.dispatches > 0
+  && HP.d1_actionSpace.formsCompared === HP.d1_actionSpace.dispatches);
+add('合法性对等：toDecision 零失败', HP.d3_legality.failures === 0);
+add('信息边界：无「无法判定」的漏网（判据真源可用）', HP.d2_information.viewUnknown === 0);
+add('信息边界：越界只集中在 silenceNight（唯一已知实现层越界）',
+  Object.keys(HP.d2_information.violationFields).every(k => k.indexOf('silenceNight') === 0)
+  && HP.d2_information.violationFields['silenceNight by alien'] > 0);
+
 let bad = 0;
 ck.forEach(([n, ok]) => { if (!ok) bad++; console.log('  ' + (ok ? 'OK  ' : 'BAD ') + n); });
 console.log('');
