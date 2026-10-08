@@ -1,0 +1,170 @@
+{
+ "games": [
+  {
+   "seed": 1300,
+   "seat": 1,
+   "turns": 9,
+   "kinds": {
+    "talk": 3,
+    "invite": 2,
+    "vote": 2,
+    "wiretapReport": 1,
+    "will": 1
+   },
+   "blind": 2,
+   "friction": [],
+   "inbox": [
+    "你被『普通船员』查验。",
+    "你被『普通船员』查验。",
+    "你被『普通船员』查验。",
+    "你被『普通船员』查验。",
+    "你被『普通船员』查验。",
+    "你被『普通船员』查验。"
+   ],
+   "steps": 272,
+   "firstTurn": {
+    "kind": "talk",
+    "role": "窃听者"
+   },
+   "lastFacts": 2,
+   "role": "listener",
+   "faction": "human",
+   "winner": "human",
+   "win": true,
+   "night": 10,
+   "aliveEnd": 2,
+   "over": true
+  },
+  {
+   "seed": 1301,
+   "seat": 2,
+   "turns": 14,
+   "kinds": {
+    "talk": 4,
+    "invite": 3,
+    "crewAction": 2,
+    "vote": 3,
+    "suppress": 1,
+    "will": 1
+   },
+   "blind": 5,
+   "friction": [],
+   "inbox": [
+    "1 号是「普通船员」吗——否。",
+    "1 号是「普通船员」吗——否。",
+    "1 号是「普通船员」吗——否。",
+    "你被『外星人』查验。",
+    "你身上出现感染标记，将于第 4 夜致死。",
+    "你身上出现感染标记，将于第 4 夜致死。"
+   ],
+   "steps": 163,
+   "firstTurn": {
+    "kind": "talk",
+    "role": "普通船员"
+   },
+   "lastFacts": 0,
+   "role": "crew",
+   "faction": "human",
+   "winner": "alien",
+   "win": false,
+   "night": 6,
+   "aliveEnd": 2,
+   "over": true
+  },
+  {
+   "seed": 1302,
+   "seat": 3,
+   "turns": 10,
+   "kinds": {
+    "talk": 3,
+    "invite": 2,
+    "crewAction": 2,
+    "vote": 2,
+    "will": 1
+   },
+   "blind": 4,
+   "friction": [],
+   "inbox": [
+    "1 号是「普通船员」吗——否。",
+    "1 号是「普通船员」吗——否。",
+    "1 号是「普通船员」吗——否。",
+    "1 号是「普通船员」吗——否。",
+    "你被『普通船员』查验。",
+    "你被『普通船员』查验。"
+   ],
+   "steps": 165,
+   "firstTurn": {
+    "kind": "talk",
+    "role": "普通船员"
+   },
+   "lastFacts": 0,
+   "role": "crew",
+   "faction": "human",
+   "winner": "human",
+   "win": true,
+   "night": 6,
+   "aliveEnd": 4,
+   "over": true
+  }
+ ],
+ "totals": {},
+ "friction": {},
+ "blind": 11,
+ "decisions": 33,
+ "kindCount": {
+  "talk": 10,
+  "invite": 7,
+  "vote": 7,
+  "wiretapReport": 1,
+  "will": 3,
+  "crewAction": 4,
+  "suppress": 1
+ },
+ "descClause": 0,
+ "descTotal": 33,
+ "descSamples": [],
+ "hardInfo": {},
+ "inboxKinds": {
+  "情报·被查验告知": 11,
+  "情报·查验作答（船员）": 7,
+  "情报·自己被感染": 4,
+  "状态·感染抑制生效": 3
+ },
+ "unknowns": {},
+ "notesSample": [
+  "种子1300 第1昼 投 2号（怀疑度 0）",
+  "种子1300 第2昼 投 2号（怀疑度 0）",
+  "种子1301 第1昼 投 1号（怀疑度 0）",
+  "种子1301 第2昼 投 3号（怀疑度 0）",
+  "种子1302 第1昼 投 1号（怀疑度 0）",
+  "种子1302 第2昼 投 4号（怀疑度 0）"
+ ],
+ "roleWin": {
+  "listener:win": 1,
+  "crew:lose": 1,
+  "crew:win": 1
+ },
+ "roleGames": {
+  "listener": 1,
+  "crew": 2
+ },
+ "roleDecisions": {
+  "窃听者": 9,
+  "普通船员": 24
+ },
+ "speech": {
+  "said": 10,
+  "parsedAsClaim": 0,
+  "parsedAsAccuse": 10,
+  "ignored": 0,
+  "selfAccuse": 0,
+  "samples": []
+ },
+ "inboxTexts": {
+  "你被『普通船员』查验。": 10,
+  "# 号是「X」吗——否。": 7,
+  "你被『外星人』查验。": 1,
+  "你身上出现感染标记，将于第 # 夜致死。": 4,
+  "感染抑制生效：致死延后至第 # 夜，今夜失去主动技能。": 3
+ }
+}

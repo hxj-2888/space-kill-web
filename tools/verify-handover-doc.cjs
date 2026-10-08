@@ -252,6 +252,28 @@ add('UI 渲染对空选项列表防御：num/num2 统一走 numSlot，且不再�
   && !/<select id="f-num2?"\>/.test(uiCode));
 add('必答项无选项作为**可见死面**打印，且不静默跳过',
   /\[死面\]/.test(smoke) && /deadFaces/.test(smokeCode));
+/* —— 玩家视角（2026-10-08 新增）——
+   这组盯的是**防火墙的结构**：玩家模型拿不到对局状态，所以它测出来的「玩家能知道什么」
+   才是真的。一旦有人往玩家模型里塞一个 g 参数，下面两条会立刻变红。 */
+const hp = fs.readFileSync(ROOT + 'tools/human-player.cjs', 'utf8');
+const ph = fs.readFileSync(ROOT + 'tools/play-human.cjs', 'utf8');
+add('玩家模型是**结构性**防火墙：decide 只吃 view，不吃 g',
+  /function decide\(v, f, mem\)/.test(hp) && !/function decide\s*\([^)]*\bg\b[^)]*\)/.test(hp));
+add('玩家侧目标名单从 view.players 重建（不得用 Engine.alive(g) 之类）',
+  /function targetPool\(v, spec\)/.test(hp) && hp.indexOf('Engine.alive') < 0);
+add('人类席位三处（humanId/humans/isHuman）作为整体设置，并记明该坑',
+  /g\.humans = \[seat\]/.test(ph) && /p\.isHuman = \(p\.id === seat\)/.test(ph)
+  && /表单\*\*一个都不派发|表单.*一个都不派发/.test(ph));
+add('play-human 补载 view.js（不在 profiles.full，漏载则玩家侧无从谈起）',
+  /\['view'\]/.test(ph) && /View\.build 不可用/.test(ph));
+add('盲目决策等指标只做**本步增量**累加（首版累计值重复计数报出 327.9%）',
+  /本步增量/.test(ph) && /blindMark/.test(ph));
+add('文档记录玩家视角发现：声称正则不认编号句（0/668 被认成声称）',
+  /我是3号警长|编号/.test(doc) && /claimedRole/.test(doc));
+add('文档写明「玩家模型不是人」，且胜率不得当平衡结论',
+  /不是人/.test(doc) && /不能.*平衡|不是角色弱|模型弱/.test(doc));
+add('玩家视角种子段与报数区分开（1200+ 独立，不与 241–500 混算）',
+  /1200/.test(doc) && /不与报数区/.test(doc));
 add('文档记录「空查验池」这一待裁定项（不替规则做决定）',
   /无可查身份|必答项无选项|verifyPool/.test(doc) && /待产品裁定|待裁定/.test(doc));
 add('提取件已 gitignore（复制规则文本进仓库等于制造第二份规则）',
