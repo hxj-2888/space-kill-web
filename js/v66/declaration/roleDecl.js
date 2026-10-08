@@ -57,6 +57,17 @@
     capClass:    { gate: '[D6]',     life: 'wired',    desc: '能力档（危险度 Dg 的能力项系数档）：high|mid|low，缺失即 base' },
     seats:       { gate: '[D8]',     life: 'wired',    desc: '阵营席位常数（非人类阵营的开局名额；人类席位由组位表给出）' },
     repairExposeAt: { gate: '[4.3.6]', life: 'wired', desc: '累计维修暴露阈值（工程师 4.0 / 助理 3.0）；缺失即不适用。经 repairExposeAtOf() 读取（steps.js 结算 / ui.js 进度条）' },
+    /* 〔v7 · 速查卡定制〕AI 职责面：三张卡内字段，是 AI 决策的直接依据。
+       动机：速查卡对每个角色都明写了三件「规则面」的事，而声明层此前无法表达它们——
+         mutex  当夜互斥（「治疗／自救／制药三者互斥」）。引擎虽各自实现，但**声明层不表达**
+               ⇒ AI 无从知道同夜不可连做，只能靠 form 里的分支偶然规避。
+         senses 可主动查知项（「可见谁带有感染标记」「可见全部票源编号」…）。
+               与 visibility（公告批次／私反馈族）是两件事：visibility 是「规则授予的被动可见」，
+               senses 是「该角色专属的主动情报面」。
+         cost   明文代价与陷阱（「神探每查验一人即暴露场上有神探在活动」）。
+               这是 AI 权衡的依据：卡片把代价写在正文里，AI 此前完全看不到。
+       词表见 DUTY_ACTION / DUTY_SENSE / DUTY_COST，audit() 强制取值合法。 */
+    duty:       { gate: '[速查卡]', life: 'wired', desc: 'AI 职责面：{mutex:[当夜互斥动作], senses:[可主动查知项], cost:明文代价键|null}；缺失即该角色无互斥/无专属情报面/无明文代价' },
   };
   /* 角色声明里 schema 之外的字段（同样须标 lifecycle，否则视为未声明语义） */
   const EXTRA_FIELDS = {
@@ -74,6 +85,66 @@
     blocked: false, exempt: [], charges: {}, process: null,
     batchDelta: [], restatement: null, selfTarget: true, attend: {},
     grants: [], capClass: null, seats: 0, repairExposeAt: null,
+    duty: { mutex: [], senses: [], cost: null },
+  };
+
+  /* ---------- 〔v7 · 速查卡〕AI 职责面词表 ----------
+     duty.mutex 的取值＝「当夜动作身份」，不是内部字段名。取自速查卡各角色「夜间行动」行的
+     「X 选一」表述。审计只校验落在本词表内（不校验与该角色 charges/grants 的对应关系：
+     医生族的 brew 是 grant 而非 charge，两套命名空间本就不同）。 */
+  const DUTY_ACTION = {
+    verify: '查验', assistRepair: '协助维修', transfer: '转职',
+    repair: '维修', extraRepair: '追加维修', safeRoom: '安全室',
+    shoot: '开枪', patrol: '巡逻', gatherAmmo: '攒弹', sniff: '嗅探',
+    treat: '治疗', selfSave: '自救', brew: '制药', save: '救援',
+    poison: '毒药', antidote: '解药',
+    cast: '常规铸造', castFast: '速成铸造', distribute: '分配护甲', protect: '保护',
+    announce: '发布官方公告', report: '窃听报告', publish: '原样公示', meeting: '紧急会议',
+    kill: '出刀', infect: '感染', destroy: '破坏', cocoon: '结茧', disguise: '乔装',
+    lurk: '蛰伏', selfHeal: '自我治疗', morph: '变形', revive: '复生', wiretap: '窃听读取',
+  };
+  /* duty.senses ＝ 角色专属的主动情报面（速查卡「可见性」行逐条转录）。
+     与 visibility（规则授予的公告批次／私反馈族）分列：前者是「我这张牌能查到什么」。 */
+  const DUTY_SENSE = {
+    selfClaimLog: '本角色对该目标的历次查证问题与结论（仅自己）',
+    repairAssistN: '当夜协助维修的人数 N（不附编号）',
+    ownRepairTotal: '本人累计维修量',
+    ownExposeRemain: '距暴露阈值剩余量与「已暴露」状态',
+    ownAmmo: '本人子弹余量',
+    armedCrewIds: '武装船员编号（与警长双向识别）',
+    sniffResult: '嗅探结果：目标是否呈现保护状态（不区分种类、不报层数与来源）',
+    infectMarks: '谁带有感染标记（仅编号，不显真伪／施加时间／剩余致死夜数）',
+    antibodyFeedback: '抗体生效反馈（不含编号与真伪）',
+    dyingList: '谁处于濒死',
+    deathSourceAfterSave: '落身致死来源清单（仅在实际消耗救援额度后才可见）',
+    poisonList: '全场毒药清单（仅毒师本人）',
+    selfPoisoned: '自身是否带毒药标记',
+    checkPool: '已查验池：查验当夜所显示的职业（不随此后转职更新；死亡即作废）',
+    presentedRoleOnly: '查验恒依呈现职业如实作答、不报阵营',
+    guardFeedback: '自己今夜被保护了',
+    attackTypeOnGuard: '受袭感知：被保护时获知伤害类型（不报凶手编号）',
+    ownArmorStock: '本人护甲库存与已分配情况',
+    allVoteSources: '全部票源编号（白天）',
+    allBallotCounts: '公开票源图（全局 1 次）',
+    pairedPrivateChats: '当夜批次①已公告配对组的私聊正文（可读全部分组）',
+    teammateIdentities: '队友身份',
+    teammateBallots: '本方队友票型分布',
+    ownNightImmuneRemain: '夜晚免疫剩余次数与已发生的消耗路径',
+    lurkTargetPresented: '蛰伏查验所得：目标的呈现职业（并可附加沉默）',
+    mirrorLedger: '镜像账本（呈现身份并行结算）',
+    morphTargetPool: '变形目标池（本局实际在场的人类职业或异形）',
+  };
+  /* duty.cost ＝ 速查卡明写的代价与陷阱。这是 AI 权衡的另一半：
+     收益（能做什么）已由 charges/grants 表达，代价此前完全没有表达。 */
+  const DUTY_COST = {
+    canHitFriendlies: '枪击可命中任何存活角色，含人类队友与自身（误伤／自杀）',
+    sniffMissesSafeRoom: '嗅探不显示全额减免（安全室／夜晚免疫）⇒「未呈现保护」≠「可一击致死」',
+    canSaveAnyone: '救援可救任意濒死者，不限阵营（含自身、异形、外星人）⇒ 救敌是合法选项',
+    poisonHitsAlly: '毒药不辨阵营，队友与自身皆为合法目标；误伤无第三方补救，容错为零',
+    checkRevealsSelf: '被查验者会收到来源类别为「神探」的私人反馈 ⇒ 每查验一人即向该目标暴露场上��神探',
+    meetingRevealsSelf: '紧急会议开场即公告其编号与身份（批次⑦）⇒ 发动即暴露身份',
+    reportNotFaithful: '窃听报告可自由改写、系统不校正，且附「不保真」标注 ⇒ 引用它需自担可信度',
+    noAttackFeedback: '工匠护甲不公开而持有者自知、无受袭感知',
   };
 
   /* ---------- D6 能力标签词表（能力分发表的键空间）----------
@@ -176,8 +247,18 @@
       attendAway: { lethal: 0.7, infect: 0.7 },
       actionStep: '2', actionSteps: ['2', '0.6'],   // 2 查验/协助维修；0.6 转职（4.2.1①）
       judgeMode: 'check',                                         // 4.1.1 船员查证＝check 模式（唯一可被乔装欺骗）
-      charges: { verify: Infinity, assistRepair: Infinity },
+      /* 〔v7 速查卡对账 · 已实装，仅落位与卡不同〕速查卡载协助维修属步骤 4a；
+         实现把它折进了步骤 2 的 crewAction 菜单（steps.js:584-586 的 'repair*' 前缀 opt，
+         七档 a ∈ [0.20,0.50] 步长 0.05，与卡逐档相符），结算见 steps.js:1012-1039。
+         故 **不补 actionSteps 的 '4a'** —— 引擎不在 4a 派发船员，补了就是造幽灵步位
+         （v7 B0 已因此类误判吃过教训：visible.js 被误归档致 View.build 抛错）。
+         落位差异已留痕于 IMPL_GAP['crew.assistRepair.stepPlacement']。 */
+      charges: { verify: Infinity, assistRepair: Infinity },   // assistRepair 已实装（步骤 2 菜单内，前缀式 opt 'repair*'）；落位与卡不同，见 IMPL_GAP
       visibility: { batch: ['③'], private: ['7.2.1'], selfOnly: false },
+      /* 〔v7 速查卡 · AI 职责面〕卡：「步骤 2 查验 ｜ 步骤 4a 协助维修（二者当夜二选一，亦可依 2.4 放弃行动）」。assistRepair 未实装（见 charges 旁登记）。 */
+      duty: { mutex: ['verify', 'assistRepair'],
+              senses: ['selfClaimLog', 'repairAssistN'],
+              cost: null },
       source: '4.1.1/4.1.2',
     },
     engineer: {
@@ -189,6 +270,10 @@
       attendAway: { lethal: 0.7, infect: 0.7, ballot: 0.75 },
       actionStep: '4a', charges: { repair: Infinity, repairExtra: 3, safeRoom: 1 },
       visibility: { batch: ['④'], private: [], selfOnly: false },
+      /* 〔v7 速查卡 · AI 职责面〕卡：「可自行查看累计维修量、距暴露阈值剩余量与「已暴露」状态（仅本人可见）」。追加维修须紧接本人维修的当夜——属时序约束，非互斥。 */
+      duty: { mutex: [],
+              senses: ['ownRepairTotal', 'ownExposeRemain'],
+              cost: null },
       source: '4.3.1/4.3.6', pending: true,
     },
     sheriff: {
@@ -200,6 +285,10 @@
       actionStep: '6', actionSteps: ['6', '2'],   // 6 开枪；2 巡逻（4.4.4）
       charges: { gun: 2, patrol: 1 },
       visibility: { batch: ['③'], private: ['7.2.2'], selfOnly: false },
+      /* 〔v7 速查卡 · AI 职责面〕卡：「步骤 6 开枪 ｜ 步骤 2 巡逻；两者同一夜二选一（互斥不永久）」+「可见武装船员编号」+「枪击可命中任何存活角色，含人类队友」。 */
+      duty: { mutex: ['shoot', 'patrol'],
+              senses: ['ownAmmo', 'armedCrewIds'],
+              cost: 'canHitFriendlies' },
       source: '4.4/4.4.6', pending: true,
     },
     hunter: {
@@ -217,25 +306,37 @@
       actionStep: '6', actionSteps: ['6', '3.5'],   // 6 开枪/攒弹；3.5 嗅探（4.4.9①）
       charges: { gun: 1, sniff: 2 },
       visibility: { batch: [], private: ['7.2.2'], selfOnly: true },
+      /* 〔v7 速查卡 · AI 职责面〕卡：「嗅探不占行动窗口，可与开枪并用」⇒ 不互斥；「嗅探不显示全额减免（安全室、夜晚免疫）」是明文陷阱。 */
+      duty: { mutex: [],
+              senses: ['ownAmmo', 'sniffResult'],
+              cost: 'sniffMissesSafeRoom' },
       source: '4.4.7/4.4.8/4.4.9', pending: true,
     },
     bio: {
       name: '生化医师', faction: 'human', group: 'doctor', isBase: true,
       desc: '治疗 3 次（清感染并赋予抗体）、自救 1 次；可见感染标记清单。',
-      grants: ['treat'], capClass: 'mid',
+      grants: ['treat', 'brew'], capClass: 'mid',   // 〔v7 速查卡〕制药为医生族通有（3.3.1；卡载三者互斥含制药）
       attend: { infect: 1.3 },
       attendAway: { lethal: 0.75, ballot: 0.75 },
       actionStep: '8', charges: { heal: 3, selfSave: 1 },
+      /* 〔v7 速查卡 · AI 职责面〕卡：「步骤 8：治疗 ／ 自救 ／ 制药三者互斥（亦可整晚不出手）」+「可见谁带有感染标记（仅编号清单，不显真伪…）」。 */
+      duty: { mutex: ['treat', 'selfSave', 'brew'],
+              senses: ['infectMarks', 'antibodyFeedback'],
+              cost: null },
       visibility: { batch: [], private: ['7.2.4'], selfOnly: true },
       source: '4.5', pending: true,
     },
     rescue: {
       name: '救援医师', faction: 'human', group: 'doctor', isBase: true,
       desc: '救援 2 次（可救任意濒死者）、治疗 1 次；可见濒死者清单。',
-      grants: ['treat', 'save'], capClass: 'mid',
+      grants: ['treat', 'save', 'brew'], capClass: 'mid',   // 〔v7 速查卡〕制药为医生族通有（3.3.1）
       attend: { infect: 1.1 },
       attendAway: { lethal: 0.75, ballot: 0.75 },
       actionStep: '8', charges: { rescue: 2, heal: 1 },
+      /* 〔v7 速查卡 · AI 职责面〕卡：「步骤 8：救援（含自救）／ 治疗 ／ 制药三者互斥」+「可见谁带有感染标记与谁处于濒死」+「救援可救任意濒死角色，不限阵营」。 */
+      duty: { mutex: ['save', 'treat', 'brew'],
+              senses: ['infectMarks', 'dyingList', 'deathSourceAfterSave'],
+              cost: 'canSaveAnyone' },
       visibility: { batch: [], private: [], selfOnly: true },
       source: '4.5', pending: true,
     },
@@ -255,6 +356,10 @@
       actionStep: '3',
       charges: { armorStock: 2 },
       visibility: { batch: [], private: [], selfOnly: true },
+      /* 〔v7 速查卡 · AI 职责面〕卡：「工匠 · 核心：三选一：常规铸造／速成铸造／分配护甲」+「护甲…不公开而持有者自知，无受袭感知」。 */
+      duty: { mutex: ['cast', 'castFast', 'distribute'],
+              senses: ['ownArmorStock'],
+              cost: 'noAttackFeedback' },
       source: '4.11.1/4.11.2/4.11.3', pending: true,
     },
     poisoner: {
@@ -272,6 +377,10 @@
       attendAway: { lethal: 0.75, ballot: 0.7 },
       actionStep: '8', charges: { brew: Infinity, poison: 3, antidote: 3 },
       visibility: { batch: [], private: ['7.2.4'], selfOnly: true },
+      /* 〔v7 速查卡 · AI 职责面〕卡：「步骤 8：制药 ／ 毒药 ／ 解药 ／ 制药产出的救援 ／ 治疗——五选一（毒师无自救额度）」+「毒药不辨阵营…容错为零」。五选一在 duty.mutex 里落为 brew/poison/antidote/treat 四键（制药产出的救援与治疗共用 brew、treat 两个动作身份）。 */
+      duty: { mutex: ['brew', 'poison', 'antidote', 'treat'],
+              senses: ['poisonList', 'selfPoisoned', 'infectMarks', 'dyingList'],
+              cost: 'poisonHitsAlly' },
       source: '4.6.4', pending: true,
     },
     convict: {
@@ -291,6 +400,10 @@
       actionSteps: ['P-id', '8'],
       charges: { morph: Infinity, revive: 2 },
       visibility: { batch: [], private: ['7.2.4'], selfOnly: true },
+      /* 〔v7 速查卡 · AI 职责面〕卡：「变形…可骗过神探」+「复生…可自救」+「呈现异形时克隆除社交与队内共享外的一切技能与被动」。变形与复生分处 P-id 与 8，不互斥。 */
+      duty: { mutex: [],
+              senses: ['mirrorLedger', 'morphTargetPool'],
+              cost: null },
       source: '6.8.1/6.8.3/6.8.4/6.8.5', pending: true,
     },
     detective: {
@@ -303,6 +416,10 @@
       charges: { verify: Infinity, announce: Infinity },
       visibility: { batch: ['③'], private: ['7.2.1'], selfOnly: false },
       batchDelta: ['神探公告另附转职者原职业标注（4.7.5）'],
+      /* 〔v7 速查卡 · AI 职责面〕卡：「步骤 2：查验 或 发布官方公告（二者二选一）」+「恒依呈现职业如实作答、不作假（不报阵营）」+「每查验一人即向该目标暴露场上���神探」。 */
+      duty: { mutex: ['verify', 'announce'],
+              senses: ['checkPool', 'presentedRoleOnly'],
+              cost: 'checkRevealsSelf' },
       source: '4.7.1/4.7.2/4.7.5', pending: true,
     },
     bodyguard: {
@@ -316,6 +433,10 @@
       infectLayer: { cls: '主动保护类', ord: 1 },
       charges: { protect: Infinity },
       visibility: { batch: [], private: ['7.2.5'], selfOnly: false },
+      /* 〔v7 速查卡 · AI 职责面〕卡：「每夜保护 1 人…受袭感知——被保护时获知伤害类型」「保镖只报伤害类型、不报凶手编号」。另有「不可连续两夜保护同一目标」，属自限而非互斥。 */
+      duty: { mutex: [],
+              senses: ['guardFeedback', 'attackTypeOnGuard'],
+              cost: null },
       source: '4.8/4.8.1', pending: true,
     },
     inspector: {
@@ -326,6 +447,10 @@
       attendAway: { infra: 0.7, lethal: 0.7, infect: 0.7 },
       actionStep: '10', charges: { meeting: 1 },
       visibility: { batch: ['⑦', '⑨', '⑩'], private: [], selfOnly: false },
+      /* 〔v7 速查卡 · AI 职责面〕卡：「白天可见全部票源编号」+「公开票源图 全局 1 次」+「会议开场即公告其编号与身份（批次⑦），故发动即暴露身份」。 */
+      duty: { mutex: [],
+              senses: ['allVoteSources', 'allBallotCounts'],
+              cost: 'meetingRevealsSelf' },
       source: '4.9.2', pending: true,
     },
     listener: {
@@ -343,6 +468,10 @@
       actionStep: '0.2', actionSteps: ['0.2', 'D-report'],
       charges: { wiretap: Infinity, report: 2 },
       visibility: { batch: ['⑪'], private: [], selfOnly: false },
+      /* 〔v7 速查卡 · AI 职责面〕卡：「每夜可提交 1 次——择一组改写为「报告」，或择一组原样「公示」…二者共用该每夜 1 次」+「报告可自由改写，系统不校正」+「读取…不设组数上限」。 */
+      duty: { mutex: ['report', 'publish'],
+              senses: ['pairedPrivateChats'],
+              cost: 'reportNotFaithful' },
       source: '4.12.1/4.12.2/4.12.5', pending: true,
     },
     armed: {
@@ -353,6 +482,10 @@
       attendAway: { infect: 0.7 },
       actionStep: '6', charges: { gun: 1 }, transferred: true,
       visibility: { batch: [], private: ['7.2.2'], selfOnly: false },
+      /* 〔v7 速查卡 · AI 职责面〕卡：「因仅 1 发，每夜至多指定 1 名；持有量恒 ≤ 1，不适用 2 发上限」——属额度自限，非互斥。 */
+      duty: { mutex: [],
+              senses: ['ownAmmo'],
+              cost: null },
       source: '4.2/4.4', pending: true,
     },
     assistant: {
@@ -363,25 +496,40 @@
       attendAway: { lethal: 0.7, infect: 0.7, ballot: 0.75 },
       actionStep: '4a', charges: { repair: Infinity }, transferred: true,
       visibility: { batch: ['④'], private: [], selfOnly: false },
+      /* 〔v7 速查卡 · AI 职责面〕卡：「累计维修 3.0 即暴露…转职前累积的协助维修量不并入」——暴露阈值低于正牌工程师（3.0 vs 4.0）。 */
+      duty: { mutex: [],
+              senses: ['ownRepairTotal', 'ownExposeRemain'],
+              cost: null },
       source: '4.2/4.3.6', pending: true,
     },
     tempdoc: {
       name: '临时医生', faction: 'human', group: 'base:doc', isBase: false,
       desc: '救援 1 次、治疗 2 次；可见感染标记与濒死者。',
-      grants: ['treat', 'save'], capClass: 'mid',
+      grants: ['treat', 'save', 'brew'], capClass: 'mid',   // 〔v7 速查卡〕制药为医生族通有（3.3.1；卡载「每晚仅一类出手」含制药）
       attend: { infect: 1.1 },
       attendAway: { lethal: 0.75, verify: 0.85, ballot: 0.7 },
       actionStep: '8', charges: { rescue: 1, heal: 2 }, transferred: true,
       visibility: { batch: [], private: [], selfOnly: true },
+      /* 〔v7 速查卡 · AI 职责面〕卡：「每晚仅一类出手；救援后可见该目标濒死原因」⇒ 互斥含制药（医生族通有）。 */
+      duty: { mutex: ['save', 'treat', 'brew'],
+              senses: ['infectMarks', 'dyingList', 'deathSourceAfterSave'],
+              cost: null },
       source: '4.2/4.5', pending: true,
     },
     alien: {
       name: '异形', faction: 'alien', group: null, isBase: false,   // 2.8.14⑤ 不设组位
       desc: '每夜出刀／感染／破坏／结茧四选一；第 3 夜起可进化。',
       seats: 3,
-      actionStep: '7', actionSteps: ['7', '0.6', '4b'],   // 7 出刀/感染；0.6 进化/转化（6.2）；4b 破坏/结茧（5.7）
+      /* 〔v7 速查卡修正〕补登记 '1'（乔装）：引擎步位 '1'.req 按身份派发给异形与经典外星人
+         （steps.js:488-492 `p.role === 'alien' || ACT.isClassicXeno(p) && p.disguiseLeft > 0`），
+         卡载「另可…乔装（步骤 1）」。声明原缺 ⇒ C1 覆盖审计此前扫不到该派发。 */
+      actionStep: '7', actionSteps: ['7', '0.6', '4b', '1'],   // 7 出刀/感染；0.6 进化/转化（6.2）；4b 破坏/结茧（5.7）；1 乔装（7.3）
       charges: { kill: Infinity, infect: Infinity, destroy: Infinity, cocoon: Infinity },
       visibility: { batch: ['②', '⑤'], private: ['7.2.2'], selfOnly: false },
+      /* 〔v7 速查卡 · AI 职责面〕卡：「每夜出刀／感染／破坏／结茧四选一」+「异形阵营可见本方队友票型分布」+「互相知晓队友身份」。 */
+      duty: { mutex: ['kill', 'infect', 'destroy', 'cocoon'],
+              senses: ['teammateIdentities', 'teammateBallots'],
+              cost: null },
       source: '5.1~5.9', pending: true,
     },
     xeno: {
@@ -399,13 +547,23 @@
          无行为风险：按 roleDecl.js:42 的契约，actionSteps 全列表「供覆盖审计与 C1 收口」，
          引擎派发过滤读的是主行动位 actionStep（本行仍为 '0.1'，未改）。
          死囚（上一段）已按同一口径登记 'P-id'，此处补齐即两角色对齐。 */
-      actionStep: '0.1', actionSteps: ['0.1', '0.1s', '4b', '5', 'P-id'],   // 0.1 蛰伏；0.1s 沉默窗；4b 破坏；5 击杀/双刀（6.1/6.6）；P-id 觉醒（6.2）
+      /* 〔v7 速查卡修正〕补登记 '1'（乔装）与 '8'（自我治疗）：
+         · '1' 引擎 steps.js:488-492 与异形共用同一 req（ACT.isClassicXeno 分支），
+           卡载外星人「乔装全局 2 次」；声明原缺。
+         · '8' 引擎 steps.js:1213 派发 kind='xenoCure'（isClassicXeno && !branch && infection.real
+           && cureSelf > 0），卡载外星人当夜四选一含「自我治疗（步骤 8）」；声明原缺。
+         · 顺带确认：外星人「夜晚免疫」属全额减免层而非行动位，故不在 actionSteps 内（正确）。 */
+      actionStep: '0.1', actionSteps: ['0.1', '0.1s', '4b', '5', 'P-id', '1', '8'],   // 0.1 蛰伏；0.1s 沉默窗；4b 破坏；5 击杀/双刀（6.1/6.6）；P-id 觉醒（6.2）；1 乔装（7.3）；8 自我治疗（6.3）
       judgeMode: 'presented',                   // 蛰伏查验 6.1.1① 报编号与呈现职业
       charges: { check: Infinity, kill: Infinity, destroy: Infinity, nightImmune: 2 },
       /* C13（2026-10-04）：此处曾有 process:{nights:2,on:'0.6',product:'doubleBlade'} 的错误
          进程声明——觉醒（6.2）于身份改变子步骤即时生效，非进程型产出；该字段全仓零消费，
          属误导性死数据，删除（回落 DEFAULTS.process=null）。 */
       visibility: { batch: ['③'], private: ['7.2.1', '7.2.4'], selfOnly: false },
+      /* 〔v7 速查卡 · AI 职责面〕卡：「蛰伏（0.1）／ 击杀（5）／ 破坏（4b）／ 自我治疗（8）四选一；觉醒后步骤 5 可出双刀」+「夜晚免疫…消耗路径与剩余次数可核算余量」。 */
+      duty: { mutex: ['lurk', 'kill', 'destroy', 'selfHeal'],
+              senses: ['ownNightImmuneRemain', 'lurkTargetPresented'],
+              cost: null },
       source: '6.1~6.6', pending: true,
     },
   };
@@ -545,6 +703,81 @@
     const d = has(key) ? ROLE_DECL[key] : null;
     return d ? (d.capClass || null) : null;
   }
+  /* ---------- 〔v7 速查卡〕AI 职责面访问器 ---------- */
+  /** 某角色的当夜互斥动作组（速查卡「X 选一」）。缺省＝[]＝无互斥约束 */
+  function mutexOf(key) {
+    const d = has(key) ? ROLE_DECL[key] : null;
+    return (d && d.duty && d.duty.mutex) || [];
+  }
+  /** 某角色的专属主动情报面（速查卡「可见性」行）。缺省＝[] */
+  function sensesOf(key) {
+    const d = has(key) ? ROLE_DECL[key] : null;
+    return (d && d.duty && d.duty.senses) || [];
+  }
+  /** 某角色的明文代价键（速查卡）；无则 null */
+  function costOf(key) {
+    const d = has(key) ? ROLE_DECL[key] : null;
+    return (d && d.duty) ? (d.duty.cost || null) : null;
+  }
+  /** 该角色是否知道某项专属情报（调用点只问「谁知道」，不问「你是不是某职业」） */
+  function hasSense(key, sense) { return sensesOf(key).indexOf(sense) >= 0; }
+  /** 同夜是否已用过互斥组中的某个动作（AI 决策前的自查口） */
+  function mutexBlocked(key, usedActions) {
+    const mx = mutexOf(key);
+    if (!mx.length || !usedActions) return null;
+    const used = usedActions instanceof Set ? usedActions : new Set(usedActions);
+    for (const a of mx) if (used.has(a)) return a;
+    return null;
+  }
+  /* ---------- 〔v7 速查卡对账〕卡与实现的差异台账 ----------
+     卡载但引擎零实现的规则面：**不补声明**（补了即造幽灵步位），登记在此，
+     以免「声明里写着」被误读为「已经能用」。 */
+  const IMPL_GAP = {
+    /* 〔v7 速查卡对账 · 第三轮更正〕本条初版结论「引擎零实现」是**错的**，已更正。
+       错因：检索用了标识符 assistRepair，而实现采「前缀式 opt 命名」
+       （steps.js:584-586 `({ v: 'repair' + v.toFixed(2), label: '协助维修 −' + ... })`），
+       全仓再无 assistRepair 字面量 ⇒ 只命中 roleDecl 本处，被我误判为未实装。
+       实际已实装且与卡一致的部分：
+         · 7 档自选值 a ∈ [0.20,0.50] 步长 0.05 —— 与卡载口径逐档相符；
+         · 结算 steps.js:1012-1039：等额削减倒计时与净破坏量（v6.6 2.3 表 #7）、
+           ④ 公告、协助人数私聊（不附编号）—— 卡「可见性」行要求齐备；
+         · 与查验同夜互斥 —— 由「同属步骤 2 表单的一张菜单」天然保证（已写入 duty.mutex）。
+       真正与卡不一致的只有**落位**：卡载协助维修属步骤 4a，实现折进了步骤 2 的菜单。
+       这是实现简化（互斥语义未变），故 **不补 actionSteps 的 '4a'**（引擎不在 4a 派发船员，
+       补了即造幽灵步位），但须留痕以免日后被误读为「卡与实现一致」。 */
+    'crew.assistRepair.stepPlacement': {
+      card: '步骤 4a 协助维修（与步骤 2 查验当夜二选一；值 a ∈ [0.20,0.50] 步长 0.05 共 7 档）',
+      impl: '已实装，但落位在步骤 2 的 crewAction 菜单内（steps.js:565-590），非独立的 4a 行动位',
+      verdict: 'informational：互斥语义等价（同一张菜单二选一），仅为落位与卡不同。已留痕，未改实现。',
+      note: '若日后要严格对齐卡序，需把协助维修拆成独立的 4a 派发 —— 那会改变船员行动窗口，属独立批次。',
+    },
+    /* 〔v7 速查卡对账 · 第二轮发现〕外星人自我治疗（步骤 8，kind='xenoCure'）：
+       声明层未登记额度，全仓检索 cureSelf 只有三处——state.js:40 初始化为 0、
+       steps.js:285 使用后置 0、steps.js:1211/1336 读取 `p.cureSelf > 0`。
+       **从无任何一处赋正值** ⇒ 该动作在引擎中永久不可用。
+       速查卡明载外星人当夜四选一含「自我治疗（步骤 8）：清除自身感染并赋予抗体，
+       占用当夜行动名额」，故这是**实现缺口**而非声明错误：补额度声明也不会让它可用。
+       实装时须同步：① 每夜到账（卡内未给全局上限 ⇒ 疑为每夜回复，v 待正文确认）
+                     ② 赋予抗体（卡内明示，当前 steps.js:1336 分支未见赋予）
+                     ③ 与蛰伏／击杀／破坏的当夜互斥（已写入 duty.mutex） */
+    'xeno.cureSelf': {
+      card: '自我治疗（步骤 8）：清除自身感染并赋予抗体，占用当夜行动名额；与蛰伏/击杀/破坏四选一',
+      declared: 'charges 未登记 cureSelf；duty.mutex 已含 selfHeal（按卡登记）',
+      impl: '半实现——steps.js:1211 的 req 与 :1336 的结算分支都在，但 cureSelf 全仓从无正值（state.js:40 初始化 0）',
+      verdict: 'pending：req 恒不命中 ⇒ 分支为死代码。补声明无用，须补额度到账。',
+    },
+    /* 〔v7 速查卡对账 · 第二轮发现〕毒师制药：角色声明层 grants 已含 'brew'（卡内明载
+       医生族通有制药 3.3.1），但进程注册表 SKProcess.brew.owner = [bio, rescue, tempdoc]
+       **未含 poisoner** ⇒ 毒师即使坐上席位也开不了制药。
+       当前不可观测（医生位 seats 固定 ['bio','rescue']，毒师不在开局席位内，见 GROUP_TABLE），
+       故为潜伏缺口：席位表一旦改为三选一即暴露。 */
+    'poisoner.brewProcess': {
+      card: '步骤 8：制药／毒药／解药／制药产出的救援／治疗——五选一（毒师无自救额度）',
+      declared: "ROLE_DECL.poisoner.grants 含 'brew'（本轮依卡补入）",
+      impl: "SKProcess.brew.owner = ['bio','rescue','tempdoc'] —— 未含 poisoner",
+      verdict: 'pending：潜伏缺口。毒师不在开局席位（GROUP_TABLE.doctor.seats 固定两项），故当前不可观测。',
+    },
+  };
   /** 累计维修暴露阈值（4.3.6）：工程师 4.0 / 助理 3.0；未声明即 null（不适用） */
   function repairExposeAtOf(key) {
     const d = has(key) ? ROLE_DECL[key] : null;
@@ -667,6 +900,52 @@
       if (re !== undefined && re !== null && (typeof re !== 'number' || re <= 0))
         bad.push(`${k}: repairExposeAt 非法 ${re}`);
     }
+    /* 11. 〔v7 速查卡〕duty 取值须落在三张词表内（防手写错键 → 静默无人命中） */
+    for (const k of keys()) {
+      const du = ROLE_DECL[k].duty;
+      if (!du) continue;
+      for (const f of Object.keys(du))
+        if (['mutex', 'senses', 'cost'].indexOf(f) < 0) bad.push(`${k}: duty.${f} 不是合法子键（须为 mutex/senses/cost）`);
+      for (const a of (du.mutex || []))
+        if (!DUTY_ACTION[a]) bad.push(`${k}: duty.mutex 的 ${a} 未登记于 DUTY_ACTION`);
+      for (const sn of (du.senses || []))
+        if (!DUTY_SENSE[sn]) bad.push(`${k}: duty.senses 的 ${sn} 未登记于 DUTY_SENSE`);
+      if (du.cost && !DUTY_COST[du.cost]) bad.push(`${k}: duty.cost 的 ${du.cost} 未登记于 DUTY_COST`);
+      /* 互斥组去重：重复登记说明抄错，无语义价值 */
+      if (new Set(du.mutex || []).size !== (du.mutex || []).length) bad.push(`${k}: duty.mutex 有重复项`);
+    }
+    /* 12. 互斥组里出现该角色根本不具备的动作 ⇒ 声明自相矛盾（mutex ⊆ charges∪grants 的动作身份） */
+    /* mutex 的动作身份有**四类**合法来源，缺一即误报：
+       ① 该角色的 charges 键（多数）
+       ② 该角色的 grants 标签（医生族的 brew 是 grant 不是 charge）
+       ③ **进程注册表所有者**（roleDecl.js:50 明载：进程型产出由 SKProcess 声明、
+          不进 charges —— 工匠的 cast/castFast 正属此类，第一轮口径漏了它）
+       ④ **IMPL_GAP 已登记者**（声明就位、等机制上线：卡载而引擎零实现，
+          补声明也不会让它可用，但 mutex 仍须按卡登记 —— 如 xeno.selfHeal） */
+    const PROC_OWNER = {};
+    if (global.SKProcess && global.SKProcess.keys) {
+      for (const pid of global.SKProcess.keys()) {
+        const e = global.SKProcess.get(pid);
+        for (const o of (e.owner || [])) (PROC_OWNER[o] = PROC_OWNER[o] || []).push(pid);
+      }
+    }
+    const GAP_KEYS = Object.keys(IMPL_GAP);
+    const ALIAS = { assistRepair: 'assistRepair', treat: 'treat', selfSave: 'selfSave', brew: 'brew',
+      save: 'save', poison: 'poison', antidote: 'antidote', verify: 'verify', shoot: 'gun',
+      patrol: 'patrol', kill: 'kill', infect: 'infect', destroy: 'destroy', cocoon: 'cocoon',
+      lurk: 'check', selfHeal: 'cureSelf', revive: 'revive', meeting: 'meeting', report: 'report',
+      cast: 'cast', castFast: 'castFast', distribute: 'armorStock', protect: 'protect',
+      announce: 'announce', publish: 'report', wiretap: 'wiretap', morph: 'morph', disguise: 'disguise' };
+    for (const k of keys()) {
+      for (const a of mutexOf(k)) {
+        const internal = ALIAS[a] || a;
+        const ch = ROLE_DECL[k].charges || {}, gr = ROLE_DECL[k].grants || [];
+        const procOwned = (PROC_OWNER[k] || []).indexOf(a) >= 0 || (PROC_OWNER[k] || []).indexOf(internal) >= 0;
+        const gapKnown = GAP_KEYS.some(gk => gk.indexOf(k + '.') === 0);
+        if (!(internal in ch) && gr.indexOf(a) < 0 && !procOwned && !gapKnown)
+          bad.push(`${k}: duty.mutex 含「${a}」，但该动作不在 charges / grants / 进程注册表 / IMPL_GAP 任何一处（自相矛盾）`);
+      }
+    }
     /* 10. D8：席位常数须为非负整数；人类阵营不得用 seats（人类席位由组位表给出） */
     for (const k of keys()) {
       const s = ROLE_DECL[k].seats;
@@ -704,6 +983,7 @@
 
   global.SKRoleDecl = {
     SCHEMA, EXTRA_FIELDS, LIFE, DEFAULTS, GROUP_TABLE, TRANSFER_BRANCHES, ROLE_DECL, NAMESPACE, GRANT_VOCAB,
+    DUTY_ACTION, DUTY_SENSE, DUTY_COST, IMPL_GAP, mutexOf, sensesOf, costOf, hasSense, mutexBlocked,
     keys, has, resolveDecl, audit, seatAudit, namespaceAudit, idleLedger,
     baseHumanRoles, humanRoles, verifyPoolAll, verifyPoolOf, rolesOfFaction, rolesOfGroup, attendWeight, attendFloor: ATTEND_FLOOR, groupOf, humanSetup,
     rolesWith, hasGrant, capClassOf, rolesWithCapClass, transferRoles, nonHumanSetup, roleTotals, repairExposeAtOf,

@@ -1,0 +1,80 @@
+{
+ "games": 150,
+ "errs": 0,
+ "decisions": 37458,
+ "mutexNightsChecked": 6966,
+ "mutexActionsPerNight": {
+  "0": 2280,
+  "1": 4686
+ },
+ "violations": 0,
+ "violationSamples": [],
+ "actionHistogram": {
+  "UNMAPPED@0a:invite": 9368,
+  "UNMAPPED@0c:chat": 3145,
+  "lurk": 159,
+  "UNMAPPED@0.1s:xenoSilence": 159,
+  "disguise": 2269,
+  "none": 4466,
+  "verify": 1684,
+  "repair": 647,
+  "patrol": 141,
+  "protect": 661,
+  "UNMAPPED@4a:repair": 629,
+  "cocoon": 314,
+  "kill": 1237,
+  "brew": 273,
+  "UNMAPPED@D-vote:vote": 8514,
+  "infect": 344,
+  "treat": 305,
+  "UNMAPPED@0b:inviteAccept": 639,
+  "UNMAPPED@0.6:evolve": 360,
+  "rescue": 219,
+  "UNMAPPED@0.6:convert": 460,
+  "safeRoom": 90,
+  "UNMAPPED@0.5:suppress": 133,
+  "UNMAPPED@0.6:transfer": 180,
+  "destroy": 74,
+  "shoot": 35,
+  "announce": 80,
+  "selfSave": 94,
+  "UNMAPPED@M-vote:vote": 720,
+  "UNMAPPED@P-id:awaken": 57,
+  "UNMAPPED@P-clean:clean": 2
+ },
+ "illegalChoices": {},
+ "unknownTop": [
+  [
+   "UNMAPPED@0a:invite",
+   9368
+  ],
+  [
+   "UNMAPPED@D-vote:vote",
+   8514
+  ],
+  [
+   "UNMAPPED@0c:chat",
+   3145
+  ],
+  [
+   "UNMAPPED@M-vote:vote",
+   720
+  ],
+  [
+   "UNMAPPED@0b:inviteAccept",
+   639
+  ],
+  [
+   "UNMAPPED@4a:repair",
+   629
+  ],
+  [
+   "UNMAPPED@0.6:convert",
+   460
+  ],
+  [
+   "UNMAPPED@0.6:evolve",
+   360
+  ]
+ ]
+}

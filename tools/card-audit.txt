@@ -1,0 +1,48 @@
+速查卡 × 声明层 对账：共 43 处差异（P0 阻断 3 · P1 缺失 40）
+
+── P0 ──
+  [crew] 行动位缺登记：卡载步骤 4a（夜间行动：步骤 2 查验 ｜ 步骤 4a 协助维修（二者当夜二选一，亦可依 2.…），声明 actionSteps=[2,0.6] 未含
+  [alien] 行动位缺登记：卡载步骤 1（每夜出刀／感染／破坏／结茧四选一（破坏／结茧在步骤 4b，出刀／感染在步骤 7）…），声明 actionSteps=[7,0.6,4b] 未含
+  [xeno] 行动位缺登记：卡载步骤 8（夜间行动：蛰伏（步骤 0.1）／ 击杀（步骤 5）／ 破坏（步骤 4b）／ 自我…），声明 actionSteps=[0.1,0.1s,4b,5,P-id] 未含
+
+── P1 ──
+  [crew] 互斥未建模：卡载「二者当夜二选一」（verify/assistRepair），声明层无该字段 ⇒ AI 无从知道同夜不可连做
+  [crew] 感知面未建模：卡「可见性」载 selfClaimLog，声明层无对应字段
+  [engineer] 感知面未建模：卡「可见性」载 ownRepairTotal/ownExposeRemain，声明层无对应字段
+  [sheriff] 互斥未建模：卡载「两者同一夜二选一（互斥不永久）」（shoot/patrol），声明层无该字段 ⇒ AI 无从知道同夜不可连做
+  [sheriff] 感知面未建模：卡「可见性」载 ownAmmo/armedCrewIds，声明层无对应字段
+  [sheriff] 代价未建模：卡载明文代价/陷阱：canHitFriendlies（枪击可命中任何存活角色，含人类队友）
+  [hunter] 感知面未建模：卡「可见性」载 ownAmmo/sniffResult，声明层无对应字段
+  [hunter] 代价未建模：卡载明文代价/陷阱：sniffMissesSafeRoom（嗅探不显示全额减免，「未呈现保护状态」不等于「可以一击致死」）
+  [bio] 互斥未建模：卡载「治疗／自救／制药三者互斥」（treat/selfSave/brew），声明层无该字段 ⇒ AI 无从知道同夜不可连做
+  [bio] 感知面未建模：卡「可见性」载 infectMarks/antibodyFeedback，声明层无对应字段
+  [bio] 能力标签缺：卡载「制药」为医生族通有（3.3.1），声明 grants=[treat] 缺 'brew'
+  [rescue] 互斥未建模：卡载「救援（含自救）／治疗／制药三者互斥」（save/treat/brew），声明层无该字段 ⇒ AI 无从知道同夜不可连做
+  [rescue] 感知面未建模：卡「可见性」载 infectMarks/dyingList/deathSourceAfterSave，声明层无对应字段
+  [rescue] 代价未建模：卡载明文代价/陷阱：canSaveAnyone（救援可救任意濒死角色，不限阵营，含自身、异形、外星人）
+  [rescue] 能力标签缺：卡载「制药」为医生族通有（3.3.1），声明 grants=[treat,save] 缺 'brew'
+  [poisoner] 互斥未建模：卡载「五选一（毒师无自救额度）」（brew/poison/antidote/brewSave/treat），声明层无该字段 ⇒ AI 无从知道同夜不可连做
+  [poisoner] 感知面未建模：卡「可见性」载 poisonList/infectMarks/dyingList，声明层无对应字段
+  [poisoner] 代价未建模：卡载明文代价/陷阱：poisonHitsAlly（毒药不辨阵营——队友与自身皆为合法目标，误伤无第三方补救）
+  [detective] 互斥未建模：卡载「二者二选一」（verify/announce），声明层无该字段 ⇒ AI 无从知道同夜不可连做
+  [detective] 感知面未建模：卡「可见性」载 checkPool/presentedRoleOnly，声明层无对应字段
+  [detective] 代价未建模：卡载明文代价/陷阱：checkRevealsSelf（明文代价：被查验者会依 7.2.1 收到来源类别为「神探」的私人反馈，故神探每查验一人即向该目标暴露「场上有神探在活动」）
+  [bodyguard] 感知面未建模：卡「可见性」载 guardFeedback/attackTypeOnGuard，声明层无对应字段
+  [artisan] 互斥未建模：卡载「三选一」（cast/castFast/distribute），声明层无该字段 ⇒ AI 无从知道同夜不可连做
+  [artisan] 感知面未建模：卡「可见性」载 ownArmorStock，声明层无对应字段
+  [artisan] 代价未建模：卡载明文代价/陷阱：noAttackFeedback（工匠护甲 … 不公开而持有者自知，无受袭感知）
+  [inspector] 感知面未建模：卡「可见性」载 allVoteSources/allBallotCounts，声明层无对应字段
+  [inspector] 代价未建模：卡载明文代价/陷阱：meetingRevealsSelf（会议开场即公告其编号与身份（批次⑦），故发动即暴露身份）
+  [listener] 互斥未建模：卡载「每夜可提交 1 次——择一组改写为「报告」，或择一组原样「公示」其私聊内容，二者共用该每夜 1 次」（report/publish），声明层无该字段 ⇒ AI 无从知道同夜不可连做
+  [listener] 感知面未建模：卡「可见性」载 pairedPrivateChats，声明层无对应字段
+  [listener] 代价未建模：卡载明文代价/陷阱：reportNotFaithful（报告可自由改写，系统不校正；报告与公示均附「不保真」性质标注；不暴露窃听者编号）
+  [alien] 互斥未建模：卡载「每夜出刀／感染／破坏／结茧四选一」（kill/infect/destroy/cocoon），声明层无该字段 ⇒ AI 无从知道同夜不可连做
+  [alien] 感知面未建模：卡「可见性」载 teammateIdentities/teammateBallots，声明层无对应字段
+  [xeno] 互斥未建模：卡载「四选一」（lurk/kill/destroy/selfHeal），声明层无该字段 ⇒ AI 无从知道同夜不可连做
+  [xeno] 感知面未建模：卡「可见性」载 ownNightImmuneRemain/lurkTargetPresented，声明层无对应字段
+  [convict] 感知面未建模：卡「可见性」载 mirrorLedger/morphTargetPool，声明层无对应字段
+  [armed] 感知面未建模：卡「可见性」载 ownAmmo，声明层无对应字段
+  [assistant] 感知面未建模：卡「可见性」载 ownRepairTotal/ownExposeRemain，声明层无对应字段
+  [tempdoc] 互斥未建模：卡载「每晚仅一类出手；救援后可见该目标濒死原因」（save/treat/brew），声明层无该字段 ⇒ AI 无从知道同夜不可连做
+  [tempdoc] 感知面未建模：卡「可见性」载 infectMarks/dyingList/deathSourceAfterSave，声明层无对应字段
+  [tempdoc] 能力标签缺：卡载「制药」为医生族通有（3.3.1），声明 grants=[treat,save] 缺 'brew'

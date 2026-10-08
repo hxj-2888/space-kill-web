@@ -1065,21 +1065,32 @@
           ? best.T * 0.6 * kInfect - doctorsAlive * 8 - estBlock(best.x) * 12 + suppressValue
           : -Infinity;
 
-        /* 结茧 / 放弃：反拖延疲劳（v4 6.2，不含保镖自保与医生自救） */
-        const streak = p.guardStreak || 0;
-        const fatigue = streak >= 2 ? (streak >= 3 ? -Infinity : -30) : -streak * 15;   // ANTI_STALL_MAX=2 / PEN=15
-        const pAtt = p.destroyedExposed ? 0.6 : 0.3;
-        const uCocoon = p.shield <= 0 ? pAtt * p.vSelf + fatigue : -Infinity;
+        /* 〔v7 速查卡修正 · 2026-10-08〕**结茧不是步骤 7 的动作。**
+           速查卡（异形条）明载：「每夜出刀／感染／破坏／结茧四选一（破坏／结茧在步骤 4b，
+           出刀／感染在步骤 7）」；引擎步 '7' 的表单也只有 kill / infect / none
+           （js/engine/steps.js:1146-1151，寂灭期 desc 写明「菜单收敛为出刀/感染」）。
+           原实现把 'cocoon' 放进步 7 的选项池并返回 { act:'cocoon' }（decide.js:1117），
+           后果有两处，都已实测：
+             ① 引擎步 7 的提交处理只有 kill / infect 两个分支（steps.js:1163/1172），
+                'cocoon' 落入 else 被**当作「放弃行动」**——异形的结茧意图被静默丢弃；
+             ② steps.js:1189 的 `p.guardStreak = (act==='kill'||act==='infect') ? 0 : +1`
+                因而被连带 +1 ⇒ 一个「连续未被抵挡」的无关状态被非法选项污染。
+           实测：150 局共 169 次 ILLEGAL@7:cocoon（其余互斥动作 0 违规）。
+           处置：步 7 选项池回归 [kill, infect, none]；结茧只在 4b 产生
+           （见上方 branch 选择器的 `return { branch: 'cocoon', ... }`）。
 
+           ⚠ 遗留待决（本批**不做**，因属策略权重的独立设计题）：
+             v4 6.2「反拖延」机制（guardStreak 疲劳，随连续不出手而抬升惩罚）原本挂在步 7 的
+             uCocoon 上（v26 批次的「修复」建立在「结茧属步 7」这一**误读**之上）。本修正后
+             该机制在步 7 无处附着。按卡，结茧在 4b，故其正确归属应是 4b 的结茧闸门
+             （`!go && p.shield<=0 && rng.chance(0.3)`）。但改它会直接改变破坏/结茧的发生频率，
+             属策略权重，须单独一批 + 同种子 A/B 后再动。 */
         const opts = [
           { v: 'kill', U: canKill(p) && best ? uKill0 : -Infinity },
           { v: 'infect', U: g.extinction ? -Infinity : uInfectV },
-          /* v26 修复：此处原为 `pAtt * p.vSelf`（不含疲劳）——含反拖延疲劳的 uCocoon 只在寂灭分支
-             被使用，导致 v4 6.2 的反拖延机制在常规对局中整体失效（结茧可无限期拖延）。 */
-          { v: 'cocoon', U: uCocoon },
           { v: 'none', U: 0 },
         ];
-        if (g.extinction) { opts.length = 0; opts.push({ v: 'kill', U: canKill(p) && best ? uKill0 * kKill : -Infinity }, { v: 'cocoon', U: uCocoon }, { v: 'none', U: 0 }); }   // 寂灭收敛（1.4）
+        if (g.extinction) { opts.length = 0; opts.push({ v: 'kill', U: canKill(p) && best ? uKill0 * kKill : -Infinity }, { v: 'infect', U: -Infinity }, { v: 'none', U: 0 }); }   // 寂灭收敛（1.4）：与步 7 表单一致（结茧已于 4b）
         const c = argmax(g, opts, EPS.survival);   // 生存决策：ε=0.15（v21 改动 #10）
         if (c.v === 'kill' && best) {
           /* 6.4 队内协调：先按已占用目标过滤，撞车改选次优（g.alienPlan 由步骤 7 req 重置） */
@@ -1114,7 +1125,8 @@
           if (fake && tg.length < cap) tg = tg.concat([fake.id]);
           return tg.length ? { act: 'infect', targets: tg } : { act: 'none', targets: [] };
         }
-        if (c.v === 'cocoon') return { act: 'cocoon', targets: [] };
+        /* 〔v7 速查卡修正〕'cocoon' 分支已删：结茧属步骤 4b，步 7 选项池不含它（见上方注释）。
+           若此处仍有 c.v === 'cocoon'，说明选项池被回改——步 7 表单不接该值。 */
         return { act: 'none', targets: [] };
       }
       case 'doctor': {                                     // ⑤ 三类
