@@ -8,8 +8,8 @@
   "note": "本探针不跑对局，只读模拟器写下的账本。判定用 view.js sanitize（唯一视图构建器）与 roleDecl duty.senses（速查卡 sensesQuote 落点）两个真源，不自维护可见性表。"
  },
  "d1_actionSpace": {
-  "decisions": 15937,
-  "compared": 15937,
+  "decisions": 15359,
+  "compared": 15359,
   "outOfForm": 0,
   "outOfFormSamples": [],
   "targetOutOfForm": 0,
@@ -20,329 +20,297 @@
   "kindsWithoutForm": {}
  },
  "d2_information": {
-  "pairsJudged": 61167,
+  "pairsJudged": 31624,
+  "gateProjectionReads": 896668,
   "buckets": {
-   "VIEW": 24130,
-   "OWN_FORM": 25736,
-   "DERIVABLE": 3827,
-   "TEAMMATE": 144,
-   "DECLARED_SENSE": 344
+   "DERIVABLE": 2521,
+   "OWN_FORM": 9588,
+   "VIEW": 18995,
+   "TEAMMATE": 13,
+   "DECLARED_SENSE": 358
   },
-  "violations": 6986,
+  "violations": 149,
   "violationFields": {
-   "silenceNight by engineer": 271,
-   "silenceNight by alien": 994,
-   "silenceNight by crew": 1356,
-   "silenceNight by bodyguard": 149,
-   "silenceNight by convict(变形为hunter)": 30,
-   "silenceNight by rescue": 201,
    "dying by convict(变形为hunter)": 29,
-   "infection by convict(变形为hunter)": 29,
-   "dying by bio": 446,
-   "silenceNight by inspector": 132,
-   "silenceNight by detective": 311,
-   "silenceNight by bio": 400,
-   "dying by alien": 559,
-   "infection by alien": 545,
-   "alien by crew": 162,
-   "silenceNight by sheriff": 125,
-   "silenceNight by artisan": 316,
-   "silenceNight by xeno": 149,
-   "silenceNight by listener": 167,
-   "silenceNight by hunter": 144,
-   "silenceNight by poisoner": 148,
    "dying by convict(变形为listener)": 7,
-   "infection by convict(变形为listener)": 7,
    "dying by convict(变形为poisoner)": 1,
-   "poison by convict(变形为poisoner)": 1,
-   "silenceNight by convict(变形为sheriff)": 23,
-   "dying by convict(变形为sheriff)": 23,
-   "infection by convict(变形为sheriff)": 23,
-   "dying by convict(变形为alien)": 41,
-   "infection by convict(变形为alien)": 41,
-   "silenceNight by convict(变形为alien)": 10,
-   "dying by convict(变形为artisan)": 26,
-   "infection by convict(变形为artisan)": 26,
-   "silenceNight by convict(变形为artisan)": 23,
-   "silenceNight by convict(变形为engineer)": 11,
+   "dying by convict(变形为sheriff)": 19,
+   "dying by convict(变形为alien)": 47,
+   "dying by convict(变形为artisan)": 21,
    "dying by convict(变形为bio)": 2,
    "dying by convict(变形为engineer)": 12,
-   "infection by convict(变形为engineer)": 12,
-   "dying by convict(变形为inspector)": 11,
-   "infection by convict(变形为inspector)": 11,
-   "silenceNight by convict(变形为inspector)": 10,
-   "silenceNight by convict(变形为rescue)": 2
+   "dying by convict(变形为inspector)": 11
   },
   "samples": [
    {
     "seed": 241,
-    "step": "0b",
-    "kind": "inviteAccept",
-    "reader": 1,
-    "subject": 2,
-    "field": "silenceNight",
-    "why": "私有真相且不可公开推导"
-   },
-   {
-    "seed": 241,
-    "step": "0b",
-    "kind": "inviteAccept",
-    "reader": 1,
-    "subject": 14,
-    "field": "silenceNight",
-    "why": "私有真相且不可公开推导"
-   },
-   {
-    "seed": 241,
-    "step": "0c",
-    "kind": "chat",
-    "reader": 5,
+    "step": "8",
+    "kind": "revive",
+    "reader": 7,
     "subject": 1,
-    "field": "silenceNight",
-    "why": "私有真相且不可公开推导"
+    "field": "dying",
+    "why": "声明层未授权 convict 读取 dying（变形态，真身份 convict）"
    },
    {
     "seed": 241,
-    "step": "0c",
-    "kind": "chat",
-    "reader": 5,
+    "step": "8",
+    "kind": "revive",
+    "reader": 7,
     "subject": 2,
-    "field": "silenceNight",
-    "why": "私有真相且不可公开推导"
+    "field": "dying",
+    "why": "声明层未授权 convict 读取 dying（变形态，真身份 convict）"
    },
    {
     "seed": 241,
-    "step": "0c",
-    "kind": "chat",
-    "reader": 5,
-    "subject": 6,
-    "field": "silenceNight",
-    "why": "私有真相且不可公开推导"
-   },
-   {
-    "seed": 241,
-    "step": "0c",
-    "kind": "chat",
-    "reader": 5,
-    "subject": 7,
-    "field": "silenceNight",
-    "why": "私有真相且不可公开推导"
-   },
-   {
-    "seed": 241,
-    "step": "0c",
-    "kind": "chat",
-    "reader": 5,
+    "step": "8",
+    "kind": "revive",
+    "reader": 7,
     "subject": 11,
-    "field": "silenceNight",
-    "why": "私有真相且不可公开推导"
+    "field": "dying",
+    "why": "声明层未授权 convict 读取 dying（变形态，真身份 convict）"
    },
    {
     "seed": 241,
-    "step": "0c",
-    "kind": "chat",
+    "step": "8",
+    "kind": "revive",
+    "reader": 7,
+    "subject": 13,
+    "field": "dying",
+    "why": "声明层未授权 convict 读取 dying（变形态，真身份 convict）"
+   },
+   {
+    "seed": 241,
+    "step": "8",
+    "kind": "revive",
+    "reader": 7,
+    "subject": 14,
+    "field": "dying",
+    "why": "声明层未授权 convict 读取 dying（变形态，真身份 convict）"
+   },
+   {
+    "seed": 246,
+    "step": "8",
+    "kind": "revive",
+    "reader": 5,
+    "subject": 12,
+    "field": "dying",
+    "why": "声明层未授权 convict 读取 dying（变形态，真身份 convict）"
+   },
+   {
+    "seed": 246,
+    "step": "8",
+    "kind": "revive",
     "reader": 5,
     "subject": 13,
-    "field": "silenceNight",
-    "why": "私有真相且不可公开推导"
+    "field": "dying",
+    "why": "声明层未授权 convict 读取 dying（变形态，真身份 convict）"
    },
    {
-    "seed": 241,
-    "step": "0c",
-    "kind": "chat",
+    "seed": 246,
+    "step": "8",
+    "kind": "revive",
     "reader": 5,
     "subject": 14,
-    "field": "silenceNight",
-    "why": "私有真相且不可公开推导"
+    "field": "dying",
+    "why": "声明层未授权 convict 读取 dying（变形态，真身份 convict）"
    },
    {
-    "seed": 241,
-    "step": "0c",
-    "kind": "chat",
-    "reader": 1,
-    "subject": 11,
-    "field": "silenceNight",
-    "why": "私有真相且不可公开推导"
-   },
-   {
-    "seed": 241,
-    "step": "0c",
-    "kind": "chat",
-    "reader": 1,
+    "seed": 249,
+    "step": "8",
+    "kind": "doctor",
+    "reader": 3,
     "subject": 13,
-    "field": "silenceNight",
-    "why": "私有真相且不可公开推导"
+    "field": "dying",
+    "why": "声明层未授权 convict 读取 dying（变形态，真身份 convict）"
    },
    {
-    "seed": 241,
-    "step": "0c",
-    "kind": "chat",
+    "seed": 250,
+    "step": "8",
+    "kind": "revive",
     "reader": 12,
     "subject": 1,
-    "field": "silenceNight",
-    "why": "私有真相且不可公开推导"
+    "field": "dying",
+    "why": "声明层未授权 convict 读取 dying（变形态，真身份 convict）"
    },
    {
-    "seed": 241,
-    "step": "0c",
-    "kind": "chat",
+    "seed": 250,
+    "step": "8",
+    "kind": "revive",
     "reader": 12,
     "subject": 2,
-    "field": "silenceNight",
-    "why": "私有真相且不可公开推导"
+    "field": "dying",
+    "why": "声明层未授权 convict 读取 dying（变形态，真身份 convict）"
    },
    {
-    "seed": 241,
-    "step": "0c",
-    "kind": "chat",
+    "seed": 250,
+    "step": "8",
+    "kind": "revive",
     "reader": 12,
     "subject": 6,
-    "field": "silenceNight",
-    "why": "私有真相且不可公开推导"
+    "field": "dying",
+    "why": "声明层未授权 convict 读取 dying（变形态，真身份 convict）"
    },
    {
-    "seed": 241,
-    "step": "0c",
-    "kind": "chat",
+    "seed": 250,
+    "step": "8",
+    "kind": "revive",
     "reader": 12,
     "subject": 7,
-    "field": "silenceNight",
-    "why": "私有真相且不可公开推导"
+    "field": "dying",
+    "why": "声明层未授权 convict 读取 dying（变形态，真身份 convict）"
    },
    {
-    "seed": 241,
-    "step": "0c",
-    "kind": "chat",
-    "reader": 12,
-    "subject": 11,
-    "field": "silenceNight",
-    "why": "私有真相且不可公开推导"
-   },
-   {
-    "seed": 241,
-    "step": "0c",
-    "kind": "chat",
-    "reader": 12,
-    "subject": 13,
-    "field": "silenceNight",
-    "why": "私有真相且不可公开推导"
-   },
-   {
-    "seed": 241,
-    "step": "0c",
-    "kind": "chat",
-    "reader": 12,
-    "subject": 14,
-    "field": "silenceNight",
-    "why": "私有真相且不可公开推导"
-   },
-   {
-    "seed": 241,
-    "step": "0c",
-    "kind": "chat",
-    "reader": 15,
+    "seed": 252,
+    "step": "8",
+    "kind": "revive",
+    "reader": 9,
     "subject": 1,
-    "field": "silenceNight",
-    "why": "私有真相且不可公开推导"
+    "field": "dying",
+    "why": "声明层未授权 convict 读取 dying（变形态，真身份 convict）"
    },
    {
-    "seed": 241,
-    "step": "0c",
-    "kind": "chat",
-    "reader": 15,
+    "seed": 252,
+    "step": "8",
+    "kind": "revive",
+    "reader": 9,
     "subject": 2,
-    "field": "silenceNight",
-    "why": "私有真相且不可公开推导"
+    "field": "dying",
+    "why": "声明层未授权 convict 读取 dying（变形态，真身份 convict）"
    },
    {
-    "seed": 241,
-    "step": "0c",
-    "kind": "chat",
-    "reader": 15,
+    "seed": 252,
+    "step": "8",
+    "kind": "revive",
+    "reader": 9,
+    "subject": 5,
+    "field": "dying",
+    "why": "声明层未授权 convict 读取 dying（变形态，真身份 convict）"
+   },
+   {
+    "seed": 252,
+    "step": "8",
+    "kind": "revive",
+    "reader": 9,
+    "subject": 6,
+    "field": "dying",
+    "why": "声明层未授权 convict 读取 dying（变形态，真身份 convict）"
+   },
+   {
+    "seed": 252,
+    "step": "8",
+    "kind": "revive",
+    "reader": 9,
+    "subject": 7,
+    "field": "dying",
+    "why": "声明层未授权 convict 读取 dying（变形态，真身份 convict）"
+   },
+   {
+    "seed": 252,
+    "step": "8",
+    "kind": "revive",
+    "reader": 9,
+    "subject": 8,
+    "field": "dying",
+    "why": "声明层未授权 convict 读取 dying（变形态，真身份 convict）"
+   },
+   {
+    "seed": 252,
+    "step": "8",
+    "kind": "revive",
+    "reader": 9,
+    "subject": 12,
+    "field": "dying",
+    "why": "声明层未授权 convict 读取 dying（变形态，真身份 convict）"
+   },
+   {
+    "seed": 252,
+    "step": "8",
+    "kind": "revive",
+    "reader": 9,
+    "subject": 13,
+    "field": "dying",
+    "why": "声明层未授权 convict 读取 dying（变形态，真身份 convict）"
+   },
+   {
+    "seed": 252,
+    "step": "8",
+    "kind": "revive",
+    "reader": 9,
+    "subject": 14,
+    "field": "dying",
+    "why": "声明层未授权 convict 读取 dying（变形态，真身份 convict）"
+   },
+   {
+    "seed": 253,
+    "step": "8",
+    "kind": "revive",
+    "reader": 5,
+    "subject": 1,
+    "field": "dying",
+    "why": "声明层未授权 convict 读取 dying（变形态，真身份 convict）"
+   },
+   {
+    "seed": 253,
+    "step": "8",
+    "kind": "revive",
+    "reader": 5,
     "subject": 4,
-    "field": "silenceNight",
-    "why": "私有真相且不可公开推导"
+    "field": "dying",
+    "why": "声明层未授权 convict 读取 dying（变形态，真身份 convict）"
    },
    {
-    "seed": 241,
-    "step": "0c",
-    "kind": "chat",
-    "reader": 15,
+    "seed": 253,
+    "step": "8",
+    "kind": "revive",
+    "reader": 5,
     "subject": 6,
-    "field": "silenceNight",
-    "why": "私有真相且不可公开推导"
+    "field": "dying",
+    "why": "声明层未授权 convict 读取 dying（变形态，真身份 convict）"
    },
    {
-    "seed": 241,
-    "step": "0c",
-    "kind": "chat",
-    "reader": 15,
-    "subject": 7,
-    "field": "silenceNight",
-    "why": "私有真相且不可公开推导"
+    "seed": 253,
+    "step": "8",
+    "kind": "revive",
+    "reader": 5,
+    "subject": 10,
+    "field": "dying",
+    "why": "声明层未授权 convict 读取 dying（变形态，真身份 convict）"
    },
    {
-    "seed": 241,
-    "step": "0c",
-    "kind": "chat",
-    "reader": 15,
-    "subject": 9,
-    "field": "silenceNight",
-    "why": "私有真相且不可公开推导"
-   },
-   {
-    "seed": 241,
-    "step": "0c",
-    "kind": "chat",
-    "reader": 15,
-    "subject": 11,
-    "field": "silenceNight",
-    "why": "私有真相且不可公开推导"
-   },
-   {
-    "seed": 241,
-    "step": "0c",
-    "kind": "chat",
-    "reader": 15,
+    "seed": 253,
+    "step": "8",
+    "kind": "revive",
+    "reader": 5,
     "subject": 13,
-    "field": "silenceNight",
-    "why": "私有真相且不可公开推导"
+    "field": "dying",
+    "why": "声明层未授权 convict 读取 dying（变形态，真身份 convict）"
    },
    {
-    "seed": 241,
-    "step": "0c",
-    "kind": "chat",
-    "reader": 15,
+    "seed": 253,
+    "step": "8",
+    "kind": "revive",
+    "reader": 5,
     "subject": 14,
-    "field": "silenceNight",
-    "why": "私有真相且不可公开推导"
+    "field": "dying",
+    "why": "声明层未授权 convict 读取 dying（变形态，真身份 convict）"
    },
    {
-    "seed": 241,
-    "step": "2",
-    "kind": "crewAction",
-    "reader": 4,
+    "seed": 254,
+    "step": "8",
+    "kind": "revive",
+    "reader": 3,
     "subject": 1,
-    "field": "silenceNight",
-    "why": "私有真相且不可公开推导"
+    "field": "dying",
+    "why": "声明层未授权 convict 读取 dying（变形态，真身份 convict）"
    },
    {
-    "seed": 241,
-    "step": "2",
-    "kind": "crewAction",
-    "reader": 4,
+    "seed": 254,
+    "step": "8",
+    "kind": "revive",
+    "reader": 3,
     "subject": 2,
-    "field": "silenceNight",
-    "why": "私有真相且不可公开推导"
-   },
-   {
-    "seed": 241,
-    "step": "2",
-    "kind": "crewAction",
-    "reader": 4,
-    "subject": 3,
-    "field": "silenceNight",
-    "why": "私有真相且不可公开推导"
+    "field": "dying",
+    "why": "声明层未授权 convict 读取 dying（变形态，真身份 convict）"
    }
   ],
   "viewUnknown": 0,
@@ -438,7 +406,8 @@
    "lurkTargetPresented": [
     "xeno"
    ]
-  }
+  },
+  "gateNote": "gateProjectionReads = 可见性闸门算 View.build 投影时的读取。与真人客户端渲染同一份投影同性质，故不参与越界判定；但计数在此公开，不藏。"
  },
  "d3_legality": {
   "failures": 0,

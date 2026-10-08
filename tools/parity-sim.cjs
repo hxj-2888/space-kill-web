@@ -39,9 +39,19 @@ new Function('require', 'module', 'exports', '__dirname', '__filename', src)(
 const { makeCtx, loadInto, profiles } = m.exports;
 const ctx = makeCtx({});
 loadInto(ctx, path.join(ROOT, 'js'), profiles.full);
+/* ⚠ view.js 属 profiles.ui，不在 full 里 —— **必须补载**：
+   可见性闸门（js/ai/visibility.js）的判据真源就是 View.build，view 缺席时它会降级为
+   「只可见自己」。那就等于让模拟器在一个**产品里不存在的降级路径**上跑，
+   量出来的 AI 行为不是真实对局的行为（实测：漏载时 gate 投影读取恒为 0，是它的信号）。
+   浏览器端 view.js 由 profiles.ui 加载，故模拟器补载它才是对齐产品。 */
+loadInto(ctx, path.join(ROOT, 'js'), ['view']);
+if (!ctx.View || typeof ctx.View.build !== 'function')
+  throw new Error('parity-sim: View.build 不可用 —— 可见性闸门会降级为「只可见自己」，'
+    + '那样量出来的不是产品的真实行为。');
 const { Engine, Setup, AI } = ctx;
 const RD = ctx.SKRoleDecl;
 const Voice = ctx.AIVoice;
+const AIVisible = ctx.AIVisible;
 
 /* ── 观测桶 ── */
 const P = {
@@ -92,8 +102,18 @@ function installRecorders(g, seed) {
       Object.defineProperty(p, f, {
         configurable: true, enumerable: true,
         get() {
-          if (RECORD_READS && CUR && CUR.pid != null && p.id !== CUR.pid) {
-            CUR.reads.push({ seed, reader: CUR.pid, subject: p.id, field: f, step: CUR.step, kind: CUR.kind });
+          /* ⚠ 三个条件缺一不可，否则读数会被自己人污染（本探针第一版就栽在这）：
+             ① CUR 非空          —— 只在 AI 决策窗口内记
+             ② subject ≠ reader  —— 读自己是合法的（真人也有自己的面板）
+             ③ PHASE !== 'form'  —— **form 层读取不算 AI 决策读取**。
+                表单是引擎在替真人算菜单（真人也看得见同样内容），它内部会遍历全场。
+                漏掉这一条 ⇒ 步骤 2 单步就记进 24 万条 originRole 读取，
+                把「AI 用了 AI 视角外的信息」这个结论彻底污染掉。
+             via:'gate' = 这次读取发生在可见性闸门算投影期间（View.build 遍历全员），
+               与真人客户端渲染同一份投影同性质，单列成 GATE 档不参与判定。 */
+          if (RECORD_READS && CUR && CUR.pid != null && p.id !== CUR.pid && PHASE !== 'form') {
+            const via = (AIVisible && AIVisible.inGate && AIVisible.inGate()) ? 'gate' : 'decide';
+            CUR.reads.push({ seed, reader: CUR.pid, subject: p.id, field: f, step: CUR.step, kind: CUR.kind, via });
           }
           return val;                       /* ← 原值，不改 */
         },

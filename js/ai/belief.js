@@ -97,7 +97,16 @@
   /* 活跃度 log 调制（3.5）：v21 裁定 §3.4 后【仅作 Dg 调制项】。
      v25 遗留修复：旧实现读目标真相阵营 + 全局阵营累计计数（actCounts 按 faction 分桶）——
      等于「所有异形共享同一活跃度」，既透视又退化。现只读【公开可观测的个体行为量】：
-     公开指控 / 质询 / 承诺次数、宣称身份、④ 官方暴露、当前是否被沉默。 */
+     公开指控 / 质询 / 承诺次数、宣称身份、④ 官方暴露。
+
+     〔v7 · 2026-10-08〕**删掉「当前是否被沉默」这一项**。
+     依据（三条，都可核）：① 速查卡全文无任何 sensesQuote 声明沉默对他人可见；
+     ② view.js 他人分支不下发 silenceNight（真人看不到别人被沉默）；
+     ③ steps.js:460 只 priv 给本人、:461 只 god 给 DEV，无公开公告。
+     ⇒ 读它等于 AI 比真人多知道一件事，而 actF 是 dangerOf 的输入，波及投票/破坏/发言。
+     裁定「AI 与真人同角色时可见性统一」⇒ 该项删除，不是加可见性。
+     ⚠ 若日后裁定要让沉默公开，改这里 + view.js + 速查卡**三处**，
+        单改一处就是又一次「三张表各说各话」。 */
   function actF(g, p) {
     let n = 0;
     n += (p.accuseHistory || []).length;
@@ -105,7 +114,6 @@
     n += (p.promises || []).length;
     if (p.claimedRole) n += 2;
     if (p.repairExposed) n += 3;
-    if (p.silenceNight != null && p.silenceNight >= g.night) n = Math.max(0, n - 2);   // 沉默压制活跃度
     if (!n) return 0;
     const A = Math.log(1 + n);
     return A / (A + 1);

@@ -211,6 +211,11 @@ add('文档写明「裁判可有上帝视角、模拟不可」的纪律',
 add('文档记录发言重复率（41\.9%）', /41\.9%/.test(doc));
 add('文档记录 B4 空位 mind（预判/欺骗/背刺）',
   /预判/.test(doc) && /欺骗/.test(doc) && /背刺/.test(doc) && /roleDecl\.mind|mind\b/.test(doc));
+add('文档写明「AI 与真人同角色时可见性统一」的裁定',
+  /可见性统一|同角色时可见性/.test(doc) && /visibility\.js/.test(doc));
+add('文档记录统一后的新报数（73.5%）', /73\.5%/.test(doc));
+add('文档记录投影读取与决策读取须分流（防探针自污染）',
+  /投影读取/.test(doc) && /gate/.test(doc));
 
 /* ── 真人/AI 对等（2026-10-08 批次：human-ai-parity）──
    这一段核对的不是「AI 强不强」，而是「AI 有没有比真人多拿东西」。
@@ -229,11 +234,15 @@ add('动作空间对等：决策 100% 有表单可对照',
   RF.d1_actionSpace.compared > 0 && RF.d1_actionSpace.compared === RF.d1_actionSpace.decisions);
 add('合法性对等：toDecision 零失败', RF.d3_legality.failures === 0);
 add('信息边界：无「无法判定」的漏网（判据真源可用）', RF.d2_information.viewUnknown === 0);
-add('信息边界：三处已知越界都在册（silenceNight / 异形读濒死感染 / bio 读濒死）',
+add('信息边界：三处已知越界都已修掉，只剩 convict 复生（§6.1 症状）',
   RF.d2_information.violations > 0
-  && Object.keys(RF.d2_information.violationFields).some(k => k.indexOf('silenceNight') === 0)
-  && Object.keys(RF.d2_information.violationFields).some(k => /^dying by alien|^infection by alien/.test(k))
-  && Object.keys(RF.d2_information.violationFields).some(k => /^dying by bio/.test(k)));
+  && Object.keys(RF.d2_information.violationFields).every(k => /^dying by convict/.test(k))
+  && !Object.keys(RF.d2_information.violationFields).some(k => k.indexOf('silenceNight') === 0));
+add('信息边界：投影读取与决策读取已分流（gate 单列不判定）',
+  RF.d2_information.gateProjectionReads > 0);
+add('可见性闸门已加载且判据真源在位（View.build 可用）',
+  /AIVisible/.test(fs.readFileSync(ROOT + 'js/ai/visibility.js', 'utf8'))
+  && /View\.build/.test(fs.readFileSync(ROOT + 'js/ai/visibility.js', 'utf8')));
 add('B4 空位：声明层已登记且 life=pending（位空着是可见的）',
   /MIND_FORESIGHT/.test(fs.readFileSync(ROOT + 'js/v66/declaration/roleDecl.js', 'utf8'))
   && /\[B4 空位\]/.test(fs.readFileSync(ROOT + 'js/v66/declaration/roleDecl.js', 'utf8')));

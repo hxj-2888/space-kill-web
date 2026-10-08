@@ -317,9 +317,14 @@ function checkLegality(d) {
 /* ══════════════ 跑 ══════════════ */
 for (const d of (L.decisions || [])) { checkActionSpace(d); checkLegality(d); }
 /* 读取去重后判定：同一 (seed,reader,subject,field) 只判一次，
-   否则 60 局的重复读取会把「次数」放大到没有意义（计数是观测，不是判据）。 */
+   否则 60 局的重复读取会把「次数」放大到没有意义（计数是观测，不是判据）。
+   ⚠ 闸门内的**投影读取**（via='gate'）单列成 GATE 档，不参与越界判定：
+      View.build 是投影计算，真人客户端渲染时也要算同一份。混算会把
+      「AI 用了 AI 视角外的信息」这个结论被探针自己污染。 */
 const seen = new Set();
+let gatePairs = 0;
 for (const r of (L.reads || [])) {
+  if (r.via === 'gate') { gatePairs++; continue; }
   const k = r.seed + '|' + r.reader + '|' + r.subject + '|' + r.field;
   if (seen.has(k)) continue;
   seen.add(k);
@@ -335,7 +340,8 @@ console.log('   AI 交了表单外的 opt=' + P.outOfForm.length + '  target=' +
 console.log('   opt 映射未覆盖的 kind（opt 类别未判，不等于测过）= ' + JSON.stringify(P.unmappedKinds));
 console.log('   无 form 可对照的 kind = ' + JSON.stringify(P.kindsWithoutForm));
 console.log('');
-console.log('② 信息边界对等：判定 ' + seen.size + ' 个去重读取对');
+console.log('② 信息边界对等：判定 ' + seen.size + ' 个去重读取对（另 ' + gatePairs
+  + ' 条为闸门内的投影读取，不参与判定）');
 console.log('   分档 = ' + JSON.stringify(P.buckets));
 console.log('   ★ 真透视 = ' + P.violationTotal + ' 次');
 Object.keys(P.violations).sort((a, b) => P.violations[b] - P.violations[a])
@@ -362,10 +368,12 @@ const out = {
     unmappedKinds: P.unmappedKinds, kindsWithoutForm: P.kindsWithoutForm,
   },
   d2_information: {
-    pairsJudged: seen.size, buckets: P.buckets,
+    pairsJudged: seen.size, gateProjectionReads: gatePairs, buckets: P.buckets,
     violations: P.violationTotal, violationFields: P.violations, samples: P.samples,
     viewUnknown: P.viewUnknown,
     declaredAuthority: SENSE_AUTHORITY.authorityDump,
+    gateNote: 'gateProjectionReads = 可见性闸门算 View.build 投影时的读取。'
+      + '与真人客户端渲染同一份投影同性质，故不参与越界判定；但计数在此公开，不藏。',
   },
   d3_legality: { failures: P.toDecisionFail.length, samples: P.toDecisionFail.slice(0, 12) },
 };

@@ -657,9 +657,24 @@
     const al = alive(g).filter(x => x.id !== p.id);
     const urg = urgency(g);
     /* v27（A6-③）：claimedRole 的第三项由死别名 'doc' 改为 'tempdoc'——医生系三职业
-       （bio / rescue / tempdoc）在语言层与推理层现在同一套键，不再有 'doc' 这个空洞。 */
-    const doctorsAlive = Math.max(1, alive(g).filter(x =>
-      RD.hasGrant(x.role, 'treat') || RD.hasGrant(x.claimedRole, 'treat')).length);   // D6：能力标签（医生系）
+       （bio / rescue / tempdoc）在语言层与推理层现在同一套键，不再有 'doc' 这个空洞。
+
+       〔v7 · 2026-10-08〕**改成只数「本角色看得见的医生」**。
+       原实现 `alive(g).filter(x => RD.hasGrant(x.role, 'treat') ...)` 遍历全场读真相
+       role —— 那是统计类读取（referee 判为 DERIVABLE：结论真人也能由「开局公告构成 +
+       死亡公告揭示」推出），但它把「AI 能数」这件事实现成「AI 能读」。
+       改后口径：只承认**自己**的医生身份 + **自己可见的**感染标记持有者
+       （infectMarks 是 bio/rescue/poisoner/tempdoc 的卡载情报）。
+       ⇒ 数出来的值对不同角色不同，且每个值都真的来自它看到的东西。 */
+    const VIS = global.AIVisible;
+    const doctorsAlive = Math.max(1, alive(g).filter(x => {
+      if (x.id === p.id) return RD.hasGrant(x.role, 'treat');
+      /* 他人：只有「本角色被授权看感染标记」时，那个带标记的人才可能是医生 */
+      if (!VIS || !VIS.canSee(g, p, x, 'infection')) return false;
+      const k = p.known.get(x.id);
+      const roleOfX = k && k.role ? k.role : x.claimedRole;
+      return RD.hasGrant(roleOfX, 'treat');
+    }).length);
 
     switch (req.kind) {
       case 'invite': {                                     // 5.2⑥
@@ -1169,8 +1184,18 @@
                                  : [[2, 0.70], [1, 0.22], [0, 0.08]];
           let n = cap, acc = 0;
           for (const [cnt, prob] of dist) { acc += prob; if (r < acc) { n = cnt; break; } }
-          /* 候选 = 存活非异形（盲选，按威胁度排序，濒死除外）+ 假标记队友（稀有战术 ≤5%） */
-          const pool = ranked.filter(x => !x.x.dying && !x.x.infection).map(x => x.x.id);
+          /* 候选 = 存活非异形（**盲选**，按威胁度排序）+ 假标记队友（稀有战术 ≤5%）
+
+           〔v7 · 2026-10-08 裁定：AI 与真人同角色时可见性统一〕
+           原实现在这里排除濒死者与已感染者：`!x.x.dying && !x.x.infection`。
+           但 alien.duty.senses 只有 teammateIdentities / teammateBallots ——
+           卡片从未授予异形「谁濒死 / 谁被感染」的情报权；而步骤 7 的 alienAct 表单
+           给的是 `targets: formPlayers('alive', ...)`，**真人异形看不到任何这类信息**。
+           ⇒ 那是 AI 严格优于真人：真人盲选，AI 能排除。
+           裁定后改为**盲选**（不排除任何真人看不见的状态），与表单口径一致。
+           ⚠ 队友那条原本也读 `!x.infection`：队友是 alien 同阵营，view.js 的 team 分支
+             下发 `infection:{exists,real}`，故读队友的感染是合法的，保留。 */
+          const pool = ranked.map(x => x.x.id);
           const mates = aliveF(g, 'alien').filter(x => x.id !== p.id && !x.out && !x.infection)
             .map(x => ({ id: x.id, U: doctorsAlive > 0 ? 25 : 5 }));
           const fake = g.rng.chance(0.05) ? mates.sort((a, b) => b.U - a.U)[0] : null;
@@ -1183,8 +1208,20 @@
         return { act: 'none', targets: [] };
       }
       case 'doctor': {                                     // ⑤ 三类
-        const infected = g.players.filter(x => !x.out && x.infection);
-        const dying = g.players.filter(x => !x.out && x.dying);
+        /* 〔v7 · 2026-10-08 裁定：AI 与真人同角色时可见性统一〕
+           原实现读全场 `x.infection` / `x.dying`。这两类情报是**卡载、按角色授权**的：
+             infectMarks → bio / rescue / poisoner / tempdoc
+             dyingList   → rescue / poisoner / tempdoc（**bio 没有**）
+           而真人医生族共用同一张步骤 8 表单（kind='doctor'）⇒ 引擎给了全体同一份名单，
+           声明层只授权了其中三个。这不是 AI 单方面越界，是**声明层与引擎的口径不一致**。
+           裁定「同角色可见性统一」⇒ 以**声明层**为准（它是速查卡 sensesQuote 的落点）：
+           没有 dyingList 的 bio 不再看到全场濒死者。
+           ⚠ 这会改 bio 的救援选择（bio 本无 rescue 额度，rescue 族不受影响）——
+              属**声明层口径的落地**，不是削弱医生族的能力。 */
+        const seerInf = VIS && RD.sensesOf(p.role).indexOf('infectMarks') >= 0;
+        const seerDying = VIS && RD.sensesOf(p.role).indexOf('dyingList') >= 0;
+        const infected = seerInf ? g.players.filter(x => !x.out && x.infection) : [];
+        const dying = seerDying ? g.players.filter(x => !x.out && x.dying) : [];
         const canRescue = RD.hasGrant(p.role, 'save');                   // D6：能力标签（救援族）
         const blocked = p.silenceNight === g.night || p.noActive;
         if (blocked) return { act: 'none', targets: [] };
@@ -1201,8 +1238,12 @@
                ② 优先级走【连续权重】（Tactics.protectionBonus），不是硬规则；
                   医生分支的 ε = EPS.survival(0.15) 保证次要选项仍有选择率（N417 口径）。
              候选池 = 感染者 ∪ 关键预告者（仅生化医师有抗体，故只对其扩容）。 */
+          /* 〔v7 · 2026-10-08 裁定：AI 与真人同角色时可见性统一〕
+           关键预告者候选里的 `!x.dying`：bio 有 infectMarks 但**没有** dyingList
+           （卡片对 bio 只写「可见谁带有感染标记」）。原先无条件排除濒死者 ⇒ 越界。
+           故按是否被授权看濒死去排除，而不是无条件排除。 */
           const fore = (p.role === 'bio' && PT)
-            ? al.filter(x => !x.infection && !x.dying && PT.protectPriority(g, p, x, 'bio') >= 3) : [];
+            ? al.filter(x => !x.infection && !(seerDying && x.dying) && PT.protectPriority(g, p, x, 'bio') >= 3) : [];
           const cand = infected.concat(fore);
           if (cand.length) {
             /* P(真) 由标记清单逐夜比对得出（R7 回流）：滞留时间超过预期致死间隔 → 大概率假标记。

@@ -48,6 +48,10 @@ const ORDER = [
     'infer/visible',   /* 〔v7 B0 回退〕可见性过滤（防透视投递侧唯一实现）：
                         view.js:101/123 与 ui.js:655 的 SKVisible.canSee 来源。
                         它是**防透视层**而非通道机制，B0 误归档，已回退。 */
+  'ai/visibility',      /* 〔v7 2026-10-08〕可见性闸门：AI 与真人同角色时可见性统一。
+                          判据真源 = view.js sanitize（仓库唯一视图构建器）；
+                          view 未加载时降级为「只可见自己」（保守方向）。
+                          必须最先：belief/perceive/decide 都要问它。 */
   'ai/util',
   'ai/memory',          /* 拟人层 A：长期记忆（跨夜归并的印象；decide/perceive 于读时取用） */
   'ai/cloud',          /* v4.0 批次 17a：粒子云（与旧 belief 并存，17a 零接线；依赖 tiers 的 PRIOR_E） */
@@ -66,9 +70,15 @@ const ORDER = [
   'engine',
 ];
 
-/* AI 层五件套（顺序敏感：util → belief → perceive → decide → 门面 ai）。
-   decide 依赖 perceive（onClaim / grudgeLevel / phaseTag 三处），反向为零引用。 */
-const AI_STACK = ['ai/util', 'ai/memory', 'ai/belief', 'ai/perceive', 'ai/voice', 'ai/decide', 'ai'];
+/* AI 层清单（顺序敏感：visibility → util → memory → cloud → belief → perceive → voice → decide → 门面 ai）。
+   decide 依赖 perceive（onClaim / grudgeLevel / phaseTag 三处），反向为零引用。
+   ai/visibility 排最前：它是**可见性闸门**，belief/perceive/decide 都要问它
+   （2026-10-08 裁定「AI 与真人同角色时可见性统一」）。它自身在运行时取 global.View，
+   故不要求 view.js 在它之前 —— view 未加载时它降级为「只可见自己」（保守方向）。
+   ⚠ 本清单必须与 ORDER 里的 ai/* 段**逐项同序**（§七.5：两处必须一致）。
+     2026-10-08 实测漂移过：ORDER 有 ai/cloud 而本清单漏了它 ⇒ noBridge/minimal/aiOnly
+     三个剖面拿不到 SKCloud。现由 tools/load-order 自检拦住。 */
+const AI_STACK = ['ai/visibility', 'ai/util', 'ai/memory', 'ai/cloud', 'ai/belief', 'ai/perceive', 'ai/voice', 'ai/decide', 'ai'];
 /* AI 栈顺序说明：memory 无相互依赖，置于最前以便 decide/perceive 于读时取用（记忆是它们的输入）。 */
 /* 引擎层：B5 揭示服务 + 投递原语（公开/私有分叉收口点）+ 步骤表工厂必须先于 engine.js。
    注意：这里必须写完整模块路径 'v66/reveal/revealService'——曾误写为目录名 'v66/reveal'，
@@ -124,4 +134,6 @@ function browserTags(indent) {
   return profiles.ui.map(f => `${pad}<script src="js/${f}.js"></script>`).join('\n');
 }
 
-module.exports = { ORDER, ORDER_UI, profiles, makeCtx, loadInto, browserTags };
+/* 导出 AI_STACK：加载序自检要核对「index.html 的标签顺序」与本清单一致
+   （§七.5：改加载链必须核对标签都在 + 顺序正确 + 标签数未减少）。 */
+module.exports = { ORDER, ORDER_UI, AI_STACK, profiles, makeCtx, loadInto, browserTags };
