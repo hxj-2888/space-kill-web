@@ -319,6 +319,15 @@
       if (p.role === 'sheriff' && n === 5) grantBullets(p, 1, '第 5 夜：额外获得 1 发子弹');
       /* 6.4：外星人夜晚免疫第 7 夜额外 1 次（与警长子弹的夜次无关，各自依其条款） */
       if (p.role === 'xeno' && n === 7) { p.nightImmune = Math.min(2, p.nightImmune + 1); priv(g, p, '第 7 夜：额外获得 1 次夜晚免疫。'); }
+      /* 〔v7 速查卡补充 · 2026-10-08〕外星人自我治疗额度到账——补死代码缺口。
+         引擎原有 req（steps.js:1211 `p.cureSelf > 0`）与结算（:1336）都在，但
+         cureSelf 全仓从无赋正值（state.js:40 初始化 0、steps.js:285 使用后置 0）
+         ⇒ 两处分支恒不命中，自我治疗永远不可用。
+         卡的口径是「占用当夜行动名额」，外星人额度行未列自我治疗 ⇒ 按每夜到账
+         1 次、用尽即止处理；到账即用尽，当夜第二次仍被行动名额挡住，不会一夜两次。
+         ⚠ 卡未明写额度，本行为**推断**，已登记 roleDecl.IMPL_GAP['xeno.cureSelf']。
+         只给经典外星人（p.role==='xeno'；死囚不持经典技能 6.8.2）。 */
+      if (p.role === 'xeno') p.cureSelf = 1;
       if (p.bounty > 0) {
         grantBullets(p, p.bounty, `悬赏：回复 ${p.bounty} 发子弹`);
         p.bounty = 0;

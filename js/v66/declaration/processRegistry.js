@@ -43,7 +43,12 @@
       id: 'brew',
       name: '制药',
       rule: '3.3.1 / 2.9',
-      owner: ['bio', 'rescue', 'tempdoc'],
+      /* 〔v7 速查卡补充 · 2026-10-08〕补 poisoner：卡（毒师条·夜间行动）明载其步骤 8
+         五选一含「制药」，且制药为医生族通有（3.3.1）。原 owner 漏 poisoner ⇒
+         声明层 ROLE_DECL.poisoner.grants 含 'brew' 而进程引擎不认，声明与实现矛盾。
+         潜伏缺陷：医生位开局席位固定 ['bio','rescue']（2.8.14 组位表 capacity 2），
+         毒师不上场故当前不可观测；席位表一旦改为三选一即暴露。 */
+      owner: ['bio', 'rescue', 'tempdoc', 'poisoner'],
       nights: 2,
       interruptible: true,
       exclusive: true,                       // 投入夜占用当夜出手（"放弃行动"）

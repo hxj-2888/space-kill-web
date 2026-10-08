@@ -1,0 +1,16 @@
+澶栨槦浜? id=4 role=xeno 褰撳墠 step=7 night=1
+
+鈶?棰濆害鍒拌处锛坋ngine.js 澶滈棿鍒拌处鍖?`if (p.role === "xeno") p.cureSelf = 1;`锛?   瑙傚療锛氳繘鍏ユ湰澶滃悗 xeno.cureSelf = 1
+  [閫氳繃] cureSelf 鍒拌处涓?1  鈫?cureSelf=1
+
+鈶?姝ラ 8 req 娲惧彂锛堟湁鎰熸煋 + cureSelf=1 + 鏈鍔級
+   req 杩斿洖 3 椤癸細["xenoCure@4","doctor@5","doctor@7"]
+  [閫氳繃] req 娲惧彂 kind=xenoCure 缁欏鏄熶汉 4
+
+鈶?姝ラ 8 缁撶畻锛堟彁浜ゅ鐞嗗櫒: run锛宺an=true锛?   infection 鐜板€?= null
+  [閫氳繃] 鎰熸煋宸叉竻闄?  [閫氳繃] 鍐欏叆 antibodyNight = 2锛堝簲涓?night+1锛? 鈫?antibodyNight=2 antibodyBy=4
+
+鈶?鎶椾綋鎷︽埅锛坋ngine.js applyInfection锛氭姉浣撳湪鏁堟灉鍏嶇柅涔嬪墠缁撶畻锛?   Engine.applyInfection 鏄惁瀵煎嚭 = true
+   A 鎺堜簣澶?1锛堟姉浣撳湪鍦猴級锛氳繑鍥?blocked  infection钀藉湴=false
+   B 鎺堜簣澶?2锛堟姉浣撹繃鏈燂級锛氳繑鍥?real  infection钀藉湴=true
+  [閫氳繃] 涓嬩竴涓鏅氾細鏈夋姉浣?鈬?鎰熸煋琚嫤鎴?  [閫氳繃] 鍐嶄笅涓€澶滐細鎶椾綋宸插け鏁?鈬?鎰熸煋姝ｅ父钀藉湴锛堝崱路鏃堕檺鍨嬶紝涓嶇粨杞級

@@ -555,7 +555,12 @@
          · 顺带确认：外星人「夜晚免疫」属全额减免层而非行动位，故不在 actionSteps 内（正确）。 */
       actionStep: '0.1', actionSteps: ['0.1', '0.1s', '4b', '5', 'P-id', '1', '8'],   // 0.1 蛰伏；0.1s 沉默窗；4b 破坏；5 击杀/双刀（6.1/6.6）；P-id 觉醒（6.2）；1 乔装（7.3）；8 自我治疗（6.3）
       judgeMode: 'presented',                   // 蛰伏查验 6.1.1① 报编号与呈现职业
-      charges: { check: Infinity, kill: Infinity, destroy: Infinity, nightImmune: 2 },
+      /* 〔v7 速查卡补充〕cureSelf ＝ 自我治疗额度。卡的外星人「额度」行未列自我治疗，
+         只说它「占用当夜行动名额」；引擎按每夜到账 1 次、用尽即止实现
+         （engine.js 夜间到账区）。故此处登记 Infinity（每夜可用 1 次，非终身计数）。
+         ⚠ 卡未明写额度，此为**推断**；若正文另有终身 N 次口径，改 engine.js 的到账常量
+           并把此处改为该数值即可，机制与 req/结算分支不动。 */
+      charges: { check: Infinity, kill: Infinity, destroy: Infinity, nightImmune: 2, cureSelf: Infinity },
       /* C13（2026-10-04）：此处曾有 process:{nights:2,on:'0.6',product:'doubleBlade'} 的错误
          进程声明——觉醒（6.2）于身份改变子步骤即时生效，非进程型产出；该字段全仓零消费，
          属误导性死数据，删除（回落 DEFAULTS.process=null）。 */
@@ -760,22 +765,32 @@
        实装时须同步：① 每夜到账（卡内未给全局上限 ⇒ 疑为每夜回复，v 待正文确认）
                      ② 赋予抗体（卡内明示，当前 steps.js:1336 分支未见赋予）
                      ③ 与蛰伏／击杀／破坏的当夜互斥（已写入 duty.mutex） */
+    /* 〔v7 速查卡补充 · 2026-10-08〕已补齐。保留此条不改名，作为「补引擎」的落地留痕：
+       · 额度到账：engine.js 夜间到账区新增 `if (p.role === 'xeno') p.cureSelf = 1;`
+         ——原先 cureSelf 全仓从无赋正值（state.js:40 初始化 0、steps.js:285 使用后置 0），
+         导致 req（:1211）与结算（:1336）恒不命中、自我治疗为死代码；
+       · 赋予抗体：steps.js 自我治疗结算补写 antibodyNight/antibodyBy
+         （卡两处明写：§外星人核心能力、§v6.5 修订要点⑩抗体赋予主体含外星人自我治疗）。
+       ⚠ 额度口径仍是**推断**：卡的外星人额度行未列自我治疗，故按「每夜 1 次」实现。
+         待正文确认；若另有终身 N 次，改 engine.js 到账常量 + 本文件 charges 两处即可。 */
     'xeno.cureSelf': {
       card: '自我治疗（步骤 8）：清除自身感染并赋予抗体，占用当夜行动名额；与蛰伏/击杀/破坏四选一',
-      declared: 'charges 未登记 cureSelf；duty.mutex 已含 selfHeal（按卡登记）',
-      impl: '半实现——steps.js:1211 的 req 与 :1336 的结算分支都在，但 cureSelf 全仓从无正值（state.js:40 初始化 0）',
-      verdict: 'pending：req 恒不命中 ⇒ 分支为死代码。补声明无用，须补额度到账。',
+      declared: 'charges.cureSelf = Infinity（每夜 1 次，见下方推断说明）；duty.mutex 含 selfHeal',
+      impl: '已实装：engine.js 每夜到账 cureSelf=1；steps.js 结算写 antibodyNight 并清感染',
+      verdict: 'done（额度口径待正文确认）',
+      openQuestion: '卡未给自我治疗额度。当前实现＝每夜 1 次（受当夜行动名额约束）。若正文为终身 N 次，需改两处常量。',
     },
     /* 〔v7 速查卡对账 · 第二轮发现〕毒师制药：角色声明层 grants 已含 'brew'（卡内明载
        医生族通有制药 3.3.1），但进程注册表 SKProcess.brew.owner = [bio, rescue, tempdoc]
        **未含 poisoner** ⇒ 毒师即使坐上席位也开不了制药。
        当前不可观测（医生位 seats 固定 ['bio','rescue']，毒师不在开局席位内，见 GROUP_TABLE），
        故为潜伏缺口：席位表一旦改为三选一即暴露。 */
+    /* 〔v7 速查卡补充 · 2026-10-08〕已补齐。保留此条作为「声明与进程引擎对齐」的留痕。 */
     'poisoner.brewProcess': {
-      card: '步骤 8：制药／毒药／解药／制药产出的救援／治疗——五选一（毒师无自救额度）',
-      declared: "ROLE_DECL.poisoner.grants 含 'brew'（本轮依卡补入）",
-      impl: "SKProcess.brew.owner = ['bio','rescue','tempdoc'] —— 未含 poisoner",
-      verdict: 'pending：潜伏缺口。毒师不在开局席位（GROUP_TABLE.doctor.seats 固定两项），故当前不可观测。',
+      card: '步骤 8：制药／毒药／解药／制药产出的救援／治疗——五选一（毒师无自救额度）；制药为医生族通有（3.3.1）',
+      declared: "ROLE_DECL.poisoner.grants 含 'brew'（上一轮依卡补入）",
+      impl: "已实装：processRegistry.brew.owner 已补 'poisoner'（原缺 ⇒ 声明说能制药而进程引擎不认）",
+      verdict: 'done（潜伏缺陷已消除；毒师不在开局席位故此前不可观测）',
     },
   };
   /** 累计维修暴露阈值（4.3.6）：工程师 4.0 / 助理 3.0；未声明即 null（不适用） */
