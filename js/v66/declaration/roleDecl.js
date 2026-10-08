@@ -236,6 +236,75 @@
     mirrorLedger: '镜像账本（呈现身份并行结算）',
     morphTargetPool: '变形目标池（本局实际在场的人类职业或异形）',
   };
+
+  /* ---------- 情报出处的可核登记（SENSE_SOURCE）----------
+   *
+   * 为什么必须有这张表：2026-10-08 判错过一次。
+   *   上一批据「速查卡未授权」把 AI 的异形感染排除读法删了，而速查卡根本没转录
+   *   正文 3.3.10④ —— **漏的是卡，不是权**。而那时的声明层里，
+   *   `infectMarksTrueFalse` 这个键**根本不存在**，于是「这条情报有没有出处」
+   *   在代码里无处可查，只能靠人回忆。
+   *
+   * 这张表把每条情报的出处写成**机器可核的结构**：`kind`（凭什么）× `clause`（哪一条）。
+   * tools/text-align.cjs 拿正文提取件逐条对账，两种错都拦：
+   *   · 编造 —— 引用了一个正文里不存在的条款号（`clause` 对不上）；
+   *   · 漏项 —— 正文里有可见性授权条款，但声明层无对应 sense（走 WATCH 反查）。
+   *
+   * 三种 `kind`，区别是**授权的强度**，不可混用：
+   *   own      —— 自身状态。正文不需明文授予（「自身状态，理所当然」，
+   *               3.3.10② 即此口径）。读自己的东西不需要授权依据，但**必须有条款
+   *               说明那个状态是怎么来的**，否则就成了凭空知道。
+   *   granted  —— 正文明文授予**他人**可见性。这是唯一需要严格举证的一类：
+   *               `clause` 写错或漏写，就是 AI 比真人多知道一件事。
+   *   derived  —— 由已授权信息在本地推导（已查验池、镜像账本等）。
+   *               出处是**推导所依据的那条授权**，不是新授权。
+   *
+   * ⚠ `clause` 一律写正文 v6.6 的条款号。**条款号是契约，不是注释** ——
+   *   改了就等于换了一条依据，而正文是真源，改声明层去迁就编号是本末倒置。
+   *   正文 PDF 的 SHA256 见 docs/v7_按正文v66对齐可见性_实施报告_20261008.md §一。
+   */
+  /* ⚠ `clause` 与 `item` 必须分开写，这是 tools/text-align.cjs 逼出来的：
+   *   正文里 `3.3.10①` 不是条款号 —— `3.3.10` 是条款、`①` 是**条款内的项**。
+   *   首版把两者拼在一起当条款号，对账立刻报「正文查无此条」10 处 P0。
+   *   分开后工具能分别校验两件事：条款号存在，且该项标记真在该条款正文里。
+   */
+  const SENSE_SOURCE = {
+    /* —— own：自身状态 —— */
+    selfClaimLog:          { kind: 'own',     clause: '4.1.1', note: '自己的查验池与查验记录（4.7.3 同构）' },
+    repairAssistN:         { kind: 'own',     clause: '4.1.2', note: '自己协助维修的累计量' },
+    ownRepairTotal:        { kind: 'own',     clause: '4.3.2', note: '自己累计维修量（暴露阈值另见 4.4.6）' },
+    ownExposeRemain:       { kind: 'own',     clause: '4.3.3', note: '自己距暴露阈值还差多少' },
+    ownAmmo:               { kind: 'own',     clause: '4.4.1', note: '自己持有的子弹数' },
+    ownArmorStock:         { kind: 'own',     clause: '4.11.4', note: '4.11.4「持有者自知带甲，不知来源」' },
+    selfPoisoned:          { kind: 'own',     clause: '4.6',   note: '自己身上的毒药标记' },
+    ownNightImmuneRemain:  { kind: 'own',     clause: '7.2.4', note: '7.2.4 明文告知「消耗已发生／路径／剩余次数」' },
+    armedCrewIds:          { kind: 'own',     clause: '4.4.5', note: '4.4.5 武装识别为**双向**，本端知道自己认出了谁' },
+
+    /* —— granted：正文明文授予他人可见性（举证最严的一类）—— */
+    sniffResult:           { kind: 'granted', clause: '4.4.8', note: '猎手嗅探结果；7.1 明列为不公开项，故只授予嗅探者' },
+    infectMarks:           { kind: 'granted', clause: '3.3.10', item: '①', note: '医生可见清单，**不显真伪**（本项的红线）' },
+    infectMarksTrueFalse:  { kind: 'granted', clause: '3.3.10', item: '④', note: '异形施加方视野：清单**且可辨真伪**，与 ① 分列不互替' },
+    antibodyFeedback:      { kind: 'granted', clause: '4.5.3', note: '抗体生效反馈，不含被保护者编号与真伪' },
+    dyingList:             { kind: 'granted', clause: '3.3.12', note: '医生族最低可见性；4.6.1 另定「仅救援后可见致死来源」' },
+    dyingListForRevive:    { kind: 'granted', clause: '6.8.4', item: '③', note: '死囚明文授予「可见当夜濒死者」；同条⑥ 不公开被复生者编号' },
+    deathSourceAfterSave:  { kind: 'granted', clause: '4.6.1', note: '「仅在真正对该目标执行救援时才可见」—— 条件性授予' },
+    poisonList:            { kind: 'granted', clause: '4.6',   note: '毒师可见毒药标记；毒药非感染标记，不适用 3.3 全套' },
+    guardFeedback:         { kind: 'granted', clause: '7.2.5', note: '被保护者的保护告知' },
+    attackTypeOnGuard:     { kind: 'granted', clause: '4.8.3', note: '受袭感知：揭示伤害类型，不报凶手编号' },
+    allVoteSources:        { kind: 'granted', clause: '4.9.1', note: '「可见每张票的投票来源编号，仅本人知晓」' },
+    allBallotCounts:       { kind: 'granted', clause: '2.3.5', item: '39', note: '例外一：验票官可见每张票的来源编号' },
+    pairedPrivateChats:    { kind: 'granted', clause: '4.12.4', note: '窃听报告内容；4.12.3 划定边界与排除' },
+    teammateIdentities:    { kind: 'granted', clause: '2.8.3', note: '异类阵营互相知晓队友身份' },
+    teammateBallots:       { kind: 'granted', clause: '2.3.5', item: '40', note: '例外二：异形可见本方队友票型分布；人类与外星人票型不可见' },
+    lurkTargetPresented:   { kind: 'granted', clause: '6.1',   note: '蛰伏所得目标的呈现职业（可附加沉默）' },
+
+    /* —— derived：由已授权信息推导 —— */
+    presentedRoleOnly:     { kind: 'derived', clause: '4.7.1', note: '查验恒依呈现职业作答（7.3.2：乔装对查验的影响）' },
+    checkPool:             { kind: 'derived', clause: '4.7.3', note: '已查验池（累积池），池内固定存「查验当夜所显示的呈现职业」' },
+    mirrorLedger:          { kind: 'derived', clause: '2.8.5', note: '2.8.5 变身份时的资源账本通则（镜像账本）' },
+    morphTargetPool:       { kind: 'derived', clause: '6.8.3', item: '③', note: '变形目标＝本局实际在场者' },
+  };
+
   /* duty.cost ＝ 速查卡明写的代价与陷阱。这是 AI 权衡的另一半：
      收益（能做什么）已由 charges/grants 表达，代价此前完全没有表达。 */
   const DUTY_COST = {
@@ -1155,7 +1224,7 @@
 
   global.SKRoleDecl = {
     SCHEMA, EXTRA_FIELDS, LIFE, DEFAULTS, GROUP_TABLE, TRANSFER_BRANCHES, ROLE_DECL, NAMESPACE, GRANT_VOCAB,
-    DUTY_ACTION, DUTY_SENSE, DUTY_COST,
+    DUTY_ACTION, DUTY_SENSE, DUTY_COST, SENSE_SOURCE,
     /* B4 空位：三层词表 + 取值校验器。导出是为了让 B4 实装时**只能**从这里取词，
        而不是另写一张表（那正是本仓库反复踩的漂移源）。 */
     MIND_AXES, MIND_FORESIGHT, MIND_DECEIVE, MIND_BACKSTAB, mindOf, mindAudit,

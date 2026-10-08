@@ -213,6 +213,26 @@ add('文档记录 B4 空位 mind（预判/欺骗/背刺）',
   /预判/.test(doc) && /欺骗/.test(doc) && /背刺/.test(doc) && /roleDecl\.mind|mind\b/.test(doc));
 add('文档写明「AI 与真人同角色时可见性统一」的裁定',
   /可见性统一|同角色时可见性/.test(doc) && /visibility\.js/.test(doc));
+/* —— 正文 v6.6 ↔ 声明层 对账（2026-10-08 第四批新增）——
+   这组核对项刻意**不依赖**正文提取件（提取件已 gitignore）。理由：核对器本身必须
+   在缺件时也能验「声明层有没有把出处登记全」，否则缺件那天它会跟着一起瞎。 */
+const declSrc = fs.readFileSync(ROOT + 'js/v66/declaration/roleDecl.js', 'utf8');
+const alignTool = fs.readFileSync(ROOT + 'tools/text-align.cjs', 'utf8');
+add('声明层有 SENSE_SOURCE 出处登记（每条情报都能追到正文条款）',
+  /const SENSE_SOURCE = \{/.test(declSrc)
+  && /infectMarksTrueFalse/.test(declSrc) && /dyingListForRevive/.test(declSrc));
+add('SENSE_SOURCE 三种 kind 齐备（own / granted / derived，授权强度不可混用）',
+  /kind: 'own'/.test(declSrc) && /kind: 'granted'/.test(declSrc) && /kind: 'derived'/.test(declSrc));
+add('出处登记的 clause 与 item 分开写（3.3.10 + ①，不是 3.3.10①）',
+  /clause: '3\.3\.10', item: '①'/.test(declSrc) && /clause: '3\.3\.10', item: '④'/.test(declSrc));
+add('正文对账工具自带自检（一个从没报过错的检查器等于没有检查器）',
+  /自检/.test(alignTool) && /buildIndex\(SYNTH\)/.test(alignTool) && /自检挂了/.test(alignTool));
+add('正文对账工具缺件时报错退出、不静默跳过',
+  /未对账就退出/.test(alignTool) && /process\.exit\(2\)/.test(alignTool));
+add('正文对账工具不改产品代码（只读、只报）',
+  /不改任何产品代码/.test(alignTool) && !/require\([^)]*roleDecl[^)]*\)\s*;?\s*\n?\s*\w+\s*=/.test(alignTool));
+add('提取件已 gitignore（复制规则文本进仓库等于制造第二份规则）',
+  /_v66正文_提取\.txt/.test(fs.readFileSync(ROOT + '.gitignore', 'utf8')));
 add('文档记录当前基线（第四批 72.7%，第三批 73.5% 作为误判留档）',
   /72\.7%/.test(doc) && /73\.5%/.test(doc));
 add('文档记录投影读取与决策读取须分流（防探针自污染）',
