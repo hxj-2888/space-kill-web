@@ -1,0 +1,489 @@
+{
+ "games": 120,
+ "errs": 0,
+ "errMsgs": {},
+ "thought": {
+  "calls": 6923,
+  "hit": 2582,
+  "hitRate": "37.3%",
+  "byRole": {
+   "detective": {
+    "hit": 217,
+    "total": 591
+   },
+   "sheriff": {
+    "hit": 497,
+    "total": 504
+   },
+   "bio": {
+    "hit": 69,
+    "total": 673
+   },
+   "inspector": {
+    "hit": 434,
+    "total": 689
+   },
+   "crew": {
+    "hit": 348,
+    "total": 2291
+   },
+   "engineer": {
+    "hit": 521,
+    "total": 601
+   },
+   "bodyguard": {
+    "hit": 88,
+    "total": 678
+   },
+   "rescue": {
+    "hit": 253,
+    "total": 714
+   },
+   "armed": {
+    "hit": 129,
+    "total": 130
+   },
+   "tempdoc": {
+    "hit": 4,
+    "total": 30
+   },
+   "assistant": {
+    "hit": 22,
+    "total": 22
+   }
+  }
+ },
+ "alienLeakGuard": {
+  "teammateTopicHits": 3,
+  "ofWhichProducedClaim": 0,
+  "sample": {
+   "sense": "teammateIdentities",
+   "line": "这局有 2 个人走路的方式跟我像。"
+  }
+ },
+ "speechByRole": {
+  "detective": {
+   "total": 591,
+   "unique": 436,
+   "diversity": "73.8%",
+   "top": [
+    {
+     "line": "我手里的查验结果先压一夜。",
+     "n": 54
+    },
+    {
+     "line": "1 号，开局这套发言太保守了，全是场面话。",
+     "n": 15
+    },
+    {
+     "line": "我质询 1 号：第一轮就想好你要跟谁走。",
+     "n": 6
+    }
+   ]
+  },
+  "sheriff": {
+   "total": 504,
+   "unique": 403,
+   "diversity": "80.0%",
+   "top": [
+    {
+     "line": "我还有 1 发，打谁我心里有数。 我是警长，枪口对着谁不用报备。",
+     "n": 15
+    },
+    {
+     "line": "我是警长，枪口对着谁不用报备。",
+     "n": 8
+    },
+    {
+     "line": "开局先把自己的节奏立住，信息后面慢慢对。",
+     "n": 7
+    }
+   ]
+  },
+  "bio": {
+   "total": 673,
+   "unique": 450,
+   "diversity": "66.9%",
+   "top": [
+    {
+     "line": "我质询 1 号：第一轮就想好你要跟谁走。",
+     "n": 11
+    },
+    {
+     "line": "我在制药，出手不了。",
+     "n": 11
+    },
+    {
+     "line": "1 号，开局这套发言太保守了，全是场面话。",
+     "n": 11
+    }
+   ]
+  },
+  "inspector": {
+   "total": 689,
+   "unique": 564,
+   "diversity": "81.9%",
+   "top": [
+    {
+     "line": "我质询 1 号：第一轮就想好你要跟谁走。",
+     "n": 14
+    },
+    {
+     "line": "1 号，开局先把你的立场说清楚，别急着站队。",
+     "n": 12
+    },
+    {
+     "line": "第一晚什么都没发生，发言态度就是唯一的线索。",
+     "n": 11
+    }
+   ]
+  },
+  "crew": {
+   "total": 2291,
+   "unique": 1165,
+   "diversity": "50.9%",
+   "top": [
+    {
+     "line": "我这轮先听大家的信息。",
+     "n": 48
+    },
+    {
+     "line": "第一晚什么都没发生，发言态度就是唯一的线索。",
+     "n": 42
+    },
+    {
+     "line": "开局先把自己的节奏立住，信息后面慢慢对。",
+     "n": 41
+    }
+   ]
+  },
+  "alien": {
+   "total": 1498,
+   "unique": 766,
+   "diversity": "51.1%",
+   "top": [
+    {
+     "line": "趁着没有新公告，先把昨天的线对一遍。",
+     "n": 30
+    },
+    {
+     "line": "死亡名单摆在那，自己品。",
+     "n": 29
+    },
+    {
+     "line": "昨夜无人死亡，对方在蓄力。",
+     "n": 26
+    }
+   ]
+  },
+  "engineer": {
+   "total": 601,
+   "unique": 519,
+   "diversity": "86.4%",
+   "top": [
+    {
+     "line": "我自己修了 0，账我清楚，别拿维修多少来编排我。 第一晚什么都没发生，发言态度就是唯一的线索",
+     "n": 8
+    },
+    {
+     "line": "我自己修了 0，账我清楚，别拿维修多少来编排我。 开局先把自己的节奏立住，信息后面慢慢对。",
+     "n": 7
+    },
+    {
+     "line": "昨夜无人死亡，对方在蓄力。",
+     "n": 6
+    }
+   ]
+  },
+  "bodyguard": {
+   "total": 678,
+   "unique": 472,
+   "diversity": "69.6%",
+   "top": [
+    {
+     "line": "昨夜无人死亡，对方在蓄力。",
+     "n": 18
+    },
+    {
+     "line": "都别急着定性，先听一轮。",
+     "n": 16
+    },
+    {
+     "line": "开局先把自己的节奏立住，信息后面慢慢对。",
+     "n": 12
+    }
+   ]
+  },
+  "xeno": {
+   "total": 516,
+   "unique": 363,
+   "diversity": "70.3%",
+   "top": [
+    {
+     "line": "你们先清内部的，我跟着走。",
+     "n": 16
+    },
+    {
+     "line": "我这边的感觉很奇怪，暂时说不清。",
+     "n": 14
+    },
+    {
+     "line": "昨夜无人死亡，对方在蓄力。",
+     "n": 12
+    }
+   ]
+  },
+  "rescue": {
+   "total": 714,
+   "unique": 518,
+   "diversity": "72.5%",
+   "top": [
+    {
+     "line": "开局先把自己的节奏立住，信息后面慢慢对。",
+     "n": 19
+    },
+    {
+     "line": "都别急着定性，先听一轮。",
+     "n": 14
+    },
+    {
+     "line": "昨夜无人死亡，对方在蓄力。",
+     "n": 12
+    }
+   ]
+  },
+  "armed": {
+   "total": 130,
+   "unique": 102,
+   "diversity": "78.5%",
+   "top": [
+    {
+     "line": "我还有 1 发，打谁我心里有数。 我是武装船员，枪口对着谁不用报备。",
+     "n": 7
+    },
+    {
+     "line": "我是武装船员，枪口对着谁不用报备。",
+     "n": 6
+    },
+    {
+     "line": "我还有 1 发，打谁我心里有数。 昨夜无人死亡，对方在蓄力。",
+     "n": 5
+    }
+   ]
+  },
+  "tempdoc": {
+   "total": 30,
+   "unique": 29,
+   "diversity": "96.7%",
+   "top": [
+    {
+     "line": "昨夜无人死亡，对方在蓄力。",
+     "n": 2
+    },
+    {
+     "line": "话别说死，昨夜无人死亡，对方在蓄力。不急。",
+     "n": 1
+    },
+    {
+     "line": "我质询 8 号：你凭什么自证清白？",
+     "n": 1
+    }
+   ]
+  },
+  "assistant": {
+   "total": 22,
+   "unique": 22,
+   "diversity": "100.0%",
+   "top": [
+    {
+     "line": "我自己修了 1.4，账我清楚，别拿维修多少来编排我。 都别划水了，先归票，票散了白给。",
+     "n": 1
+    },
+    {
+     "line": "我自己修了 1.3，账我清楚，别拿维修多少来编排我。 都别划水了，先归票，票散了白给。",
+     "n": 1
+    },
+    {
+     "line": "我的看法是，净破坏量已经 0.0，机器再停大家陪葬。",
+     "n": 1
+    }
+   ]
+  }
+ },
+ "senseUsage": {
+  "engineer": {
+   "ownRepairTotal": 555
+  },
+  "crew": {
+   "repairAssistN": 603
+  },
+  "inspector": {
+   "allVoteSources": 375,
+   "allBallotCounts": 8
+  },
+  "bodyguard": {
+   "guardFeedback": 141
+  },
+  "detective": {
+   "presentedRoleOnly": 190
+  },
+  "rescue": {
+   "deathSourceAfterSave": 315,
+   "infectMarks": 80
+  },
+  "armed": {
+   "ownAmmo": 97,
+   "repairAssistN": 7
+  },
+  "sheriff": {
+   "ownAmmo": 451
+  },
+  "bio": {
+   "antibodyFeedback": 17,
+   "infectMarks": 66
+  },
+  "assistant": {
+   "ownRepairTotal": 18
+  },
+  "tempdoc": {
+   "repairAssistN": 9,
+   "deathSourceAfterSave": 7
+  }
+ },
+ "overlapTop": [
+  {
+   "a": "crew",
+   "b": "rescue",
+   "shared": 144,
+   "worstLine": "开局先把自己的节奏立住，信息后面慢慢对。",
+   "worstA": 41,
+   "worstB": 19
+  },
+  {
+   "a": "inspector",
+   "b": "crew",
+   "shared": 116,
+   "worstLine": "第一晚什么都没发生，发言态度就是唯一的线索。",
+   "worstA": 11,
+   "worstB": 42
+  },
+  {
+   "a": "crew",
+   "b": "bodyguard",
+   "shared": 163,
+   "worstLine": "开局先把自己的节奏立住，信息后面慢慢对。",
+   "worstA": 41,
+   "worstB": 12
+  },
+  {
+   "a": "bio",
+   "b": "crew",
+   "shared": 165,
+   "worstLine": "第一晚什么都没发生，发言态度就是唯一的线索。",
+   "worstA": 9,
+   "worstB": 42
+  },
+  {
+   "a": "crew",
+   "b": "alien",
+   "shared": 149,
+   "worstLine": "第一晚什么都没发生，发言态度就是唯一的线索。",
+   "worstA": 42,
+   "worstB": 9
+  },
+  {
+   "a": "detective",
+   "b": "crew",
+   "shared": 112,
+   "worstLine": "1 号，开局这套发言太保守了，全是场面话。",
+   "worstA": 15,
+   "worstB": 34
+  },
+  {
+   "a": "crew",
+   "b": "xeno",
+   "shared": 97,
+   "worstLine": "第一晚什么都没发生，发言态度就是唯一的线索。",
+   "worstA": 42,
+   "worstB": 7
+  },
+  {
+   "a": "sheriff",
+   "b": "crew",
+   "shared": 65,
+   "worstLine": "开局先把自己的节奏立住，信息后面慢慢对。",
+   "worstA": 7,
+   "worstB": 41
+  },
+  {
+   "a": "crew",
+   "b": "engineer",
+   "shared": 81,
+   "worstLine": "第一晚什么都没发生，发言态度就是唯一的线索。",
+   "worstA": 42,
+   "worstB": 2
+  },
+  {
+   "a": "alien",
+   "b": "bodyguard",
+   "shared": 103,
+   "worstLine": "昨夜无人死亡，对方在蓄力。",
+   "worstA": 26,
+   "worstB": 18
+  },
+  {
+   "a": "alien",
+   "b": "xeno",
+   "shared": 111,
+   "worstLine": "昨夜无人死亡，对方在蓄力。",
+   "worstA": 26,
+   "worstB": 12
+  },
+  {
+   "a": "alien",
+   "b": "rescue",
+   "shared": 95,
+   "worstLine": "昨夜无人死亡，对方在蓄力。",
+   "worstA": 26,
+   "worstB": 12
+  }
+ ],
+ "topicCoverage": {
+  "presentedRoleOnly": false,
+  "ownAmmo": false,
+  "infectMarks": false,
+  "antibodyFeedback": false,
+  "allVoteSources": false,
+  "allBallotCounts": false,
+  "repairAssistN": false,
+  "ownRepairTotal": false,
+  "guardFeedback": false,
+  "attackTypeOnGuard": true,
+  "dyingList": true,
+  "deathSourceAfterSave": false,
+  "teammateIdentities": false
+ },
+ "topicZeroCause": {
+  "attackTypeOnGuard": {
+   "probed": 678,
+   "hasMaterial": 88,
+   "cause": "shadowedByEarlierTopic",
+   "note": "载体是活的，属排序问题，不是缺陷"
+  },
+  "dyingList": {
+   "probed": 744,
+   "hasMaterial": 0,
+   "cause": "noMaterialInThisLayer",
+   "note": "本层取不到料：需查是载体未写入，还是信息窗与消费窗不重叠"
+  }
+ },
+ "topicsNotApplicable": {
+  "dyingList": {
+   "carrierAlive": true,
+   "reason": "信息窗（夜间）与消费窗（白天讨论会）不重叠",
+   "needs": "把濒死名单做跨夜留存，否则无从说起；属引擎补充项，待办"
+  }
+ },
+ "globalUniqueLines": 4368,
+ "globalTotalLines": 8937
+}

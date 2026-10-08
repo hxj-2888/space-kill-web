@@ -216,6 +216,9 @@
     const IR = global.IR;
     const meta = { speaker: p.id, night: g.night, step: g.step, channel: quiet ? 'private' : 'public' };
     let tac = null;   // v31 批 3：战术库选择结果（非人类阵营出口，见下方 else-if 链）
+    /* 〔v7〕本席本轮的角色心声（由 AIVoice.thought 取自 roleDecl.duty.senses）；
+       null＝本轮无料。声明在此、赋值在下方链末——它不参与分支选择。 */
+    let voiceToday = null;
 
     /* 事实集（带守卫） */
     const isDay = g.phase !== 'night';
@@ -482,6 +485,44 @@
         '有没有人盘一下目前最 sus 的两个人？',
         '我先听，谁在裸坐谁心里清楚。',
       ]);
+    }
+
+    /* 〔v7 角色心声〕在分支链**跑完之后**做，且**不参与**分支选择。
+       分支链与接入 voice 之前逐字相同——指控、质询、应答、战术/情绪语料该产出什么
+       就产出什么，谁也没被顶掉。这是本设计的要点：voice 只**增加**一句话，不替换、
+       不抑制任何既有发言路径。
+       ⚠ 措辞要说准：g.rng 是**游戏级共享**随机流，voice 取随机必然让整条随机流移位，
+         故「分支选择不变」成立，而「整局逐步一致」**不成立**。后者只能靠 A/B 实测
+         说清影响有多大，不能靠注释断言（见 tools/voice-probe.cjs 与本批报告对比表）。
+       取材与成句按 roleDecl.duty.senses（速查卡·可见性列即白名单）；
+       说话时的犹豫按 duty.cost（卡里的明文代价）。取不到料就不开口，不制造噪声。
+       开口概率读声明层性格档 claimRate（K2 真源），不写死数值。 */
+    if (!quiet && p.faction === 'human' && global.AIVoice && al.length > 1) {
+      try {
+        const v = global.AIVoice.thought(g, p);
+        const vRate = (TR && TR.traitValue) ? TR.traitValue('theta', 'claimRate', p.theta) : 0.35;
+        if (v && vRate > 0 && rng.chance(Math.min(0.8, vRate * 1.6))) voiceToday = v;
+      } catch (e) { voiceToday = null; }
+    }
+
+    /* 前置而非后置：拟人Ⅳ 断言按「发言以情绪句结尾」判定（tx === x || tx.endsWith(x)），
+       后置会把情绪句挤到句中而使该断言变红（v1 已实测）。前置则情绪句仍在句尾。 */
+    if (voiceToday) {
+      const vline = voiceToday.hedge || voiceToday.line;
+      if (vline) {
+        const rest = text;
+        const had = !!rest;
+        text = had ? (vline + ' ' + rest) : vline;
+        if (voiceToday.claimKind && IR) p.outClaims.push(IR.mk(voiceToday.claimKind, [], {}, meta));
+        /* 落到玩家身上：探针与断言据此核对「这句依据哪个 duty.senses 键、是否带
+           明文代价的犹豫」，不必重跑推理。 */
+        p._lastThought = {
+          sense: voiceToday.sense, night: g.night, step: g.step,
+          hedged: !!(voiceToday.hedge && voiceToday.hedge !== voiceToday.line),
+          claimKind: voiceToday.claimKind || null,
+          line: vline, prependedTo: had ? String(rest) : null,
+        };
+      }
     }
 
     /* v26：公开发言的 p.claims 记录统一交给 Bridge.say（公开发言唯一入口）；
@@ -1359,5 +1400,7 @@
 
   global.AIDecide = {
     urgency, exposedEngineer, knownRepairers, EPS, VA, confOf, argmax, argmaxProtect, speak, evilIntent, vote, inviteUtility, decide, canKill, clearedK, threatTop, dirOcc, exposeRiskInc, rankLow, reasoningChain,
+    /* 〔v7〕lastThoughtOf：本席最后一次发言所依据的角色心声（探针/断言用） */
+    lastThoughtOf: p => (p && p._lastThought) || null,
   };
 })(typeof window !== 'undefined' ? window : globalThis);

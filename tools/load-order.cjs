@@ -53,6 +53,9 @@ const ORDER = [
   'ai/cloud',          /* v4.0 批次 17a：粒子云（与旧 belief 并存，17a 零接线；依赖 tiers 的 PRIOR_E） */
   'ai/belief',
   'ai/perceive',
+  'ai/voice',
+          /* 〔v7〕角色心声与发言层：按 roleDecl.duty.senses 取材、按 duty.cost 留一手。
+             必须先于 ai/decide（decide.speak 读 AIVoice.thought）；只依赖声明层与 state。 */
   'ai/decide',
   'ai',
   /* v66 声明层：事件族契约（G1，纯数据）与角色声明表已在 DECL_STACK 中前置加载；
@@ -65,7 +68,7 @@ const ORDER = [
 
 /* AI 层五件套（顺序敏感：util → belief → perceive → decide → 门面 ai）。
    decide 依赖 perceive（onClaim / grudgeLevel / phaseTag 三处），反向为零引用。 */
-const AI_STACK = ['ai/util', 'ai/memory', 'ai/belief', 'ai/perceive', 'ai/decide', 'ai'];
+const AI_STACK = ['ai/util', 'ai/memory', 'ai/belief', 'ai/perceive', 'ai/voice', 'ai/decide', 'ai'];
 /* AI 栈顺序说明：memory 无相互依赖，置于最前以便 decide/perceive 于读时取用（记忆是它们的输入）。 */
 /* 引擎层：B5 揭示服务 + 投递原语（公开/私有分叉收口点）+ 步骤表工厂必须先于 engine.js。
    注意：这里必须写完整模块路径 'v66/reveal/revealService'——曾误写为目录名 'v66/reveal'，
