@@ -35,3 +35,11 @@ android/SpaceKill.apk
 /tools/parity-sim-[0-9]*-variants.json
 /tools/parity-sim-[0-9]*-[0-9]*.json
 !/tools/parity-sim-stats-*.json
+
+# 正文 v6.6 的 PDF 提取文本（docs/_v66正文_提取.txt）
+# 理由同上：它是**从外部 PDF 机械提取的派生物**，不是真源。
+# 更要紧的是——把规则文本复制一份进仓库，就等于制造了「第二份规则」，
+# 它会与 PDF 悄悄漂移，而本仓库的全部纪律都建立在「唯一真源」上。
+# 真源是 PDF 本身；提取件只用于通读与检索，随时可重建（命令见
+# docs/v7_按正文v66对齐可见性_实施报告_20261008.md §一，PDF 的 SHA256 也记在那里）。
+/docs/_v66正文_提取.txt

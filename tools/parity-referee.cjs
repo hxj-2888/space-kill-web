@@ -59,14 +59,26 @@ if (L.meta && L.meta.seatMode && L.meta.seatMode !== SeatMode.seatMode())
    转录于 tools/card-audit.cjs 的 CARD，经 card-audit 对齐到 roleDecl 的 duty.senses。
    ⇒ 从声明层现场派生，不手写可见性表（手写必然与实现漂移）。 */
 const SENSE_AUTHORITY = (() => {
-  const SENSE_OF = { infection: 'infectMarks', dying: 'dyingList', poison: 'poisonList' };
+  /* 真相字段 → 声明层 sense 键。**一个字段可能对应两个 sense 键**：
+     感染标记对医生是「只见清单」（infectMarks）、对异形是「清单＋可辨真伪」
+     （infectMarksTrueFalse）——正文 3.3.10④ 的设计红线就藏在这个差别里，
+     故两个键都要收，合并任一个都会让红线消失。 */
+  const SENSE_OF = {
+    infection: ['infectMarks', 'infectMarksTrueFalse'],
+    dying: ['dyingList', 'dyingListForRevive'],
+    poison: ['poisonList'],
+  };
   const auth = {};
   for (const k of RD.keys()) for (const s of ((RD.ROLE_DECL[k].duty || {}).senses || [])) {
     if (!auth[s]) auth[s] = [];
     auth[s].push(k);
   }
   const byField = {};
-  for (const [field, sense] of Object.entries(SENSE_OF)) byField[field] = new Set(auth[sense] || []);
+  for (const [field, senses] of Object.entries(SENSE_OF)) {
+    const set = new Set();
+    for (const s of senses) for (const r of (auth[s] || [])) set.add(r);
+    byField[field] = set;
+  }
   return { byField, authorityDump: auth };
 })();
 

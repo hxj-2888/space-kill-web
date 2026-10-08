@@ -213,7 +213,8 @@ add('文档记录 B4 空位 mind（预判/欺骗/背刺）',
   /预判/.test(doc) && /欺骗/.test(doc) && /背刺/.test(doc) && /roleDecl\.mind|mind\b/.test(doc));
 add('文档写明「AI 与真人同角色时可见性统一」的裁定',
   /可见性统一|同角色时可见性/.test(doc) && /visibility\.js/.test(doc));
-add('文档记录统一后的新报数（73.5%）', /73\.5%/.test(doc));
+add('文档记录当前基线（第四批 72.7%，第三批 73.5% 作为误判留档）',
+  /72\.7%/.test(doc) && /73\.5%/.test(doc));
 add('文档记录投影读取与决策读取须分流（防探针自污染）',
   /投影读取/.test(doc) && /gate/.test(doc));
 
@@ -234,10 +235,25 @@ add('动作空间对等：决策 100% 有表单可对照',
   RF.d1_actionSpace.compared > 0 && RF.d1_actionSpace.compared === RF.d1_actionSpace.decisions);
 add('合法性对等：toDecision 零失败', RF.d3_legality.failures === 0);
 add('信息边界：无「无法判定」的漏网（判据真源可用）', RF.d2_information.viewUnknown === 0);
-add('信息边界：三处已知越界都已修掉，只剩 convict 复生（§6.1 症状）',
-  RF.d2_information.violations > 0
-  && Object.keys(RF.d2_information.violationFields).every(k => /^dying by convict/.test(k))
-  && !Object.keys(RF.d2_information.violationFields).some(k => k.indexOf('silenceNight') === 0));
+/* ⚠ 这条是「可见性统一」批次的**验收判据**（真透视须为 0），不是把指标当 gate ——
+   它断言的是「AI 没有读它看不见的真相比」这条**不变式**，不是某个好看的数字。
+   若日后合法地变了（例如给了某角色新的明文授权），须连同 roleDecl 与速查卡一起改，
+   并把这里改成断言「新旧口径各自都不越界」，不要为了让核对器变绿而放松判据。 */
+add('信息边界：真透视为 0（第四批按正文补齐授权后清零）',
+  RF.d2_information.violations === 0
+  && Object.keys(RF.d2_information.violationFields).length === 0);
+add('信息边界：三个原始越界字段（silenceNight / 异形读濒死感染 / bio 读濒死）均已清零',
+  !Object.keys(RF.d2_information.violationFields).some(k => k.indexOf('silenceNight') === 0)
+  && !Object.keys(RF.d2_information.violationFields).some(k => /^dying by alien|^infection by alien/.test(k))
+  && !Object.keys(RF.d2_information.violationFields).some(k => /^dying by bio/.test(k)));
+add('信息边界：异形与死囚的授权已按正文 3.3.10④ / 6.8.4③ 授予（转正档位可见）',
+  RF.d2_information.buckets.DECLARED_SENSE > 0
+  && /infectMarksTrueFalse/.test(fs.readFileSync(ROOT + 'js/v66/declaration/roleDecl.js', 'utf8'))
+  && /dyingListForRevive/.test(fs.readFileSync(ROOT + 'js/v66/declaration/roleDecl.js', 'utf8')));
+add('文档记录「漏的是速查卡的转录，不是规则的授权」这一自我更正',
+  /漏的是卡，不是权|漏的是速查卡/.test(doc) && /3\.3\.10/.test(doc));
+add('文档写明 5.3.1「濒死者须留在可选列表」这条反证依据',
+  /5\.3\.1/.test(doc) && /不得移除或置灰/.test(doc));
 add('信息边界：投影读取与决策读取已分流（gate 单列不判定）',
   RF.d2_information.gateProjectionReads > 0);
 add('可见性闸门已加载且判据真源在位（View.build 可用）',

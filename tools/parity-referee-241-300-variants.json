@@ -8,8 +8,8 @@
   "note": "本探针不跑对局，只读模拟器写下的账本。判定用 view.js sanitize（唯一视图构建器）与 roleDecl duty.senses（速查卡 sensesQuote 落点）两个真源，不自维护可见性表。"
  },
  "d1_actionSpace": {
-  "decisions": 15359,
-  "compared": 15359,
+  "decisions": 15225,
+  "compared": 15225,
   "outOfForm": 0,
   "outOfFormSamples": [],
   "targetOutOfForm": 0,
@@ -20,299 +20,18 @@
   "kindsWithoutForm": {}
  },
  "d2_information": {
-  "pairsJudged": 31624,
-  "gateProjectionReads": 896668,
+  "pairsJudged": 32804,
+  "gateProjectionReads": 884876,
   "buckets": {
-   "DERIVABLE": 2521,
-   "OWN_FORM": 9588,
-   "VIEW": 18995,
-   "TEAMMATE": 13,
-   "DECLARED_SENSE": 358
+   "DERIVABLE": 2502,
+   "OWN_FORM": 10359,
+   "VIEW": 18951,
+   "DECLARED_SENSE": 981,
+   "TEAMMATE": 11
   },
-  "violations": 149,
-  "violationFields": {
-   "dying by convict(变形为hunter)": 29,
-   "dying by convict(变形为listener)": 7,
-   "dying by convict(变形为poisoner)": 1,
-   "dying by convict(变形为sheriff)": 19,
-   "dying by convict(变形为alien)": 47,
-   "dying by convict(变形为artisan)": 21,
-   "dying by convict(变形为bio)": 2,
-   "dying by convict(变形为engineer)": 12,
-   "dying by convict(变形为inspector)": 11
-  },
-  "samples": [
-   {
-    "seed": 241,
-    "step": "8",
-    "kind": "revive",
-    "reader": 7,
-    "subject": 1,
-    "field": "dying",
-    "why": "声明层未授权 convict 读取 dying（变形态，真身份 convict）"
-   },
-   {
-    "seed": 241,
-    "step": "8",
-    "kind": "revive",
-    "reader": 7,
-    "subject": 2,
-    "field": "dying",
-    "why": "声明层未授权 convict 读取 dying（变形态，真身份 convict）"
-   },
-   {
-    "seed": 241,
-    "step": "8",
-    "kind": "revive",
-    "reader": 7,
-    "subject": 11,
-    "field": "dying",
-    "why": "声明层未授权 convict 读取 dying（变形态，真身份 convict）"
-   },
-   {
-    "seed": 241,
-    "step": "8",
-    "kind": "revive",
-    "reader": 7,
-    "subject": 13,
-    "field": "dying",
-    "why": "声明层未授权 convict 读取 dying（变形态，真身份 convict）"
-   },
-   {
-    "seed": 241,
-    "step": "8",
-    "kind": "revive",
-    "reader": 7,
-    "subject": 14,
-    "field": "dying",
-    "why": "声明层未授权 convict 读取 dying（变形态，真身份 convict）"
-   },
-   {
-    "seed": 246,
-    "step": "8",
-    "kind": "revive",
-    "reader": 5,
-    "subject": 12,
-    "field": "dying",
-    "why": "声明层未授权 convict 读取 dying（变形态，真身份 convict）"
-   },
-   {
-    "seed": 246,
-    "step": "8",
-    "kind": "revive",
-    "reader": 5,
-    "subject": 13,
-    "field": "dying",
-    "why": "声明层未授权 convict 读取 dying（变形态，真身份 convict）"
-   },
-   {
-    "seed": 246,
-    "step": "8",
-    "kind": "revive",
-    "reader": 5,
-    "subject": 14,
-    "field": "dying",
-    "why": "声明层未授权 convict 读取 dying（变形态，真身份 convict）"
-   },
-   {
-    "seed": 249,
-    "step": "8",
-    "kind": "doctor",
-    "reader": 3,
-    "subject": 13,
-    "field": "dying",
-    "why": "声明层未授权 convict 读取 dying（变形态，真身份 convict）"
-   },
-   {
-    "seed": 250,
-    "step": "8",
-    "kind": "revive",
-    "reader": 12,
-    "subject": 1,
-    "field": "dying",
-    "why": "声明层未授权 convict 读取 dying（变形态，真身份 convict）"
-   },
-   {
-    "seed": 250,
-    "step": "8",
-    "kind": "revive",
-    "reader": 12,
-    "subject": 2,
-    "field": "dying",
-    "why": "声明层未授权 convict 读取 dying（变形态，真身份 convict）"
-   },
-   {
-    "seed": 250,
-    "step": "8",
-    "kind": "revive",
-    "reader": 12,
-    "subject": 6,
-    "field": "dying",
-    "why": "声明层未授权 convict 读取 dying（变形态，真身份 convict）"
-   },
-   {
-    "seed": 250,
-    "step": "8",
-    "kind": "revive",
-    "reader": 12,
-    "subject": 7,
-    "field": "dying",
-    "why": "声明层未授权 convict 读取 dying（变形态，真身份 convict）"
-   },
-   {
-    "seed": 252,
-    "step": "8",
-    "kind": "revive",
-    "reader": 9,
-    "subject": 1,
-    "field": "dying",
-    "why": "声明层未授权 convict 读取 dying（变形态，真身份 convict）"
-   },
-   {
-    "seed": 252,
-    "step": "8",
-    "kind": "revive",
-    "reader": 9,
-    "subject": 2,
-    "field": "dying",
-    "why": "声明层未授权 convict 读取 dying（变形态，真身份 convict）"
-   },
-   {
-    "seed": 252,
-    "step": "8",
-    "kind": "revive",
-    "reader": 9,
-    "subject": 5,
-    "field": "dying",
-    "why": "声明层未授权 convict 读取 dying（变形态，真身份 convict）"
-   },
-   {
-    "seed": 252,
-    "step": "8",
-    "kind": "revive",
-    "reader": 9,
-    "subject": 6,
-    "field": "dying",
-    "why": "声明层未授权 convict 读取 dying（变形态，真身份 convict）"
-   },
-   {
-    "seed": 252,
-    "step": "8",
-    "kind": "revive",
-    "reader": 9,
-    "subject": 7,
-    "field": "dying",
-    "why": "声明层未授权 convict 读取 dying（变形态，真身份 convict）"
-   },
-   {
-    "seed": 252,
-    "step": "8",
-    "kind": "revive",
-    "reader": 9,
-    "subject": 8,
-    "field": "dying",
-    "why": "声明层未授权 convict 读取 dying（变形态，真身份 convict）"
-   },
-   {
-    "seed": 252,
-    "step": "8",
-    "kind": "revive",
-    "reader": 9,
-    "subject": 12,
-    "field": "dying",
-    "why": "声明层未授权 convict 读取 dying（变形态，真身份 convict）"
-   },
-   {
-    "seed": 252,
-    "step": "8",
-    "kind": "revive",
-    "reader": 9,
-    "subject": 13,
-    "field": "dying",
-    "why": "声明层未授权 convict 读取 dying（变形态，真身份 convict）"
-   },
-   {
-    "seed": 252,
-    "step": "8",
-    "kind": "revive",
-    "reader": 9,
-    "subject": 14,
-    "field": "dying",
-    "why": "声明层未授权 convict 读取 dying（变形态，真身份 convict）"
-   },
-   {
-    "seed": 253,
-    "step": "8",
-    "kind": "revive",
-    "reader": 5,
-    "subject": 1,
-    "field": "dying",
-    "why": "声明层未授权 convict 读取 dying（变形态，真身份 convict）"
-   },
-   {
-    "seed": 253,
-    "step": "8",
-    "kind": "revive",
-    "reader": 5,
-    "subject": 4,
-    "field": "dying",
-    "why": "声明层未授权 convict 读取 dying（变形态，真身份 convict）"
-   },
-   {
-    "seed": 253,
-    "step": "8",
-    "kind": "revive",
-    "reader": 5,
-    "subject": 6,
-    "field": "dying",
-    "why": "声明层未授权 convict 读取 dying（变形态，真身份 convict）"
-   },
-   {
-    "seed": 253,
-    "step": "8",
-    "kind": "revive",
-    "reader": 5,
-    "subject": 10,
-    "field": "dying",
-    "why": "声明层未授权 convict 读取 dying（变形态，真身份 convict）"
-   },
-   {
-    "seed": 253,
-    "step": "8",
-    "kind": "revive",
-    "reader": 5,
-    "subject": 13,
-    "field": "dying",
-    "why": "声明层未授权 convict 读取 dying（变形态，真身份 convict）"
-   },
-   {
-    "seed": 253,
-    "step": "8",
-    "kind": "revive",
-    "reader": 5,
-    "subject": 14,
-    "field": "dying",
-    "why": "声明层未授权 convict 读取 dying（变形态，真身份 convict）"
-   },
-   {
-    "seed": 254,
-    "step": "8",
-    "kind": "revive",
-    "reader": 3,
-    "subject": 1,
-    "field": "dying",
-    "why": "声明层未授权 convict 读取 dying（变形态，真身份 convict）"
-   },
-   {
-    "seed": 254,
-    "step": "8",
-    "kind": "revive",
-    "reader": 3,
-    "subject": 2,
-    "field": "dying",
-    "why": "声明层未授权 convict 读取 dying（变形态，真身份 convict）"
-   }
-  ],
+  "violations": 0,
+  "violationFields": {},
+  "samples": [],
   "viewUnknown": 0,
   "declaredAuthority": {
    "selfClaimLog": [
@@ -373,6 +92,9 @@
    "morphTargetPool": [
     "convict"
    ],
+   "dyingListForRevive": [
+    "convict"
+   ],
    "checkPool": [
     "detective"
    ],
@@ -398,6 +120,9 @@
     "alien"
    ],
    "teammateBallots": [
+    "alien"
+   ],
+   "infectMarksTrueFalse": [
     "alien"
    ],
    "ownNightImmuneRemain": [

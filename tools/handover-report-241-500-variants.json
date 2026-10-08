@@ -5,9 +5,9 @@
   "games": 260,
   "errs": 0,
   "errMsgs": {},
-  "steps": 44579,
+  "steps": 44822,
   "unfinished": 0,
-  "generatedAt": "2026-10-08T12:59:20.173Z",
+  "generatedAt": "2026-10-08T13:12:22.835Z",
   "seatMode": "variants",
   "seatModeSource": "缺省 variants（对齐本地/UI 真实开局）",
   "seatCensus": {
@@ -32,19 +32,19 @@
  },
  "outcome": {
   "winners": {
-   "human": 191,
-   "alien": 54,
-   "xeno": 15,
+   "human": 189,
+   "alien": 55,
+   "xeno": 16,
    "none": 0
   },
-  "humanWinPct": 73.5,
-  "alienWinPct": 20.8,
-  "xenoWinPct": 5.8,
+  "humanWinPct": 72.7,
+  "alienWinPct": 21.2,
+  "xenoWinPct": 6.2,
   "unresolvedPct": 0
  },
  "invariants": {
   "reqPurity": {
-   "checked": 44579,
+   "checked": 44822,
    "unstable": 0,
    "mutated": 0
   },
@@ -55,7 +55,7 @@
   },
   "hookMisaligned": 0,
   "hookMisalignedSample": [],
-  "reqFormChecked": 66058,
+  "reqFormChecked": 66141,
   "reqFormMismatch": [
    {
     "step": "8",
@@ -168,7 +168,7 @@
   ],
   "reqFormMismatchRate": "0.18‰",
   "toDecisionMissing": [],
-  "mutexNightsObserved": 4777
+  "mutexNightsObserved": 4772
  },
  "ruling1_cureQuota": {
   "real": 0,
@@ -182,18 +182,18 @@
   "blockedByNoQuota": 0
  },
  "ruling2_crewWindow": {
-  "step2Dispatch": 3908,
-  "crewRepairDispatch": 1554,
+  "step2Dispatch": 3903,
+  "crewRepairDispatch": 1560,
   "checkAndRepairSameNight": 0,
-  "repairDecisions": 1554,
+  "repairDecisions": 1560,
   "tierHistogram": {
-   "0.25": 45,
+   "0.25": 46,
    "0.35": 74,
-   "0.50": 632,
-   "0.45": 133,
-   "0.40": 93,
-   "0.30": 130,
-   "0.20": 34
+   "0.50": 639,
+   "0.45": 132,
+   "0.40": 96,
+   "0.30": 131,
+   "0.20": 33
   },
   "residualAfterSettle": 0,
   "illegalTier": 0,
@@ -201,26 +201,26 @@
   "stopNightAnnounced": 10
  },
  "voice": {
-  "thoughtCalls": 66058,
-  "thoughtHit": 38318,
+  "thoughtCalls": 66141,
+  "thoughtHit": 38503,
   "senseUsed": {
    "mirrorLedger": 200,
-   "ownRepairTotal": 3974,
-   "ownAmmo": 4974,
-   "teammateIdentities": 17230,
-   "dyingList": 357,
-   "deathSourceAfterSave": 192,
-   "repairAssistN": 1093,
-   "allVoteSources": 996,
-   "infectMarks": 1018,
-   "presentedRoleOnly": 1155,
-   "guardFeedback": 91,
-   "ownNightImmuneRemain": 2680,
-   "ownArmorStock": 2497,
-   "poisonList": 1536,
+   "ownRepairTotal": 3965,
+   "ownAmmo": 5089,
+   "teammateIdentities": 17243,
+   "dyingList": 354,
+   "deathSourceAfterSave": 193,
+   "repairAssistN": 1101,
+   "allVoteSources": 1001,
+   "infectMarks": 1065,
+   "presentedRoleOnly": 1142,
+   "guardFeedback": 92,
+   "ownNightImmuneRemain": 2684,
+   "ownArmorStock": 2512,
+   "poisonList": 1532,
    "antibodyFeedback": 199,
    "lurkTargetPresented": 122,
-   "allBallotCounts": 4
+   "allBallotCounts": 9
   },
   "alienTeammateClaim": 0
  },
@@ -239,95 +239,95 @@
  "stepDispatchTop": [
   {
    "k": "1",
-   "n": 1654
+   "n": 1664
   },
   {
    "k": "2",
-   "n": 1654
+   "n": 1664
   },
   {
    "k": "3",
-   "n": 1654
+   "n": 1664
   },
   {
    "k": "5",
-   "n": 1654
+   "n": 1664
   },
   {
    "k": "6",
-   "n": 1654
+   "n": 1664
   },
   {
    "k": "7",
-   "n": 1654
+   "n": 1664
   },
   {
    "k": "8",
-   "n": 1654
+   "n": 1664
   },
   {
    "k": "P-id",
-   "n": 1654
+   "n": 1664
   },
   {
    "k": "0.1",
-   "n": 1654
+   "n": 1664
   },
   {
    "k": "0.1s",
-   "n": 1654
+   "n": 1664
   },
   {
    "k": "0.5",
-   "n": 1654
+   "n": 1664
   },
   {
    "k": "0.6",
-   "n": 1654
+   "n": 1664
   },
   {
    "k": "3.5",
-   "n": 1654
+   "n": 1664
   },
   {
    "k": "4b",
-   "n": 1654
+   "n": 1664
   },
   {
    "k": "0a",
-   "n": 1651
+   "n": 1661
   },
   {
    "k": "0b",
-   "n": 1651
+   "n": 1661
   },
   {
    "k": "0c",
-   "n": 1651
+   "n": 1661
   },
   {
    "k": "4a",
-   "n": 1651
+   "n": 1661
   },
   {
    "k": "P-clean",
-   "n": 1598
+   "n": 1606
   },
   {
    "k": "10",
-   "n": 1524
+   "n": 1529
   },
   {
    "k": "D-will",
-   "n": 1517
+   "n": 1523
   },
   {
    "k": "D-talk",
-   "n": 1517
+   "n": 1523
   },
   {
    "k": "D-vote",
-   "n": 1517
+   "n": 1523
   },
   {
    "k": "D-open",
@@ -339,89 +339,89 @@
   },
   {
    "k": "M-will",
-   "n": 60
+   "n": 58
   },
   {
    "k": "M-speech",
-   "n": 60
+   "n": 58
   },
   {
    "k": "M-talk",
-   "n": 60
+   "n": 58
   },
   {
    "k": "M-vote",
-   "n": 60
+   "n": 58
   }
  ],
  "stepKindsTop": [
   {
    "k": "0a:invite",
-   "n": 16370
+   "n": 16394
   },
   {
    "k": "D-vote:vote",
-   "n": 14729
+   "n": 14731
   },
   {
    "k": "0c:chat",
-   "n": 5576
+   "n": 5582
   },
   {
    "k": "2:crewAction",
-   "n": 3908
+   "n": 3903
   },
   {
    "k": "1:disguise",
-   "n": 3564
+   "n": 3558
   },
   {
    "k": "4b:branch",
-   "n": 3541
+   "n": 3537
   },
   {
    "k": "8:doctor",
-   "n": 2437
+   "n": 2432
   },
   {
    "k": "7:alienAct",
-   "n": 2367
+   "n": 2371
   },
   {
    "k": "4a:crewRepair",
-   "n": 1554
+   "n": 1560
   },
   {
    "k": "6:shoot",
-   "n": 1332
+   "n": 1359
   },
   {
    "k": "0b:inviteAccept",
-   "n": 1054
+   "n": 1057
   },
   {
    "k": "2:detective",
-   "n": 1010
+   "n": 1007
   },
   {
    "k": "4a:repair",
-   "n": 968
+   "n": 965
   },
   {
    "k": "0.6:convert",
-   "n": 903
+   "n": 898
   },
   {
    "k": "3:safeRoom",
    "n": 774
   },
   {
-   "k": "M-vote:vote",
-   "n": 764
+   "k": "3:craft",
+   "n": 767
   },
   {
-   "k": "3:craft",
-   "n": 762
+   "k": "M-vote:vote",
+   "n": 750
   },
   {
    "k": "0.6:evolve",
@@ -429,7 +429,7 @@
   },
   {
    "k": "3:guard",
-   "n": 658
+   "n": 655
   },
   {
    "k": "0.1:xenoCheck",
@@ -437,31 +437,31 @@
   },
   {
    "k": "P-id:morph",
-   "n": 390
+   "n": 404
   },
   {
    "k": "3.5:sniff",
-   "n": 378
+   "n": 379
   },
   {
    "k": "5:xenoKill",
-   "n": 363
+   "n": 364
   },
   {
    "k": "0.6:transfer",
-   "n": 324
+   "n": 326
   },
   {
    "k": "10:meeting",
-   "n": 307
+   "n": 309
+  },
+  {
+   "k": "0.5:suppress",
+   "n": 220
   },
   {
    "k": "D-report:wiretapReport",
    "n": 187
-  },
-  {
-   "k": "0.5:suppress",
-   "n": 184
   },
   {
    "k": "8:revive",
@@ -473,11 +473,11 @@
   },
   {
    "k": "0.1s:xenoSilence",
-   "n": 112
+   "n": 111
   },
   {
    "k": "P-id:awaken",
-   "n": 38
+   "n": 37
   },
   {
    "k": "P-clean:clean",
@@ -487,59 +487,59 @@
  "kindCountTop": [
   {
    "k": "invite",
-   "n": 16370
+   "n": 16394
   },
   {
    "k": "vote",
-   "n": 15493
+   "n": 15481
   },
   {
    "k": "chat",
-   "n": 5576
+   "n": 5582
   },
   {
    "k": "crewAction",
-   "n": 3908
+   "n": 3903
   },
   {
    "k": "disguise",
-   "n": 3564
+   "n": 3558
   },
   {
    "k": "branch",
-   "n": 3541
+   "n": 3537
   },
   {
    "k": "doctor",
-   "n": 2437
+   "n": 2432
   },
   {
    "k": "alienAct",
-   "n": 2367
+   "n": 2371
   },
   {
    "k": "crewRepair",
-   "n": 1554
+   "n": 1560
   },
   {
    "k": "shoot",
-   "n": 1332
+   "n": 1359
   },
   {
    "k": "inviteAccept",
-   "n": 1054
+   "n": 1057
   },
   {
    "k": "detective",
-   "n": 1010
+   "n": 1007
   },
   {
    "k": "repair",
-   "n": 968
+   "n": 965
   },
   {
    "k": "convert",
-   "n": 903
+   "n": 898
   },
   {
    "k": "safeRoom",
@@ -547,7 +547,7 @@
   },
   {
    "k": "craft",
-   "n": 762
+   "n": 767
   },
   {
    "k": "evolve",
@@ -555,7 +555,7 @@
   },
   {
    "k": "guard",
-   "n": 658
+   "n": 655
   },
   {
    "k": "xenoCheck",
@@ -563,31 +563,31 @@
   },
   {
    "k": "morph",
-   "n": 390
+   "n": 404
   },
   {
    "k": "sniff",
-   "n": 378
+   "n": 379
   },
   {
    "k": "xenoKill",
-   "n": 363
+   "n": 364
   },
   {
    "k": "transfer",
-   "n": 324
+   "n": 326
   },
   {
    "k": "meeting",
-   "n": 307
+   "n": 309
+  },
+  {
+   "k": "suppress",
+   "n": 220
   },
   {
    "k": "wiretapReport",
    "n": 187
-  },
-  {
-   "k": "suppress",
-   "n": 184
   },
   {
    "k": "revive",
@@ -599,11 +599,11 @@
   },
   {
    "k": "xenoSilence",
-   "n": 112
+   "n": 111
   },
   {
    "k": "awaken",
-   "n": 38
+   "n": 37
   }
  ]
 }

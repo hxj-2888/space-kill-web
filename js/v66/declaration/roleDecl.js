@@ -201,8 +201,23 @@
     armedCrewIds: '武装船员编号（与警长双向识别）',
     sniffResult: '嗅探结果：目标是否呈现保护状态（不区分种类、不报层数与来源）',
     infectMarks: '谁带有感染标记（仅编号，不显真伪／施加时间／剩余致死夜数）',
+    /* 〔v7 · 2026-10-08 按正文 3.3.10④ 补入〕异形是**施加方视野**：不只看得见标记清单，
+       还**可分辨真标记与假标记**。正文原文：「异形于当夜选择感染目标时（5.3∕5.8），
+       可见全场存活者中『当前带有感染标记者』的编号清单，并可分辨各标记为真标记抑或假标记。
+       此为施加方视野，与①医生的清除方视野分列、互不影响，亦不改变①
+       「医生无从分辨真伪」的设计红线：真伪之分对异形开放，对医生与本人依旧封闭。」
+
+       ⚠ 必须与 infectMarks **分成两个键**：同一个键无法表达「异形可见且可辨真伪 /
+         医生可见但不可辨真伪」这条红线。合成一个键 = 红线消失。
+         速查卡（CARD）此前只转录了 infectMarks 一档，是**转录漏项**，不是规则如此。 */
+    infectMarksTrueFalse: '感染标记清单，**且可分辨真标记／假标记**（仅异形：施加方视野，3.3.10④）',
     antibodyFeedback: '抗体生效反馈（不含编号与真伪）',
-    dyingList: '谁处于濒死',
+    dyingList: '谁处于濒死（3.3.12 对称例外：医生族的最低可见性特权）',
+    /* 〔v7 · 2026-10-08 按正文 6.8.4③ 补入〕死囚复生明文授予濒死可见性：
+       「③濒死可见性：明文授予『可见当夜濒死者』（比照 3.3.12 治疗∕救援所需的最低可见性）」。
+       此前速查卡与声明层都漏了这条，导致死囚复生窗口既无表单（§6.1）也无情报授权 ——
+       两头都缺，AI 读它就成了越界。 */
+    dyingListForRevive: '当夜濒死者（6.8.4③ 明文授予；比照 3.3.12 最低可见性）',
     deathSourceAfterSave: '落身致死来源清单（仅在实际消耗救援额度后才可见）',
     poisonList: '全场毒药清单（仅毒师本人）',
     selfPoisoned: '自身是否带毒药标记',
@@ -492,9 +507,13 @@
       actionSteps: ['P-id', '8'],
       charges: { morph: Infinity, revive: 2 },
       visibility: { batch: [], private: ['7.2.4'], selfOnly: true },
-      /* 〔v7 速查卡 · AI 职责面〕卡：「变形…可骗过神探」+「复生…可自救」+「呈现异形时克隆除社交与队内共享外的一切技能与被动」。变形与复生分处 P-id 与 8，不互斥。 */
+      /* 〔v7 速查卡 · AI 职责面〕卡：「变形…可骗过神探」+「复生…可自救」+「呈现异形时克隆除社交与队内共享外的一切技能与被动」。变形与复生分处 P-id 与 8，不互斥。
+         〔v7 · 2026-10-08 按正文 6.8.4③ 补入 dyingListForRevive〕「③濒死可见性：明文授予
+         『可见当夜濒死者』（比照 3.3.12 治疗∕救援所需的最低可见性）」——速查卡与声明层
+         此前都漏了这条，导致死囚复生既无情报授权也无表单（§6.1 缺 revive 分支），
+         AI 读濒死名单遂被判成越界。授权这一半现在补上；表单那一半仍待裁定。 */
       duty: { mutex: [],
-              senses: ['mirrorLedger', 'morphTargetPool'],
+              senses: ['mirrorLedger', 'morphTargetPool', 'dyingListForRevive'],
               cost: null },
       source: '6.8.1/6.8.3/6.8.4/6.8.5', pending: true,
     },
@@ -618,9 +637,14 @@
       actionStep: '7', actionSteps: ['7', '0.6', '4b', '1'],   // 7 出刀/感染；0.6 进化/转化（6.2）；4b 破坏/结茧（5.7）；1 乔装（7.3）
       charges: { kill: Infinity, infect: Infinity, destroy: Infinity, cocoon: Infinity },
       visibility: { batch: ['②', '⑤'], private: ['7.2.2'], selfOnly: false },
-      /* 〔v7 速查卡 · AI 职责面〕卡：「每夜出刀／感染／破坏／结茧四选一」+「异形阵营可见本方队友票型分布」+「互相知晓队友身份」。 */
+      /* 〔v7 速查卡 · AI 职责面〕卡：「每夜出刀／感染／破坏／结茧四选一」+「异形阵营可见本方队友票型分布」+「互相知晓队友身份」。
+         〔v7 · 2026-10-08 按正文 3.3.10④ 补入 infectMarksTrueFalse〕异形是感染施加方，
+         看得见全场感染标记清单**并可分辨真伪**（与医生只看清单不同档，见 DUTY_SENSE 注释）。
+         ⚠ 顺带更正一处此前的错判：2026-10-08 那一批曾以「卡片未授权」为由把 AI 的
+           感染排除读法删掉 —— 那是**速查卡转录漏了 3.3.10④**，不是规则未授权。
+           漏的是卡，不是权；现已按正文补回。 */
       duty: { mutex: ['kill', 'infect', 'destroy', 'cocoon'],
-              senses: ['teammateIdentities', 'teammateBallots'],
+              senses: ['teammateIdentities', 'teammateBallots', 'infectMarksTrueFalse'],
               cost: null },
       source: '5.1~5.9', pending: true,
     },
