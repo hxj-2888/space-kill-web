@@ -1,3 +1,8 @@
+/* ⚠〔v7 侦察 · 2026-10-08〕口径缺陷标注：本探针的 humanHitPct 分母用了 accN（**全部**有效票，
+   含异形票），而语义应是「人类票」。故其绝对值被系统性缩小为正确值的约 0.725 倍
+   （基线 27.4% vs 正确 37.8%；B0 后 41.2% vs 正确 56.5%）。
+   正确口径见 tools/scout.cjs（vote.humanHitPct，分母 humanVoteN）。
+   本探针保留仅为 B3 的同种子 A/B 复用；引用其 humanHitPct 时必须先除以人类票占比。 */
 'use strict';
 /* 胜率跃变的退化性检查：72.5% 的人类胜率若来自「所有人类投同一个人」则投票多样性塌缩。
    投票记录在 g.voteHistory = [{night, round, src:{voterId: targetId}}]。 */

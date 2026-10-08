@@ -305,7 +305,7 @@ for (let seed = 1; seed <= N; seed++) {
   for (const p of g.players) {
     const m = p.mem;
     if (!m || !m.saidRole || !m.saidRole.get) continue;
-    for (const [tid, rec] of m.saidRole.get.entries()) {
+    for (const [tid, rec] of m.saidRole.entries()) {
       if (!rec || !rec.conflictWith) continue;
       sawConflict++;
       if (citedKeys[seed + ':' + p.id + ':' + tid]) sawCited++;
