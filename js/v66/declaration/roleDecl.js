@@ -68,6 +68,20 @@
                这是 AI 权衡的依据：卡片把代价写在正文里，AI 此前完全看不到。
        词表见 DUTY_ACTION / DUTY_SENSE / DUTY_COST，audit() 强制取值合法。 */
     duty:       { gate: '[速查卡]', life: 'wired', desc: 'AI 职责面：{mutex:[当夜互斥动作], senses:[可主动查知项], cost:明文代价键|null}；缺失即该角色无互斥/无专属情报面/无明文代价' },
+    /* 〔v7 · B4 空位〕mind：AI 的「脑」—— 决定它像不像人，而不只是算不算得对。
+       三个方向（用户 2026-10-08 指定）：
+         foresight 预判 —— 对尚未发生的事下注（读趋势、赌站位、押节奏）
+         deceive   欺骗 —— 故意说与事实不符的话，且要能自圆其说（可被揭穿＝有代价）
+         backstab  背刺 —— 对盟友/受益者动手，且要有可追溯的取舍理由
+       ⚠ **本字段当前零消费（空位）**：不实装、不进任何分支、不改任何行为。
+          留它的理由：这三个方向**只能长在声明层**——它们要按角色差异化，
+          而 roleDecl 是唯一真源（交接文档 §〇.1）。若先在 decide.js 里写，
+          就会变成另一处要漂移的手写表。
+          life: 'pending' ⇒ idleLedger() 会把它列进 pendingFields（等机制上线），
+          审计看得见「这里有个位空着」，而不是等到有人写了代码才发现没地方声明。
+          ⚠ 严禁在 pending 状态下往里写「假装已实装」的值 ——
+            那是把空位变成假货，比空着更坏（交接文档 §六 的记账纪律）。 */
+    mind:       { gate: '[B4 空位]', life: 'pending', desc: '**空位·零消费**：AI 的脑（拟人化三层）。{foresight:[预判面], deceive:[欺骗面], backstab:[背刺面]}。当前全部为空数组且无任何实现；待 B4 实装。取值须落在 MIND_* 词表内' },
   };
   /* 角色声明里 schema 之外的字段（同样须标 lifecycle，否则视为未声明语义） */
   const EXTRA_FIELDS = {
@@ -76,6 +90,37 @@
     source:   { life: 'archived', desc: '规则出处标注。**零消费**：仅供人读与审计追溯' },
     pending:  { life: 'archived', desc: '⚠ **与对局状态 g.pending（待决策席位）同名但完全无关**。本字段语义＝「该角色的九关能力尚未全部实装」。全仓零消费——引擎用的是 g.pending；保留它会让人误以为 g.pending 由此驱动' },
   };
+
+  /* ---------- 〔v7 · B4 空位〕mind 读取与审计 ---------- */
+  /* 取某一层的已声明取值。B4 实装后由 decide 消费；当前全仓零消费。 */
+  function mindOf(roleKey, axis) {
+    const d = ROLE_DECL[roleKey] || {};
+    const m = d.mind || DEFAULTS.mind;
+    return Array.isArray(m[axis]) ? m[axis] : [];
+  }
+  /* 空位审计：词表合法性 + 「空位不得伪装成已实装」。
+     后者是关键：pending 状态下若某个角色真写了取值，说明有人绕过裁定硬塞 ——
+     那时必须当场报出来，而不是让它混在数据里。 */
+  function mindAudit() {
+    const bad = [];
+    for (const k of keys()) {
+      const m = (ROLE_DECL[k] || {}).mind;
+      if (m == null) continue;                      /* 走 DEFAULTS.mind（空位） */
+      for (const axis of Object.keys(MIND_AXES)) {
+        const arr = m[axis];
+        if (arr == null) continue;                  /* 该层未声明 */
+        if (!Array.isArray(arr)) { bad.push(`${k}.mind.${axis}: 必须是数组`); continue; }
+        for (const v of arr)
+          if (!Object.prototype.hasOwnProperty.call(MIND_AXES[axis], v))
+            bad.push(`${k}.mind.${axis}: 「${v}」不在 MIND_${axis} 词表内`);
+        /* 空位守卫：本字段 life='pending' 且零消费，此时任何非空取值都是越权。 */
+        if (arr.length)
+          bad.push(`${k}.mind.${axis}: B4 空位尚未裁定实装，不许声明取值（当前 ${arr.length} 项）`
+            + '——要实装请先改 SCHEMA.mind 的 life 并在此去掉本守卫，否则这就是把空位变成假货');
+      }
+    }
+    return bad;
+  }
 
   /* ---------- D3 缺省值：未声明/未登记字段的降级口径 ---------- */
   const DEFAULTS = {
@@ -86,6 +131,48 @@
     batchDelta: [], restatement: null, selfTarget: true, attend: {},
     grants: [], capClass: null, seats: 0, repairExposeAt: null,
     duty: { mutex: [], senses: [], cost: null },
+    mind: { foresight: [], deceive: [], backstab: [] },   /* B4 空位 · 当前零消费 */
+  };
+
+  /* ---------- 〔v7 · B4 空位〕mind 三层的取值词表 ----------
+     空位也要有词表，理由：没有词表的空位 = 任何字符串都能塞进去的垃圾桶，
+     等 B4 实装时才发现写歪了，而那时已有大量数据要清洗。
+     三层各给三个起步取值（够用、且都能对速查卡的明文条款挂上号）：
+
+       foresight 预判
+         trendRead   读趋势下注（从公开行为推「接下来会怎样」）
+         tempoCall   押节奏（提前于第 N 夜做某事）
+         positionBet 赌站位（预判谁会在哪一步动）
+
+       deceive 欺骗
+         falseClaim  编造身份/能力宣称（可被查验与揭示揭穿）
+         feintAction 用行动撒谎（假装要 A、实则做 B）
+         omission    选择性沉默（不说，比说错更有效）
+
+       backstab 背刺
+         allySacrifice 牺牲盟友换胜算（救敌也是合法选项的镜像）
+         creditSteal   抢功（把别人的功劳算成自己的）
+         trustCashOut  兑现承诺后翻脸（settlePromises 的反面）
+
+     ⚠ 词表是**声明层约束**，不是实现清单：audit() 只校验取值合法，
+        不校验「这个面真的被消费了」——因为当前没有消费点（空位）。 */
+  const MIND_FORESIGHT = {
+    trendRead: '读趋势下注：从公开行为推「接下来会怎样」，据此提前布置',
+    tempoCall: '押节奏：提前于某个夜次做某事，用时间差换信息差',
+    positionBet: '赌站位：预判谁会在哪一步动，先占位或先埋伏',
+  };
+  const MIND_DECEIVE = {
+    falseClaim: '编造身份／能力宣称：说与事实不符的话，被查验或揭示即可被揭穿',
+    feintAction: '用行动撒谎：动作上制造 A 的假象，实际执行 B',
+    omission: '选择性沉默：该说的不说，用留白让人自己填补错误结论',
+  };
+  const MIND_BACKSTAB = {
+    allySacrifice: '牺牲盟友换胜算：明知救敌合法，仍按胜算而非人情取舍',
+    creditSteal: '抢功：把队友的功劳说成自己的',
+    trustCashOut: '兑现承诺后翻脸：先给信用、兑现时按新信息改主意',
+  };
+  const MIND_AXES = {
+    foresight: MIND_FORESIGHT, deceive: MIND_DECEIVE, backstab: MIND_BACKSTAB,
   };
 
   /* ---------- 〔v7 · 速查卡〕AI 职责面词表 ----------
@@ -973,6 +1060,8 @@
       /* 互斥组去重：重复登记说明抄错，无语义价值 */
       if (new Set(du.mutex || []).size !== (du.mutex || []).length) bad.push(`${k}: duty.mutex 有重复项`);
     }
+    /* 11b. B4 空位：mind 的词表合法性 + 空位不得伪装成已实装（见 mindAudit） */
+    for (const b of mindAudit()) bad.push(b);
     /* 12. 互斥组里出现该角色根本不具备的动作 ⇒ 声明自相矛盾（mutex ⊆ charges∪grants 的动作身份） */
     /* mutex 的动作身份有**四类**合法来源，缺一即误报：
        ① 该角色的 charges 键（多数）
@@ -1042,7 +1131,11 @@
 
   global.SKRoleDecl = {
     SCHEMA, EXTRA_FIELDS, LIFE, DEFAULTS, GROUP_TABLE, TRANSFER_BRANCHES, ROLE_DECL, NAMESPACE, GRANT_VOCAB,
-    DUTY_ACTION, DUTY_SENSE, DUTY_COST, IMPL_GAP, mutexOf, sensesOf, costOf, hasSense, mutexBlocked,
+    DUTY_ACTION, DUTY_SENSE, DUTY_COST,
+    /* B4 空位：三层词表 + 取值校验器。导出是为了让 B4 实装时**只能**从这里取词，
+       而不是另写一张表（那正是本仓库反复踩的漂移源）。 */
+    MIND_AXES, MIND_FORESIGHT, MIND_DECEIVE, MIND_BACKSTAB, mindOf, mindAudit,
+    IMPL_GAP, mutexOf, sensesOf, costOf, hasSense, mutexBlocked,
     keys, has, resolveDecl, audit, seatAudit, namespaceAudit, idleLedger,
     baseHumanRoles, humanRoles, verifyPoolAll, verifyPoolOf, rolesOfFaction, rolesOfGroup, attendWeight, attendFloor: ATTEND_FLOOR, groupOf, humanSetup,
     rolesWith, hasGrant, capClassOf, rolesWithCapClass, transferRoles, nonHumanSetup, roleTotals, repairExposeAtOf,

@@ -26,3 +26,12 @@ android/SpaceKill.apk
 
 # 移动端布局截图（本地人工复核产物，可由 tools/mobile-shots.cjs 重新生成）
 .tmp_shots/
+
+# 探针账本（tools/parity-sim-*.json，数十 MB）
+# 理由：账本是**可重算的中间产物**（跑一遍 tools/parity-sim.cjs 即得），
+# 把它入库会让仓库迅速膨胀，而它承载的信息是「读了哪个字段」——
+# 每次跑都会因种子/口径变化而变，入库反而制造「哪份才是真的」的歧义。
+# 入库的是**统计产物**（parity-sim-stats-*.json，几百 KB）与**裁判判定**（parity-referee-*.json）。
+/tools/parity-sim-[0-9]*-variants.json
+/tools/parity-sim-[0-9]*-[0-9]*.json
+!/tools/parity-sim-stats-*.json

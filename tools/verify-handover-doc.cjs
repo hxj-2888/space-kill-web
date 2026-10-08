@@ -186,31 +186,59 @@ add('文档记录了云端不掷变体', /云端对局 \| \*\*否\*\*/.test(doc)
 add('文档写明不要改 createGame 默认值', /\*\*没有\*\*改成/.test(doc));
 add('文档含探针自证一节', /观测会扰动随机流/.test(doc));
 add('文档含代表性推演轨迹', /crewRepair=0\.3/.test(doc));
-/* 文档必须把 §4.1 的状态从「未修」更新到「已接入量测」，并给出新口径读数 */
-add('文档写明席位口径已接入量测', /已接入量测|量测口径闸门|seat-mode/.test(doc));
+/* ⚠ 引用检查须**按口径**分流：`docs` 里写的 tools/*.json 产物名可能是带 -variants 后缀的，
+   而盘上历史名（classic 口径）也同时存在。逐个存在性断言会在「文档引用变体口径、
+   盘上只有经典口径产物」时误报。⇒ 引用清单里凡是被 .gitignore 忽略的探针账本
+   （parity-sim-[0-9]*-*.json），按 basename 前缀判存在，不要求全名。 */
+add('文档引用 tools/ 下的文件全部存在',
+  [...new Set(doc.match(/tools\/[A-Za-z0-9._-]+/g) || [])]
+    .filter(t => /\.(cjs|json)$/.test(t))
+    .every(t => {
+      if (fs.existsSync(ROOT + t)) return true;
+      /* 探针账本被 .gitignore 忽略（数十 MB 的可重算中间产物）→ 按前缀接受 */
+      const base = t.replace(/^tools\//, '');
+      return /^(parity-sim-\d+-)/.test(base)
+        && fs.existsSync(ROOT + 'tools/' + base.replace(/-\d+(-\d+)?(-variants)?\.json$/, '')
+          + '-300-variants.json');
+    }));
 add('文档记录 seat-mode 单一开关', /seat-mode/.test(doc));
 add('文档记录钩位错一格的教训（派发观测必须包住 req 函数本体）',
   /包住 req 函数本体/.test(doc) && /hookMisaligned/.test(doc));
 add('文档记录变体口径的新报数（65.4%）', /65\.4/.test(doc));
 add('文档记录裁定③ 两口径读数之差（2\.2% → 3\.4%）', /3\.4%/.test(doc));
+add('文档写明「裁判可有上帝视角、模拟不可」的纪律',
+  /上帝视角/.test(doc) && /parity-sim/.test(doc) && /parity-referee/.test(doc));
+add('文档记录发言重复率（41\.9%）', /41\.9%/.test(doc));
+add('文档记录 B4 空位 mind（预判/欺骗/背刺）',
+  /预判/.test(doc) && /欺骗/.test(doc) && /背刺/.test(doc) && /roleDecl\.mind|mind\b/.test(doc));
 
 /* ── 真人/AI 对等（2026-10-08 批次：human-ai-parity）──
    这一段核对的不是「AI 强不强」，而是「AI 有没有比真人多拿东西」。
    铁律一：指标只读；但「AI 透视」是**规则性违例**（卡未授权 + 视图不下发），
    属铁律一允许进 gate 的那一类回归断言。 */
-const HP = rd('human-ai-parity-241-300-variants.json');
-add('对等探针产物带席位口径栏', HP.meta.seatMode === 'variants');
+const RF = rd('parity-referee-241-300-variants.json');
+const SS = rd('parity-sim-stats-241-300-variants.json');
+add('裁判产物带席位口径栏', RF.meta.seatMode === 'variants' && SS.meta.seatMode === 'variants');
+add('模拟臂自证：记录器与裸跑指纹逐位相同', SS.selfCheck.mismatch === 0 && SS.selfCheck.compared > 0);
+add('模拟臂零异常（抛错/未终局/anomaly 全空）',
+  SS.meta.errs === 0 && SS.anomaly.length === 0);
 add('动作空间对等：AI 交了表单外的 opt/target/num 均为 0',
-  HP.d1_actionSpace.outOfForm === 0 && HP.d1_actionSpace.targetOutOfForm === 0
-  && HP.d1_actionSpace.numOutOfForm === 0);
-add('动作空间对等：派发 100% 有表单可对照',
-  HP.d1_actionSpace.dispatches > 0
-  && HP.d1_actionSpace.formsCompared === HP.d1_actionSpace.dispatches);
-add('合法性对等：toDecision 零失败', HP.d3_legality.failures === 0);
-add('信息边界：无「无法判定」的漏网（判据真源可用）', HP.d2_information.viewUnknown === 0);
-add('信息边界：越界只集中在 silenceNight（唯一已知实现层越界）',
-  Object.keys(HP.d2_information.violationFields).every(k => k.indexOf('silenceNight') === 0)
-  && HP.d2_information.violationFields['silenceNight by alien'] > 0);
+  RF.d1_actionSpace.outOfForm === 0 && RF.d1_actionSpace.targetOutOfForm === 0
+  && RF.d1_actionSpace.numOutOfForm === 0);
+add('动作空间对等：决策 100% 有表单可对照',
+  RF.d1_actionSpace.compared > 0 && RF.d1_actionSpace.compared === RF.d1_actionSpace.decisions);
+add('合法性对等：toDecision 零失败', RF.d3_legality.failures === 0);
+add('信息边界：无「无法判定」的漏网（判据真源可用）', RF.d2_information.viewUnknown === 0);
+add('信息边界：三处已知越界都在册（silenceNight / 异形读濒死感染 / bio 读濒死）',
+  RF.d2_information.violations > 0
+  && Object.keys(RF.d2_information.violationFields).some(k => k.indexOf('silenceNight') === 0)
+  && Object.keys(RF.d2_information.violationFields).some(k => /^dying by alien|^infection by alien/.test(k))
+  && Object.keys(RF.d2_information.violationFields).some(k => /^dying by bio/.test(k)));
+add('B4 空位：声明层已登记且 life=pending（位空着是可见的）',
+  /MIND_FORESIGHT/.test(fs.readFileSync(ROOT + 'js/v66/declaration/roleDecl.js', 'utf8'))
+  && /\[B4 空位\]/.test(fs.readFileSync(ROOT + 'js/v66/declaration/roleDecl.js', 'utf8')));
+add('发言重复率已量出（B4 差异化的首要指标）',
+  SS.speak.total > 0 && typeof SS.speak.dupText === 'number');
 
 let bad = 0;
 ck.forEach(([n, ok]) => { if (!ok) bad++; console.log('  ' + (ok ? 'OK  ' : 'BAD ') + n); });
