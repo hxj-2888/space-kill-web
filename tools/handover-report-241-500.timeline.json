@@ -1,0 +1,5931 @@
+[
+ {
+  "seed": 241,
+  "nights": [
+   {
+    "night": 1,
+    "steps": [
+     {
+      "step": "0a",
+      "req": 15,
+      "acts": [
+       {
+        "pid": 1,
+        "role": "engineer",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 2,
+        "role": "sheriff",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 3,
+        "role": "rescue",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 4,
+        "role": "crew",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 5,
+        "role": "alien",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 6,
+        "role": "inspector",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 7,
+        "role": "xeno",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 8,
+        "role": "detective",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 9,
+        "role": "bodyguard",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 10,
+        "role": "crew",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 11,
+        "role": "crew",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 12,
+        "role": "alien",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 13,
+        "role": "bio",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 14,
+        "role": "crew",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 15,
+        "role": "alien",
+        "kind": "invite",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "0b",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 10,
+        "role": "crew",
+        "kind": "inviteAccept",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "0c",
+      "req": 5,
+      "acts": [
+       {
+        "pid": 3,
+        "role": "rescue",
+        "kind": "chat",
+        "decided": true
+       },
+       {
+        "pid": 10,
+        "role": "crew",
+        "kind": "chat",
+        "decided": true
+       },
+       {
+        "pid": 5,
+        "role": "alien",
+        "kind": "chat",
+        "decided": true
+       },
+       {
+        "pid": 12,
+        "role": "alien",
+        "kind": "chat",
+        "decided": true
+       },
+       {
+        "pid": 15,
+        "role": "alien",
+        "kind": "chat",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "0.1",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 7,
+        "role": "xeno",
+        "kind": "xenoCheck",
+        "decided": false
+       }
+      ]
+     },
+     {
+      "step": "1",
+      "req": 4,
+      "acts": [
+       {
+        "pid": 5,
+        "role": "alien",
+        "kind": "disguise",
+        "decided": false
+       },
+       {
+        "pid": 7,
+        "role": "xeno",
+        "kind": "disguise",
+        "decided": false
+       },
+       {
+        "pid": 12,
+        "role": "alien",
+        "kind": "disguise",
+        "decided": false
+       },
+       {
+        "pid": 15,
+        "role": "alien",
+        "kind": "disguise",
+        "decided": false
+       }
+      ]
+     },
+     {
+      "step": "2",
+      "req": 5,
+      "acts": [
+       {
+        "pid": 4,
+        "role": "crew",
+        "kind": "crewAction",
+        "decided": true,
+        "mode": "repair",
+        "value": 0.5
+       },
+       {
+        "pid": 8,
+        "role": "detective",
+        "kind": "detective",
+        "decided": true,
+        "mode": "none"
+       },
+       {
+        "pid": 10,
+        "role": "crew",
+        "kind": "crewAction",
+        "decided": true,
+        "mode": "repair",
+        "value": 0.5
+       },
+       {
+        "pid": 11,
+        "role": "crew",
+        "kind": "crewAction",
+        "decided": true,
+        "mode": "repair",
+        "value": 0.5
+       },
+       {
+        "pid": 14,
+        "role": "crew",
+        "kind": "crewAction",
+        "decided": true,
+        "mode": "repair",
+        "value": 0.45
+       }
+      ]
+     },
+     {
+      "step": "3",
+      "req": 2,
+      "acts": [
+       {
+        "pid": 1,
+        "role": "engineer",
+        "kind": "safeRoom",
+        "decided": true
+       },
+       {
+        "pid": 9,
+        "role": "bodyguard",
+        "kind": "guard",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "4a",
+      "req": 5,
+      "acts": [
+       {
+        "pid": 1,
+        "role": "engineer",
+        "kind": "repair",
+        "decided": true,
+        "value": 1.4
+       },
+       {
+        "pid": 4,
+        "role": "crew",
+        "kind": "crewRepair",
+        "decided": true,
+        "mode": "crewRepair",
+        "value": 0.5
+       },
+       {
+        "pid": 10,
+        "role": "crew",
+        "kind": "crewRepair",
+        "decided": true,
+        "mode": "crewRepair",
+        "value": 0.5
+       },
+       {
+        "pid": 11,
+        "role": "crew",
+        "kind": "crewRepair",
+        "decided": true,
+        "mode": "crewRepair",
+        "value": 0.5
+       },
+       {
+        "pid": 14,
+        "role": "crew",
+        "kind": "crewRepair",
+        "decided": true,
+        "mode": "crewRepair",
+        "value": 0.45
+       }
+      ]
+     },
+     {
+      "step": "4b",
+      "req": 4,
+      "acts": [
+       {
+        "pid": 5,
+        "role": "alien",
+        "kind": "branch",
+        "decided": true
+       },
+       {
+        "pid": 7,
+        "role": "xeno",
+        "kind": "branch",
+        "decided": true
+       },
+       {
+        "pid": 12,
+        "role": "alien",
+        "kind": "branch",
+        "decided": true
+       },
+       {
+        "pid": 15,
+        "role": "alien",
+        "kind": "branch",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "7",
+      "req": 3,
+      "acts": [
+       {
+        "pid": 5,
+        "role": "alien",
+        "kind": "alienAct",
+        "decided": true
+       },
+       {
+        "pid": 12,
+        "role": "alien",
+        "kind": "alienAct",
+        "decided": true
+       },
+       {
+        "pid": 15,
+        "role": "alien",
+        "kind": "alienAct",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "8",
+      "req": 2,
+      "acts": [
+       {
+        "pid": 3,
+        "role": "rescue",
+        "kind": "doctor",
+        "decided": true
+       },
+       {
+        "pid": 13,
+        "role": "bio",
+        "kind": "doctor",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "10",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 6,
+        "role": "inspector",
+        "kind": "meeting",
+        "decided": true
+       }
+      ]
+     }
+    ],
+    "says": [
+     {
+      "pid": 14,
+      "role": "crew",
+      "t": "我的看法是，昨晚有 4 个人跟我一起搭了把手——人数我有感觉，编号我没有。 10 号，报一下你的职业和昨晚行动，别绕。先"
+     },
+     {
+      "pid": 12,
+      "role": "alien",
+      "t": "说一下我的判断，盯一下 10 号，他的票型有问题。"
+     },
+     {
+      "pid": 9,
+      "role": "bodyguard",
+      "t": "先说结论，10 号，别光划水，摊牌吧。"
+     },
+     {
+      "pid": 6,
+      "role": "inspector",
+      "t": "10 号，你昨晚到底做了什么？当着大家的面说清楚。"
+     },
+     {
+      "pid": 10,
+      "role": "crew",
+      "t": "先说结论，昨晚有 4 个人跟我一起搭了把手——人数我有感觉，编号我没有。 12 号，你昨晚到底做了什么？当着大家的面说清"
+     },
+     {
+      "pid": 5,
+      "role": "alien",
+      "t": "别急着投人，先看死因。"
+     },
+     {
+      "pid": 15,
+      "role": "alien",
+      "t": "说一下我的判断，10 号，别光划水，摊牌吧。"
+     },
+     {
+      "pid": 7,
+      "role": "xeno",
+      "t": "10 号，报一下你的职业和昨晚行动，别绕。"
+     },
+     {
+      "pid": 11,
+      "role": "crew",
+      "t": "昨晚有 4 个人跟我一起搭了把手——人数我有感觉，编号我没有。 这轮我压手，正常权利。"
+     },
+     {
+      "pid": 1,
+      "role": "engineer",
+      "t": "说一下我的判断，我自己修了 1.4，账我清楚，别拿维修多少来编排我。 我质询 10 号：你凭什么自证清白？先记一笔。"
+     },
+     {
+      "pid": 8,
+      "role": "detective",
+      "t": "10 号，别光划水，摊牌吧。"
+     },
+     {
+      "pid": 13,
+      "role": "bio",
+      "t": "第 1 夜倒了 2 号，都想想这意味着什么。"
+     },
+     {
+      "pid": 3,
+      "role": "rescue",
+      "t": "容我多嘴一句，我的票会投给最可疑的那个。再看看吧。"
+     },
+     {
+      "pid": 4,
+      "role": "crew",
+      "t": "昨晚有 4 个人跟我一起搭了把手——人数我有感觉，编号我没有。 10 号，报一下你的职业和昨晚行动，别绕。"
+     }
+    ]
+   },
+   {
+    "night": 2,
+    "steps": [
+     {
+      "step": "D-vote",
+      "req": 13,
+      "acts": [
+       {
+        "pid": 1,
+        "role": "engineer",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 3,
+        "role": "rescue",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 4,
+        "role": "crew",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 5,
+        "role": "alien",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 6,
+        "role": "inspector",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 7,
+        "role": "xeno",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 8,
+        "role": "detective",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 9,
+        "role": "bodyguard",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 11,
+        "role": "crew",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 12,
+        "role": "alien",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 13,
+        "role": "bio",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 14,
+        "role": "crew",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 15,
+        "role": "alien",
+        "kind": "vote",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "0a",
+      "req": 13,
+      "acts": [
+       {
+        "pid": 1,
+        "role": "engineer",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 3,
+        "role": "rescue",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 4,
+        "role": "crew",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 5,
+        "role": "alien",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 6,
+        "role": "inspector",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 7,
+        "role": "xeno",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 8,
+        "role": "detective",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 9,
+        "role": "bodyguard",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 11,
+        "role": "crew",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 12,
+        "role": "alien",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 13,
+        "role": "bio",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 14,
+        "role": "crew",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 15,
+        "role": "alien",
+        "kind": "invite",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "0c",
+      "req": 5,
+      "acts": [
+       {
+        "pid": 3,
+        "role": "rescue",
+        "kind": "chat",
+        "decided": true
+       },
+       {
+        "pid": 10,
+        "role": "crew",
+        "kind": "chat",
+        "decided": true
+       },
+       {
+        "pid": 5,
+        "role": "alien",
+        "kind": "chat",
+        "decided": true
+       },
+       {
+        "pid": 12,
+        "role": "alien",
+        "kind": "chat",
+        "decided": true
+       },
+       {
+        "pid": 15,
+        "role": "alien",
+        "kind": "chat",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "0.1s",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 7,
+        "role": "xeno",
+        "kind": "xenoSilence",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "1",
+      "req": 4,
+      "acts": [
+       {
+        "pid": 5,
+        "role": "alien",
+        "kind": "disguise",
+        "decided": false
+       },
+       {
+        "pid": 7,
+        "role": "xeno",
+        "kind": "disguise",
+        "decided": false
+       },
+       {
+        "pid": 12,
+        "role": "alien",
+        "kind": "disguise",
+        "decided": false
+       },
+       {
+        "pid": 15,
+        "role": "alien",
+        "kind": "disguise",
+        "decided": false
+       }
+      ]
+     },
+     {
+      "step": "2",
+      "req": 4,
+      "acts": [
+       {
+        "pid": 4,
+        "role": "crew",
+        "kind": "crewAction",
+        "decided": true,
+        "mode": "repair",
+        "value": 0.5
+       },
+       {
+        "pid": 8,
+        "role": "detective",
+        "kind": "detective",
+        "decided": true,
+        "mode": "check"
+       },
+       {
+        "pid": 11,
+        "role": "crew",
+        "kind": "crewAction",
+        "decided": true,
+        "mode": "check"
+       },
+       {
+        "pid": 14,
+        "role": "crew",
+        "kind": "crewAction",
+        "decided": true,
+        "mode": "repair",
+        "value": 0.3
+       }
+      ]
+     },
+     {
+      "step": "3",
+      "req": 2,
+      "acts": [
+       {
+        "pid": 1,
+        "role": "engineer",
+        "kind": "safeRoom",
+        "decided": true
+       },
+       {
+        "pid": 9,
+        "role": "bodyguard",
+        "kind": "guard",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "4a",
+      "req": 3,
+      "acts": [
+       {
+        "pid": 1,
+        "role": "engineer",
+        "kind": "repair",
+        "decided": true,
+        "value": 1.5
+       },
+       {
+        "pid": 4,
+        "role": "crew",
+        "kind": "crewRepair",
+        "decided": true,
+        "mode": "crewRepair",
+        "value": 0.5
+       },
+       {
+        "pid": 14,
+        "role": "crew",
+        "kind": "crewRepair",
+        "decided": true,
+        "mode": "crewRepair",
+        "value": 0.3
+       }
+      ]
+     },
+     {
+      "step": "4b",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 5,
+        "role": "alien",
+        "kind": "branch",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "7",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 5,
+        "role": "alien",
+        "kind": "alienAct",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "8",
+      "req": 2,
+      "acts": [
+       {
+        "pid": 3,
+        "role": "rescue",
+        "kind": "doctor",
+        "decided": true
+       },
+       {
+        "pid": 13,
+        "role": "bio",
+        "kind": "doctor",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "10",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 6,
+        "role": "inspector",
+        "kind": "meeting",
+        "decided": true
+       }
+      ]
+     }
+    ],
+    "says": [
+     {
+      "pid": 15,
+      "role": "alien",
+      "t": "连着熬，谁都累。"
+     },
+     {
+      "pid": 6,
+      "role": "inspector",
+      "t": "先说结论，票源我看得见：14 个人投的，最集中在 10 号和 15、12 号。谁投的谁——我看得一清二楚。不过我真要发动"
+     },
+     {
+      "pid": 12,
+      "role": "alien",
+      "t": "这几晚过得不太平。"
+     },
+     {
+      "pid": 4,
+      "role": "crew",
+      "t": "从我看的情况，昨晚有 2 个人跟我一起搭了把手——人数我有感觉，编号我没有。 15 号，别光划水，摊牌吧。"
+     },
+     {
+      "pid": 9,
+      "role": "bodyguard",
+      "t": "15 号，你昨晚到底做了什么？当着大家的面说清楚。"
+     },
+     {
+      "pid": 8,
+      "role": "detective",
+      "t": "我对 15 号的怀疑不是一天两天了，攒了 6 条对不上的地方。"
+     },
+     {
+      "pid": 7,
+      "role": "xeno",
+      "t": "我对 12 号的怀疑不是一天两天了，攒了 3 条对不上的地方。"
+     },
+     {
+      "pid": 1,
+      "role": "engineer",
+      "t": "说一下我的判断，我自己修了 2.9，账我清楚，别拿维修多少来编排我。 我质询 15 号：你凭什么自证清白？"
+     },
+     {
+      "pid": 13,
+      "role": "bio",
+      "t": "我多虑一句，信息共享优先，别互相消耗。慢点来。"
+     },
+     {
+      "pid": 3,
+      "role": "rescue",
+      "t": "我谨慎说一句，昨夜无人死亡，对方在蓄力。"
+     },
+     {
+      "pid": 14,
+      "role": "crew",
+      "t": "昨晚有 2 个人跟我一起搭了把手——人数我有感觉，编号我没有。 我质询 15 号：你凭什么自证清白？"
+     },
+     {
+      "pid": 11,
+      "role": "crew",
+      "t": "这轮我压手，正常权利。"
+     }
+    ]
+   },
+   {
+    "night": 3,
+    "steps": [
+     {
+      "step": "D-vote",
+      "req": 12,
+      "acts": [
+       {
+        "pid": 1,
+        "role": "engineer",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 3,
+        "role": "rescue",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 4,
+        "role": "crew",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 5,
+        "role": "alien",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 6,
+        "role": "inspector",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 7,
+        "role": "xeno",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 8,
+        "role": "detective",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 9,
+        "role": "bodyguard",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 11,
+        "role": "crew",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 12,
+        "role": "alien",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 13,
+        "role": "bio",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 14,
+        "role": "crew",
+        "kind": "vote",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "0a",
+      "req": 12,
+      "acts": [
+       {
+        "pid": 1,
+        "role": "engineer",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 3,
+        "role": "rescue",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 4,
+        "role": "crew",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 5,
+        "role": "alien",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 6,
+        "role": "inspector",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 7,
+        "role": "xeno",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 8,
+        "role": "detective",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 9,
+        "role": "bodyguard",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 11,
+        "role": "crew",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 12,
+        "role": "alien",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 13,
+        "role": "bio",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 14,
+        "role": "crew",
+        "kind": "invite",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "0c",
+      "req": 4,
+      "acts": [
+       {
+        "pid": 3,
+        "role": "rescue",
+        "kind": "chat",
+        "decided": true
+       },
+       {
+        "pid": 10,
+        "role": "crew",
+        "kind": "chat",
+        "decided": true
+       },
+       {
+        "pid": 5,
+        "role": "alien",
+        "kind": "chat",
+        "decided": true
+       },
+       {
+        "pid": 12,
+        "role": "alien",
+        "kind": "chat",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "0.1",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 7,
+        "role": "xeno",
+        "kind": "xenoCheck",
+        "decided": false
+       }
+      ]
+     },
+     {
+      "step": "0.6",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 5,
+        "role": "alien",
+        "kind": "evolve",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "1",
+      "req": 3,
+      "acts": [
+       {
+        "pid": 5,
+        "role": "alien",
+        "kind": "disguise",
+        "decided": false
+       },
+       {
+        "pid": 7,
+        "role": "xeno",
+        "kind": "disguise",
+        "decided": false
+       },
+       {
+        "pid": 12,
+        "role": "alien",
+        "kind": "disguise",
+        "decided": false
+       }
+      ]
+     },
+     {
+      "step": "2",
+      "req": 4,
+      "acts": [
+       {
+        "pid": 4,
+        "role": "crew",
+        "kind": "crewAction",
+        "decided": true,
+        "mode": "repair",
+        "value": 0.5
+       },
+       {
+        "pid": 8,
+        "role": "detective",
+        "kind": "detective",
+        "decided": true,
+        "mode": "announce"
+       },
+       {
+        "pid": 11,
+        "role": "crew",
+        "kind": "crewAction",
+        "decided": true,
+        "mode": "repair",
+        "value": 0.5
+       },
+       {
+        "pid": 14,
+        "role": "crew",
+        "kind": "crewAction",
+        "decided": true,
+        "mode": "check"
+       }
+      ]
+     },
+     {
+      "step": "3",
+      "req": 2,
+      "acts": [
+       {
+        "pid": 1,
+        "role": "engineer",
+        "kind": "safeRoom",
+        "decided": true
+       },
+       {
+        "pid": 9,
+        "role": "bodyguard",
+        "kind": "guard",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "4a",
+      "req": 3,
+      "acts": [
+       {
+        "pid": 1,
+        "role": "engineer",
+        "kind": "repair",
+        "decided": true,
+        "value": 1.5
+       },
+       {
+        "pid": 4,
+        "role": "crew",
+        "kind": "crewRepair",
+        "decided": true,
+        "mode": "crewRepair",
+        "value": 0.5
+       },
+       {
+        "pid": 11,
+        "role": "crew",
+        "kind": "crewRepair",
+        "decided": true,
+        "mode": "crewRepair",
+        "value": 0.5
+       }
+      ]
+     },
+     {
+      "step": "4b",
+      "req": 3,
+      "acts": [
+       {
+        "pid": 5,
+        "role": "alien",
+        "kind": "branch",
+        "decided": true
+       },
+       {
+        "pid": 7,
+        "role": "xeno",
+        "kind": "branch",
+        "decided": true
+       },
+       {
+        "pid": 12,
+        "role": "alien",
+        "kind": "branch",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "7",
+      "req": 2,
+      "acts": [
+       {
+        "pid": 5,
+        "role": "alien",
+        "kind": "alienAct",
+        "decided": true
+       },
+       {
+        "pid": 12,
+        "role": "alien",
+        "kind": "alienAct",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "8",
+      "req": 2,
+      "acts": [
+       {
+        "pid": 3,
+        "role": "rescue",
+        "kind": "doctor",
+        "decided": true
+       },
+       {
+        "pid": 13,
+        "role": "bio",
+        "kind": "doctor",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "M-vote",
+      "req": 10,
+      "acts": [
+       {
+        "pid": 3,
+        "role": "rescue",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 4,
+        "role": "crew",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 5,
+        "role": "alien",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 6,
+        "role": "inspector",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 7,
+        "role": "xeno",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 8,
+        "role": "detective",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 9,
+        "role": "bodyguard",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 11,
+        "role": "crew",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 13,
+        "role": "bio",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 14,
+        "role": "crew",
+        "kind": "vote",
+        "decided": true
+       }
+      ]
+     }
+    ],
+    "says": [
+     {
+      "pid": 6,
+      "role": "inspector",
+      "t": "票源我看得见：13 个人投的，最集中在 15 号和 1、12 号。谁投的谁——我看得一清二楚。 我对 12 号的怀疑不是"
+     },
+     {
+      "pid": 14,
+      "role": "crew",
+      "t": "我查过 12 号，他不是他自称的那个。"
+     },
+     {
+      "pid": 12,
+      "role": "alien",
+      "t": "先说结论，7 号一直咬着我不放，我反而觉得他最想带节奏。"
+     },
+     {
+      "pid": 7,
+      "role": "xeno",
+      "t": "我的看法是，12 号，别光划水，摊牌吧。"
+     },
+     {
+      "pid": 13,
+      "role": "bio",
+      "t": "我对 12 号的怀疑不是一天两天了，攒了 8 条对不上的地方。"
+     },
+     {
+      "pid": 5,
+      "role": "alien",
+      "t": "说一下我的判断，我质询 6 号：你凭什么自证清白？再观察观察。"
+     },
+     {
+      "pid": 6,
+      "role": "inspector",
+      "t": "票源我看得见：13 个人投的，最集中在 15 号和 1、12 号。谁投的谁——我看得一清二楚。 我对 12 号的怀疑不是"
+     },
+     {
+      "pid": 8,
+      "role": "detective",
+      "t": "从我看的情况，12 号的查验在我这儿，是异形。"
+     },
+     {
+      "pid": 3,
+      "role": "rescue",
+      "t": "我对 12 号的怀疑不是一天两天了，攒了 11 条对不上的地方。"
+     },
+     {
+      "pid": 9,
+      "role": "bodyguard",
+      "t": "我这夜护的人挨了一下——这条我比谁都先知道。 我对 12 号的怀疑不是一天两天了，攒了 12 条对不上的地方。"
+     },
+     {
+      "pid": 11,
+      "role": "crew",
+      "t": "我查过 12 号，他不是他自称的那个。"
+     },
+     {
+      "pid": 4,
+      "role": "crew",
+      "t": "昨晚有 2 个人跟我一起搭了把手——人数我有感觉，编号我没有。 我对 12 号的怀疑不是一天两天了，攒了 14 条对不上"
+     },
+     {
+      "pid": 11,
+      "role": "crew",
+      "t": "我这轮先听大家的信息。"
+     },
+     {
+      "pid": 3,
+      "role": "rescue",
+      "t": "都别划水了，先归票，票散了白给。"
+     }
+    ]
+   },
+   {
+    "night": 4,
+    "steps": [
+     {
+      "step": "D-vote",
+      "req": 9,
+      "acts": [
+       {
+        "pid": 3,
+        "role": "rescue",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 4,
+        "role": "crew",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 5,
+        "role": "alien",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 6,
+        "role": "inspector",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 7,
+        "role": "xeno",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 8,
+        "role": "detective",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 9,
+        "role": "bodyguard",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 13,
+        "role": "bio",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 14,
+        "role": "crew",
+        "kind": "vote",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "0a",
+      "req": 9,
+      "acts": [
+       {
+        "pid": 3,
+        "role": "rescue",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 4,
+        "role": "crew",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 5,
+        "role": "alien",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 6,
+        "role": "inspector",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 7,
+        "role": "xeno",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 8,
+        "role": "detective",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 9,
+        "role": "bodyguard",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 13,
+        "role": "bio",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 14,
+        "role": "crew",
+        "kind": "invite",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "0c",
+      "req": 3,
+      "acts": [
+       {
+        "pid": 3,
+        "role": "rescue",
+        "kind": "chat",
+        "decided": true
+       },
+       {
+        "pid": 10,
+        "role": "crew",
+        "kind": "chat",
+        "decided": true
+       },
+       {
+        "pid": 5,
+        "role": "alien",
+        "kind": "chat",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "0.1s",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 7,
+        "role": "xeno",
+        "kind": "xenoSilence",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "1",
+      "req": 2,
+      "acts": [
+       {
+        "pid": 5,
+        "role": "alien",
+        "kind": "disguise",
+        "decided": false
+       },
+       {
+        "pid": 7,
+        "role": "xeno",
+        "kind": "disguise",
+        "decided": false
+       }
+      ]
+     },
+     {
+      "step": "2",
+      "req": 3,
+      "acts": [
+       {
+        "pid": 4,
+        "role": "crew",
+        "kind": "crewAction",
+        "decided": true,
+        "mode": "check"
+       },
+       {
+        "pid": 8,
+        "role": "detective",
+        "kind": "detective",
+        "decided": true,
+        "mode": "none"
+       },
+       {
+        "pid": 14,
+        "role": "crew",
+        "kind": "crewAction",
+        "decided": true,
+        "mode": "check"
+       }
+      ]
+     },
+     {
+      "step": "3",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 9,
+        "role": "bodyguard",
+        "kind": "guard",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "8",
+      "req": 2,
+      "acts": [
+       {
+        "pid": 3,
+        "role": "rescue",
+        "kind": "doctor",
+        "decided": true
+       },
+       {
+        "pid": 13,
+        "role": "bio",
+        "kind": "doctor",
+        "decided": true
+       }
+      ]
+     }
+    ],
+    "says": [
+     {
+      "pid": 4,
+      "role": "crew",
+      "t": "13 号，你昨晚到底做了什么？当着大家的面说清楚。"
+     },
+     {
+      "pid": 9,
+      "role": "bodyguard",
+      "t": "先说结论，13 号，你昨晚到底做了什么？当着大家的面说清楚。"
+     },
+     {
+      "pid": 3,
+      "role": "rescue",
+      "t": "话别说死，昨夜的破坏量大家都看到了。姑且存疑。"
+     },
+     {
+      "pid": 13,
+      "role": "bio",
+      "t": "我谨慎说一句，我在制药，进度还没走完。"
+     },
+     {
+      "pid": 8,
+      "role": "detective",
+      "t": "说一下我的判断，13 号，你昨晚到底做了什么？当着大家的面说清楚。再观察观察。"
+     },
+     {
+      "pid": 7,
+      "role": "xeno",
+      "t": "从我看的情况，我对 5 号的怀疑不是一天两天了，攒了 2 条对不上的地方。"
+     },
+     {
+      "pid": 5,
+      "role": "alien",
+      "t": "昨晚动静不小，但我说不准。"
+     },
+     {
+      "pid": 6,
+      "role": "inspector",
+      "t": "票源我看得见：10 个人投的，最集中在 11 号和 6、5 号。谁投的谁——我看得一清二楚。不过我真要发动紧急会议，开场"
+     },
+     {
+      "pid": 14,
+      "role": "crew",
+      "t": "13 号，报一下你的职业和昨晚行动，别绕。"
+     }
+    ]
+   },
+   {
+    "night": 5,
+    "steps": [
+     {
+      "step": "D-vote",
+      "req": 8,
+      "acts": [
+       {
+        "pid": 3,
+        "role": "rescue",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 4,
+        "role": "crew",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 5,
+        "role": "alien",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 6,
+        "role": "inspector",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 7,
+        "role": "xeno",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 8,
+        "role": "detective",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 9,
+        "role": "bodyguard",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 14,
+        "role": "crew",
+        "kind": "vote",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "0a",
+      "req": 8,
+      "acts": [
+       {
+        "pid": 3,
+        "role": "rescue",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 4,
+        "role": "crew",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 5,
+        "role": "alien",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 6,
+        "role": "inspector",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 7,
+        "role": "xeno",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 8,
+        "role": "detective",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 9,
+        "role": "bodyguard",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 14,
+        "role": "crew",
+        "kind": "invite",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "0c",
+      "req": 3,
+      "acts": [
+       {
+        "pid": 3,
+        "role": "rescue",
+        "kind": "chat",
+        "decided": true
+       },
+       {
+        "pid": 10,
+        "role": "crew",
+        "kind": "chat",
+        "decided": true
+       },
+       {
+        "pid": 5,
+        "role": "alien",
+        "kind": "chat",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "0.1",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 7,
+        "role": "xeno",
+        "kind": "xenoCheck",
+        "decided": false
+       }
+      ]
+     },
+     {
+      "step": "0.6",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 5,
+        "role": "alien",
+        "kind": "convert",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "1",
+      "req": 2,
+      "acts": [
+       {
+        "pid": 5,
+        "role": "alien",
+        "kind": "disguise",
+        "decided": false
+       },
+       {
+        "pid": 7,
+        "role": "xeno",
+        "kind": "disguise",
+        "decided": false
+       }
+      ]
+     },
+     {
+      "step": "2",
+      "req": 3,
+      "acts": [
+       {
+        "pid": 4,
+        "role": "crew",
+        "kind": "crewAction",
+        "decided": true,
+        "mode": "repair",
+        "value": 0.45
+       },
+       {
+        "pid": 8,
+        "role": "detective",
+        "kind": "detective",
+        "decided": true,
+        "mode": "none"
+       },
+       {
+        "pid": 14,
+        "role": "crew",
+        "kind": "crewAction",
+        "decided": true,
+        "mode": "check"
+       }
+      ]
+     },
+     {
+      "step": "3",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 9,
+        "role": "bodyguard",
+        "kind": "guard",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "4a",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 4,
+        "role": "crew",
+        "kind": "crewRepair",
+        "decided": true,
+        "mode": "crewRepair",
+        "value": 0.45
+       }
+      ]
+     },
+     {
+      "step": "4b",
+      "req": 2,
+      "acts": [
+       {
+        "pid": 5,
+        "role": "alien",
+        "kind": "branch",
+        "decided": true
+       },
+       {
+        "pid": 7,
+        "role": "xeno",
+        "kind": "branch",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "7",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 5,
+        "role": "alien",
+        "kind": "alienAct",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "8",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 3,
+        "role": "rescue",
+        "kind": "doctor",
+        "decided": true
+       }
+      ]
+     }
+    ],
+    "says": [
+     {
+      "pid": 5,
+      "role": "alien",
+      "t": "我先不表态，看谁先露破绽。"
+     },
+     {
+      "pid": 8,
+      "role": "detective",
+      "t": "我的看法是，5 号，别光划水，摊牌吧。再观察观察。"
+     },
+     {
+      "pid": 7,
+      "role": "xeno",
+      "t": "我对 5 号的怀疑不是一天两天了，攒了 4 条对不上的地方。"
+     },
+     {
+      "pid": 4,
+      "role": "crew",
+      "t": "说一下我的判断，昨晚有 1 个人跟我一起搭了把手——人数我有感觉，编号我没有。 5 号，报一下你的职业和昨晚行动，别绕。"
+     },
+     {
+      "pid": 3,
+      "role": "rescue",
+      "t": "第 5 夜倒了 6 号，都想想这意味着什么。"
+     },
+     {
+      "pid": 9,
+      "role": "bodyguard",
+      "t": "说一下我的判断，我质询 5 号：你凭什么自证清白？先记一笔。"
+     },
+     {
+      "pid": 14,
+      "role": "crew",
+      "t": "说一下我的判断，我查过 5 号，他不是他自称的那个。先看着。"
+     }
+    ]
+   },
+   {
+    "night": 6,
+    "steps": [
+     {
+      "step": "D-vote",
+      "req": 6,
+      "acts": [
+       {
+        "pid": 3,
+        "role": "rescue",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 4,
+        "role": "crew",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 7,
+        "role": "xeno",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 8,
+        "role": "detective",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 9,
+        "role": "bodyguard",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 14,
+        "role": "crew",
+        "kind": "vote",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "0a",
+      "req": 6,
+      "acts": [
+       {
+        "pid": 3,
+        "role": "rescue",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 4,
+        "role": "crew",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 7,
+        "role": "xeno",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 8,
+        "role": "detective",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 9,
+        "role": "bodyguard",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 14,
+        "role": "crew",
+        "kind": "invite",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "0c",
+      "req": 2,
+      "acts": [
+       {
+        "pid": 3,
+        "role": "rescue",
+        "kind": "chat",
+        "decided": true
+       },
+       {
+        "pid": 10,
+        "role": "crew",
+        "kind": "chat",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "0.1s",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 7,
+        "role": "xeno",
+        "kind": "xenoSilence",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "1",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 7,
+        "role": "xeno",
+        "kind": "disguise",
+        "decided": false
+       }
+      ]
+     },
+     {
+      "step": "2",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 8,
+        "role": "detective",
+        "kind": "detective",
+        "decided": true,
+        "mode": "none"
+       }
+      ]
+     },
+     {
+      "step": "3",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 9,
+        "role": "bodyguard",
+        "kind": "guard",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "6",
+      "req": 2,
+      "acts": [
+       {
+        "pid": 4,
+        "role": "armed",
+        "kind": "shoot",
+        "decided": true
+       },
+       {
+        "pid": 14,
+        "role": "armed",
+        "kind": "shoot",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "8",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 3,
+        "role": "rescue",
+        "kind": "doctor",
+        "decided": true
+       }
+      ]
+     }
+    ],
+    "says": [
+     {
+      "pid": 4,
+      "role": "armed",
+      "t": "昨夜无人死亡，对方在蓄力。"
+     },
+     {
+      "pid": 8,
+      "role": "detective",
+      "t": "我手里的查验结果先压一夜。"
+     },
+     {
+      "pid": 7,
+      "role": "xeno",
+      "t": "说一下我的判断，昨夜无人死亡，对方在蓄力。先记一笔。"
+     },
+     {
+      "pid": 3,
+      "role": "rescue",
+      "t": "我在制药，进度还没走完。"
+     },
+     {
+      "pid": 14,
+      "role": "armed",
+      "t": "我还有 1 发，打谁我心里有数。 我是武装船员，枪口对着谁不用报备。"
+     },
+     {
+      "pid": 9,
+      "role": "bodyguard",
+      "t": "从我看的情况，14 号，报一下你的职业和昨晚行动，别绕。先记一笔。"
+     }
+    ]
+   },
+   {
+    "night": 7,
+    "steps": [
+     {
+      "step": "D-vote",
+      "req": 5,
+      "acts": [
+       {
+        "pid": 3,
+        "role": "rescue",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 4,
+        "role": "armed",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 7,
+        "role": "xeno",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 8,
+        "role": "detective",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 9,
+        "role": "bodyguard",
+        "kind": "vote",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "0a",
+      "req": 5,
+      "acts": [
+       {
+        "pid": 3,
+        "role": "rescue",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 4,
+        "role": "armed",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 7,
+        "role": "xeno",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 8,
+        "role": "detective",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 9,
+        "role": "bodyguard",
+        "kind": "invite",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "0b",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 7,
+        "role": "xeno",
+        "kind": "inviteAccept",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "0c",
+      "req": 2,
+      "acts": [
+       {
+        "pid": 9,
+        "role": "bodyguard",
+        "kind": "chat",
+        "decided": true
+       },
+       {
+        "pid": 7,
+        "role": "xeno",
+        "kind": "chat",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "0.1",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 7,
+        "role": "xeno",
+        "kind": "xenoCheck",
+        "decided": false
+       }
+      ]
+     },
+     {
+      "step": "1",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 7,
+        "role": "xeno",
+        "kind": "disguise",
+        "decided": false
+       }
+      ]
+     },
+     {
+      "step": "2",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 8,
+        "role": "detective",
+        "kind": "detective",
+        "decided": true,
+        "mode": "none"
+       }
+      ]
+     },
+     {
+      "step": "3",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 9,
+        "role": "bodyguard",
+        "kind": "guard",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "6",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 4,
+        "role": "armed",
+        "kind": "shoot",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "8",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 3,
+        "role": "rescue",
+        "kind": "doctor",
+        "decided": true
+       }
+      ]
+     }
+    ],
+    "says": [
+     {
+      "pid": 7,
+      "role": "xeno",
+      "t": "你们先清内部的，我跟着走。"
+     },
+     {
+      "pid": 9,
+      "role": "bodyguard",
+      "t": "说实话我也没看清。"
+     },
+     {
+      "pid": 8,
+      "role": "detective",
+      "t": "说一下我的判断，我手里的查验结果先压一夜。"
+     },
+     {
+      "pid": 3,
+      "role": "rescue",
+      "t": "我多虑一句，昨夜无人死亡，对方在蓄力。慢点来。"
+     },
+     {
+      "pid": 4,
+      "role": "armed",
+      "t": "我还有 1 发，打谁我心里有数。 我是武装船员，枪口对着谁不用报备。"
+     }
+    ]
+   },
+   {
+    "night": 8,
+    "steps": [
+     {
+      "step": "D-vote",
+      "req": 4,
+      "acts": [
+       {
+        "pid": 3,
+        "role": "rescue",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 7,
+        "role": "xeno",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 8,
+        "role": "detective",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 9,
+        "role": "bodyguard",
+        "kind": "vote",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "0a",
+      "req": 4,
+      "acts": [
+       {
+        "pid": 3,
+        "role": "rescue",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 7,
+        "role": "xeno",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 8,
+        "role": "detective",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 9,
+        "role": "bodyguard",
+        "kind": "invite",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "0c",
+      "req": 2,
+      "acts": [
+       {
+        "pid": 9,
+        "role": "bodyguard",
+        "kind": "chat",
+        "decided": true
+       },
+       {
+        "pid": 7,
+        "role": "xeno",
+        "kind": "chat",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "0.1s",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 7,
+        "role": "xeno",
+        "kind": "xenoSilence",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "1",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 7,
+        "role": "xeno",
+        "kind": "disguise",
+        "decided": false
+       }
+      ]
+     },
+     {
+      "step": "2",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 8,
+        "role": "detective",
+        "kind": "detective",
+        "decided": true,
+        "mode": "check"
+       }
+      ]
+     },
+     {
+      "step": "3",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 9,
+        "role": "bodyguard",
+        "kind": "guard",
+        "decided": true
+       }
+      ]
+     }
+    ],
+    "says": [
+     {
+      "pid": 9,
+      "role": "bodyguard",
+      "t": "先说结论，连着熬，有点疲惫。先看着。"
+     },
+     {
+      "pid": 7,
+      "role": "xeno",
+      "t": "9 号，别光划水，摊牌吧。"
+     },
+     {
+      "pid": 3,
+      "role": "rescue",
+      "t": "我谨慎说一句，我先听，谁在裸坐谁心里清楚。"
+     },
+     {
+      "pid": 8,
+      "role": "detective",
+      "t": "池子里有 2 条了。提醒一句：呈现职业未必是他本来的身份——变形的人照样能报出职业。……但我这一问出去，对面就知道场上有"
+     }
+    ]
+   },
+   {
+    "night": 9,
+    "steps": [
+     {
+      "step": "D-vote",
+      "req": 3,
+      "acts": [
+       {
+        "pid": 3,
+        "role": "rescue",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 7,
+        "role": "xeno",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 9,
+        "role": "bodyguard",
+        "kind": "vote",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "0a",
+      "req": 3,
+      "acts": [
+       {
+        "pid": 3,
+        "role": "rescue",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 7,
+        "role": "xeno",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 9,
+        "role": "bodyguard",
+        "kind": "invite",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "0c",
+      "req": 2,
+      "acts": [
+       {
+        "pid": 9,
+        "role": "bodyguard",
+        "kind": "chat",
+        "decided": true
+       },
+       {
+        "pid": 7,
+        "role": "xeno",
+        "kind": "chat",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "0.1s",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 7,
+        "role": "xeno",
+        "kind": "xenoSilence",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "1",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 7,
+        "role": "xeno",
+        "kind": "disguise",
+        "decided": false
+       }
+      ]
+     },
+     {
+      "step": "3",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 9,
+        "role": "bodyguard",
+        "kind": "guard",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "8",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 3,
+        "role": "rescue",
+        "kind": "doctor",
+        "decided": true
+       }
+      ]
+     }
+    ],
+    "says": [
+     {
+      "pid": 7,
+      "role": "xeno",
+      "t": "我这边的感觉很奇怪，暂时说不清。"
+     },
+     {
+      "pid": 9,
+      "role": "bodyguard",
+      "t": "有没有人盘一下目前最 sus 的两个人？"
+     },
+     {
+      "pid": 3,
+      "role": "rescue",
+      "t": "我的票会投给最可疑的那个。"
+     }
+    ]
+   },
+   {
+    "night": 10,
+    "steps": [
+     {
+      "step": "D-vote",
+      "req": 3,
+      "acts": [
+       {
+        "pid": 3,
+        "role": "rescue",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 7,
+        "role": "xeno",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 9,
+        "role": "bodyguard",
+        "kind": "vote",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "0a",
+      "req": 3,
+      "acts": [
+       {
+        "pid": 3,
+        "role": "rescue",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 7,
+        "role": "xeno",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 9,
+        "role": "bodyguard",
+        "kind": "invite",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "0b",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 3,
+        "role": "rescue",
+        "kind": "inviteAccept",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "0c",
+      "req": 2,
+      "acts": [
+       {
+        "pid": 9,
+        "role": "bodyguard",
+        "kind": "chat",
+        "decided": true
+       },
+       {
+        "pid": 3,
+        "role": "rescue",
+        "kind": "chat",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "0.1",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 7,
+        "role": "xeno",
+        "kind": "xenoCheck",
+        "decided": false
+       }
+      ]
+     },
+     {
+      "step": "1",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 7,
+        "role": "xeno",
+        "kind": "disguise",
+        "decided": false
+       }
+      ]
+     },
+     {
+      "step": "3",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 9,
+        "role": "bodyguard",
+        "kind": "guard",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "8",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 3,
+        "role": "rescue",
+        "kind": "doctor",
+        "decided": true
+       }
+      ]
+     }
+    ],
+    "says": []
+   }
+  ],
+  "step": "8",
+  "acts": [
+   {
+    "pid": 3,
+    "role": "rescue",
+    "kind": "doctor",
+    "decided": true
+   }
+  ],
+  "says": [],
+  "night": 10,
+  "req": 1,
+  "steps": [
+   {
+    "step": "D-vote",
+    "req": 3,
+    "acts": [
+     {
+      "pid": 3,
+      "role": "rescue",
+      "kind": "vote",
+      "decided": true
+     },
+     {
+      "pid": 7,
+      "role": "xeno",
+      "kind": "vote",
+      "decided": true
+     },
+     {
+      "pid": 9,
+      "role": "bodyguard",
+      "kind": "vote",
+      "decided": true
+     }
+    ]
+   },
+   {
+    "step": "0a",
+    "req": 3,
+    "acts": [
+     {
+      "pid": 3,
+      "role": "rescue",
+      "kind": "invite",
+      "decided": true
+     },
+     {
+      "pid": 7,
+      "role": "xeno",
+      "kind": "invite",
+      "decided": true
+     },
+     {
+      "pid": 9,
+      "role": "bodyguard",
+      "kind": "invite",
+      "decided": true
+     }
+    ]
+   },
+   {
+    "step": "0b",
+    "req": 1,
+    "acts": [
+     {
+      "pid": 3,
+      "role": "rescue",
+      "kind": "inviteAccept",
+      "decided": true
+     }
+    ]
+   },
+   {
+    "step": "0c",
+    "req": 2,
+    "acts": [
+     {
+      "pid": 9,
+      "role": "bodyguard",
+      "kind": "chat",
+      "decided": true
+     },
+     {
+      "pid": 3,
+      "role": "rescue",
+      "kind": "chat",
+      "decided": true
+     }
+    ]
+   },
+   {
+    "step": "0.1",
+    "req": 1,
+    "acts": [
+     {
+      "pid": 7,
+      "role": "xeno",
+      "kind": "xenoCheck",
+      "decided": false
+     }
+    ]
+   },
+   {
+    "step": "1",
+    "req": 1,
+    "acts": [
+     {
+      "pid": 7,
+      "role": "xeno",
+      "kind": "disguise",
+      "decided": false
+     }
+    ]
+   },
+   {
+    "step": "3",
+    "req": 1,
+    "acts": [
+     {
+      "pid": 9,
+      "role": "bodyguard",
+      "kind": "guard",
+      "decided": true
+     }
+    ]
+   },
+   {
+    "step": "8",
+    "req": 1,
+    "acts": [
+     {
+      "pid": 3,
+      "role": "rescue",
+      "kind": "doctor",
+      "decided": true
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "seed": 242,
+  "nights": [
+   {
+    "night": 1,
+    "steps": [
+     {
+      "step": "0a",
+      "req": 15,
+      "acts": [
+       {
+        "pid": 1,
+        "role": "crew",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 2,
+        "role": "alien",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 3,
+        "role": "xeno",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 4,
+        "role": "sheriff",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 5,
+        "role": "crew",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 6,
+        "role": "bodyguard",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 7,
+        "role": "crew",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 8,
+        "role": "bio",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 9,
+        "role": "detective",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 10,
+        "role": "alien",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 11,
+        "role": "inspector",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 12,
+        "role": "alien",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 13,
+        "role": "crew",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 14,
+        "role": "engineer",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 15,
+        "role": "rescue",
+        "kind": "invite",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "0b",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 9,
+        "role": "detective",
+        "kind": "inviteAccept",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "0c",
+      "req": 4,
+      "acts": [
+       {
+        "pid": 10,
+        "role": "alien",
+        "kind": "chat",
+        "decided": true
+       },
+       {
+        "pid": 9,
+        "role": "detective",
+        "kind": "chat",
+        "decided": true
+       },
+       {
+        "pid": 2,
+        "role": "alien",
+        "kind": "chat",
+        "decided": true
+       },
+       {
+        "pid": 12,
+        "role": "alien",
+        "kind": "chat",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "0.1",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 3,
+        "role": "xeno",
+        "kind": "xenoCheck",
+        "decided": false
+       }
+      ]
+     },
+     {
+      "step": "1",
+      "req": 4,
+      "acts": [
+       {
+        "pid": 2,
+        "role": "alien",
+        "kind": "disguise",
+        "decided": false
+       },
+       {
+        "pid": 3,
+        "role": "xeno",
+        "kind": "disguise",
+        "decided": false
+       },
+       {
+        "pid": 10,
+        "role": "alien",
+        "kind": "disguise",
+        "decided": false
+       },
+       {
+        "pid": 12,
+        "role": "alien",
+        "kind": "disguise",
+        "decided": false
+       }
+      ]
+     },
+     {
+      "step": "2",
+      "req": 5,
+      "acts": [
+       {
+        "pid": 1,
+        "role": "crew",
+        "kind": "crewAction",
+        "decided": true,
+        "mode": "check"
+       },
+       {
+        "pid": 5,
+        "role": "crew",
+        "kind": "crewAction",
+        "decided": true,
+        "mode": "check"
+       },
+       {
+        "pid": 7,
+        "role": "crew",
+        "kind": "crewAction",
+        "decided": true,
+        "mode": "none"
+       },
+       {
+        "pid": 9,
+        "role": "detective",
+        "kind": "detective",
+        "decided": true,
+        "mode": "check"
+       },
+       {
+        "pid": 13,
+        "role": "crew",
+        "kind": "crewAction",
+        "decided": true,
+        "mode": "none"
+       }
+      ]
+     },
+     {
+      "step": "3",
+      "req": 2,
+      "acts": [
+       {
+        "pid": 6,
+        "role": "bodyguard",
+        "kind": "guard",
+        "decided": true
+       },
+       {
+        "pid": 14,
+        "role": "engineer",
+        "kind": "safeRoom",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "4a",
+      "req": 3,
+      "acts": [
+       {
+        "pid": 7,
+        "role": "crew",
+        "kind": "crewRepair",
+        "decided": true,
+        "mode": "none"
+       },
+       {
+        "pid": 13,
+        "role": "crew",
+        "kind": "crewRepair",
+        "decided": true,
+        "mode": "none"
+       },
+       {
+        "pid": 14,
+        "role": "engineer",
+        "kind": "repair",
+        "decided": true,
+        "value": 1.5
+       }
+      ]
+     },
+     {
+      "step": "4b",
+      "req": 4,
+      "acts": [
+       {
+        "pid": 2,
+        "role": "alien",
+        "kind": "branch",
+        "decided": true
+       },
+       {
+        "pid": 3,
+        "role": "xeno",
+        "kind": "branch",
+        "decided": true
+       },
+       {
+        "pid": 10,
+        "role": "alien",
+        "kind": "branch",
+        "decided": true
+       },
+       {
+        "pid": 12,
+        "role": "alien",
+        "kind": "branch",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "7",
+      "req": 3,
+      "acts": [
+       {
+        "pid": 2,
+        "role": "alien",
+        "kind": "alienAct",
+        "decided": true
+       },
+       {
+        "pid": 10,
+        "role": "alien",
+        "kind": "alienAct",
+        "decided": true
+       },
+       {
+        "pid": 12,
+        "role": "alien",
+        "kind": "alienAct",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "8",
+      "req": 2,
+      "acts": [
+       {
+        "pid": 8,
+        "role": "bio",
+        "kind": "doctor",
+        "decided": true
+       },
+       {
+        "pid": 15,
+        "role": "rescue",
+        "kind": "doctor",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "10",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 11,
+        "role": "inspector",
+        "kind": "meeting",
+        "decided": true
+       }
+      ]
+     }
+    ],
+    "says": [
+     {
+      "pid": 7,
+      "role": "crew",
+      "t": "我先听完再表态。"
+     },
+     {
+      "pid": 6,
+      "role": "bodyguard",
+      "t": "倒计时只剩 22 了，人类再不清场就全完了。"
+     },
+     {
+      "pid": 15,
+      "role": "rescue",
+      "t": "第 1 夜倒了 1 号，都想想这意味着什么。"
+     },
+     {
+      "pid": 5,
+      "role": "crew",
+      "t": "说一下我的判断，净破坏量已经 0.0，机器再停大家陪葬。"
+     },
+     {
+      "pid": 13,
+      "role": "crew",
+      "t": "第 1 夜倒了 1 号，都想想这意味着什么。"
+     },
+     {
+      "pid": 11,
+      "role": "inspector",
+      "t": "话别说死，我投他是基于他昨夜的发言，不是跟风。再看看吧。"
+     },
+     {
+      "pid": 3,
+      "role": "xeno",
+      "t": "14 号，你昨晚到底做了什么？当着大家的面说清楚。"
+     },
+     {
+      "pid": 14,
+      "role": "engineer",
+      "t": "我自己修了 1.5，账我清楚，别拿维修多少来编排我。 3 号，你昨晚到底做了什么？当着大家的面说清楚。"
+     },
+     {
+      "pid": 8,
+      "role": "bio",
+      "t": "我对 3 号的怀疑不是一天两天了，攒了 2 条对不上的地方。"
+     },
+     {
+      "pid": 9,
+      "role": "detective",
+      "t": "我的看法是，3 号，报一下你的职业和昨晚行动，别绕。"
+     },
+     {
+      "pid": 2,
+      "role": "alien",
+      "t": "我把话挑明——我感觉有问题，但说不准是谁。"
+     },
+     {
+      "pid": 4,
+      "role": "sheriff",
+      "t": "先说结论，我对 3 号的怀疑不是一天两天了，攒了 5 条对不上的地方。"
+     }
+    ]
+   },
+   {
+    "night": 2,
+    "steps": [
+     {
+      "step": "D-vote",
+      "req": 13,
+      "acts": [
+       {
+        "pid": 2,
+        "role": "alien",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 4,
+        "role": "sheriff",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 5,
+        "role": "crew",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 6,
+        "role": "bodyguard",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 7,
+        "role": "crew",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 8,
+        "role": "bio",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 9,
+        "role": "detective",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 10,
+        "role": "alien",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 11,
+        "role": "inspector",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 12,
+        "role": "alien",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 13,
+        "role": "crew",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 14,
+        "role": "engineer",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 15,
+        "role": "rescue",
+        "kind": "vote",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "0a",
+      "req": 13,
+      "acts": [
+       {
+        "pid": 2,
+        "role": "alien",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 4,
+        "role": "sheriff",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 5,
+        "role": "crew",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 6,
+        "role": "bodyguard",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 7,
+        "role": "crew",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 8,
+        "role": "bio",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 9,
+        "role": "detective",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 10,
+        "role": "alien",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 11,
+        "role": "inspector",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 12,
+        "role": "alien",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 13,
+        "role": "crew",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 14,
+        "role": "engineer",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 15,
+        "role": "rescue",
+        "kind": "invite",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "0b",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 2,
+        "role": "alien",
+        "kind": "inviteAccept",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "0c",
+      "req": 3,
+      "acts": [
+       {
+        "pid": 2,
+        "role": "alien",
+        "kind": "chat",
+        "decided": true
+       },
+       {
+        "pid": 10,
+        "role": "alien",
+        "kind": "chat",
+        "decided": true
+       },
+       {
+        "pid": 12,
+        "role": "alien",
+        "kind": "chat",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "1",
+      "req": 3,
+      "acts": [
+       {
+        "pid": 2,
+        "role": "alien",
+        "kind": "disguise",
+        "decided": false
+       },
+       {
+        "pid": 10,
+        "role": "alien",
+        "kind": "disguise",
+        "decided": false
+       },
+       {
+        "pid": 12,
+        "role": "alien",
+        "kind": "disguise",
+        "decided": false
+       }
+      ]
+     },
+     {
+      "step": "2",
+      "req": 4,
+      "acts": [
+       {
+        "pid": 5,
+        "role": "crew",
+        "kind": "crewAction",
+        "decided": true,
+        "mode": "none"
+       },
+       {
+        "pid": 7,
+        "role": "crew",
+        "kind": "crewAction",
+        "decided": true,
+        "mode": "check"
+       },
+       {
+        "pid": 9,
+        "role": "detective",
+        "kind": "detective",
+        "decided": true,
+        "mode": "announce"
+       },
+       {
+        "pid": 13,
+        "role": "crew",
+        "kind": "crewAction",
+        "decided": true,
+        "mode": "check"
+       }
+      ]
+     },
+     {
+      "step": "3",
+      "req": 2,
+      "acts": [
+       {
+        "pid": 6,
+        "role": "bodyguard",
+        "kind": "guard",
+        "decided": true
+       },
+       {
+        "pid": 14,
+        "role": "engineer",
+        "kind": "safeRoom",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "4a",
+      "req": 2,
+      "acts": [
+       {
+        "pid": 5,
+        "role": "crew",
+        "kind": "crewRepair",
+        "decided": true,
+        "mode": "none"
+       },
+       {
+        "pid": 14,
+        "role": "engineer",
+        "kind": "repair",
+        "decided": true,
+        "value": 1
+       }
+      ]
+     },
+     {
+      "step": "4b",
+      "req": 2,
+      "acts": [
+       {
+        "pid": 2,
+        "role": "alien",
+        "kind": "branch",
+        "decided": true
+       },
+       {
+        "pid": 10,
+        "role": "alien",
+        "kind": "branch",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "7",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 2,
+        "role": "alien",
+        "kind": "alienAct",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "8",
+      "req": 2,
+      "acts": [
+       {
+        "pid": 8,
+        "role": "bio",
+        "kind": "doctor",
+        "decided": true
+       },
+       {
+        "pid": 15,
+        "role": "rescue",
+        "kind": "doctor",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "10",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 11,
+        "role": "inspector",
+        "kind": "meeting",
+        "decided": true
+       }
+      ]
+     }
+    ],
+    "says": [
+     {
+      "pid": 11,
+      "role": "inspector",
+      "t": "票源我看得见：14 个人投的，最集中在 14 号和 4、3 号。谁投的谁——我看得一清二楚。 净破坏量已经 0.0，机器"
+     },
+     {
+      "pid": 9,
+      "role": "detective",
+      "t": "14 号，别光划水，摊牌吧。"
+     },
+     {
+      "pid": 14,
+      "role": "engineer",
+      "t": "我质询 2 号：你凭什么自证清白？"
+     },
+     {
+      "pid": 13,
+      "role": "crew",
+      "t": "我对 2 号的怀疑不是一天两天了，攒了 3 条对不上的地方。"
+     },
+     {
+      "pid": 15,
+      "role": "rescue",
+      "t": "我对 2 号的怀疑不是一天两天了，攒了 4 条对不上的地方。"
+     },
+     {
+      "pid": 5,
+      "role": "crew",
+      "t": "先说结论，我质询 2 号：你凭什么自证清白？"
+     },
+     {
+      "pid": 12,
+      "role": "alien",
+      "t": "容我多嘴一句，死亡名单摆在那，自己品。再看看吧。"
+     },
+     {
+      "pid": 7,
+      "role": "crew",
+      "t": "从我看的情况，我质询 2 号：你凭什么自证清白？"
+     },
+     {
+      "pid": 6,
+      "role": "bodyguard",
+      "t": "我对 2 号的怀疑不是一天两天了，攒了 9 条对不上的地方。"
+     },
+     {
+      "pid": 2,
+      "role": "alien",
+      "t": "直说了，又被 15 号点名？我的身份经得起查。"
+     },
+     {
+      "pid": 4,
+      "role": "sheriff",
+      "t": "我的看法是，我一发都没有了，这一轮我只能看着。 2 号，别光划水，摊牌吧。"
+     },
+     {
+      "pid": 8,
+      "role": "bio",
+      "t": "我对 2 号的怀疑不是一天两天了，攒了 12 条对不上的地方。"
+     }
+    ]
+   },
+   {
+    "night": 3,
+    "steps": [
+     {
+      "step": "D-vote",
+      "req": 11,
+      "acts": [
+       {
+        "pid": 4,
+        "role": "sheriff",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 5,
+        "role": "crew",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 6,
+        "role": "bodyguard",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 7,
+        "role": "crew",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 8,
+        "role": "bio",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 9,
+        "role": "detective",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 11,
+        "role": "inspector",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 12,
+        "role": "alien",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 13,
+        "role": "crew",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 14,
+        "role": "engineer",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 15,
+        "role": "rescue",
+        "kind": "vote",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "0a",
+      "req": 11,
+      "acts": [
+       {
+        "pid": 4,
+        "role": "sheriff",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 5,
+        "role": "crew",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 6,
+        "role": "bodyguard",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 7,
+        "role": "crew",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 8,
+        "role": "bio",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 9,
+        "role": "detective",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 11,
+        "role": "inspector",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 12,
+        "role": "alien",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 13,
+        "role": "crew",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 14,
+        "role": "engineer",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 15,
+        "role": "rescue",
+        "kind": "invite",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "0c",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 12,
+        "role": "alien",
+        "kind": "chat",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "1",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 12,
+        "role": "alien",
+        "kind": "disguise",
+        "decided": false
+       }
+      ]
+     },
+     {
+      "step": "2",
+      "req": 4,
+      "acts": [
+       {
+        "pid": 5,
+        "role": "crew",
+        "kind": "crewAction",
+        "decided": true,
+        "mode": "check"
+       },
+       {
+        "pid": 7,
+        "role": "crew",
+        "kind": "crewAction",
+        "decided": true,
+        "mode": "check"
+       },
+       {
+        "pid": 9,
+        "role": "detective",
+        "kind": "detective",
+        "decided": true,
+        "mode": "none"
+       },
+       {
+        "pid": 13,
+        "role": "crew",
+        "kind": "crewAction",
+        "decided": true,
+        "mode": "check"
+       }
+      ]
+     },
+     {
+      "step": "3",
+      "req": 2,
+      "acts": [
+       {
+        "pid": 6,
+        "role": "bodyguard",
+        "kind": "guard",
+        "decided": true
+       },
+       {
+        "pid": 14,
+        "role": "engineer",
+        "kind": "safeRoom",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "4a",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 14,
+        "role": "engineer",
+        "kind": "repair",
+        "decided": true,
+        "value": 1.4
+       }
+      ]
+     },
+     {
+      "step": "4b",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 12,
+        "role": "alien",
+        "kind": "branch",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "6",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 4,
+        "role": "sheriff",
+        "kind": "shoot",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "7",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 12,
+        "role": "alien",
+        "kind": "alienAct",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "8",
+      "req": 2,
+      "acts": [
+       {
+        "pid": 8,
+        "role": "bio",
+        "kind": "doctor",
+        "decided": true
+       },
+       {
+        "pid": 15,
+        "role": "rescue",
+        "kind": "doctor",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "10",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 11,
+        "role": "inspector",
+        "kind": "meeting",
+        "decided": true
+       }
+      ]
+     }
+    ],
+    "says": [
+     {
+      "pid": 11,
+      "role": "inspector",
+      "t": "昨夜无人死亡，对方在蓄力。"
+     },
+     {
+      "pid": 14,
+      "role": "engineer",
+      "t": "这话说在前头，11 号，你昨晚到底做了什么？当着大家的面说清楚。先这样。"
+     },
+     {
+      "pid": 6,
+      "role": "bodyguard",
+      "t": "14 号，你昨晚到底做了什么？当着大家的面说清楚。"
+     },
+     {
+      "pid": 9,
+      "role": "detective",
+      "t": "从我看的情况，我质询 14 号：你凭什么自证清白？"
+     },
+     {
+      "pid": 15,
+      "role": "rescue",
+      "t": "从我看的情况，救过之后才看得见致死来源：14 号。这信息是我出手换来的。救援不挑阵营——包括不该救的那个。 14 号，报"
+     },
+     {
+      "pid": 5,
+      "role": "crew",
+      "t": "我查过 14 号，他不是他自称的那个。"
+     },
+     {
+      "pid": 7,
+      "role": "crew",
+      "t": "14 号，报一下你的职业和昨晚行动，别绕。"
+     },
+     {
+      "pid": 4,
+      "role": "sheriff",
+      "t": "说一下我的判断，我还有 1 发，打谁我心里有数。 14 号，报一下你的职业和昨晚行动，别绕。"
+     },
+     {
+      "pid": 12,
+      "role": "alien",
+      "t": "这点我同意。"
+     },
+     {
+      "pid": 13,
+      "role": "crew",
+      "t": "先说结论，14 号，你昨晚到底做了什么？当着大家的面说清楚。"
+     },
+     {
+      "pid": 8,
+      "role": "bio",
+      "t": "14 号自称工程师——我记着这话，等他露馅。"
+     }
+    ]
+   },
+   {
+    "night": 4,
+    "steps": [
+     {
+      "step": "D-vote",
+      "req": 10,
+      "acts": [
+       {
+        "pid": 4,
+        "role": "sheriff",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 5,
+        "role": "crew",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 6,
+        "role": "bodyguard",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 7,
+        "role": "crew",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 8,
+        "role": "bio",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 9,
+        "role": "detective",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 11,
+        "role": "inspector",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 12,
+        "role": "alien",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 13,
+        "role": "crew",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 15,
+        "role": "rescue",
+        "kind": "vote",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "0a",
+      "req": 10,
+      "acts": [
+       {
+        "pid": 4,
+        "role": "sheriff",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 5,
+        "role": "crew",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 6,
+        "role": "bodyguard",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 7,
+        "role": "crew",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 8,
+        "role": "bio",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 9,
+        "role": "detective",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 11,
+        "role": "inspector",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 12,
+        "role": "alien",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 13,
+        "role": "crew",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 15,
+        "role": "rescue",
+        "kind": "invite",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "0c",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 12,
+        "role": "alien",
+        "kind": "chat",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "0.6",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 12,
+        "role": "alien",
+        "kind": "convert",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "1",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 12,
+        "role": "alien",
+        "kind": "disguise",
+        "decided": false
+       }
+      ]
+     },
+     {
+      "step": "2",
+      "req": 4,
+      "acts": [
+       {
+        "pid": 5,
+        "role": "crew",
+        "kind": "crewAction",
+        "decided": true,
+        "mode": "check"
+       },
+       {
+        "pid": 7,
+        "role": "crew",
+        "kind": "crewAction",
+        "decided": true,
+        "mode": "repair",
+        "value": 0.45
+       },
+       {
+        "pid": 9,
+        "role": "detective",
+        "kind": "detective",
+        "decided": true,
+        "mode": "check"
+       },
+       {
+        "pid": 13,
+        "role": "crew",
+        "kind": "crewAction",
+        "decided": true,
+        "mode": "check"
+       }
+      ]
+     },
+     {
+      "step": "3",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 6,
+        "role": "bodyguard",
+        "kind": "guard",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "4a",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 7,
+        "role": "crew",
+        "kind": "crewRepair",
+        "decided": true,
+        "mode": "crewRepair",
+        "value": 0.45
+       }
+      ]
+     },
+     {
+      "step": "4b",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 12,
+        "role": "alien",
+        "kind": "branch",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "6",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 4,
+        "role": "sheriff",
+        "kind": "shoot",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "7",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 12,
+        "role": "alien",
+        "kind": "alienAct",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "8",
+      "req": 2,
+      "acts": [
+       {
+        "pid": 8,
+        "role": "bio",
+        "kind": "doctor",
+        "decided": true
+       },
+       {
+        "pid": 15,
+        "role": "rescue",
+        "kind": "doctor",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "10",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 11,
+        "role": "inspector",
+        "kind": "meeting",
+        "decided": true
+       }
+      ]
+     }
+    ],
+    "says": [
+     {
+      "pid": 7,
+      "role": "crew",
+      "t": "昨晚有 1 个人跟我一起搭了把手——人数我有感觉，编号我没有。 5 号，你昨晚到底做了什么？当着大家的面说清楚。"
+     },
+     {
+      "pid": 8,
+      "role": "bio",
+      "t": "5 号，报一下你的职业和昨晚行动，别绕。"
+     },
+     {
+      "pid": 4,
+      "role": "sheriff",
+      "t": "从我看的情况，5 号，你昨晚到底做了什么？当着大家的面说清楚。先看着。"
+     },
+     {
+      "pid": 11,
+      "role": "inspector",
+      "t": "容我多嘴一句，昨夜无人死亡，对方在蓄力。"
+     },
+     {
+      "pid": 5,
+      "role": "crew",
+      "t": "8 号，别光划水，摊牌吧。"
+     },
+     {
+      "pid": 13,
+      "role": "crew",
+      "t": "5 号，你昨晚到底做了什么？当着大家的面说清楚。"
+     },
+     {
+      "pid": 15,
+      "role": "rescue",
+      "t": "我质询 5 号：你凭什么自证清白？"
+     },
+     {
+      "pid": 9,
+      "role": "detective",
+      "t": "说一下我的判断，池子里有 2 条了。提醒一句：呈现职业未必是他本来的身份——变形的人照样能报出职业。 5 号自称普通船员"
+     },
+     {
+      "pid": 12,
+      "role": "alien",
+      "t": "信息共享优先，别互相消耗。"
+     },
+     {
+      "pid": 6,
+      "role": "bodyguard",
+      "t": "5 号，你昨晚到底做了什么？当着大家的面说清楚。"
+     }
+    ]
+   },
+   {
+    "night": 5,
+    "steps": [
+     {
+      "step": "D-vote",
+      "req": 9,
+      "acts": [
+       {
+        "pid": 4,
+        "role": "sheriff",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 6,
+        "role": "bodyguard",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 7,
+        "role": "crew",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 8,
+        "role": "bio",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 9,
+        "role": "detective",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 11,
+        "role": "inspector",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 12,
+        "role": "alien",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 13,
+        "role": "crew",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 15,
+        "role": "rescue",
+        "kind": "vote",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "0a",
+      "req": 9,
+      "acts": [
+       {
+        "pid": 4,
+        "role": "sheriff",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 6,
+        "role": "bodyguard",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 7,
+        "role": "crew",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 8,
+        "role": "bio",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 9,
+        "role": "detective",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 11,
+        "role": "inspector",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 12,
+        "role": "alien",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 13,
+        "role": "crew",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 15,
+        "role": "rescue",
+        "kind": "invite",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "0c",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 12,
+        "role": "alien",
+        "kind": "chat",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "0.6",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 12,
+        "role": "alien",
+        "kind": "convert",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "1",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 12,
+        "role": "alien",
+        "kind": "disguise",
+        "decided": false
+       }
+      ]
+     },
+     {
+      "step": "2",
+      "req": 3,
+      "acts": [
+       {
+        "pid": 7,
+        "role": "crew",
+        "kind": "crewAction",
+        "decided": true,
+        "mode": "check"
+       },
+       {
+        "pid": 9,
+        "role": "detective",
+        "kind": "detective",
+        "decided": true,
+        "mode": "none"
+       },
+       {
+        "pid": 13,
+        "role": "crew",
+        "kind": "crewAction",
+        "decided": true,
+        "mode": "check"
+       }
+      ]
+     },
+     {
+      "step": "3",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 6,
+        "role": "bodyguard",
+        "kind": "guard",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "4b",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 12,
+        "role": "alien",
+        "kind": "branch",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "6",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 4,
+        "role": "sheriff",
+        "kind": "shoot",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "7",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 12,
+        "role": "alien",
+        "kind": "alienAct",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "8",
+      "req": 2,
+      "acts": [
+       {
+        "pid": 8,
+        "role": "bio",
+        "kind": "doctor",
+        "decided": true
+       },
+       {
+        "pid": 15,
+        "role": "rescue",
+        "kind": "doctor",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "10",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 11,
+        "role": "inspector",
+        "kind": "meeting",
+        "decided": true
+       }
+      ]
+     }
+    ],
+    "says": [
+     {
+      "pid": 11,
+      "role": "inspector",
+      "t": "我谨慎说一句，票源我看得见：10 个人投的，最集中在 8 号和 9、5、12 号。谁投的谁——我看得一清二楚。 第 5 "
+     },
+     {
+      "pid": 15,
+      "role": "rescue",
+      "t": "从我看的情况，我质询 8 号：你凭什么自证清白？"
+     },
+     {
+      "pid": 4,
+      "role": "sheriff",
+      "t": "从我看的情况，我还有 2 发，打谁我心里有数。枪不长眼，人是。 8 号，别光划水，摊牌吧。再观察观察。"
+     },
+     {
+      "pid": 8,
+      "role": "bio",
+      "t": "从我看的情况，11 号，你昨晚到底做了什么？当着大家的面说清楚。"
+     },
+     {
+      "pid": 13,
+      "role": "crew",
+      "t": "8 号，你昨晚到底做了什么？当着大家的面说清楚。"
+     },
+     {
+      "pid": 12,
+      "role": "alien",
+      "t": "11 号聊爆了吧，这种话也敢往外说。"
+     },
+     {
+      "pid": 6,
+      "role": "bodyguard",
+      "t": "8 号，别光划水，摊牌吧。"
+     },
+     {
+      "pid": 7,
+      "role": "crew",
+      "t": "我的看法是，8 号自称生化医师——我记着这话，等他露馅。"
+     }
+    ]
+   },
+   {
+    "night": 6,
+    "steps": [
+     {
+      "step": "D-vote",
+      "req": 8,
+      "acts": [
+       {
+        "pid": 4,
+        "role": "sheriff",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 6,
+        "role": "bodyguard",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 7,
+        "role": "crew",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 8,
+        "role": "bio",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 11,
+        "role": "inspector",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 12,
+        "role": "alien",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 13,
+        "role": "crew",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 15,
+        "role": "rescue",
+        "kind": "vote",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "0a",
+      "req": 8,
+      "acts": [
+       {
+        "pid": 4,
+        "role": "sheriff",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 6,
+        "role": "bodyguard",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 7,
+        "role": "crew",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 8,
+        "role": "bio",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 11,
+        "role": "inspector",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 12,
+        "role": "alien",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 13,
+        "role": "crew",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 15,
+        "role": "rescue",
+        "kind": "invite",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "0b",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 8,
+        "role": "bio",
+        "kind": "inviteAccept",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "0c",
+      "req": 3,
+      "acts": [
+       {
+        "pid": 13,
+        "role": "crew",
+        "kind": "chat",
+        "decided": true
+       },
+       {
+        "pid": 8,
+        "role": "bio",
+        "kind": "chat",
+        "decided": true
+       },
+       {
+        "pid": 12,
+        "role": "alien",
+        "kind": "chat",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "0.6",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 12,
+        "role": "alien",
+        "kind": "convert",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "1",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 12,
+        "role": "alien",
+        "kind": "disguise",
+        "decided": false
+       }
+      ]
+     },
+     {
+      "step": "3",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 6,
+        "role": "bodyguard",
+        "kind": "guard",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "4a",
+      "req": 2,
+      "acts": [
+       {
+        "pid": 7,
+        "role": "assistant",
+        "kind": "repair",
+        "decided": true,
+        "value": 1.5
+       },
+       {
+        "pid": 13,
+        "role": "assistant",
+        "kind": "repair",
+        "decided": true,
+        "value": 1.3
+       }
+      ]
+     },
+     {
+      "step": "4b",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 12,
+        "role": "alien",
+        "kind": "branch",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "6",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 4,
+        "role": "sheriff",
+        "kind": "shoot",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "7",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 12,
+        "role": "alien",
+        "kind": "alienAct",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "8",
+      "req": 2,
+      "acts": [
+       {
+        "pid": 8,
+        "role": "bio",
+        "kind": "doctor",
+        "decided": true
+       },
+       {
+        "pid": 15,
+        "role": "rescue",
+        "kind": "doctor",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "10",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 11,
+        "role": "inspector",
+        "kind": "meeting",
+        "decided": true
+       }
+      ]
+     }
+    ],
+    "says": [
+     {
+      "pid": 13,
+      "role": "assistant",
+      "t": "我自己修了 1.3，账我清楚，别拿维修多少来编排我。 我质询 8 号：你凭什么自证清白？"
+     },
+     {
+      "pid": 4,
+      "role": "sheriff",
+      "t": "我还有 2 发，打谁我心里有数。 8 号自称生化医师——我记着这话，等他露馅。"
+     },
+     {
+      "pid": 7,
+      "role": "assistant",
+      "t": "8 号，你昨晚到底做了什么？当着大家的面说清楚。"
+     },
+     {
+      "pid": 12,
+      "role": "alien",
+      "t": "我质询 11 号：你凭什么自证清白？"
+     },
+     {
+      "pid": 6,
+      "role": "bodyguard",
+      "t": "8 号，你昨晚到底做了什么？当着大家的面说清楚。"
+     },
+     {
+      "pid": 11,
+      "role": "inspector",
+      "t": "容我多嘴一句，我质询 8 号：你凭什么自证清白？"
+     },
+     {
+      "pid": 8,
+      "role": "bio",
+      "t": "从我看的情况，我对 7 号的怀疑不是一天两天了，攒了 2 条对不上的地方。"
+     },
+     {
+      "pid": 15,
+      "role": "rescue",
+      "t": "我的看法是，8 号自称生化医师——我记着这话，等他露馅。先看着。"
+     }
+    ]
+   },
+   {
+    "night": 7,
+    "steps": [
+     {
+      "step": "D-vote",
+      "req": 7,
+      "acts": [
+       {
+        "pid": 4,
+        "role": "sheriff",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 6,
+        "role": "bodyguard",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 7,
+        "role": "assistant",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 11,
+        "role": "inspector",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 12,
+        "role": "alien",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 13,
+        "role": "assistant",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 15,
+        "role": "rescue",
+        "kind": "vote",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "0a",
+      "req": 7,
+      "acts": [
+       {
+        "pid": 4,
+        "role": "sheriff",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 6,
+        "role": "bodyguard",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 7,
+        "role": "assistant",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 11,
+        "role": "inspector",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 12,
+        "role": "alien",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 13,
+        "role": "assistant",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 15,
+        "role": "rescue",
+        "kind": "invite",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "0b",
+      "req": 2,
+      "acts": [
+       {
+        "pid": 6,
+        "role": "bodyguard",
+        "kind": "inviteAccept",
+        "decided": true
+       },
+       {
+        "pid": 13,
+        "role": "assistant",
+        "kind": "inviteAccept",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "0c",
+      "req": 5,
+      "acts": [
+       {
+        "pid": 4,
+        "role": "sheriff",
+        "kind": "chat",
+        "decided": true
+       },
+       {
+        "pid": 6,
+        "role": "bodyguard",
+        "kind": "chat",
+        "decided": true
+       },
+       {
+        "pid": 11,
+        "role": "inspector",
+        "kind": "chat",
+        "decided": true
+       },
+       {
+        "pid": 13,
+        "role": "assistant",
+        "kind": "chat",
+        "decided": true
+       },
+       {
+        "pid": 12,
+        "role": "alien",
+        "kind": "chat",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "0.6",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 12,
+        "role": "alien",
+        "kind": "convert",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "1",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 12,
+        "role": "alien",
+        "kind": "disguise",
+        "decided": false
+       }
+      ]
+     },
+     {
+      "step": "3",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 6,
+        "role": "bodyguard",
+        "kind": "guard",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "4a",
+      "req": 2,
+      "acts": [
+       {
+        "pid": 7,
+        "role": "assistant",
+        "kind": "repair",
+        "decided": true,
+        "value": 1.5
+       },
+       {
+        "pid": 13,
+        "role": "assistant",
+        "kind": "repair",
+        "decided": true,
+        "value": 1.5
+       }
+      ]
+     },
+     {
+      "step": "4b",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 12,
+        "role": "alien",
+        "kind": "branch",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "6",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 4,
+        "role": "sheriff",
+        "kind": "shoot",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "7",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 12,
+        "role": "alien",
+        "kind": "alienAct",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "8",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 15,
+        "role": "rescue",
+        "kind": "doctor",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "10",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 11,
+        "role": "inspector",
+        "kind": "meeting",
+        "decided": true
+       }
+      ]
+     }
+    ],
+    "says": [
+     {
+      "pid": 11,
+      "role": "inspector",
+      "t": "12 号一直咬着我不放，我反而觉得他最想带节奏。"
+     },
+     {
+      "pid": 15,
+      "role": "rescue",
+      "t": "说一下我的判断，4 号，别光划水，摊牌吧。先看着。"
+     },
+     {
+      "pid": 4,
+      "role": "sheriff",
+      "t": "先说结论，我还有 2 发，打谁我心里有数。枪不长眼，人是。 我质询 15 号：你凭什么自证清白？暂且这么说。"
+     },
+     {
+      "pid": 12,
+      "role": "alien",
+      "t": "我多虑一句，有道理，我先记下这个说法。"
+     },
+     {
+      "pid": 13,
+      "role": "assistant",
+      "t": "我自己修了 2.8，账我清楚，别拿维修多少来编排我。 15 号，报一下你的职业和昨晚行动，别绕。"
+     },
+     {
+      "pid": 6,
+      "role": "bodyguard",
+      "t": "15 号，报一下你的职业和昨晚行动，别绕。"
+     }
+    ]
+   },
+   {
+    "night": 8,
+    "steps": [
+     {
+      "step": "D-vote",
+      "req": 5,
+      "acts": [
+       {
+        "pid": 4,
+        "role": "sheriff",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 6,
+        "role": "bodyguard",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 12,
+        "role": "alien",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 13,
+        "role": "assistant",
+        "kind": "vote",
+        "decided": true
+       },
+       {
+        "pid": 15,
+        "role": "rescue",
+        "kind": "vote",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "0a",
+      "req": 5,
+      "acts": [
+       {
+        "pid": 4,
+        "role": "sheriff",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 6,
+        "role": "bodyguard",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 12,
+        "role": "alien",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 13,
+        "role": "assistant",
+        "kind": "invite",
+        "decided": true
+       },
+       {
+        "pid": 15,
+        "role": "rescue",
+        "kind": "invite",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "0b",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 6,
+        "role": "bodyguard",
+        "kind": "inviteAccept",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "0c",
+      "req": 3,
+      "acts": [
+       {
+        "pid": 15,
+        "role": "rescue",
+        "kind": "chat",
+        "decided": true
+       },
+       {
+        "pid": 6,
+        "role": "bodyguard",
+        "kind": "chat",
+        "decided": true
+       },
+       {
+        "pid": 12,
+        "role": "alien",
+        "kind": "chat",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "0.6",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 12,
+        "role": "alien",
+        "kind": "convert",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "1",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 12,
+        "role": "alien",
+        "kind": "disguise",
+        "decided": false
+       }
+      ]
+     },
+     {
+      "step": "3",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 6,
+        "role": "bodyguard",
+        "kind": "guard",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "4a",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 13,
+        "role": "assistant",
+        "kind": "repair",
+        "decided": true,
+        "value": 1.5
+       }
+      ]
+     },
+     {
+      "step": "4b",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 12,
+        "role": "alien",
+        "kind": "branch",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "7",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 12,
+        "role": "alien",
+        "kind": "alienAct",
+        "decided": true
+       }
+      ]
+     },
+     {
+      "step": "8",
+      "req": 1,
+      "acts": [
+       {
+        "pid": 15,
+        "role": "rescue",
+        "kind": "doctor",
+        "decided": true
+       }
+      ]
+     }
+    ],
+    "says": [
+     {
+      "pid": 6,
+      "role": "bodyguard",
+      "t": "12 号，报一下你的职业和昨晚行动，别绕。"
+     },
+     {
+      "pid": 4,
+      "role": "sheriff",
+      "t": "12 号，别光划水，摊牌吧。"
+     },
+     {
+      "pid": 12,
+      "role": "alien",
+      "t": "这点我之前想错了，认。"
+     }
+    ]
+   }
+  ],
+  "step": "D-talk",
+  "acts": [],
+  "says": [
+   {
+    "pid": 6,
+    "role": "bodyguard",
+    "t": "12 号，报一下你的职业和昨晚行动，别绕。"
+   },
+   {
+    "pid": 4,
+    "role": "sheriff",
+    "t": "12 号，别光划水，摊牌吧。"
+   },
+   {
+    "pid": 12,
+    "role": "alien",
+    "t": "这点我之前想错了，认。"
+   }
+  ],
+  "night": 8,
+  "req": 0,
+  "steps": [
+   {
+    "step": "D-vote",
+    "req": 5,
+    "acts": [
+     {
+      "pid": 4,
+      "role": "sheriff",
+      "kind": "vote",
+      "decided": true
+     },
+     {
+      "pid": 6,
+      "role": "bodyguard",
+      "kind": "vote",
+      "decided": true
+     },
+     {
+      "pid": 12,
+      "role": "alien",
+      "kind": "vote",
+      "decided": true
+     },
+     {
+      "pid": 13,
+      "role": "assistant",
+      "kind": "vote",
+      "decided": true
+     },
+     {
+      "pid": 15,
+      "role": "rescue",
+      "kind": "vote",
+      "decided": true
+     }
+    ]
+   },
+   {
+    "step": "0a",
+    "req": 5,
+    "acts": [
+     {
+      "pid": 4,
+      "role": "sheriff",
+      "kind": "invite",
+      "decided": true
+     },
+     {
+      "pid": 6,
+      "role": "bodyguard",
+      "kind": "invite",
+      "decided": true
+     },
+     {
+      "pid": 12,
+      "role": "alien",
+      "kind": "invite",
+      "decided": true
+     },
+     {
+      "pid": 13,
+      "role": "assistant",
+      "kind": "invite",
+      "decided": true
+     },
+     {
+      "pid": 15,
+      "role": "rescue",
+      "kind": "invite",
+      "decided": true
+     }
+    ]
+   },
+   {
+    "step": "0b",
+    "req": 1,
+    "acts": [
+     {
+      "pid": 6,
+      "role": "bodyguard",
+      "kind": "inviteAccept",
+      "decided": true
+     }
+    ]
+   },
+   {
+    "step": "0c",
+    "req": 3,
+    "acts": [
+     {
+      "pid": 15,
+      "role": "rescue",
+      "kind": "chat",
+      "decided": true
+     },
+     {
+      "pid": 6,
+      "role": "bodyguard",
+      "kind": "chat",
+      "decided": true
+     },
+     {
+      "pid": 12,
+      "role": "alien",
+      "kind": "chat",
+      "decided": true
+     }
+    ]
+   },
+   {
+    "step": "0.6",
+    "req": 1,
+    "acts": [
+     {
+      "pid": 12,
+      "role": "alien",
+      "kind": "convert",
+      "decided": true
+     }
+    ]
+   },
+   {
+    "step": "1",
+    "req": 1,
+    "acts": [
+     {
+      "pid": 12,
+      "role": "alien",
+      "kind": "disguise",
+      "decided": false
+     }
+    ]
+   },
+   {
+    "step": "3",
+    "req": 1,
+    "acts": [
+     {
+      "pid": 6,
+      "role": "bodyguard",
+      "kind": "guard",
+      "decided": true
+     }
+    ]
+   },
+   {
+    "step": "4a",
+    "req": 1,
+    "acts": [
+     {
+      "pid": 13,
+      "role": "assistant",
+      "kind": "repair",
+      "decided": true,
+      "value": 1.5
+     }
+    ]
+   },
+   {
+    "step": "4b",
+    "req": 1,
+    "acts": [
+     {
+      "pid": 12,
+      "role": "alien",
+      "kind": "branch",
+      "decided": true
+     }
+    ]
+   },
+   {
+    "step": "7",
+    "req": 1,
+    "acts": [
+     {
+      "pid": 12,
+      "role": "alien",
+      "kind": "alienAct",
+      "decided": true
+     }
+    ]
+   },
+   {
+    "step": "8",
+    "req": 1,
+    "acts": [
+     {
+      "pid": 15,
+      "role": "rescue",
+      "kind": "doctor",
+      "decided": true
+     }
+    ]
+   }
+  ]
+ }
+]

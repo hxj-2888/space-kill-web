@@ -1,23 +1,23 @@
 {
- "games": 60,
+ "games": 260,
  "errs": 0,
  "seedFrom": 241,
- "seedTo": 300,
- "branchDecisions": 642,
+ "seedTo": 500,
+ "branchDecisions": 2866,
  "tally": {
-  "destroy": 14,
-  "cocoon": 119,
-  "none": 509,
+  "destroy": 63,
+  "cocoon": 534,
+  "none": 2269,
   "noDispatch": 0
  },
  "share": {
   "destroy": "2.2%",
-  "cocoon": "18.5%",
-  "none": "79.3%"
+  "cocoon": "18.6%",
+  "none": "79.2%"
  },
- "ratioCocoonToDestroy": "8.50",
- "gamesWithDestroy": 10,
- "gamesWithCocoon": 58,
- "destroyPerGame": "0.17",
+ "ratioCocoonToDestroy": "8.48",
+ "gamesWithDestroy": 37,
+ "gamesWithCocoon": 251,
+ "destroyPerGame": "0.14",
  "note": "裁定③：记录在案即可，不改策略权重。改动前的观察是 destroy≈3%、结茧≈18%（结茧为破坏的 6 倍）。"
 }
