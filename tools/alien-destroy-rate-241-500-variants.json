@@ -3,23 +3,23 @@
  "errs": 0,
  "seedFrom": 241,
  "seedTo": 500,
- "seatMode": "classic",
+ "seatMode": "variants",
  "seatNote": "外星人席位有 50% 概率掷出死囚（convict）；那类局里没有经典外星人，故 branch 决策分母与全经典局不同口径，读数必须与 seatMode 一起引用。",
- "branchDecisions": 2866,
+ "branchDecisions": 3222,
  "tally": {
-  "destroy": 63,
-  "cocoon": 534,
-  "none": 2269,
+  "destroy": 110,
+  "cocoon": 540,
+  "none": 2572,
   "noDispatch": 0
  },
  "share": {
-  "destroy": "2.2%",
-  "cocoon": "18.6%",
-  "none": "79.2%"
+  "destroy": "3.4%",
+  "cocoon": "16.8%",
+  "none": "79.8%"
  },
- "ratioCocoonToDestroy": "8.48",
- "gamesWithDestroy": 37,
- "gamesWithCocoon": 251,
- "destroyPerGame": "0.14",
+ "ratioCocoonToDestroy": "4.91",
+ "gamesWithDestroy": 67,
+ "gamesWithCocoon": 253,
+ "destroyPerGame": "0.26",
  "note": "裁定③：记录在案即可，不改策略权重。改动前的观察是 destroy≈3%、结茧≈18%（结茧为破坏的 6 倍）。"
 }

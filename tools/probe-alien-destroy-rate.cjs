@@ -15,6 +15,7 @@
 const fs = require('fs');
 const path = require('path');
 const ROOT = process.argv[2] || process.cwd();
+const SeatMode = require(path.join(ROOT, 'tools', 'seat-mode.cjs'));
 const N = +(process.argv[3] || 260);
 const SEED0 = +(process.argv[4] || 241);
 
@@ -53,7 +54,7 @@ AI.decide = function (g, req) {
 
 for (let i = 0; i < N; i++) {
   try {
-    const g = Setup.createGame(SEED0 + i, 'random');
+    const g = SeatMode.seatGame(Setup, SEED0 + i);
     g.humans = []; g.humanId = -1;
     for (const p of g.players) p.isHuman = false;
     Engine.begin(g);
@@ -77,6 +78,9 @@ const tot = perNightTotal();
 const pct = n => tot ? (100 * n / tot).toFixed(1) + '%' : 'n/a';
 const out = {
   games, errs, seedFrom: SEED0, seedTo: SEED0 + N - 1,
+  seatMode: SeatMode.seatMode(),
+  seatNote: '外星人席位有 50% 概率掷出死囚（convict）；那类局里没有经典外星人，'
+    + '故 branch 决策分母与全经典局不同口径，读数必须与 seatMode 一起引用。',
   branchDecisions: tot,
   tally,
   share: { destroy: pct(tally.destroy), cocoon: pct(tally.cocoon), none: pct(tally.none) },
@@ -86,4 +90,12 @@ const out = {
   note: '裁定③：记录在案即可，不改策略权重。改动前的观察是 destroy≈3%、结茧≈18%（结茧为破坏的 6 倍）。',
 };
 console.log(JSON.stringify(out, null, 1));
-try { fs.writeFileSync((process.env.TEMP || '.') + '/alien-destroy-rate.json', JSON.stringify(out, null, 1)); } catch (e) { }
+/* 产物按口径分流（tools/seat-mode.cjs）：经典口径沿用历史名，variants 加 -variants 后缀。
+   写进 tools/ 是为了让 verify-handover-doc.cjs 能核对到 —— 铁律二：报出的数字必须能
+   从落盘产物读出来。经典口径仍额外留一份 TEMP 副本（旧路径，勿删）。 */
+try {
+  const art = path.join(ROOT, 'tools', SeatMode.artifactFor('alien-destroy-rate-' + SEED0 + '-' + (SEED0 + N - 1)));
+  fs.writeFileSync(art, JSON.stringify(out, null, 1));
+  console.log('已写出 ' + art);
+  fs.writeFileSync((process.env.TEMP || '.') + '/alien-destroy-rate.json', JSON.stringify(out, null, 1));
+} catch (e) { }

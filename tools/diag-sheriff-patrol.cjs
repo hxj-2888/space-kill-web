@@ -8,6 +8,7 @@ const fs = require('fs');
 const path = require('path');
 const ROOT = process.argv[2] || process.cwd();
 const N = +(process.argv[3] || 60);
+const SeatMode = require(path.join(ROOT, 'tools', 'seat-mode.cjs'));
 
 const src = fs.readFileSync(path.join(ROOT, 'tools', 'load-order.cjs'), 'utf8');
 const m = { exports: {} };
@@ -27,7 +28,7 @@ const P = {
 };
 for (let i = 0; i < N; i++) {
   try {
-    const g = Setup.createGame(241 + i, 'random');
+    const g = SeatMode.seatGame(Setup, 241 + i);
     g.humans = []; g.humanId = -1;
     for (const p of g.players) p.isHuman = false;
     const sh0 = g.players.find(p => p.role === 'sheriff');
@@ -64,6 +65,8 @@ for (let i = 0; i < N; i++) {
   } catch (e) { }
 }
 
+console.log(SeatMode.note());
+console.log(SeatMode.zoneReport(241, 241 + N - 1).note);
 console.log('局数 = ' + P.games);
 console.log('开局有警长的局 = ' + P.sheriffCount + '，其中开局 patrolUsed 已为真 = ' + P.patrolUsedAtStart);
 console.log('步骤 2 的 req 条目总数 = ' + P.step2ReqTotal);

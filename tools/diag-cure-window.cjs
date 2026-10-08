@@ -7,6 +7,7 @@ const fs = require('fs');
 const path = require('path');
 const ROOT = process.argv[2] || process.cwd();
 const N = +(process.argv[3] || 120);
+const SeatMode = require(path.join(ROOT, 'tools', 'seat-mode.cjs'));
 
 const src = fs.readFileSync(path.join(ROOT, 'tools', 'load-order.cjs'), 'utf8');
 const m = { exports: {} };
@@ -33,7 +34,7 @@ const C = {
 const bump = k => { C[k]++; };
 
 for (let i = 0; i < N; i++) {
-  const g = Setup.createGame(1 + i, 'random');
+  const g = SeatMode.seatGame(Setup, 1 + i);
   g.humans = []; g.humanId = -1;
   for (const p of g.players) p.isHuman = false;
   Engine.begin(g);

@@ -21,6 +21,7 @@ const fs = require('fs');
 const path = require('path');
 const ROOT = process.argv[2] || process.cwd();
 const N = +(process.argv[3] || 80);
+const SeatMode = require(path.join(ROOT, 'tools', 'seat-mode.cjs'));
 
 const src = fs.readFileSync(path.join(ROOT, 'tools', 'load-order.cjs'), 'utf8');
 const m = { exports: {} };
@@ -40,7 +41,7 @@ const ok = (c, label, extra) => {
 
 /* ── ① 静态：步骤 2 的表单不再有 repair* 档 ────────────────────── */
 {
-  const g = Setup.createGame(3, 'random');
+  const g = SeatMode.seatGame(Setup, 3);
   g.humans = []; g.humanId = -1;
   for (const p of g.players) p.isHuman = false;
   Engine.begin(g);
@@ -82,7 +83,7 @@ const ok = (c, label, extra) => {
   let s2 = 0, s4a = 0, crewRepairDispatches = 0, both = 0, checkedNights = 0;
   let repairValueSet = 0, repairValueLeak = 0;
   for (let i = 0; i < N; i++) {
-    const g = Setup.createGame(100 + i, 'random');
+    const g = SeatMode.seatGame(Setup, 100 + i);
     g.humans = []; g.humanId = -1;
     for (const p of g.players) p.isHuman = false;
     Engine.begin(g);
@@ -135,6 +136,8 @@ const ok = (c, label, extra) => {
   }
   out.push('');
   out.push(N + ' 局统计（种子 100 起）：');
+  out.push('  ' + SeatMode.note());
+  out.push('  ' + SeatMode.zoneReport(100, 100 + N - 1).note);
   out.push('  步骤 2 派发次数 = ' + s2 + '   4a 派发次数 = ' + s4a);
   out.push('  4a crewRepair 派发 = ' + crewRepairDispatches + '   其中同夜已查验的 = ' + both);
   out.push('  p.repairValue 被写入 = ' + repairValueSet + ' 次；结算后未清零 = ' + repairValueLeak + ' 次');

@@ -12,6 +12,7 @@
 const fs = require('fs');
 const path = require('path');
 const ROOT = process.argv[2] || process.cwd();
+const SeatMode = require(path.join(ROOT, 'tools', 'seat-mode.cjs'));
 const N = +(process.argv[3] || 120);
 const SEED0 = +(process.argv[4] || 1);
 const OUTF = process.argv[5] || null;
@@ -95,7 +96,7 @@ ctx.AIVoice.thought = function (g, p, opts) {
 
 for (let i = 0; i < N; i++) {
   try {
-    const g = Setup.createGame(SEED0 + i, 'random');
+    const g = SeatMode.seatGame(Setup, SEED0 + i);
     g.humans = []; g.humanId = -1;
     for (const p of g.players) p.isHuman = false;
     Engine.begin(g);

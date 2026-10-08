@@ -19,6 +19,7 @@
 const fs = require('fs');
 const path = require('path');
 const ROOT = process.argv[2] || process.cwd();
+const SeatMode = require(path.join(ROOT, 'tools', 'seat-mode.cjs'));
 const N = +(process.argv[3] || 150);
 const OUTF = process.argv[4] || null;
 
@@ -122,7 +123,7 @@ AI.decide = function (g, req) {
 for (let i = 0; i < N; i++) {
   perNight.clear();
   try {
-    const g = Setup.createGame(1 + i, 'random');
+    const g = SeatMode.seatGame(Setup, 1 + i);
     g.humans = []; g.humanId = -1;
     for (const p of g.players) p.isHuman = false;
     Engine.begin(g);
