@@ -4440,9 +4440,10 @@ const RULE_FILES = ['js/ai/belief.js', 'js/ai/perceive.js', 'js/ai/decide.js',
   const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
   const cmd = fs.readFileSync(path.join(__dirname, '..', 'android', 'build.cmd'), 'utf8');
   ok('版本A：package.json 版本真源就位（version + androidVersionCode 递增位）',
-    /* 版本名带中文前缀（「新架构测试2.0preview」），故不按 semver 校验，只要求含版本号主体 */
-    /\d+\.\d+preview/.test(pkg.version || '') && Number(pkg.androidVersionCode) >= 1,
-    `version=${pkg.version} code=${pkg.androidVersionCode}`);
+  /* 版本名不按 semver 校验，只要求含版本号主体。两种历史口径并存（2026-10-09 裁定起为 V 系列）：
+     数字型「新架构测试2.2preview」/「3.2.1」→ \d+\.\d+preview 前缀；V 系列「V1preview」→ V+数字。 */
+  /(?:\d+\.\d+|[Vv]\d+)preview/.test(pkg.version || '') && Number(pkg.androidVersionCode) >= 1,
+  `version=${pkg.version} code=${pkg.androidVersionCode}`);
   ok('版本B：build.cmd 版本取自 package.json（无硬编码 --version-name / --version-code）',
     /pkg-field\.cjs/.test(cmd) && /--version-code %VCODE%/.test(cmd) &&
     /--version-name %VNAME%/.test(cmd) && !/--version-code 1 /.test(cmd) && !/--version-name 1\.0\.0/.test(cmd));
