@@ -332,6 +332,24 @@
       }
     });
 
+    /* 〔2026-10-09〕音乐/音效在**首页**就生效，不必等点「开始 / 创建 / 加入」才响。
+       浏览器的自动播放策略要求首次播放必须发生在用户手势里，所以在首页挂一次性监听：
+       任意一次指针/触摸/键盘交互即解锁音频并起 BGM（音乐闸关闭时不起，仅解锁）。
+       解锁后立刻摘掉监听，不残留。 */
+    (function armHomeAudio() {
+      var armed = false;
+      var EVENTS = ['pointerdown', 'touchstart', 'keydown'];
+      function kick() {
+        if (armed) return;
+        armed = true;
+        for (var i = 0; i < EVENTS.length; i++) document.removeEventListener(EVENTS[i], kick);
+        try {
+          if (A().musicEnabled()) { A().ensure(); A().startMusic(); }
+        } catch (e) { /* 音频不可用时静默，不影响对局 */ }
+      }
+      for (var i = 0; i < EVENTS.length; i++) document.addEventListener(EVENTS[i], kick, { passive: true });
+    })();
+
     el('btn-start').onclick = () => {
       if (A().musicEnabled()) { A().ensure(); A().startMusic(); }
       A().sfx('click');
