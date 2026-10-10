@@ -10,12 +10,23 @@
   Strict-Transport-Security: max-age=31536000
 
 # 安卓安装包：强制附件下载，避免被浏览器当页面打开或落到 SPA 回退
-# 〔2026-10-10〕no-store 是「无法完整下载」的根因：no-store 让每次下载都绕过 CDN 缓存直连
-# 海外源，且该路径下响应**不支持 Range**（实测 -r 请求返回 200 全量而非 206，无 Accept-Ranges）
-# —— 4.5MB 长传输一断就只能从头来。改为允许边缘缓存 10 分钟：
-#   · Range/断点续传恢复可用（实测 206）；
-#   · 代价是发新版后最多 10 分钟内 CDN 可能仍供旧包（低频发布场景可接受）。
+# 〔2026-10-10〕「无法完整下载」根因修复：
+#   1) Pages 免费版对静态资产**不支持 Range**（实测任何文件 -r 请求一律 200 全量、无 206），
+#      4.5MB 一断就从头来；
+#   2) 且 .apk **不在 Cloudflare 默认缓存扩展列表**（.zip 在！）→ CDN 永不缓存 → 更雪上加霜。
+#   解法：实体文件改以 **SpaceKill.apk.zip** 分发（APK 本就是 ZIP，.zip 可被 CDN 缓存 →
+#   缓存命中后 Range/断点续传可用），稳定 URL `/SpaceKill.apk` 由 _redirects 302 跳转过去，
+#   Content-Disposition 把保存名定回 SpaceKill.apk。二维码 / README / Release 链接全部不用改。
 /SpaceKill.apk
   Cache-Control: public, max-age=600
   Content-Disposition: attachment; filename="SpaceKill.apk"
+  Accept-Ranges: bytes
+
+# 实体（.zip 后缀才会进 CDN 缓存）；Content-Disposition 把保存名定回 SpaceKill.apk。
+# max-age=600 而非 immutable：zip 文件名不随版本变，发新版后最多 10 分钟内边缘可能仍供旧包
+#（发布低频，可接受；未来要彻底消除窗口，把 zip 改成带版本号文件名 + immutable + _redirects 同步生成）。
+/SpaceKill.apk.zip
+  Cache-Control: public, max-age=600
+  Content-Disposition: attachment; filename="SpaceKill.apk"
+  Content-Type: application/vnd.android.package-archive
   Accept-Ranges: bytes

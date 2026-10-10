@@ -27,9 +27,12 @@ const WRANGLER = process.env.WRANGLER_CMD || 'wrangler';
 // _headers = APK 的附件下载响应头，缺了线上"能点但下不到"。
 // （assets/ 已随第四十二批扫码浮层退役删除，不再是站点资源——2026-10-07 CI 首跑时该
 //   死条目被 fail-loud 检查拦下，现移除。）
-const SITE_ENTRIES = ['index.html', 'css', 'js', 'audio', 'favicon.ico', 'icon-32.png', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png', '_headers'];
+const SITE_ENTRIES = ['index.html', 'css', 'js', 'audio', 'favicon.ico', 'icon-32.png', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png', '_headers', '_redirects'];
 // 可选资源：SpaceKill.apk 被 .gitignore 排除、不进 git——本地由 android/build.cmd 产出，
-// CI 部署前从 GitHub Release 拉回仓库根；两边都没有时警告跳过（下载走 Release 兜底链接）
+// CI 部署前从 GitHub Release 拉回仓库根；两边都没有时警告跳过（下载走 Release 兜底链接）。
+// 〔2026-10-10〕站点上实际分发的是 SpaceKill.apk.zip（.apk 后缀不进 Cloudflare CDN 缓存，
+// 且 Pages 免费版不支持 Range → 4.5MB 一断就从头来，见 _headers 注释）——
+// 这里在暂存时把 apk **复制一份为 zip**，本地/CI 两条部署路都自动带上，无需各自多一步。
 const OPTIONAL_ENTRIES = ['SpaceKill.apk'];
 
 const stage = path.join(os.tmpdir(), 'space-kill-pages-deploy');
@@ -51,6 +54,8 @@ for (const entry of OPTIONAL_ENTRIES) {
     continue;
   }
   fs.cpSync(src, path.join(stage, entry), { recursive: true });
+  // 同名 .zip 副本：.apk 后缀不进 CDN 缓存、Range 不可用（下载易断且无法续传），见 _headers 注释
+  fs.copyFileSync(src, path.join(stage, entry + '.zip'));
 }
 
 // 打印暂存内容，便于确认没有多余文件被上传
