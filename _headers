@@ -10,6 +10,12 @@
   Strict-Transport-Security: max-age=31536000
 
 # 安卓安装包：强制附件下载，避免被浏览器当页面打开或落到 SPA 回退
+# 〔2026-10-10〕no-store 是「无法完整下载」的根因：no-store 让每次下载都绕过 CDN 缓存直连
+# 海外源，且该路径下响应**不支持 Range**（实测 -r 请求返回 200 全量而非 206，无 Accept-Ranges）
+# —— 4.5MB 长传输一断就只能从头来。改为允许边缘缓存 10 分钟：
+#   · Range/断点续传恢复可用（实测 206）；
+#   · 代价是发新版后最多 10 分钟内 CDN 可能仍供旧包（低频发布场景可接受）。
 /SpaceKill.apk
-  Cache-Control: no-cache, no-store, must-revalidate
+  Cache-Control: public, max-age=600
   Content-Disposition: attachment; filename="SpaceKill.apk"
+  Accept-Ranges: bytes
