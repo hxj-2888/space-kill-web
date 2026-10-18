@@ -37,6 +37,12 @@
     const isDoc = RD.hasGrant(v.role, 'treat');                 // D6：能力标签（医生系）
     const isRescuer = RD.hasGrant(v.role, 'save');              // D6：能力标签（救援族）
     const team = v.faction === 'alien' && p.faction === 'alien';
+    /* 〔v1preview1.0 3.3.10④〕感染标记清单的**施加方视野**：异形可见全场存活者中当前带标记者
+       的编号清单，且可分辨真伪；死囚呈现异形时一并克隆（6.8.3⑧——感染标记可见性不属社交
+       功能，故克隆；队内互认/私聊/刀数/票型共享则**不**克隆，仍走 team）。
+       ⚠ 与①医生的清除方视野分列：医生见存在性不辨真伪，异形见清单且辨真伪——同一字段两种
+       授权，靠 isDoc 优先与 markSeer 分开表达（设计红线：真伪对医生与本人封闭）。 */
+    const markSeer = v.faction === 'alien' || (v.convict && v.role === 'alien');
 
     const o = {
       id: p.id, name: p.name,
@@ -83,8 +89,10 @@
       o.lastProtected = p.lastProtected; o.lastInvite = p.lastInvite;
     } else {
       if (isRescuer) o.dying = !!p.dying;
+      /* 3.3.10：①医生见存在性（不辨真伪）；④异形（含呈现异形的死囚）见清单且辨真伪，
+         覆盖全场存活者（不限目标阵营——施加方视野的观察对象是「谁被上了标记」）。 */
       if (isDoc) o.infection = p.infection ? { exists: true } : null;
-      else if (team) o.infection = p.infection ? { exists: true, real: p.infection.real } : null;
+      else if (markSeer) o.infection = p.infection ? { exists: true, real: p.infection.real } : null;
       if (team) { o.shield = p.shield; o.alien = { dir: p.alien.dir, kills: p.alien.kills, destroyTotal: p.alien.destroyTotal }; }
       /* G6：出局者视角对**他人**也只下发「全知当前态」（身份 + 当前资源），仍不下发其私有节点与历史 */
       if (omni) o.omniscient = currentState(p);
@@ -233,11 +241,14 @@
       const isDoc = RD.hasGrant(viewerRole, 'treat');
       const isRescuer = RD.hasGrant(viewerRole, 'save');
       const omniHere = !!view.omniscient;
+      /* 3.3.10④ 施加方视野：异形（含呈现异形的死囚，6.8.3⑧）可见标记真伪——与 team
+         （队内共享）是两个口径，守卫须分开判，否则会把合法授予报成越界。 */
+      const markSeer = viewerFac === 'alien' || (self2.convict && viewerRole === 'alien');
       for (const p of (view.players || [])) {
         if (p.id === me) continue;
         const team = viewerFac === 'alien' && p.faction === 'alien';
-        /* 医生见感染存在性但真伪不可辨（4.5）；异形队友可辨真伪（3.3④）——故真值出现即越界 */
-        if (p.infection && p.infection.real !== undefined && !(team && !isDoc))
+        /* 医生见感染存在性但真伪不可辨（4.5）；异形施加方视野可辨真伪（3.3④）——故真值出现即越界 */
+        if (p.infection && p.infection.real !== undefined && !(markSeer && !isDoc))
           bad.push(`${p.id} 号的感染标记真伪外泄（违 2.8.7 / 4.5）`);
         if (p.dying === true && !(isRescuer || team || omniHere || view.dev))
           bad.push(`${p.id} 号的濒死状态外泄（违 3.3.12 / 4.10.4④）`);

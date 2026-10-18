@@ -12,6 +12,8 @@
 
       /* 出局 / 濒死 */
       out: false, outNight: null, outType: null, cause: null,
+      escaped: false,              // 外星人逃亡所致出局（6.9）——不得留言（2.6.1 例外，2.8.9(22)）
+      willText: null,              // 出局留言（≤200 字，随揭示作为附言公开，2.6.1）
       revealed: null,              // 已被公开揭示的身份 {faction, role}
       dying: false, dyingCause: null,
 
@@ -23,7 +25,11 @@
          治疗/救援/自救均不能清除，唯一清除途径是毒师解药。 */
       poison: null,                // { night, by, source }  source='poisoner'|'mirror'
       antidotedNights: null,        // 被解药清除的夜（仅供 god 复盘，推理不读）
-      suppressLeft: info.faction === 'alien' ? 0 : 3,
+      /* 3.3.4（v1preview1.0 第三批 M）：感染抑制额度 **2 次**（原 3 次，2026-10-17 全稿收敛）
+         ——每名人类与外星人各自独立持有的个人终身总额，不因获得新感染而重置、不随感染
+         清除而回复、耗尽后永不再生；异形不持有（其被施加感染只得假标记，无从亦无需抑制）。
+         死囚外星人同持 2 次（6.8.2 明文，依 3.3.4）。 */
+      suppressLeft: info.faction === 'alien' ? 0 : 2,
       antibodyNight: null,
       silenceNight: null, lastSilenceNight: null,   // A15：沉默当夜生效；lastSilenceNight 供 6.1.2(a) 禁连两夜判定
       guardDmg: false, guardInf: false, patrolDmg: false, patrolInf: false, shield: 0,
@@ -37,6 +43,13 @@
       repairTotal: 0, extraRepair: roleKey === 'engineer' ? 3 : 0, repairExposed: false,
       healLeft: 0, selfSaveLeft: roleKey === 'bio' ? 1 : 0,
       rescueLeft: 0, cureLeft: roleKey === 'rescue' ? 1 : 0,
+      /* 〔v1preview1.0 4.14〕疫苗研究员资产：sample＝样本份数（诊断每清 1 名产 1 份）
+         研制耗 2 份 → 解锁接种额度（研制完成即 +1 支，此后每夜可再研制 1 支）；
+         vaccineUntil＝疫苗抗体的有效末夜（接种次夜起连续 4 夜逐夜授予，第 5 夜失效）。
+         疫苗抗体为**感染侧专属**全额减免层（2.8.9(24)(26)）：不参与伤害侧与毒药侧。
+         〔v1preview1.0 4.13〕ferryLog＝摆渡人私人日志（死后作废，4.13.4）。 */
+      vaccineSample: 0, vaccineDoses: 0, vaccineUntil: null,
+      ferryLog: [],
       cureSelf: 0,                 // 外星人感染治疗额度
       nightImmune: roleKey === 'xeno' ? 1 : 0,
       destroyLeft: roleKey === 'xeno' ? 1 : 0,
@@ -49,7 +62,10 @@
          armorExpireNight：速成护甲的到期夜（铸造夜为第 1 夜且当夜不生效，第 2/3 夜生效、
          第 4 夜消失），null＝常规护甲（存续型，无期限）。 */
       armor: { mode: roleKey === 'artisan' ? 'normal' : null, expireNight: null },
-      armorStock: 0,                                  // 未分配库存（cast/castFast 次夜到账时 +1）
+      /* 〔v1preview1.0 4.11.3①〕库存按形态分两格（常规/速成），**合并**受同一上限 3 约束；
+         速成护甲自**分配（佩戴）当夜**起算且当夜即生效，第 1~3 夜有效、第 4 夜消失，
+         未分配前不计期（可预先囤积）；工匠出局时未分配库存一并消失（4.11.3②）。 */
+      armorStock: 0, fastArmorStock: 0,
       /* A6 批次 31：毒师额度（4.6.4⑥）——毒药 3 / 解药 3，第 1、3、5 夜各到账 1 份（依 2.1.5
          默认时序：白天投票之后、当夜步骤 0 之前），当夜即可用；无击杀回复、无补充途径。 */
       poisonLeft: roleKey === 'poisoner' ? 1 : 0,     // 初始 1，第 3/5 夜各 +1 ⇒ 全局合计 3
@@ -61,18 +77,35 @@
          夜晚免疫/感染治疗额度，且本局无沉默源、无停转夜（6.8.2/6.8.6）。 */
       convict: roleKey === 'convict',
       morph: null, morphNight: null, reviveLeft: roleKey === 'convict' ? 2 : 0,
+      /* 〔v1preview1.0 6.9〕外星人逃亡积分（仅外星人累计；本人独家可见，不向他方通报）：
+         escapeExpelCount＝参与成功驱逐次数（每 0.5 分，上限 6 次＝3 分）；
+         escapeSilenceCount＝发动沉默次数（每 0.5 分，上限 6 次＝3 分）；
+         escapeQualified＝积分达 10 取得的逃亡资格（永久保留，6.9.2②）。
+         击杀/助攻/追溯三分由 SKLedger 账本按 4.10.0 定档后汇总（Engine.escapeScoreOf）。 */
+      escapeExpelCount: 0, escapeSilenceCount: 0, escapeQualified: false,
       mirror: null,                                   // 镜像账本（SKMirror.build，见 2.8.5）
-      /* A6 批次 29：hunter 嗅探（全局 2 个夜晚，4.4.8③）／listener 窃听报告（全局 2 次，4.12.5⑦） */
+      /* A6 批次 29：hunter 嗅探（全局 2 个夜晚，4.4.8③）
+         listener 窃听报告（4.12.2⑤，v1preview1.0 第一批 P0-1）：**每夜 1 次、不跨夜累积、
+         逾期不补提**——原「全局 2 次」口径与 4.12.5⑦/术语表/速查卡冲突，已统一为每夜 1 次。
+         reportUsedTonight 于每夜开始时重置（engine.js nextNight）；读取（wiretap）本身
+         每夜可发动、不设组数上限，与报告次数独立（4.12.1⑤）。 */
       sniffLeft: roleKey === 'hunter' ? 2 : 0, sniffedTonight: false,
-      reportLeft: roleKey === 'listener' ? 2 : 0,
+      reportUsedTonight: false,
       wiretap: null,               // 窃听读取 {night, groups:[{a,b,lines}]}——保留至次日 D-report，逾期作废
       meetingLeft: roleKey === 'inspector' ? 1 : 0,
       alien: { dir: null, evoNight: 0, kills: 1, extraKill: 0, destroyTotal10: 0, converts: 0, dirs: {} },   // 破坏个体累计（×10 整数）
+      /* 7.2.7 染血计数（v1preview1.0）：该个体「出刀致濒死」的累计次数——异形/外星人个体
+         独立、按本体累计、跨形态连续、不公开；累计 3 次后第 4 次起受攻击者得知其编号。
+         感染致死不计入；人类攻击不产生本反馈。 */
+      bloodCount: 0,
       guardStreak: 0,              // 反拖延：连续结茧/放弃夜数（v4 6.2）
       sabTau: 0.5,                 // 破坏个体阈值（v4 第五章）——v26：由 createGame 逐人 roll（旧实现从未赋值）
 
       /* 认知 */
-      checkPool: new Map(),        // 神探：id -> { role, night, published }（B5/4.7.3：不存阵营，I9 待拍板）
+      /* 神探已查验池（4.7.3，v1preview1.0 第三批 M）：**定长 3 项先进先出**（原无上限累积池已废）。
+         id -> { role（锁定快照＝查验当夜所显示的职业）, night, published, pubNight }。
+         插入序即入池序（Map 保序），复验 set 覆盖不换序；满 3 查新目标顶出最先入池者。 */
+      checkPool: new Map(),
       crewChecks: new Map(),       // 船员：id -> { n, results:[{night,id,ans}] }（A13 验证式，查验者×目标独立留存）
       bulletLog: roleKey === 'sheriff' ? [{ night: 0, delta: 1, src: '初始 1 发' }] : [],
       known: new Map(),            // id -> {faction?, role}（合法获知；B5：非 faction 揭示路径无 faction 键）
@@ -92,7 +125,11 @@
          「按阵营给技能」这条思路本身 —— 死囚阵营是 xeno，变形后 roleKey 又是别的身份，
          技能到底该给谁就说不清了。此处改为显式列举授予乔装的身份，与 6.8.2「死囚不持
          经典外星人任何技能」一致（死囚只能靠变形拿到它所变形身份的技能）。 */
-      disguise: null, disguiseLeft: (roleKey === 'alien' || roleKey === 'xeno') ? 2 : 0,
+      /* 乔装（7.3）：每夜至多 1 次、每个体全局 2 次。异形与经典外星人持有；**死囚不持**
+         （6.8.2）——其 2 次依 6.8.3⑧ 于**呈现异形时克隆取得**，全局次数按本体计、跨形态累计
+         （故此处给死囚也置 2，但步骤 1 的 req 按 role==='alien' 门控：未呈现异形时不可发动，
+         观察行为与「不持」完全一致；呈现异形期间与真异形同菜单）。 */
+      disguise: null, disguiseLeft: (roleKey === 'alien' || roleKey === 'xeno' || roleKey === 'convict') ? 2 : 0,
       /* 西塔性格三档（AI 规格 4.x）：局内独立抽取，与职业无关。
          v26：删除 tau / tauGrudge / pBase 三个【只写不读】的死字段——
          衰减口径已由 ai.js 的 CLAIM_DECAY(0.85) / GRUDGE_DECAY(0.90) 常量统一承载
@@ -121,8 +158,14 @@
      变体映射 = 被替换的席位Occupant → 变体角色（值须与 roleDecl 组位 members 一致）；
      READY = 引擎已实装其机制的变体（未实装席位拒绝非经典取值——fail loud，防「组进来的
      角色没有行为」）。经典局（不传 opts）走原路径：不消耗任何额外 rng，行为与席位表逐字节同。 */
-  const SEAT_VARIANTS = { sheriff: 'hunter', inspector: 'listener', rescue: 'poisoner', bodyguard: 'artisan', xeno: 'convict' };
-  const SEAT_VARIANT_READY = { sheriff: true, inspector: true, rescue: true, bodyguard: true, xeno: true };   // 批次 29/31/32 全部放开
+  /* 〔v1preview1.0 1.1.1/2.8.14⑤〕补入第九批新增的两席变体：查证位＝神探∕摆渡人、
+     医生位（其一）＝生化医师∕疫苗研究员。至此 1.1.1 席位表七个二选一全部接线。
+     ⚠ 新席位须追加在**已有五席之后**：掷骰按 Object.keys 序遍历且共用一条独立流，
+       插在中间会让其后席位整体后移（同种子读数漂移）。追加在尾部 ⇒ 前五席读数不变。 */
+  const SEAT_VARIANTS = { sheriff: 'hunter', inspector: 'listener', rescue: 'poisoner', bodyguard: 'artisan', xeno: 'convict',
+                          detective: 'ferryman', bio: 'vaccinist' };
+  const SEAT_VARIANT_READY = { sheriff: true, inspector: true, rescue: true, bodyguard: true, xeno: true,
+                               detective: true, bio: true };   // 批次 29/31/32 全部放开；第九批（4.13/4.14）随本版接线
 
   /* 〔42〕席位变体掷骰（1.1.1「同席位开局定其一」）
      此前机制全备（映射 + READY 表 + 校验 + 变形池）却从无调用方：createGame 只在

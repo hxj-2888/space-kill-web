@@ -90,8 +90,13 @@
       const deltas = (d.products || {})[product];
       if (deltas) {
         for (const [resKey, amount] of Object.entries(deltas)) {
-          if (typeof p[resKey] === 'number') p[resKey] += amount;
-          else p[resKey] = amount;
+          const cap = REG.resourceCap(resKey);
+          const cur = typeof p[resKey] === 'number' ? p[resKey] : 0;
+          /* 〔v1preview1.0 4.11.3①〕有上限的资源（工匠护甲库存，常规与速成**合并**计 3 件）：
+             满仓再铸即浪费——溢出部分不入库、不结转、不预存（2.5 通则）。 */
+          const room = cap == null ? amount : Math.max(0, Math.min(amount, cap - REG.stockOf(p, resKey)));
+          p[resKey] = cur + room;
+          if (room < amount) p[resKey + 'Wasted'] = (p[resKey + 'Wasted'] || 0) + (amount - room);
         }
         const txt = REG.deliverText(id, product);
         if (txt) say(txt);

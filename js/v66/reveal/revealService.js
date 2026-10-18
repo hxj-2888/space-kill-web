@@ -59,11 +59,14 @@
 
   /* 公开揭示：写 p.revealed + 全员 known（knownLockOf 唯一硬源路径），
      并保留 AI.onReveal 揭示清算（R17/R17b/R29/R30），与旧 revealPublic 行为对齐——
-     唯一差异是阵营字段按路径配置写入：非 faction 路径 known/revealed 均无 faction 键。 */
-  function reveal(g, t, path) {
+     唯一差异是阵营字段按路径配置写入：非 faction 路径 known/revealed 均无 faction 键。
+     〔v1preview1.0 4.7.3 快照锁定〕roleOverride：神探公告沿用**池内锁定值**（查验当夜
+     所显示的职业）而非目标当前职业——公告与硬源必须同源，防「公告说 X、known 锁 Y」
+     的双源漂移。仅 detectiveAnnounce 一条路径使用。 */
+  function reveal(g, t, path, roleOverride) {
     const cfg = PATHS[path];
     if (!cfg) throw new Error('RevealService: 未登记的揭示路径 ' + path);
-    const role = presentedRole(t);
+    const role = roleOverride || presentedRole(t);
     /* L1（批次 28）：出局揭示两路径的 known 硬锁补 trueRole——⑥⑩公告已呈现
        「呈现职业／真实职业」双字段（4.10.6/2.3.4），硬源台账须同形，否则变形类机制
        （6.8.3，A6 convict）实装后 AI 硬锁与公告自相矛盾。当前 trueRole(t)===t.role，

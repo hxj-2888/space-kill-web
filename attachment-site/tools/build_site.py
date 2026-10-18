@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""build_site.py — 太空杀静态站生成器
+"""build_site.py — 返航录（原太空杀）静态站生成器
 规则取 测试3.1 的 v66 修订版抽取稿（由 tools/pdf_to_md.py 从权威 PDF 抽出，勿手改），
 剧情（三条胜利线）取 剧情/ 的 docx，统一转成 site/ 下的静态 HTML。
 只用标准库 + python-docx；只收录「剧情 / 规则」，其余文档（调试、模拟、策略）不入站。
@@ -19,16 +19,19 @@ SRC2 = os.path.join(ROOT, '剧情')
 SRC3 = os.path.join(ROOT, '公测3.0')
 OUT = os.path.join(ROOT, 'site')
 
-# 规则正文：唯一权威源是《太空杀V6.6正文_v66修订版》PDF，站点展示其抽取稿
-RULES_MD = os.path.join('公测3.1', '太空杀V6.6正文_v66修订版_规则.md')
+# 规则正文：唯一权威源是《返航录三阵营对抗规则·正文 v1preview1.0》PDF
+# 〔2026-10-17 换版〕正文第十批起游戏名由「太空杀」改为「返航录」，规则口径自 v6.6 修订版
+#   升到 v1preview1.0（v1preview 序号启用，v6.6 停用）。旧版 v66 抽取稿保留在 公测3.1/，
+#   不再进站（站点只展示现行正文，避免同时挂两版造成「哪份才是真的」）。
+RULES_MD = os.path.join('规则正文', '返航录正文v1preview1.0_规则.md')
 # PDF 原件随站分发（在线阅读 / 下载），构建时复制到 site/
-RULES_PDF_SRC = os.path.join(SRC2, '太空杀V6.6正文_v66修订版.pdf')
-RULES_PDF_NAME = '太空杀V6.6正文_v66修订版.pdf'
+RULES_PDF_SRC = os.path.join(ROOT, '规则正文', '返航录三阵营对抗规则·正文v1preview1.0.pdf')
+RULES_PDF_NAME = '返航录三阵营对抗规则·正文v1preview1.0.pdf'
 
 DOCS = [
     # (来源路径, 输出文件名, 栏目, 短标题, 副标题, 转换器)
     (RULES_MD, 'rules.html', 'rules',
-     '游戏规则', '三阵营对抗 · 正文 v6.6（v66 修订版）', 'md'),
+     '游戏规则', '三阵营对抗 · 正文 v1preview1.0', 'md'),
     (os.path.join('剧情', '人类胜利线.docx'), 'story-human.html', 'story',
      '星途归航 · 人类胜利线', '剧情 · 最终版', 'docx'),
     (os.path.join('剧情', '外星人胜利线.docx'), 'story-alien.html', 'story',
@@ -110,7 +113,7 @@ PAGE_TMPL = """<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>{title} · 太空杀</title>
+<title>{title} · 返航录</title>
 <meta name="description" content="{desc}">
 <style>
 :root {{ --bg:#0a0a0f; --card:#141420; --line:#252535; --text:#e0e0ea; --muted:#8888a0; --accent:#818cf8; }}
@@ -146,7 +149,7 @@ pre {{ background:#12121e; border:1px solid var(--line); border-radius:10px; pad
 </head>
 <body>
 <nav>
-  <a class="brand" href="index.html">🚀 太空杀 · 星途归航</a>
+  <a class="brand" href="index.html">🚀 返航录 · 星途归航</a>
   <a class="tab{on_story}" href="story-human.html">剧情</a>
   <a class="tab{on_rules}" href="rules.html">规则</a>
   <a class="tab{on_sim}" href="sim31-matrix.html">平衡性</a>
@@ -155,7 +158,7 @@ pre {{ background:#12121e; border:1px solid var(--line); border-radius:10px; pad
 </nav>
 <div class="wrap">
 {body}
-<div class="foot"><span>太空杀 · 三阵营身份博弈 · 规则正文 v6.6（v66 修订版）</span><span><a href="https://github.com/hxj-2888/space-kill-web/tree/main/attachment-site" rel="noopener" target="_blank">GitHub 源码</a></span></div>
+<div class="foot"><span>返航录 · 三阵营身份博弈 · 规则正文 v1preview1.0</span><span><a href="https://github.com/hxj-2888/space-kill-web/tree/main/attachment-site" rel="noopener" target="_blank">GitHub 源码</a></span></div>
 </div>
 </body>
 </html>
@@ -167,8 +170,8 @@ INDEX_TMPL = """
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>太空杀 · 星途归航 — 任务档案终端</title>
-<meta name="description" content="太空杀：15 人三阵营身份博弈的剧情、规则 v6.6 与平衡性模拟档案终端。">
+<title>返航录 · 星途归航 — 任务档案终端</title>
+<meta name="description" content="返航录：15 人三阵营身份博弈的剧情、规则 v1preview1.0 与平衡性模拟档案终端。">
 <style>
 :root{
   --bg:#070C18;
@@ -395,7 +398,7 @@ body::before{
     </div>
     <div class="spacer"></div>
     <span class="tag on">LINK OK</span>
-    <span class="tag">BUILD v6.6</span>
+    <span class="tag">BUILD v1preview1.0</span>
     <span class="tag">3 FACTION</span>
   </div>
 
@@ -518,14 +521,14 @@ body::before{
     <div class="files">
       <a class="file" href="rules.html">
         <div class="file-id">FILE-05 · LOG-001</div>
-        <div class="file-title">游戏规则 v6.6</div>
+        <div class="file-title">游戏规则 v1preview1.0</div>
         <div class="file-meta">在线阅读 · 全部条款与【消歧】注释</div>
         <div><span class="badge html">HTML</span></div>
       </a>
-      <a class="file" href="太空杀V6.6正文_v66修订版.pdf">
+      <a class="file" href="返航录三阵营对抗规则·正文v1preview1.0.pdf">
         <div class="file-id">FILE-06 · LOG-002</div>
         <div class="file-title">规则正文 PDF</div>
-        <div class="file-meta">45 页权威原件 · 打印友好</div>
+        <div class="file-meta">47 页权威原件 · 打印友好</div>
         <div><span class="badge pdf">PDF</span></div>
       </a>
       <a class="file" href="story-human.html">
@@ -599,7 +602,7 @@ body::before{
 
   <div class="status">
     <span>CREW 15</span><span>HUMAN 11</span><span>XENO 03</span><span>ALIEN 01</span>
-    <span>BUILD v6.6</span><span class="spacer"></span>
+    <span>BUILD v1preview1.0</span><span class="spacer"></span>
     <a href="https://github.com/hxj-2888/space-kill-web/tree/main/attachment-site">GitHub 源码</a>
     <span>© 星途归航 · 档案终端</span>
   </div>

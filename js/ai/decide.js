@@ -921,6 +921,8 @@
         return { do: doIt };
       }
       case 'branch': {                                     // 4b 破坏/结茧（A7：0.7 预提交已删，四选一拆至 0.1/4b/5/8 各步）
+        /* 〔v1preview1.0 6.9〕外星人已取得逃亡资格 ⇒ 破坏窗口执行逃亡（占用窗口、当夜不破坏） */
+        if (p.escapeQualified && p.faction === 'xeno') return { branch: 'escape' };
         if (p.faction === 'alien') {
           /* ① 个体阈值（开局 roll 一次，整局不变——p.sabTau 在 state 初始化） */
           /* ② 倒计时反比例压力：base = raw/(raw+SAB_K)，raw = 24/max(cd,0.5) − 1 */
@@ -1040,6 +1042,8 @@
         return { branch: 'none' };
       }
       case 'xenoCheck': {                                  // U(i) = Dg_i，已确认异形 ×1.5（v21：ε-greedy）
+        /* 〔v1preview1.0 6.9〕已取得逃亡资格 ⇒ 本窗口执行逃亡（次胜落袋；占用窗口） */
+        if (p.escapeQualified) return { escape: true };
         /* 6.1：蛰伏与否 = 外星人当夜四选一之一（vs 4b 破坏 / 5 击杀 / 8 自疗）——保持约 1/4 蛰伏率 */
         if (!rng.chance(0.25)) return {};
         const copts = al.map(x => {
@@ -1067,6 +1071,9 @@
         return { silence: U + gauss(g) * 6 > 0 };
       }
       case 'xenoKill': {                                   // 双刀：同目标合法（突破用；v21：ε-greedy）
+        /* 〔v1preview1.0 6.9〕已取得逃亡资格 ⇒ 本窗口执行逃亡（可抢在步骤 7 异形反击前脱离，
+           6.9.3④——占用窗口的正当收益） */
+        if (p.escapeQualified) return { escape: true };
         const ranked = al.map(x => ({ x, U: dangerOf(g, p, x.id), conf: confOf(g, p, x.id) }))
           .sort((a, b) => b.U - a.U);
         const kc = argmax(g, ranked.map(r => ({ v: r.x.id, U: r.U, conf: r.conf })), EPS.survival);
@@ -1230,14 +1237,31 @@
               属**声明层口径的落地**，不是削弱医生族的能力。 */
         const seerInf = VIS && RD.sensesOf(p.role).indexOf('infectMarks') >= 0;
         const seerDying = VIS && RD.sensesOf(p.role).indexOf('dyingList') >= 0;
+        /* 〔v1preview1.0 4.14〕疫苗研究员四选一（诊断∕研制∕接种∕制药）——与医生族共用
+           步骤 8 的行动位，但菜单不同（无治疗、无自救、无救援额度）：
+           ① 有感染标记 ⇒ 诊断（清标记＋攒样本）；② 样本够 2 ⇒ 研制（换接种额度）；
+           ③ 有额度 ⇒ 接种给最高威胁目标（预防性减免）；④ 以上皆无 ⇒ 制药攒救援药剂。 */
+        if (p.role === 'vaccinist') {
+          const vInf = g.players.filter(x => !x.out && x.infection);
+          if (vInf.length) return { act: 'diagnose', targets: [vInf[0].id] };
+          if ((p.vaccineSample || 0) >= 2) return { act: 'develop', targets: [] };
+          if ((p.vaccineDoses || 0) > 0) {
+            const cands = al.slice().sort((a, b) => dangerOf(g, p, b.id) - dangerOf(g, p, a.id));
+            const tgt = cands.filter(x => !(x.vaccineUntil && g.night <= x.vaccineUntil)).slice(0, 1);
+            if (tgt.length) return { act: 'inoculate', targets: [tgt[0].id] };
+          }
+          return { act: 'brew', targets: [] };
+        }
         const infected = seerInf ? g.players.filter(x => !x.out && x.infection) : [];
         const dying = seerDying ? g.players.filter(x => !x.out && x.dying) : [];
         const canRescue = RD.hasGrant(p.role, 'save');                   // D6：能力标签（救援族）
         const blocked = p.silenceNight === g.night || p.noActive;
-        if (blocked) return { act: 'none', targets: [] };
+        /* 〔v1preview1.0 H-18〕自救是濒死下的被动救命，不受封锁——被沉默/抑制的濒死生化医师
+           仍可自救（引擎 req 同口径：!blocked || selfSave）。其余主动出手仍受封锁。 */
+        const selfSaveOk = p.dying && p.role === 'bio' && p.selfSaveLeft > 0;
+        if (blocked && !selfSaveOk) return { act: 'none', targets: [] };
         const opts = [{ v: 'none', U: 0 }];
-        /* 5.2⑤：自救与治疗/救援同场 argmax，U = V_self×(濒死?1:0.5) */
-        if (p.dying && ((p.role === 'bio' && p.selfSaveLeft > 0) || (canRescue && p.rescueLeft > 0)))
+        if (selfSaveOk)
           opts.push({ v: 'selfsave', U: p.vSelf * (p.dying ? 1 : 0.5), targets: [p.id] });
         if ((p.role === 'bio' && p.healLeft > 0) || (p.role !== 'bio' && p.cureLeft > 0)) {
           const pool = p.role === 'bio' ? p.healLeft : p.cureLeft;
@@ -1320,18 +1344,21 @@
         if (!fastSt) {
           /* 在进进度 2/2 的一步：续投（不重置） */
           if (castSt) opts.push({ v: 'cast', U: 55 + gauss(g) * 8 });
-          else if (p.armorStock >= 2) opts.push({ v: 'cast', U: 8, });    // 满仓铸造＝浪费（4.11.3①）
+          /* 〔v1preview1.0 4.11.3①〕库存上限 3（常规＋速成合并计）——满仓再铸即浪费 */
+          else if (ACT.armorStockOf(p) >= ACT.ARMOR_STOCK_CAP) opts.push({ v: 'cast', U: 8, });
           else opts.push({ v: 'cast', U: 22 + gauss(g) * 6 });
         }
         if (!castSt) {
           const hot = al.filter(x => dangerOf(g, p, x.id) >= 60).length;
           opts.push({ v: 'castFast', U: 18 + hot * 12 + gauss(g) * 8 });
         }
-        if (p.armorStock > 0) {
+        /* 〔v1preview1.0 4.11.3①〕库存＝常规＋速成合并计（AI 此前只读 armorStock，
+           速成产物落在 fastArmorStock ⇒ 铸出的速成护甲永远发不出去）。 */
+        if (ACT.armorStockOf(p) > 0) {
           const bare = al.filter(x => !(x.armor && x.armor.mode))
             .sort((a, b) => dangerOf(g, p, b.id) - dangerOf(g, p, a.id));
           const selfBare = !(p.armor && p.armor.mode);
-          const picks = bare.slice(0, p.armorStock).map(x => x.id);
+          const picks = bare.slice(0, ACT.armorStockOf(p)).map(x => x.id);
           if (selfBare) picks.push(p.id);
           if (picks.length) opts.push({ v: 'give', U: 62 + bare.length * 4 + gauss(g) * 10, targets: picks.slice(0, 2) });
         }
@@ -1375,7 +1402,11 @@
         const best = mine.sort((a, b) => a.faction === b.faction ? 0 : 0)[0];
         return { use: true, targets: [best.id] };
       }
-      case 'xenoCure': return { use: !!(p.infection && p.infection.real && p.cureSelf > 0) };
+      case 'xenoCure': {
+        /* 〔v1preview1.0 6.9〕已取得逃亡资格 ⇒ 本窗口执行逃亡 */
+        if (p.escapeQualified) return { escape: true };
+        return { use: !!(p.infection && p.infection.real && p.cureSelf > 0) };
+      }
       case 'meeting': {                                    // U = 揭穿收益 − 暴露代价×(θ/50)
         if (alive(g).length < 5) return { call: false };
         const strong = alive(g).some(x => dangerOf(g, p, x.id) >= 60);
@@ -1383,6 +1414,18 @@
         return { call: U > 0 };
       }
       case 'clean': return { do: true };
+      /* 〔v1preview1.0 4.13〕摆渡人调查：提交 1~3 名**存活**玩家编号，系统答「有凶手∕无凶手」。
+         AI 取值＝按威胁度降序的前若干名（威胁降序 ⇒ 命中凶手的期望最高）；名额策略同嗅探：
+         第一名额恒给最高威胁，次高威胁过「开枪效用线」才用满第二名额，第三名额仅在人数
+         充裕（≥8 名存活）时使用——因为结论是**二值**的，一次只能证一批人，名额越多越稀释。 */
+      case 'ferry': {
+        const cands = al.slice().sort((a, b) => dangerOf(g, p, b.id) - dangerOf(g, p, a.id));
+        if (!cands.length) return {};
+        const ids = [cands[0].id];
+        if (cands.length > 1 && dangerOf(g, p, cands[1].id) >= 40) ids.push(cands[1].id);
+        if (cands.length > 2 && al.length >= 8 && dangerOf(g, p, cands[2].id) >= 55) ids.push(cands[2].id);
+        return { targets: ids };
+      }
       /* 〔批次 37 · U1〕嗅探策略（4.4.8，猎手专属）：此前恒缓发。现在按 θ 档概率发动——
          目标＝威胁降序的前两名（嗅探回答「是否呈现保护状态」，对高威胁目标最有价值：
          ① 今夜可能开枪的对象——确认无保护再开枪，省子弹（结果经 sniffLog 反哺 'shoot'）；
@@ -1420,7 +1463,10 @@
          伪装对象从人类职业里加权抽签（伪装成异形/外星人 = 自曝，剔除；crew 最重，关键位
          低权）。额度/每夜 1 次/池外不生效由引擎 run 段收口。边界：只动机制层（p.disguise）
          ——白天口头宣称仍走既有 claim 逻辑，不与之强行对齐。注意：本分支在经典局每夜被
-         询问，发动会改变船员查验答案 → 行为指纹（按硬纪律 4 重建基线，见交接 §五）。 */
+         询问，发动会改变船员查验答案 → 行为指纹（按硬纪律 4 重建基线，见交接 §五）。
+         〔v1preview1.0 7.3.0 强力乔装〕持有 ≥2 次时按 30% 概率升级为强力（一次耗尽）——
+         强力兼骗蛰伏与神探，AI 在「场上有查证位压力」时更倾向它：神探在场或近 3 夜有
+         外星人/神探类查验反馈（inbox）时概率翻倍。opt 前缀 'strong:' 由引擎解析。 */
       case 'disguise': {
         if (p.disguiseLeft <= 0) return {};
         const accused = g.players.some(o => o.id !== p.id && !o.out &&
@@ -1436,9 +1482,23 @@
           const w = VA.disguiseW[r] != null ? VA.disguiseW[r] : VA.disguiseWDefault;
           for (let k = 0; k < w; k++) weighted.push(r);
         }
-        return { opt: weighted[rng.int(weighted.length)] };
+        const role = weighted[rng.int(weighted.length)];
+        let strong = false;
+        if (p.disguiseLeft >= 2) {
+          /* 「场上有查证位压力」：查证位在场（神探/摆渡人，席位声明驱动）或经典外星人在场
+             （蛰伏查验）——强力乔装兼骗二者，故此时更倾向一次耗尽（D6：不手写角色键链）。 */
+          const verifySeat = RD.rolesOfGroup('verify');
+          const hasSeer = g.players.some(o => !o.out &&
+            (verifySeat.indexOf(o.role) >= 0 || ACT.isClassicXeno(o)));
+          const prob = hasSeer ? 0.6 : 0.3;
+          strong = rng.chance(prob);
+        }
+        return { opt: (strong ? 'strong:' : '') + role };
       }
       case 'vote': return { target: vote(g, p) };
+      /* 〔v1preview1.0 6.9〕逃亡窗口：已达标即脱离（次胜落袋；6.9.5 的合法性由引擎 run 侧收口，
+         不成立时不消耗资源、可再次尝试）。寂灭/决斗阶段无本窗口（req 侧已排除）。 */
+      case 'escape': return p.escapeQualified ? { do: true } : {};
     }
     return {};
   }

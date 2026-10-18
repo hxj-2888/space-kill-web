@@ -65,6 +65,10 @@ const ORDER = [
   /* v66 声明层：事件族契约（G1，纯数据）与角色声明表已在 DECL_STACK 中前置加载；
      B5 揭示统一服务（运行期调用，加载序只要求先于首局） */
   'v66/reveal/revealService',
+  /* 〔v1preview1.0 2.8.16/4.10.0〕发起者记账与有效输出账本（仅系统可见）——
+     运行期由 engine.js（applyLethal/applyInfection/步骤 8 下毒/步骤 9 收盘/驱逐销毁）调用，
+     故须先于 engine/steps 与 engine 加载；不依赖任何模块（纯记账）。 */
+  'v66/execution/ledger',
   'engine/announce',
   'engine/steps',
   'engine',
@@ -84,7 +88,7 @@ const AI_STACK = ['ai/visibility', 'ai/util', 'ai/memory', 'ai/cloud', 'ai/belie
    注意：这里必须写完整模块路径 'v66/reveal/revealService'——曾误写为目录名 'v66/reveal'，
    导致 noBridge/minimal/aiOnly 三个剖面尝试加载不存在的 js/v66/reveal.js 而 ENOENT
    整体失败（SK_NO_BRIDGE=1 同种子对照臂、dbg/dbg1 调试脚本全部不可用）。 */
-const ENGINE_STACK = ['v66/reveal/revealService', 'lang/announceIR', 'engine/announce', 'engine/steps', 'engine'];
+const ENGINE_STACK = ['v66/reveal/revealService', 'v66/execution/ledger', 'lang/announceIR', 'engine/announce', 'engine/steps', 'engine'];
 
 /* UI 侧文件（浏览器与 uismoke 需要；纯 AI 工具不需要） */
 const ORDER_UI = ['view', 'audio', 'ui', 'net', 'main'];

@@ -29,7 +29,7 @@
      originRole（原职业标注）是 ③ 的固定格式差量（4.7.5，B2 后仅此一处保留）。 */
   const SCHEMA = {
     announceDeath:     ['id', 'factionName', 'presentedRole', 'trueRole', 'report'], // ⑥ 4.10.6/2.3.4
-    announceExpel:     ['id', 'factionName', 'presentedRole', 'trueRole'],           // ⑩ 2.3.4
+    announceExpel:     ['id', 'factionName', 'presentedRole', 'trueRole', 'cause', 'report'],  // ⑩ 2.3.4；cause/report 为逃亡差量（6.9.4②③，登记 2.8.9(21)）
     announceExpose:    ['label', 'items'],                                           // ④⑤ 2.8.12④〔2.8.9(17)〕
     announceDetective: ['id', 'presentedRole', 'originRole'],                        // ③ 4.7.2/4.7.5
   };
@@ -78,11 +78,13 @@
     });
   }
 
-  /* ⑩ 驱逐（2.3.4） */
-  function expel(cr, factionName) {
+  /* ⑩ 驱逐（2.3.4）。〔v1preview1.0 6.9〕extra.cause='逃亡' 时走逃亡差量：原因标注「逃亡」、
+     调查报告字段仅标「已逃亡」（不列任何致死来源，6.9.4③；登记 2.8.9(21)）。 */
+  function expel(cr, factionName, extra) {
     return build('announceExpel', {
       id: cr.id, factionName,
       presentedRole: cr.roleName, trueRole: cr.trueRoleName,
+      cause: extra && extra.cause, report: extra && extra.report,
     });
   }
 
@@ -109,9 +111,16 @@
       case 'announceDeath':
         return `${node.id} 号死亡，${node.factionName}` +
           `（呈现职业：${node.presentedRole}／真实职业：${node.trueRole}），尸体调查报告：【${node.report.join('、')}】`;
-      case 'announceExpel':
-        return `${node.id} 号被驱逐，${node.factionName}` +
-          `（呈现职业：${node.presentedRole}／真实职业：${node.trueRole}）`;
+      case 'announceExpel': {
+        /* 逃亡差量（6.9.4②③）：无尸体、无死亡——出局揭示原因标注「逃亡」，调查报告字段
+           仅标「已逃亡」，不得沿用 4.10.6 之致死来源清单。 */
+        const head = node.cause === '逃亡'
+          ? `${node.id} 号已逃亡，${node.factionName}` +
+            `（呈现职业：${node.presentedRole}／真实职业：${node.trueRole}）`
+          : `${node.id} 号被驱逐，${node.factionName}` +
+            `（呈现职业：${node.presentedRole}／真实职业：${node.trueRole}）`;
+        return head + (node.report ? `，调查报告：【${node.report}】` : '');
+      }
       case 'announceExpose':
         return `${node.label}：` + node.items.map(it => `${it.id} 号（${it.roleName}）`).join('、');
       case 'announceDetective':

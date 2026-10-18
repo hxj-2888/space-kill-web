@@ -682,7 +682,15 @@ const SKD = global.SKDerivation;               // 〔43〕阵营成员 ≠ 能�
     if (p.antibodyNight != null && p.antibodyNight >= g.night) rows.push(kv('抗体', p.antibodyNight === g.night ? '生效中（仅今夜有效，可挡 1 次感染）' : '已持有，仅下夜有效'));
     if (p.silenceNight === g.night) rows.push(kv('沉默', '今夜主动技能被封锁（投票与私聊不受影响）'));
     if (p.shield) rows.push(kv('结茧护盾', `${p.shield} 层`));
-    rows.push(kv('感染抑制', `${p.suppressLeft} / 3`));
+    rows.push(kv('感染抑制', `${p.suppressLeft} / 2`));
+    /* 〔v1preview1.0 6.9.2⑤〕逃亡积分：仅外星人本人可见（selfPanel 是自己看自己，
+       不向他方通报、不进任何公告批次）。达标 10 分即取得逃亡资格（永久保留）。 */
+    if (p.faction === 'xeno' && global.Engine && global.Engine.escapeScoreOf) {
+      const s = global.Engine.escapeScoreOf(g, p);
+      rows.push(kv('逃亡积分', `${s.sum.toFixed(1)} / 10` +
+        (p.escapeQualified ? '（已取得逃亡资格）' : '') +
+        `［击杀 ${s.lethal.toFixed(1)}·助攻 ${(s.dying + s.retro).toFixed(1)}·驱逐 ${s.expel.toFixed(1)}·沉默 ${s.silence.toFixed(1)}］`));
+    }
     /* 〔43〕异形资产按 role 判：变形为异形的死囚确实克隆了异形能力（6.8.3⑧），
        而它的 faction 恒为 xeno —— 按 faction 判会让变形后的异形能力在面板上消失。 */
     if (p.role === 'alien') {
@@ -1033,10 +1041,12 @@ const SKD = global.SKDerivation;               // 〔43〕阵营成员 ≠ 能�
       `<p>你是 <b>${me.id != null ? me.id + ' 号 ' : ''}${esc(me.name || '')}</b> · ` +
       `<b class="${facCls(me.faction)}">${esc(me.roleName || '—')}（${facName(me.faction)}）</b> —— ` +
       `${g.winner === 'draw' ? '全局判平。' : (myWin ? '你所在的阵营获胜。' : '你所在的阵营落败。')}</p>` +
+      /* 〔v1preview1.0 6.9/1.2.5〕外星人逃亡＝次胜：不终结对局，对局继续后的结果不回溯改判 */
+      (g.xenoSubWin ? `<p class="evt good">外星人已执行逃亡，取得【次胜】（对局继续进行至终局，其次胜不因后续结果改判）。</p>` : '') +
       `<p class="hint">共 ${g.night} 夜，倒计时剩余 ${(g.countdown || 0).toFixed(1)}，净破坏量 ${((g.net10 || 0) / 10).toFixed(1)}。</p>` +
       `<div class="sec">全部身份（上帝视角已解锁）</div>` +
       roster.map(p => `<div class="kv"><span>${p.id} 号 ${esc(p.name)}</span>
-        <span class="${facCls(p.faction)}">${facName(p.faction)} · ${esc(p.roleName)}${p.out ? '（第' + p.outNight + '夜' + (p.outType === 'vote' ? '被驱逐' : '死于' + (D.CAUSE_NAME[p.cause] || '—')) + '）' : ''}</span></div>`).join('');
+        <span class="${facCls(p.faction)}">${facName(p.faction)} · ${esc(p.roleName)}${p.out ? '（第' + p.outNight + '夜' + (p.outType === 'vote' ? '被驱逐' : p.outType === 'escape' ? '逃亡（次胜）' : '死于' + (D.CAUSE_NAME[p.cause] || '—')) + '）' : ''}</span></div>`).join('');
 
     rpNight = 0;
     el('rp-nights').innerHTML = nights(g).map(n =>

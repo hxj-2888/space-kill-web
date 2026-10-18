@@ -28,8 +28,21 @@
     bullets: '子弹',
     nightImmune: '夜晚免疫',
     armorStock: '常规护甲',        // 4.11.2① 存续型
-    fastArmorStock: '速成护甲',    // 4.11.2①之二 限期型（ttl=4）
+    fastArmorStock: '速成护甲',    // 4.11.2①之二 限期型
   };
+  /* 〔v1preview1.0 4.11.3① 第七批 G-3〕库存上限 3 件（原 2 件）：常规与速成**合并**计算。
+     上限只声明一次（声明层即唯一真源），执行层（process.js deliver）读本表收口，
+     表单与 AI 读推导层的 ACT.armorStockOf / ARMOR_STOCK_CAP（同源于此）。 */
+  const RESOURCE_CAP = { armorStock: 3, fastArmorStock: 3 };
+  /** 该资源所在「合并计」组的当前存量（护甲库存＝常规 + 速成） */
+  function stockOf(p, resKey) {
+    if (resKey === 'armorStock' || resKey === 'fastArmorStock')
+      return (p.armorStock || 0) + (p.fastArmorStock || 0);
+    return typeof p[resKey] === 'number' ? p[resKey] : 0;
+  }
+  function resourceCap(resKey) {
+    return Object.prototype.hasOwnProperty.call(RESOURCE_CAP, resKey) ? RESOURCE_CAP[resKey] : null;
+  }
 
   const PROCESSES = {
     /* 制药（3.3.1）：医生族通用进程；放弃 2 个夜晚的行动，两夜可不连续、中断不回退；
@@ -224,5 +237,5 @@
     return bad;
   }
 
-  global.SKProcess = { PROCESSES, RESOURCE_LABELS, keys, get, ofRole, deliverText, audit };
+  global.SKProcess = { PROCESSES, RESOURCE_LABELS, RESOURCE_CAP, resourceCap, stockOf, keys, get, ofRole, deliverText, audit };
 })(typeof window !== 'undefined' ? window : globalThis);

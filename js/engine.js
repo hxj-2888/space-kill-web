@@ -24,8 +24,10 @@
      转移操作权」）——与 2.1.5 一致；6.8.3③「变形先于到账」之表述以 ④ 为准：变形夜可用当夜额度。
      本文件 grants() 于 nextNight 内调用、P-id 紧随其后，故顺序即为此。 */
   const NORMAL  = ['P-id','P-clean','0a','0b','0c','0.1','0.1s','0.2','0.5','0.55','0.6','1','2','3','3.5','4a','4b','5','6','7','8','9','10','11'];
-  const EXTINCT = ['P-id','0.1','0.1s','0.2','0.5','0.55','0.6','1','2','3','3.5','4b','5','6','7','8','9'];
-  const DUEL    = ['P-id','0a','0b','0c','0.1','0.1s','0.2','0.5','0.55','0.6','1','2','3','3.5','4a','4b','5','6','7','8','9','11'];
+  /* 〔v1preview1.0 2.6.1/2.6.5〕寂灭与决斗时刻无白天流程，留言与流程脱钩——出局者的留言
+     窗口挂于夜首（'9' 之后、'P-id' 之前由次日队列承载），照常提交并公开。 */
+  const EXTINCT = ['D-will','P-id','0.1','0.1s','0.2','0.5','0.55','0.6','1','2','3','3.5','4b','5','6','7','8','9'];
+  const DUEL    = ['D-will','P-id','0a','0b','0c','0.1','0.1s','0.2','0.5','0.55','0.6','1','2','3','3.5','4a','4b','5','6','7','8','9','11'];
 
   /* 1.5.2 夜数上限与全局平局（2026-10-04 修订：999 → 99，并加判定节点守卫）
      正文 1.5.2：「判定节点与该夜实际结算到的最后一个步骤一致，凡至第 99 夜结束时仍无胜负即
@@ -54,7 +56,7 @@
     '0.5':'感染抑制','0.55':'感染致死','0.6':'进化 / 转化 / 转职','1':'乔装','2':'查验 / 巡逻',
     '3':'保镖保护 / 安全室','3.5':'嗅探','4a':'维修','4b':'破坏 / 结茧',
     '5':'外星人击杀','6':'开枪','7':'异形行动','8':'医生','9':'死亡结算','10':'紧急会议','11':'倒计时结算',
-    'M-talk':'会议讨论','M-vote':'会议投票','M-speech':'验票官专属发言','D-will':'遗言','D-talk':'自由讨论','D-vote':'投票',
+    'M-talk':'会议讨论','M-vote':'会议投票','M-speech':'验票官专属发言','D-will':'留言','D-talk':'自由讨论','D-vote':'投票',
     'D-open':'开局公开讨论','D-report':'窃听报告（条件性阶段）',
   };
 
@@ -105,7 +107,7 @@
     }
 
     let res = 'wasted';
-    let immuneUsed = false;
+    let immuneUsed = false, armorBroken = false, shieldBroken = false;
     if (t && !t.out && !t.dying) {
       /* 4.4⑤：记录「当夜对该目标出过枪击的攻击方」——悬赏与死因归属解耦，各自独立触发 */
       if (type === 'gun' && attacker && attacker.id !== t.id) {
@@ -131,9 +133,9 @@
       else if (t.patrolDmg) { t.patrolDmg = false; res = 'blocked'; }
       /* 4.11.1⑤ 层序（伤害侧「保护→巡逻→护甲→护盾」）：工匠护甲为存续类，排在结茧护盾**之前**
          （类内明文优先）。双计数独立：护甲同时含伤害侧与感染侧各 1 单位，本处扣伤害侧。 */
-      else if (t.armor && t.armor.mode) { t.armor.mode = null; res = 'blocked'; priv(g, t, '你的护甲被打破了。'); }
+      else if (t.armor && t.armor.mode) { t.armor.mode = null; res = 'blocked'; armorBroken = true; priv(g, t, '你的护甲被打破了。'); }
       else if (t.shield > 0) {
-        t.shield -= 1; res = 'blocked';
+        t.shield -= 1; res = 'blocked'; shieldBroken = true;
         /* 5.7⑧：结茧护盾被打破时，其持有者知情（不含攻击者信息） */
         priv(g, t, '你的结茧护盾被打破了。');
       }
@@ -159,6 +161,35 @@
       if (!t.deathCauses) t.deathCauses = [];
       if (t.deathCauses.indexOf(type) < 0) t.deathCauses.push(type);
     }
+    /* 〔v1preview1.0 2.8.16/4.10.0〕发起者记账：一切攻击入账（仅系统可见）。
+       追溯型候选同步入账：击破工匠护甲/结茧护盾、消耗夜晚免疫（跨夜稀缺资源）；
+       工程师安全室之当夜免除**不入账**（4.10.0⑥(a)——当夜状态自动消失，不构成有效输出）。 */
+    if (t) {
+      const L = global.SKLedger;
+      if (L) {
+        L.recordAttack(g, attacker, t, type, res);
+        if (res === 'blocked') {
+          if (armorBroken) L.recordRetro(g, attacker, t, 'armor');
+          else if (shieldBroken) L.recordRetro(g, attacker, t, 'shield');
+          else if (immuneUsed) L.recordRetro(g, attacker, t, 'immune');
+        }
+      }
+    }
+    /* 〔v1preview1.0 7.2.7 染血指认〕计数主体限异形与外星人个体（人类攻击不产生本反馈）；
+       口径为「出刀致濒死」——该个体之出刀使目标进入濒死即计 1 次（是否最终死亡、是否被
+       步骤 8 救回均不影响）；感染致死不计入。累计达 3 次后，自第 4 次及以后每一次出刀
+       （无论是否造成濒死——含被抵挡层吸收者），受攻击者即得知该攻击者之编号。
+       计数以个体独立、按本体累计、跨形态连续（不死/进化/转化/变形/转职不清零）；
+       不公开、不进批次、不进队内共享（仅受攻击者本人得知）。 */
+    if (attacker && t && (type === 'alien' || type === 'xeno')) {
+      /* 阈值口径：累计 3 次出刀致濒死后，**自第 4 次起**每一次出刀送指认（无论本次是否
+         造成濒死——含被抵挡层吸收者）；故判据用「出手前已达 3」而非「出手后」。
+         达阈值当夜的剩余出刀（双刀第二刀）即行适用，不必待次夜。 */
+      const pre = attacker.bloodCount || 0;
+      if (res === 'hit') attacker.bloodCount = pre + 1;
+      if (pre >= 3 && attacker.id !== t.id)
+        priv(g, t, `染血指认：${attacker.id} 号。`);
+    }
     /* 4.10⑥/7.2.2：攻击结果即时反馈——同一次出手的多份由调用方汇总为一条（见 steps.js 步骤 5/6/7）；
        本函数只产出单份结果与结构化落盘（攻击方私有流水，供 AI 推理）。 */
     if (attacker && !attacker.out) {
@@ -181,6 +212,17 @@
     if (!t || t.out) return 'none';
     /* 4.3.1：安全室于施加阶段拦截标记（全额减免层，当夜不受次数限制），不消耗其他层 */
     if (t.safeRoomNight != null && t.safeRoomNight === g.night) return 'blocked';
+    /* 〔v1preview1.0 4.14.4〕疫苗抗体＝感染侧**全额减免层**（2.8.9(24)(26)）：先于一切
+       抵挡层且不消耗其他层；自接种次夜起连续 4 夜逐夜授予，逐夜独立判定、不结转。
+       与生化医师抗体（4.5）同夜并存时**由疫苗抗体拦截、抗体不消耗**（4.14.7，I-11）；
+       与安全室同夜并存时二者各依自身存续独立判定、互不顶替（4.14.7 定案③）。
+       7.2.9 生效感知仅送达疫苗研究员本人（不含目标编号与标记真伪）。 */
+    if (t.vaccineUntil != null && g.night >= t.vaccineUntil - 3 && g.night <= t.vaccineUntil) {
+      const v = t.vaccineBy ? P(g, t.vaccineBy) : null;
+      if (v && !v.out && v.role === 'vaccinist')
+        priv(g, v, `疫苗抗体生效：已拦截 1 次感染（该目标有效期至第 ${t.vaccineUntil} 夜）。`);
+      return 'blocked';
+    }
     if (t.antibodyNight === g.night) {
       t.antibodyNight = null;
       const b = t.antibodyBy ? P(g, t.antibodyBy) : null;
@@ -204,19 +246,25 @@
        消耗本侧（4.11.1①「双计数独立，分别消耗、互不牵连」）。 */
     if (t.armor && t.armor.mode) { t.armor.mode = null; priv(g, t, '你的护甲被打破了。'); return 'blocked'; }
     if (t.infection) return 'none';                                          // 标记天然互斥
-    const fast = infector && infector.faction === 'alien' && infector.alien.dir === 'infect';
+    const fast = infector && infector.role === 'alien' && infector.alien.dir === 'infect';
     let out;
-    if (t.faction === 'alien') {                                             // 效果免疫 → 假标记
+    /* 〔v1preview1.0 2.8.1①/5.3.2③〕效果免疫按**字面身份**判：异形（含死囚呈现异形时，
+       6.8.3⑧ 克隆效果免疫）被施加感染只得假标记——不进计时、不致死。死囚未呈现异形时
+       按本局职业池内职业计，人类/异形以外的呈现身份均真受感染（3.3.5：外星人全程属真感染）。 */
+    if (t.role === 'alien') {                                             // 效果免疫 → 假标记
       t.infection = { real: false, appliedNight: g.night, deathNight: null };
       out = 'fake';
     } else {
-      t.infection = { real: true, appliedNight: g.night, deathNight: g.night + (fast ? 1 : 2) };
-      /* 〔43〕感染治疗额度是**经典外星人**的被动（6.5），按 role 判。
-         此前按 faction 判 ⇒ 死囚每次被感染都白攒一份额度，而步骤 8 的 req 又会给它派
-         xenoCure —— 请求与表单 kind 不一致，静默换成医生表单（见 steps.js 步骤 8）。 */
-      if (global.SKDerivation.isClassicXeno(t)) t.cureSelf = Math.min(1, t.cureSelf + 1);
-      priv(g, t, `你身上出现感染标记，将于第 ${t.infection.deathNight} 夜致死。`);
-      out = 'real';
+    t.infection = { real: true, appliedNight: g.night, deathNight: g.night + (fast ? 1 : 2) };
+    /* 〔43〕感染治疗额度是**经典外星人**的被动（6.5），按 role 判。
+       此前按 faction 判 ⇒ 死囚每次被感染都白攒一份额度，而步骤 8 的 req 又会给它派
+       xenoCure —— 请求与表单 kind 不一致，静默换成医生表单（见 steps.js 步骤 8）。 */
+    if (global.SKDerivation.isClassicXeno(t)) t.cureSelf = Math.min(1, t.cureSelf + 1);
+    priv(g, t, `你身上出现感染标记，将于第 ${t.infection.deathNight} 夜致死。`);
+    out = 'real';
+    /* 〔v1preview1.0 2.8.16/4.10.1④〕感染（延迟类）入账——施加者为发起者（真实身份），
+       其击杀归属归施加者而非致濒死当夜之他人；假标记不入账（不进计时、不致死）。 */
+    if (global.SKLedger) global.SKLedger.recordDelayed(g, infector, t, 'infect', true);
     }
     god(g, `${infector ? infector.id + ' 号' : '系统'}感染 ${t.id} 号 → ` +
           (out === 'real' ? `真标记，第 ${t.infection.deathNight} 夜致死` : '假标记（受体为异形）'));
@@ -380,17 +428,11 @@
       p.killedBy = null; p.repairedTonight = 0; p.branch = null; p.gunAttackers = null; p.sabAmount = null;
       p.patroledTonight = false; p.repairValue = null;
       p.sniffedTonight = false;              // A6 批次 29：嗅探当夜标记（攒弹互斥的时序绑定，4.4.7②b）
+      p.reportUsedTonight = false;           // 4.12.2⑤：窃听报告每夜 1 次（不跨夜累积，v1preview1.0 P0-1）
 
-      /* 转化：新方向于次夜生效；次夜步骤 0.6 前死亡 → 回滚（不公告、不计次数，5.5） */
-      if (p.alien && p.alien.pendingDir) {
-        if (p.out) { p.alien.converts -= 1; g.pendingEvolve = Math.max(0, (g.pendingEvolve || 0) - 1); }
-        else {
-          p.alien.dir = p.alien.pendingDir;
-          if (p.alien.dir !== 'kill') p.alien.extraKill = 0;   // 离开击杀方向：额外出刀作废（5.4）
-          priv(g, p, `转化完成，当前方向：${{ destroy: '破坏', infect: '感染', kill: '击杀' }[p.alien.dir]}。`);
-        }
-        p.alien.pendingDir = null;
-      }
+      /* 〔v1preview1.0 P0-2/P0-3〕转化已于**当晚步骤 0.6 结算完成即生效、不回滚**（5.5.3②）——
+         原「pendingDir 次夜生效＋次夜步骤 0.6 前死亡回滚＋暂寄状态」整套机制已废除
+         （死亡依 1.5.1③ 在当夜步骤 9 结算完成时释放占位，与转化生效无关）。 */
       /* 击杀进化：额外出刀自进化后的下一个夜晚起可用（5.4） */
       if (p.alien && p.alien.dir === 'kill' && p.alien.evoNight === g.night - 1 && !p.alien.extraGiven) {
         p.alien.extraKill = 1; p.alien.extraGiven = true;
@@ -425,8 +467,19 @@
        非空条件是必要的：无任何可读组时挂入阶段只会开出一个空决策窗（读取无处可用），
        白白消耗一次报告额度前的决策机会，且让玩家看见一个无内容的窗口。 */
     const hasReport = g.players.some(p => p.role === 'listener' && !p.out &&
-      p.reportLeft > 0 && p.wiretap && p.wiretap.night === g.night && p.wiretap.groups.length > 0);
-    g.queue = (hasReport ? ['D-report'] : []).concat(['D-will', 'D-talk', 'D-vote']);
+      !p.reportUsedTonight && p.wiretap && p.wiretap.night === g.night && p.wiretap.groups.length > 0);
+    /* 〔v1preview1.0 6.9.3①〕逃亡窗口：白天讨论之前（以及此后其自身的每一个行动窗口）。
+       条件性阶段——仅已取得资格的外星人在场时挂入（寂灭/决斗无白天流程，本阶段不存在）。 */
+    const canEscape = g.players.some(p => p.faction === 'xeno' && !p.out && p.escapeQualified);
+    /* 〔v1preview1.0 4.13.1〕摆渡人调查：白天条件性阶段（当夜有尸体时），
+       位于〇留言之后、①自由讨论之前（2.3.2）。 */
+    const hasCorpse = (g.lastDeathIds || []).length > 0 &&
+                      g.players.some(p => p.role === 'ferryman' && !p.out);
+    g.queue = (hasReport ? ['D-report'] : [])
+      .concat(canEscape ? ['D-escape'] : [])
+      .concat(['D-will'])
+      .concat(hasCorpse ? ['D-ferry'] : [])
+      .concat(['D-talk', 'D-vote']);
     log(g, `—— 第 ${g.day} 个白天 ——`, 'info');
   }
 
@@ -474,8 +527,11 @@ function updatePhases(g) {
     const h = al.filter(p => p.faction === 'human').length;
     const a = al.filter(p => p.faction === 'alien').length;
     const x = al.filter(p => p.faction === 'xeno').length;
-    if (a === 0 && x === 0) return 'human';
-    if (h === 0 && x === 0) return 'alien';
+    /* 〔v1preview1.0 1.2.5③〕外星人逃亡生效即外星人阵营全灭（6.9.4①）——此后一切以
+       「阵营为外星人」为条件之判定均按已灭处理，故 ① 简化为「异形全灭」、② 简化为「人类全灭」。 */
+    const xGone = x === 0 || !!g.xenoGone;
+    if (a === 0 && xGone) return 'human';
+    if (h === 0 && xGone) return 'alien';
     if (h === 0 && a === 0) return 'xeno';
     if (g.countdown <= 0 && h > 0 && !g.tiers[9] && !g.extinction) return 'human';
     return null;
@@ -536,9 +592,11 @@ function updatePhases(g) {
       case 'repair':    return { do: d.opt === 'repair' || d.opt === 'extra', extra: d.opt === 'extra',
                                  value: d.num, extraValue: d.num2 };
       case 'safeRoom':  return { use: d.opt === 'yes' };
-      case 'xenoCheck': return { target: t[0] };
+      case 'xenoCheck': return d.opt === 'escape' ? { escape: true } : { target: t[0] };
       case 'xenoSilence': return { silence: d.opt === 'yes' };   // v24：蛰伏沉默字段（真人通道此前缺）
-      case 'xenoKill':  return { targets: t };
+      case 'xenoKill':  return d.opt === 'escape' ? { escape: true } : { targets: t };
+      /* 〔v1preview1.0 6.9〕夜间各行动窗口的「逃亡」选项（占用本窗口） */
+      case 'escape':    return { do: d.opt === 'yes' };
       case 'shoot':
         /* A6 批次 29：猎手三选一（gather/none/shoot）；警长提交无 opt——targets 即开枪。 */
         if (d.opt === 'gather') return { mode: 'gather' };
@@ -549,7 +607,9 @@ function updatePhases(g) {
       case 'wiretapReport': return { opt: d.opt || 'none', text: d.text || '' };
       case 'alienAct':  return { act: d.opt || 'none', targets: t };
       case 'doctor':    return { act: d.opt || 'none', targets: t, product: d.num };
-      case 'xenoCure':  return { use: d.opt === 'yes' };
+      case 'xenoCure':  return d.opt === 'escape' ? { escape: true } : { use: d.opt === 'yes' };
+      /* 〔v1preview1.0 4.13〕摆渡人调查（白天行动位）：提交 1~3 名存活编号 */
+      case 'ferry':     return { targets: t.slice(0, 3) };
       case 'meeting':   return { call: d.opt === 'yes' };
       case 'vote':      return { target: t[0] != null ? t[0] : null };
       case 'clean':     return { do: d.opt === 'yes' };
@@ -571,6 +631,74 @@ function updatePhases(g) {
      STEPS 的对外导出与全部读取点（beginStep / finishStep / stepOnce / Engine.STEPS）零改动。 */
   let STEPS = null;
 
+  /* ============ 外星人逃亡（6.9，v1preview1.0 第五/六批） ============ */
+  /* 6.9.1 积分构成（判据依 4.10.0，分值表在本条）：
+     致死型 1.5/2.0/2.5（按目标真实阵营）＋濒死型助攻 1.0＋追溯型助攻 0.5（账本三分）
+     ＋参与成功驱逐 0.5（上限 3 分）＋沉默 0.5（上限 3 分）。门槛 10。
+     积分仅本人可见（6.9.2⑤）：不进任何公告批次、不向他方通报、不进队内共享。 */
+  function escapeScoreOf(g, p) {
+    const L = global.SKLedger;
+    const sc = L ? L.scoreOf(g, p.id) : { lethal: 0, dying: 0, retro: 0, sum: 0 };
+    const expel = Math.min(p.escapeExpelCount || 0, 6) * 0.5;      // ④ 上限 3 分（至多 6 次）
+    const silence = Math.min(p.escapeSilenceCount || 0, 6) * 0.5;  // ⑤ 上限 3 分（至多 6 次）
+    return {
+      lethal: sc.lethal || 0, dying: sc.dying || 0, retro: sc.retro || 0,
+      base: sc.sum || 0, expel, silence,
+      sum: (sc.sum || 0) + expel + silence,
+    };
+  }
+  /* 6.9.2①：步骤 9 死亡结算完成后统一检查——积分达 10 分即取得逃亡资格（永久保留，
+     不因后被沉默/抑制/濒死/失能而作废）。 */
+  function checkEscapeQualify(g) {
+    for (const p of alive(g)) {
+      if (p.faction !== 'xeno' || p.escapeQualified) continue;
+      if (escapeScoreOf(g, p).sum >= 10) {
+        p.escapeQualified = true;
+        priv(g, p, `你的逃亡积分已达 ${escapeScoreOf(g, p).sum} 分：取得逃亡资格。`
+          + '可于白天讨论之前、或此后你自身的每一个行动窗口执行逃亡（占用一个行动窗口）。');
+      }
+    }
+  }
+  /* 6.9.3 逃亡执行。返回 true＝生效。 */
+  function doEscape(g, p) {
+    if (!p || p.out || p.faction !== 'xeno' || !p.escapeQualified) return false;
+    /* 6.9.7：寂灭/决斗时刻不适用（无白天流程与投票，且此时本可搏独存大胜） */
+    if (g.extinction || g.duel) {
+      priv(g, p, '寂灭/决斗时刻无法执行逃亡（该阶段只能搏独存）。');
+      return false;
+    }
+    /* 6.9.5 限制：逃亡之执行不得使人类或异形于外星人视为全灭后立即达成胜利条件——
+       检查时点＝执行时（非达标时）。不成立时不消耗任何资源、不暴露身份、可再次尝试。 */
+    const al = alive(g).filter(x => x.id !== p.id);
+    const hLeft = al.some(x => x.faction === 'human');
+    const aLeft = al.some(x => x.faction === 'alien');
+    if (!hLeft || !aLeft) {
+      priv(g, p, '逃亡不成立：此刻脱离会使某一方立即达成胜利（6.9.5），本次不消耗任何资源。');
+      return false;
+    }
+    /* 6.9.4①：逃亡生效即出局，走驱逐效应——不进死亡名单/死亡公告、不触发死亡相关效果，
+       所属阵营存活计数相应减 1；外星人阵营仅 1 名成员，故其出局即该阵营全灭。 */
+    p.out = true; p.outType = 'escape'; p.outNight = g.night; p.escaped = true;
+    /* 〔v1preview1.0 4.11.3②〕工匠出局 ⇒ 未分配库存一并消失（逃亡与死亡/驱逐同制） */
+    if (p.role === 'artisan') { p.armorStock = 0; p.fastArmorStock = 0; }
+    g.xenoGone = true;          // 外星人视为全灭（1.2.5③）
+    g.xenoSubWin = true;        // 次胜已达成（不终结对局，1.2.5①）
+    if (global.SKLedger) global.SKLedger.destroyFor(g, p.id);
+    /* 6.9.4②③：随批次⑩发布——标准揭示范围（真实阵营＋呈现职业＋真实职业），原因标注
+       「逃亡」，调查报告字段仅标「已逃亡」（不列致死来源）。 */
+    Reveal.reveal(g, p, 'expel');
+    const er = Reveal.checkResult(p, 'expel');
+    announce(g, '⑩', AIR.render(AIR.expel(er, D.FACTION[p.faction].name, { cause: '逃亡', report: '已逃亡' })));
+    banner(g, `${p.id} 号已逃亡脱离对局——外星人取得次胜，对局继续。`);
+    log(g, `${p.id} 号（外星人）执行逃亡：次胜成立，对局继续（1.2.5）。`, 'good');
+    /* 6.9.4④：死人频道/全知视角/押注照常适用；留言明文不适用（2.6.1 例外，2.8.9(22)）。
+       6.9.3③：逃亡生效后不再成为任何行动目标、不参与后续结算（出局即天然满足）。 */
+    updatePhases(g);
+    const w = checkWin(g, null);
+    if (w) endGame(g, w);       // 理论上被 6.9.5 挡住；兜底
+    return true;
+  }
+
   /* ============ 投票结算 ============ */
   function resolveVote(g, isMeeting) {
     const voters = alive(g);
@@ -591,19 +719,35 @@ function updatePhases(g) {
 
     let out = null;
     const keys = Object.keys(counts);
-    /* ⑨ 公示：总票数 + 每名被投玩家的得票数（票数公开；票源仍仅验票官可见） */
+    /* ⑨ 票数公开（2.3.4 附，v1preview1.0 第四批 M）：**只公告各被投票者之编号及其得票数**——
+       得票为 0 者不列入（counts 仅含有票键，天然满足）；**不公开投票者编号、不另发弃票人数、
+       不发投票总票数**（弃票与总票数由玩家依存活名单自行推算，属 7.0 推理自由）。
+       发布于驱逐门槛判定之后、驱逐公告（⑩）之前，故无人被驱逐时本批次照常发布。 */
     const detail = keys.slice().sort((a, b) => counts[b] - counts[a])
       .map(k => `${k} 号 ${counts[k]} 票`).join('、');
-    const abstain = voters.length - total;
-    announce(g, '⑨', `本轮投票总票数：${total}（弃票 ${abstain}）。得票：${detail || '无人得票'}`);
+    if (keys.length) announce(g, '⑨', `得票：${detail}`);
     if (keys.length) {
       const max = Math.max(...keys.map(k => counts[k]));
       const tops = keys.filter(k => counts[k] === max);
-      if (tops.length === 1 && max >= 2) out = +tops[0];
+      /* 2.3.4 驱逐门槛（v1preview1.0 第四批 M：2 票 → 3 票）：最高票＋无平票＋至少 3 票，
+         三条须同时满足；紧急会议（2.3.3）适用 2.3 全部规则、同制，不设残局例外。 */
+      if (tops.length === 1 && max >= 3) out = +tops[0];
     }
     if (out != null) {
       const p = P(g, out);
       p.out = true; p.outType = 'vote'; p.outNight = g.night;
+      /* 〔v1preview1.0 4.11.3②〕工匠出局 ⇒ 未分配库存一并消失 */
+      if (p.role === 'artisan') { p.armorStock = 0; p.fastArmorStock = 0; }
+      /* 4.10.0⑤(b)：目标出局（未死亡）时，挂其名下的未结算追溯档案一并销毁 */
+      if (global.SKLedger) global.SKLedger.destroyFor(g, p.id);
+      /* 6.9.1④：参与成功驱逐——投给最终被驱逐者（白天与夜晚会议同制）0.5 分，累计上限
+         3 分（至多 6 次）。仅外星人计分；本人独家可见（priv），不向他方通报。 */
+      for (const v of voters) {
+        if (v.faction !== 'xeno' || v.lastVote !== out) continue;
+        if ((v.escapeExpelCount || 0) >= 6) continue;                 // 已达上限
+        v.escapeExpelCount = (v.escapeExpelCount || 0) + 1;
+        priv(g, v, `参与成功驱逐：+0.5 分（本项累计 ${Math.min(v.escapeExpelCount, 6) * 0.5}/3 分）。`);
+      }
       /* B5：驱逐揭示走统一服务（2.3.4：真实阵营＋呈现职业＋真实职业）；B2 删原职业标注。
          C6（2026-10-04）：公告文案改由揭示服务出参拼装——真实职业走独立槽位 trueRole，
          与已删除的「原职业 originRole」物理分离（originRole 属转职史，2.8.12④ 已删）。 */
@@ -612,7 +756,7 @@ function updatePhases(g) {
       /* P1-a 公告 IR：节点由揭示出参构造，模板渲染统一走 AnnounceIR */
       announce(g, '⑩', AIR.render(AIR.expel(er, D.FACTION[p.faction].name)));
     } else {
-      announce(g, '⑩', '本轮无人被驱逐（未满足最高票 / 无平票 / 至少 2 票）。');
+      announce(g, '⑩', '本轮无人被驱逐（未满足最高票 / 无平票 / 至少 3 票）。');
     }
     /* 会议夜（isMeeting）跳过步骤 11，投票结算即该夜最后节点，夜数兜底在此生效 */
     const w = checkWin(g, isMeeting ? 'vote' : null);
@@ -909,5 +1053,7 @@ function updatePhases(g) {
        4.6.4③ 毒伤层序反常）的断言需要直调结算入口——此前层序只能经步骤处理器间接覆盖，
        毒伤「仅全额减免可挡」这类反常层序无法被常规对局稳定触发到。 */
     applyLethal, applyInfection,
+    /* 〔v1preview1.0 6.9〕外星人逃亡：积分（本人独家可见）、达标检查、执行 */
+    escapeScoreOf, checkEscapeQualify, doEscape,
   };
 })(typeof window !== 'undefined' ? window : globalThis);

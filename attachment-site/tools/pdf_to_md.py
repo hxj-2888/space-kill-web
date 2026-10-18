@@ -20,7 +20,7 @@ RE_CHAPTER = re.compile(r'^第[0-9一二三四五六七八九十百零两]+[章�
 RE_SUB = re.compile(r'^\d+\.\d+[^0-9]')
 RE_SECTION = re.compile(r'^[一二三四五六七八九十]+、')
 RE_HR = re.compile(r'^[—\-*_=]{3,}$')
-TITLE = '# 太空杀三阵营对抗规则 · 正文 v6.6（v66 修订版）'
+TITLE = '# 返航录三阵营对抗规则 · 正文 v1preview1.0'
 
 
 def main():

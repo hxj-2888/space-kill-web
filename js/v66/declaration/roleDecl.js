@@ -189,6 +189,11 @@
     announce: '发布官方公告', report: '窃听报告', publish: '原样公示', meeting: '紧急会议',
     kill: '出刀', infect: '感染', destroy: '破坏', cocoon: '结茧', disguise: '乔装',
     lurk: '蛰伏', selfHeal: '自我治疗', morph: '变形', revive: '复生', wiretap: '窃听读取',
+    /* 〔v1preview1.0 4.13/4.14〕新增职业的四个动作名 */
+    ferry: '摆渡人调查（白天，4.13）',
+    diagnose: '诊断（清感染含假标记＋产 1 份样本，4.14.1）',
+    develop: '研制（耗 2 份样本解锁接种额度，4.14.2）',
+    inoculate: '接种（授予 4 夜疫苗抗体，4.14.3）',
   };
   /* duty.senses ＝ 角色专属的主动情报面（速查卡「可见性」行逐条转录）。
      与 visibility（规则授予的公告批次／私反馈族）分列：前者是「我这张牌能查到什么」。 */
@@ -212,6 +217,10 @@
          速查卡（CARD）此前只转录了 infectMarks 一档，是**转录漏项**，不是规则如此。 */
     infectMarksTrueFalse: '感染标记清单，**且可分辨真标记／假标记**（仅异形：施加方视野，3.3.10④）',
     antibodyFeedback: '抗体生效反馈（不含编号与真伪）',
+    /* 〔v1preview1.0 7.2.9/4.14〕疫苗抗体生效感知：仅疫苗研究员本人（不附目标编号与真伪） */
+    vaccineAntibodyFired: '疫苗抗体生效感知（仅本人：生效已发生与剩余夜数）',
+    /* 〔v1preview1.0 7.2.10/4.13〕摆渡人调查结论（私人日志）：有凶手∕无凶手，不附编号 */
+    ferryLog: '摆渡人私人日志：历次调查的「有凶手∕无凶手」结论（不附编号，死后作废）',
     dyingList: '谁处于濒死（3.3.12 对称例外：医生族的最低可见性特权）',
     /* 〔v7 · 2026-10-08 按正文 6.8.4③ 补入〕死囚复生明文授予濒死可见性：
        「③濒死可见性：明文授予『可见当夜濒死者』（比照 3.3.12 治疗∕救援所需的最低可见性）」。
@@ -344,6 +353,9 @@
        grants 消费点有据可依，不代表它们是「能力标签类」效用项。 */
     sniff:       '嗅探·保护状态查询（4.4.8；猎手专属，不计入危险度能力档）',
     wiretap:     '窃听·读取配对私聊（4.12.1；窃听者专属，不计入危险度能力档）',
+    /* 〔v1preview1.0 4.14〕疫苗研究员专属：疫苗抗体（感染侧全额减免层，2.8.9(24)(26)）。
+       与 treat（即时清除）分列：接种是**预防**（连续 4 夜的全额减免层），不清除已有标记。 */
+    vaccine:     '接种·疫苗抗体（4.14.3；感染侧专属全额减免，不参与伤害侧与毒药侧）',
     /* 〔批次 31〕工匠与毒师的能力标签。craft 含铸造/分配/护甲三层（均为存量或进程型产出，
        不构成攻防优势）；poison 含下毒/解药（信息优势为主：毒师可见全场毒药清单，但下毒与
        解药各只有 3 次、可被识破）。二者**均不进 dangerOf 的能力档**——毒师的威胁来自
@@ -366,8 +378,11 @@
     'base':      { name: '基础位',       members: ['crew'],                       seats: ['crew', 'crew', 'crew', 'crew'], capacity: 4,    seatOrder: 0, rule: '2.8.14' },
     'engineer':  { name: '工程位',       members: ['engineer'],                   seats: ['engineer'],                     capacity: 1,    seatOrder: 1, rule: '2.8.14' },
     'hunt':      { name: '猎杀位',       members: ['sheriff', 'hunter'],          seats: ['sheriff'],                      capacity: 1,    seatOrder: 2, rule: '2.8.14' },
-    'doctor':    { name: '医生位',       members: ['bio', 'rescue', 'poisoner'],  seats: ['bio', 'rescue'],                capacity: 2,    seatOrder: 3, rule: '2.8.14' },
-    'verify':    { name: '查证位',       members: ['detective'],                  seats: ['detective'],                    capacity: 1,    seatOrder: 4, rule: '2.8.14' },
+    /* 〔v1preview1.0 1.1.1/2.8.14⑤〕第九批新增两席：查证位＝神探∕摆渡人（1 席）；
+       医生位＝生化医师∕疫苗研究员 ＋ 救援医师∕毒师（2 席）。席位数与在场人数不变——
+       变体只换该席位的 occupant，不增删席位（1.1）。 */
+    'doctor':    { name: '医生位',       members: ['bio', 'vaccinist', 'rescue', 'poisoner'], seats: ['bio', 'rescue'],   capacity: 2,    seatOrder: 3, rule: '2.8.14' },
+    'verify':    { name: '查证位',       members: ['detective', 'ferryman'],     seats: ['detective'],                    capacity: 1,    seatOrder: 4, rule: '2.8.14' },
     'defense':   { name: '防御位',       members: ['bodyguard', 'artisan'],       seats: ['bodyguard'],                    capacity: 1,    seatOrder: 5, rule: '2.8.14' },
     'social':    { name: '社交位',       members: ['inspector', 'listener'],      seats: ['inspector'],                    capacity: 1,    seatOrder: 6, rule: '2.8.14' },
     'base:eng':  { name: '基础位·工程',  members: ['assistant'],                  seats: [],                               capacity: null, seatOrder: null, rule: '2.8.14②⑥' },
@@ -390,6 +405,8 @@
     crew: null, engineer: null, detective: null, sheriff: null, hunter: null,
     bio: null, rescue: null, poisoner: null, bodyguard: null, artisan: null,
     inspector: null, listener: null,
+    /* 〔v1preview1.0 第九批〕新增两职业：摆渡人（查证位变体）与疫苗研究员（医生位变体） */
+    ferryman: null, vaccinist: null,
     alien: null, xeno: null, convict: null,
     /* 转职系（assistant / armed / tempdoc）不在席位表内，恒不可直接选 ——
        它们只能经 0.6 转职获得（4.2.1）。此处显式标注，避免 UI 误列为可选。 */
@@ -495,12 +512,50 @@
       attend: { infect: 1.3 },
       attendAway: { lethal: 0.75, ballot: 0.75 },
       actionStep: '8', charges: { heal: 3, selfSave: 1 },
-      /* 〔v7 速查卡 · AI 职责面〕卡：「步骤 8：治疗 ／ 自救 ／ 制药三者互斥（亦可整晚不出手）」+「可见谁带有感染标记（仅编号清单，不显真伪…）」。 */
-      duty: { mutex: ['treat', 'selfSave', 'brew'],
+      /* 〔v7 速查卡 · AI 职责面〕卡：「步骤 8：治疗 ／ 自救 ／ 制药三者互斥（亦可整晚不出手）」+「可见谁带有感染标记（仅编号清单，不显真伪…）」。
+         〔v1preview1.0 2.5.3/2.4.2④〕**自救不入互斥**——其为濒死状态下的被动救命，不占出手栏；
+         互斥仅治疗∕制药二者。 */
+      duty: { mutex: ['treat', 'brew'],
               senses: ['infectMarks', 'antibodyFeedback'],
               cost: null },
       visibility: { batch: [], private: ['7.2.4'], selfOnly: true },
       source: '4.5', pending: true,
+    },
+    /* 〔v1preview1.0 4.14〕疫苗研究员＝医生位（生化医师席位）变体：四选一——
+       诊断（清感染含假标记＋产 1 份样本、不赋抗体、每夜至多 1 次）／研制（耗 2 份样本
+       解锁后每夜 1 支、即时产出不适 2.9）／接种（授予 4 夜疫苗抗体）／制药（固定产 1 瓶
+       救援药剂，无治疗选项——〔通则 2.8.9(23) 之例外〕）。无自救额度（4.14.5）。
+       疫苗抗体＝接种次夜起连续 4 夜逐夜授予之全额减免（感染侧专属，2.8.9(24)(26)），
+       不参与伤害侧与毒药侧（2.8.2⑧）。 */
+    vaccinist: {
+      name: '疫苗研究员', faction: 'human', group: 'doctor', isBase: true,
+      desc: '诊断／研制／接种／制药 四选一；接种授予目标连续 4 夜的疫苗抗体（感染侧全额减免）。',
+      grants: ['treat', 'brew', 'vaccine'], capClass: 'mid',
+      attend: { infect: 1.2 },
+      attendAway: { lethal: 0.8, ballot: 0.75 },
+      actionStep: '8', charges: { diagnose: Infinity, develop: Infinity, inoculate: Infinity, brew: Infinity },
+      duty: { mutex: ['diagnose', 'develop', 'inoculate', 'brew'],
+              senses: ['infectMarks', 'vaccineAntibodyFired'],
+              cost: null },
+      visibility: { batch: [], private: ['7.2.8', '7.2.9'], selfOnly: true },
+      source: '4.14', pending: true,
+    },
+    /* 〔v1preview1.0 4.13〕摆渡人＝查证位（神探席位）变体：白天专属行动位——条件性阶段
+       （当夜有尸体时，位于〇留言之后、①自由讨论之前；步骤 10 紧急会议中不设该阶段）；
+       就当夜尸体提交 1~3 名存活者编号，系统答「有凶手∕无凶手」（凶手指集合依 2.8.16②
+       真实身份，＝调查报告所列落身致死来源各自之发起者）；结论记入私人日志（死后作废，
+       4.13.4）；无发布通道（4.13.5）——全场唯一验后信息源。不涉身分判定、不公开编号。 */
+    ferryman: {
+      name: '摆渡人', faction: 'human', group: 'verify', isBase: true,
+      desc: '白天就当夜尸体提交 1~3 名存活者编号，系统答「有凶手／无凶手」；结论仅记入你的私人日志。',
+      capClass: 'mid',
+      attend: { ballot: 1.15, lethal: 1.1 },
+      attendAway: { infra: 0.75, infect: 0.7 },
+      actionStep: 'D-ferry', judgeMode: 'faction',
+      charges: { ferry: Infinity },
+      duty: { mutex: [], senses: ['ferryLog'], cost: null },
+      visibility: { batch: [], private: ['7.2.10'], selfOnly: true },
+      source: '4.13', pending: true,
     },
     rescue: {
       name: '救援医师', faction: 'human', group: 'doctor', isBase: true,
@@ -520,17 +575,17 @@
       /* A6 批次 31 实装（4.11）：防御位变体，与保镖同席位（1.1.1）、同行动位（步骤 3）。
          护甲（4.11.1）：挡 1 点伤害 ＋ 挡 1 次感染（双计数独立）；初始自带 1 件常规护甲
          （不可发配、不计库存上限）；同一目标至多 1 件，重复分配依 2.5 落空。
-         行动（4.11.2）：常规铸造（2 夜）∕速成铸造（1 夜，限期：第 2/3 夜生效、第 4 夜消失）
+         行动（4.11.2）：常规铸造（2 夜）∕速成铸造（1 夜，限期：自分配当夜起算且当夜即生效、第 1~3 夜有效、第 4 夜消失；未分配前不计期）
          ∕分配（1 夜，份数＝库存）三者择一；铸造属进程型产出（cast / castFast，2.9⑧ 不新增批次）。
          库存上限 2 件（仅约束未分配部分）；发出即锁死不可收回/转移（4.11.3②③）。
          限制（4.11.5）：无受袭感知（不享 4.8.3）、无连续分配限制。 */
       name: '工匠', faction: 'human', group: 'defense', isBase: true,
-      desc: '护甲：挡 1 伤 ＋ 1 感染（双计数独立），开局自带 1 件；每夜于常规铸造（2 夜）／速成铸造（1 夜，限期 2 夜生效）／分配（库存上限 2）三者择一。',
+      desc: '护甲：挡 1 伤 ＋ 1 感染（双计数独立），开局自带 1 件；每夜于常规铸造（2 夜）／速成铸造（1 夜，限期：自分配当夜起 3 夜有效）／分配（库存上限 3）三者择一。',
       grants: ['craft'], capClass: 'mid',
       attend: { infra: 1.15, lethal: 1.1 },
       attendAway: { infect: 0.7, verify: 0.85, ballot: 0.7 },
       actionStep: '3',
-      charges: { armorStock: 2 },
+      charges: { armorStock: 3 },      // 〔v1preview1.0 4.11.3①〕库存上限 2 → 3 件（常规＋速成合并计）
       visibility: { batch: [], private: [], selfOnly: true },
       /* 〔v7 速查卡 · AI 职责面〕卡：「工匠 · 核心：三选一：常规铸造／速成铸造／分配护甲」+「护甲…不公开而持有者自知，无受袭感知」。 */
       duty: { mutex: ['cast', 'castFast', 'distribute'],
@@ -639,14 +694,16 @@
          4.12.3①）；早于沉默覆盖期故不受封锁（2.8.3④附——时序确认，非豁免）。
          报告（D-report 白天条件阶段，先于〇留言，4.12.2②/2.3.2）：择定提交、可改写、
          可虚构，系统不比对不校正，随批次⑪发布并附「不保真」性质标注（官方背书第四档）。
-         额度：读取每夜可发动、不设组数上限；报告每夜 1 次、全局 2 次（4.12.5⑦）。 */
+         额度（v1preview1.0 第一批 P0-1）：读取每夜可发动、不设组数上限；**报告每夜 1 次、
+         不跨夜累积、逾期不补**（原「全局 2 次」口径与 4.12.5⑦/术语表/速查卡冲突，四处已同步；
+         charges.report 由 2 改为 1 表每夜上限，实账走 p.reportUsedTonight 夜级标记）。 */
       name: '窃听者', faction: 'human', group: 'social', isBase: true,
-      desc: '窃听（步骤 0.2）：读取当夜已公告配对组的私聊内容（不设组数上限）；次日白天可择定提交为报告（可改写、系统不保真，批次⑪），全局 2 次。',
+      desc: '窃听（步骤 0.2）：读取当夜已公告配对组的私聊内容（不设组数上限）；次日白天可择定提交为报告（可改写、系统不保真，批次⑪），每夜至多 1 次。',
       capClass: 'mid', grants: ['wiretap'],
       attend: { ballot: 1.2 },
       attendAway: { infra: 0.7, lethal: 0.7, infect: 0.7 },
       actionStep: '0.2', actionSteps: ['0.2', 'D-report'],
-      charges: { wiretap: Infinity, report: 2 },
+      charges: { wiretap: Infinity, report: 1 },
       visibility: { batch: ['⑪'], private: [], selfOnly: false },
       /* 〔v7 速查卡 · AI 职责面〕卡：「每夜可提交 1 次——择一组改写为「报告」，或择一组原样「公示」…二者共用该每夜 1 次」+「报告可自由改写，系统不校正」+「读取…不设组数上限」。 */
       duty: { mutex: ['report', 'publish'],

@@ -203,12 +203,22 @@
     return bad;
   }
 
+  /* 〔v1preview1.0 4.11.3① 第七批 G-3〕工匠护甲库存上限＝3 件（原 2 件），
+     常规与速成**合并计算**（速成产出即占用上限，未分配者亦占用；分配发出或到期消失时释放）。
+     库存按形态分两格记（armorStock 常规 / fastArmorStock 速成），合并受同一上限约束。 */
+  const ARMOR_STOCK_CAP = 3;
+  /** 该玩家的未分配护甲库存（常规 + 速成，合并计） */
+  function armorStockOf(p) {
+    return (p.armorStock || 0) + (p.fastArmorStock || 0);
+  }
+
   global.SKDerivation = {
     rolesAt, rolesAtAll, actionSlots, declaredActors, participantsOf, coverageGap,
     sendersAt, sendersOf, grantSenders, canActAt,
     isClassicXeno, isXenoCamp, isMorphed,
     stepsOfBatch, mechanismsProducing, stepsOfPrivate, observationsOf,
     compositionOf, hasAliveHolder, verifyPool, inVerifyPool,
+    ARMOR_STOCK_CAP, armorStockOf,
     audit,
   };
 })(typeof window !== 'undefined' ? window : globalThis);

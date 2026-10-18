@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="theme-color" content="#070b14" />
 <meta name="color-scheme" content="dark" />
-<title>太空杀 · 三阵营对抗</title>
+<title>返航录 · 三阵营对抗</title>
 <link rel="icon" href="favicon.ico" sizes="any" />
 <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png" />
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png" />
@@ -23,7 +23,7 @@
     <div class="start-box">
       <!-- 标题行 + 右上角紧凑工具条（音乐 / 音效 / 规则速览，归属明确） -->
       <div class="start-top">
-        <h1>太空杀 <span class="sub">三阵营对抗</span></h1>
+        <h1>返航录 <span class="sub">三阵营对抗</span></h1>
         <div class="start-actions" id="start-actions">
           <button id="btn-music-start" class="act" title="背景音乐开关（与音效独立）">♫ 音乐：开</button>
           <button id="btn-sfx-start" class="act" title="音效开关（与音乐独立）">🔔 音效：开</button>
@@ -37,7 +37,7 @@
            〔45〕首页新增「自选身份」（软偏好），见下方 .role-pick。 -->
       <div class="preview-note">
         <span class="pn-badge">V1preview</span>
-        <span><b>太空杀 V1preview</b> · 可玩测试版 —— 本版落地<b>异形对内协调</b>与<b>空查验池船员的去向</b>（满足条件转职／协助维修），后续将全力优化 <b>AI 判断逻辑</b> 与 <b>AI 语言</b>。</span>
+        <span><b>返航录 V1preview</b>（原名太空杀；规则口径 v1preview1.0）· 可玩测试版 —— 本版落地<b>强力乔装与染血指认</b>、<b>外星人逃亡（次胜）</b>、<b>摆渡人 · 疫苗研究员</b>两个新席位职业，后续将全力优化 <b>AI 判断逻辑</b> 与 <b>AI 语言</b>。</span>
       </div>
 
       <!-- 本局配置预览条：这是即将开局的预设，不是实时战况；总数与分项呈包含关系 -->
@@ -261,20 +261,23 @@
   </section>
 
 <!-- ============ 规则速览（全屏覆盖页：开始页/游戏页均可打开） ============
-     2026-10-04 文本审查 T1–T5：整页由 v4.1 口径重写为 v6.6（唯一权威源《太空杀V6.6正文_v66修订版》；
-     代码侧早已对齐，此处只改玩家可见说明）。 -->
+     2026-10-04 文本审查 T1–T5：整页由 v4.1 口径重写为 v6.6；
+     2026-10-17 换版：口径升到 v1preview1.0（唯一权威源《返航录三阵营对抗规则·正文 v1preview1.0》），
+     同步驱逐门槛 3 票、票数公开、感染抑制 2 次、乔装两型、染血指认与外星人逃亡。 -->
     <div id="rules-overlay" class="hidden">
       <div class="lg-head">
-        <span class="sec">规则速览 · 正式版 v6.6 精简</span>
+        <span class="sec">规则速览 · 正文 v1preview1.0 精简</span>
         <button id="btn-rules-close" class="ov-close" title="关闭（Esc）">✕</button>
       </div>
       <div class="rg-body">
         <div class="evt info"><b>夜间步骤</b>：变形/觉醒（前置）→ 清洗（前置）→ 私聊 → 蛰伏（外星人，可附沉默）→ 窃听 → 感染抑制 → 感染致死 → 进化/转化/转职 → 乔装 → 查验/巡逻 → 保护/护甲 → 嗅探 → 维修 → 破坏/结茧 → 外星人击杀 → 开枪 → 异形行动（出刀/感染）→ 医生/毒师 → 死亡结算 → 紧急会议 → 倒计时。</div>
         <div class="evt info"><b>伤害</b>：造成濒死；抵挡层序「全额减免（安全室/夜晚免疫）→ 保护 → 巡逻 → 护甲 → 护盾」，每层挡 1 点；濒死的生路有<b>三项</b>——步骤 8 救援额度、外星人夜晚免疫（6.4）、死囚复生（6.8.4），先到先得；步骤 8 未获救则步骤 9 死亡硬结算，不跨夜。</div>
-        <div class="evt info"><b>感染</b>：普通第 3 夜致死、感染进化第 2 夜；抑制延后 1 夜；医生清除（真伪不可辨）；感染致死同样适用三项生路。</div>
+        <div class="evt info"><b>感染</b>：普通第 3 夜致死、感染进化第 2 夜；抑制延后 1 夜（终身 2 次，用掉当夜失去全部主动技能）；医生清除（真伪不可辨）；感染致死同样适用三项生路。</div>
+        <div class="evt info"><b>乔装</b>：异形与外星人可乔装（每只全局 2 次）：普通型耗 1 次、只骗船员查验；<b>强力型耗 2 次</b>、兼骗蛰伏与神探查验（每个体至多 1 次），唯一反制是神探重复查验。</div>
+        <div class="evt info"><b>染血指认</b>：同一凶手累计 3 次出刀致濒死后，其后的每一次出刀，被攻击者都会得知他的编号（不公开计数）。</div>
         <div class="evt info"><b>停摆</b>：破坏量自选档（未进化 1.5~2.0 / 破坏进化与外星人 2.0~3.0），⑤只公布当夜总量；净破坏 3.0 / 6.0 使倒计时 +2.5 / +5.0，9.0 人类倒计时胜利永久失效；维修效力被破坏进化按比例削减（次夜 25%/50%）。第 99 夜未决出即全局判平。</div>
-        <div class="evt info"><b>白天</b>：（窃听报告 → 留言 →）自由讨论 → 投票 → 驱逐（最高票、无平票、≥2 票）。</div>
-        <div class="evt info"><b>胜利</b>：人类撑到倒计时归零或清场；异形人类全灭且外星人已灭；外星人残局独存或决斗僵局；99 夜未决判平。</div>
+        <div class="evt info"><b>白天</b>：（窃听报告 → 逃亡窗口 → 留言 → 摆渡人调查 →）自由讨论 → 投票 → 票数公开 → 驱逐（最高票、无平票、<b>≥3 票</b>）。</div>
+        <div class="evt info"><b>胜利</b>：人类撑到倒计时归零或清场；异形人类全灭且外星人已灭；外星人残局独存或决斗僵局；99 夜未决判平。<b>外星人另有次胜</b>：积分达 10 分后可主动逃亡脱离对局，判次胜且对局继续（不得使人类或异形立即获胜）。</div>
       </div>
     </div>
 
@@ -303,17 +306,18 @@
   <script src="js/corpus/tactics.js"></script>
   <script src="js/corpus/voice.js"></script>
   <script src="js/infer/pipeline.js"></script>
-<script src="js/infer/visible.js"></script><!-- v7 B0 回退：防透视投递侧可见性（view/ui 依赖 SKVisible.canSee） -->
-  <script src="js/ai/visibility.js"></script><!-- v7 可见性闸门：AI 与真人同角色时可见性统一（判据真源 = view.js sanitize） -->
+  <script src="js/infer/visible.js"></script>
+  <script src="js/ai/visibility.js"></script>
   <script src="js/ai/util.js"></script>
   <script src="js/ai/memory.js"></script>
   <script src="js/ai/cloud.js"></script>
   <script src="js/ai/belief.js"></script>
   <script src="js/ai/perceive.js"></script>
-  <script src="js/ai/voice.js"></script><!-- v7 角色心声与发言层：按 roleDecl.duty.senses 取材、按 duty.cost 留一手 -->
+  <script src="js/ai/voice.js"></script>
   <script src="js/ai/decide.js"></script>
   <script src="js/ai.js"></script>
   <script src="js/v66/reveal/revealService.js"></script>
+  <script src="js/v66/execution/ledger.js"></script>
   <script src="js/engine/announce.js"></script>
   <script src="js/engine/steps.js"></script>
   <script src="js/engine.js"></script>

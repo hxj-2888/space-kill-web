@@ -72,6 +72,9 @@
     'D-will': { duration: 30 }, 'D-talk': { duration: 180 },
     'D-report': { duration: 20 },   // A6 批次 29：窃听报告提交窗口（条件性阶段）
     'D-vote': { duration: 30 },
+    'D-escape': { duration: 20 },   // v1preview1.0 6.9：外星人逃亡窗口（白天讨论之前）
+    'M-escape': { duration: 20 },   // v1preview1.0 6.9：外星人逃亡窗口（会议发言之前）
+    'D-ferry': { duration: 25 },    // v1preview1.0 4.13：摆渡人调查（当夜有尸体时的白天行动位）
   };
 
   global.SKData = { FACTION, ROLES, HUMAN_BASE_ROLES, NAMES, NAMES_EXTRA, HUMAN_SETUP, DAMAGE_TYPE, CAUSE_NAME, STEP_TIME };
