@@ -95,3 +95,83 @@ jobs:
 
       - name: 核心脚本可达
         run: curl -fsSL -o /dev/null --max-time 30 "https://space-kill-web.pages.dev/js/main.js"
+
+  # ===== 附件站（space-kill.pages.dev）=====
+  # 为什么单列一个 job：附件站是**另一个** Pages 项目，产物在 attachment-site/site/，
+  # 与游戏站白名单（tools/deploy-pages.cjs 的 SITE_ENTRIES）互不重叠。
+  # 2026-10-21 之前这一步是手动 `wrangler pages deploy`，已因此漏发过三份规则 PDF
+  # （线上返回 text/html 的 SPA 回退，而仓库里文件齐全）。现纳入 CI，杜绝「提交了但没上线」。
+  deploy-attachment:
+    name: Cloudflare Pages (attachment site)
+    needs: check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Check deploy secrets
+        id: secrets
+        env:
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+        run: |
+          if [ -z "$CF_API_TOKEN" ] || [ -z "$CF_ACCOUNT_ID" ]; then
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "⚠ CF_API_TOKEN / CF_ACCOUNT_ID 未配置，跳过附件站部署"
+          else
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # 门禁：site/ 必须是**由源确定性重建**的产物。构建输入是 规则正文/*.md 与 剧情/*.docx，
+      # 若有人手改了 site/ 而没跑构建，这里会失败——防的是「产物与源分叉」。
+      - name: 校验 site/ 由源重建一致
+        run: |
+          python3 -m pip install --quiet python-docx==1.2.0 pdfplumber
+          cp -r attachment-site/site /tmp/site-before
+          (cd attachment-site && python3 tools/build_site.py)
+          diff -r /tmp/site-before attachment-site/site \
+            && echo "✓ site/ 与重建结果一致" \
+            || { echo "✗ site/ 与源重建结果不一致：请本地跑 python tools/build_site.py 后提交"; exit 1; }
+
+      - name: 部署附件站（wrangler pages deploy site）
+        if: steps.secrets.outputs.present == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          WRANGLER_SEND_METRICS: 'false'
+        run: |
+          cd attachment-site
+          npx wrangler@4 pages deploy site \
+            --project-name=space-kill \
+            --branch=main \
+            --commit-dirty=true
+
+  # ===== 附件站部署后冒烟 =====
+  smoke-test-attachment:
+    name: Attachment site smoke test
+    needs: deploy-attachment
+    if: needs.deploy-attachment.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: 首页可达
+        run: curl -fsSL -o /dev/null --max-time 30 "https://space-kill.pages.dev/"
+
+      - name: 规则在线阅读可达
+        run: curl -fsSL -o /dev/null --max-time 30 "https://space-kill.pages.dev/rules.html"
+
+      # 关键：PDF 必须是 application/pdf 且首字节为 %PDF —— 2026-10-21 正是这里
+      # 返回了 text/html 的 SPA 回退（23397 B），才发现附件站没部署。
+      - name: 四份规则 PDF 必须是真 PDF
+        run: |
+          set -e
+          for name in 正文 职业速查卡 术语表 判定流程图; do
+            url="https://space-kill.pages.dev/返航录三阵营对抗规则·${name}v1preview1.0.pdf"
+            ct=$(curl -fsSL -o /tmp/x.pdf -w '%{content_type}' --max-time 60 "$url")
+            head4=$(head -c 4 /tmp/x.pdf)
+            size=$(wc -c < /tmp/x.pdf)
+            echo "$name: $ct  $size B  head=$head4"
+            [ "$ct" = "application/pdf" ] || { echo "✗ $name 的 Content-Type 不是 application/pdf"; exit 1; }
+            [ "$head4" = "%PDF" ] || { echo "✗ $name 首字节不是 %PDF（疑似 SPA 回退）"; exit 1; }
+            [ "$size" -gt 100000 ] || { echo "✗ $name 体积异常小：$size B"; exit 1; }
+          done
+          echo "✓ 四份 PDF 全部为真 PDF"
