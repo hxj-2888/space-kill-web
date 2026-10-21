@@ -400,8 +400,23 @@
       }
       /* C11（进程注册表）：进程型产出的次夜到账——通用引擎按声明的资源增量落实并按模板发私反馈
          （制药的 rescueLeft+1 / cureLeft+2 与文案均在 js/v66/declaration/processRegistry.js）。
-         〔批次 31〕铸造产物为 armorStock（工匠护甲入库），同走此口。 */
-      if (global.SKProcessEngine) global.SKProcessEngine.deliver(g, p, { say: t => priv(g, p, t) });
+         〔批次 31〕铸造产物为 armorStock（工匠护甲入库），同走此口。
+         〔2026-10-21〕疫苗研究员的制药产物是**固定**的救援药剂（4.14.1②）⇒ 到账文案的
+         {resource} 明确按 rescueLeft 渲染。此处是「谁来领」的唯一公共入口，故三个进程的
+         resource 都显式给出；宣布哪一条由 announceId 决定（同一玩家可能同时挂着两种产物）。 */
+      if (global.SKProcessEngine) {
+        const RES = { brew: 'rescueLeft', gatherAmmo: 'bullets', cast: 'armorStock', castFast: 'fastArmorStock' };
+        /* 只挑「确有已完成待发放产物」的进程（doneKey 值非空）；同一玩家可能同时挂着两个，
+           此时给第一个（文案只描述被点名的那个，其余按声明模板渲染）。 */
+        const pid = Object.keys(RES).find(k => {
+          const d = global.SKProcess.get(k); return !!(d && p[d.doneKey]);
+        }) || null;
+        global.SKProcessEngine.deliver(g, p, {
+          say: t => priv(g, p, t),
+          resource: pid ? RES[pid] : null,
+          announceId: pid,
+        });
+      }
     }
     if (!g.lowPopGiven && alive(g).length <= 6) {
       g.lowPopGiven = true;

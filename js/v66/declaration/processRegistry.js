@@ -61,7 +61,17 @@
          声明层 ROLE_DECL.poisoner.grants 含 'brew' 而进程引擎不认，声明与实现矛盾。
          潜伏缺陷：医生位开局席位固定 ['bio','rescue']（2.8.14 组位表 capacity 2），
          毒师不上场故当前不可观测；席位表一旦改为三选一即暴露。 */
-      owner: ['bio', 'rescue', 'tempdoc', 'poisoner'],
+      /* 〔2026-10-21 修复〕补 vaccinist：4.14.1① 明写疫苗研究员「属医生……适用 3.3 全章」，
+         且 4.14.1② 专门把 3.3.1 的产物二选一**除外**、固定为 1 瓶救援药剂 ⇒ 它不仅有制药权，
+         正文还专门为它写了制药口径。原 owner 漏 vaccinist ⇒ 引擎照常派发「制药」选项、
+         AI 分支照常走到 brew，但进程引擎以 denied:'owner' **静默拒绝**：玩家点「制药」什么
+         都不发生，且无任何反馈。这违反 4.14.6② 给它的自保路径（「自保路径为制药产出的
+         通用救援额度指向自身」）——疫苗研究员因此**没有任何自救手段**。
+         潜伏原因：owner 校验（process.js:45）的第二道防线当时只按 treat 能力标签门控，
+         而 vaccinist 持 treat ⇒ 表单与结算侧都放行，缺陷只在进程层显形，无断言覆盖。
+         按红线 1，角色属性只在此声明层修；疫苗研究员的制药结算分支在 steps.js 已按
+         'rescue' 产品键调用，故本处无需其它改动。 */
+      owner: ['bio', 'rescue', 'tempdoc', 'poisoner', 'vaccinist'],
       nights: 2,
       interruptible: true,
       exclusive: true,                       // 投入夜占用当夜出手（"放弃行动"）
@@ -181,8 +191,10 @@
       return (Array.isArray(o) ? o : [o]).indexOf(roleKey) >= 0;
     });
   }
-  /** 产物到账文案（由「资源增量 + 资源标签」生成；无模板时返回 null，交由调用方兜底） */
-  function deliverText(procId, product) {
+  /** 产物到账文案（由「资源增量 + 资源标签」生成；无模板时返回 null，交由调用方兜底）
+      vars.resource：调用方显式指定该产物所在的资源键（brew 的两种产物指向不同额度，
+      而 {amount} 只取 products 的第一项增量——两者无法从声明里唯一推出，故允许覆盖）。 */
+  function deliverText(procId, product, vars) {
     const d = PROCESSES[procId];
     if (!d) return null;
     const deltas = d.products[product];
@@ -191,8 +203,9 @@
     if (!resKey) return null;
     const tpl = d.messages.deliver;
     if (!tpl) return null;
+    const label = (vars && vars.resource && RESOURCE_LABELS[vars.resource]) || RESOURCE_LABELS[resKey] || resKey;
     return tpl.replace('{amount}', String(amount))
-      .replace('{resource}', RESOURCE_LABELS[resKey] || resKey);
+      .replace('{resource}', label);
   }
 
   /** 自检：返回违规清单（空数组＝合规） */

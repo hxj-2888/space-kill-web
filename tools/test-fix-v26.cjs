@@ -5367,6 +5367,188 @@ okSurfaced('死囚O：req.kind 与 form.kind 逐次一致（这一致性正是�
   }
 }
 
+/* ---------- 60. v1preview1.0 新增两职业的针对性断言（4.13 摆渡人 / 4.14 疫苗研究员） ----------
+   〔2026-10-21〕交接文档 §六 把这两条列为「风险最高」：v1preview1.0 新增机制**只有锚点、
+   没有针对性测试**。锚点（断言名里写了条款号）解决的是「文档覆盖率」，不解决「行为对不对」；
+   本节补的是后者——全部就地构造局面**不跑随机对局**（不消费 g.rng，见红线 3），
+   逐条对应正文条款，断言名照抄条款号（顺带把覆盖率做实，不做无锚的「碰巧用到」）。
+   数据来源约定：只读引擎公开面（Engine.STEPS / g.ledger / p.inbox / ROLE_DECL），不读 g.replay。 */
+{
+  const P_ = id => g => g.players.find(x => x.id === id);
+  /* 就地造局：15 个空壳玩家 + 指定角色，引擎结算函数需要的字段按 state.js 的缺省补齐。
+     不调用 Setup.createGame ⇒ 不消耗任何随机流。 */
+  const mkG = (night, roles) => {
+    const g = {
+      night, step: '8', players: [], decisions: {}, ledger: [],
+      log: [], replay: [], chatLog: [], actCounts: { death: 0, cure: 0 }, wills: [], pairs: [],
+      lastDeathIds: [], cureHands: 0, over: false, pending: null,
+    };
+    for (const [id, role] of roles) {
+      g.players.push({
+        id, role, faction: role === 'alien' ? 'alien' : role === 'xeno' ? 'xeno' : 'human',
+        name: 'P' + id, out: false, convict: false, infection: null, suppressLeft: 2,
+        inbox: [], notes: '', known: new Map(), tEvents: new Map(), checkPool: [], crewChecks: [],
+        markSeen: new Map(), markEverSeen: new Map(),
+        vaccineSample: 0, vaccineDoses: 0, vaccineUntil: null, vaccineBy: null,
+        vaccineFired: [], ferryLog: [], brew: 0, brewDone: null, rescueLeft: 0, cureLeft: 0,
+        healLeft: 0, dying: false, dyingCause: null,
+      });
+    }
+    return g;
+  };
+  const inboxHas = (p, re) => (p.inbox || []).some(e => re.test(e.text));
+  const STEP8 = Engine.STEPS['8'], FERRY = Engine.STEPS['D-ferry'];
+
+  /* --- 4.14 疫苗研究员 --- */
+  ok('4.14.1 诊断：清感染标记（含假标记 5.3.5）＋产 1 份样本，不赋抗体',
+    (() => {
+      const g = mkG(5, [[1, 'vaccinist'], [2, 'crew']]);
+      const v = g.players[0], t = g.players[1];
+      t.infection = { real: false, appliedNight: 4, deathNight: 99 };   // 假标记也必须清得掉
+      g.decisions[1] = { act: 'diagnose', targets: [2] };
+      STEP8.run(g);
+      return !t.infection && v.vaccineSample === 1 && t.antibodyNight == null
+             && inboxHas(v, /样本/);
+    })());
+  ok('4.14.1 诊断落空（目标无标记）：出手照占、不产样本（2.5.2）',
+    (() => {
+      /* 3.3.7：清除类出手不设公开/私人反馈 ⇒ 落空只在复盘账（god）留痕，玩家 inbox 不得有字 */
+      const g = mkG(5, [[1, 'vaccinist'], [2, 'crew']]);
+      const v = g.players[0];
+      g.decisions[1] = { act: 'diagnose', targets: [2] };
+      STEP8.run(g);
+      const godSaid = g.replay.some(e => e.scope === 'god' && /诊断落空/.test(e.text));
+      return v.vaccineSample === 0 && v.inbox.length === 0 && godSaid;
+    })());
+  ok('4.14.2 研制：耗 2 份样本 → 接种额度 +1（不足 2 份不产额度）',
+    (() => {
+      const g = mkG(5, [[1, 'vaccinist'], [2, 'vaccinist']]);
+      const a = g.players[0], b = g.players[1];
+      a.vaccineSample = 2; b.vaccineSample = 1;
+      g.decisions[1] = { act: 'develop', targets: [] };
+      g.decisions[2] = { act: 'develop', targets: [] };
+      STEP8.run(g);
+      return a.vaccineSample === 0 && a.vaccineDoses === 1 && b.vaccineSample === 1 && b.vaccineDoses === 0;
+    })());
+  ok('4.14.3 接种：自次夜起连续 4 夜授予抗体（末夜＝当夜+4），且每目标耗 1 支额度',
+    (() => {
+      const g = mkG(5, [[1, 'vaccinist'], [2, 'crew'], [3, 'crew']]);
+      const v = g.players[0];
+      v.vaccineDoses = 1;
+      g.decisions[1] = { act: 'inoculate', targets: [2, 3] };      // 额度只够 1 支 ⇒ 只覆盖第 1 个目标
+      STEP8.run(g);
+      return g.players[1].vaccineUntil === 9 && g.players[1].vaccineBy === 1 &&
+             g.players[2].vaccineUntil == null && v.vaccineDoses === 0;
+    })());
+  ok('4.14.4 疫苗抗体逐夜独立：仅 [末夜-3, 末夜] 窗口内拦截，接种当夜与第 5 夜起不拦（不结转）',
+    (() => {
+      const probe = n => {
+        const g = mkG(n, [[1, 'vaccinist'], [2, 'crew']]);
+        const t = g.players[1]; t.vaccineUntil = 9; t.vaccineBy = 1;
+        return Engine.applyInfection(g, t, n);
+      };
+      return probe(5) !== 'blocked' && probe(6) === 'blocked' && probe(9) === 'blocked' &&
+             probe(10) === 'real' && probe(11) === 'real';
+    })());
+  ok('7.2.9 疫苗抗体生效感知：只送达研究员本人（目标本人不得收到，免透视接种者）',
+    (() => {
+      const g = mkG(7, [[1, 'vaccinist'], [2, 'crew']]);
+      const v = g.players[0], t = g.players[1];
+      t.vaccineUntil = 9; t.vaccineBy = 1;
+      Engine.applyInfection(g, t, 7);
+      return inboxHas(v, /疫苗抗体生效/) && !inboxHas(t, /疫苗抗体生效/);
+    })());
+  ok('4.14.1② 制药：产物固定为救援药剂（进度 2 夜；次夜到账 +1 救援额度），提交治疗药剂也不改变产物',
+    (() => {
+      const g = mkG(5, [[1, 'vaccinist']]);
+      const v = g.players[0];
+      g.decisions[1] = { act: 'brew', product: 'heal' };   // 即便提交了治疗药剂，也只能拿救援药剂
+      STEP8.run(g);
+      const firstIn = v.brew && v.brew.progress === 1 && v.brew.product === 'rescue';
+      g.night = 6;
+      STEP8.run(g);                                        // 第二夜投入 ⇒ 完成、待次夜发放
+      const done = v.brewDone === 'rescue' && v.brew === null;
+      ctx.SKProcessEngine.deliver(g, v, { say: t => v.inbox.push({ text: t }), resource: 'rescueLeft', announceId: 'brew' });
+      return firstIn && done && v.rescueLeft === 1 && v.cureLeft === 0;
+    })(), '（疫苗研究员制药被 denied:owner 拒绝时此条必红）');
+  ok('4.14.1① 制药权：疫苗研究员属医生，4.14.1② 专门规定其制药口径 ⇒ 进程引擎 owner 必须含 vaccinist',
+    ctx.SKProcess.get('brew').owner.indexOf('vaccinist') >= 0 &&
+    ctx.SKProcessEngine.invest(mkG(5, [[1, 'vaccinist']]), mkG(5, [[1, 'vaccinist']]).players[0], 'brew', 'rescue')
+      .invested === true,
+    'owner=' + JSON.stringify(ctx.SKProcess.get('brew').owner));
+  ok('4.14 声明面：无自救额度（selfSaveLeft=0）且不自带救援额度——自救收束仅生化医师（H-18）',
+    (() => {
+      const g = Setup.createGame(66021, 'random', { seatPicks: { bio: 'vaccinist' } });
+      const v = g.players.find(p => p.role === 'vaccinist');
+      return !!v && v.selfSaveLeft === 0 && v.rescueLeft === 0 && v.healLeft === 0;
+    })());
+
+  /* --- 4.13 摆渡人 --- */
+  ok('4.13.1 凶手集合：仅落身攻击（含对濒死者的后手）＋实际致死的延迟类入集合；被抵挡者不入',
+    (() => {
+      const g = mkG(5, [[1, 'crew'], [2, 'crew'], [3, 'crew'], [4, 'crew'], [5, 'crew'], [6, 'crew']]);
+      const L = ctx.SKLedger;
+      const T = g.players[0];                                           // 1 号＝当夜死者（目标）
+      L.recordAttack(g, g.players[2], T, 'gun', 'hit');      // 3 号：落身致死 → 入集合
+      L.recordAttack(g, g.players[3], T, 'gun', 'wasted');   // 4 号：后手（对濒死目标）→ 仍属落身
+      L.recordAttack(g, g.players[1], T, 'gun', 'blocked');  // 2 号：被抵挡 → 不入集合
+      L.recordDelayed(g, g.players[4], T, 'poison', true);   // 5 号：延迟类，实际致死 → 入集合
+      L.recordDelayed(g, g.players[5], T, 'infect', false);  // 6 号：假标记 → 不入集合
+      L.settle(g, [T.id]);
+      const ks = L.killerIds(g, T.id, 5).slice().sort();
+      return JSON.stringify(ks) === JSON.stringify([3, 4, 5]);
+    })(), '预期 [3,4,5]：3=落身致死、4=对濒死者的后手（仍属落身）、5=实际致死的毒药；'
+        + '2（被抵挡）与 6（假标记）均不入集合');
+  ok('4.13.1 开窗条件：仅「存活摆渡人 ＋ 当夜有尸体」时派发调查（无尸体不派发）',
+    (() => {
+      const g = mkG(5, [[1, 'ferryman'], [2, 'crew']]);
+      const off = FERRY.req(g).length === 0;
+      g.lastDeathIds = [2];
+      const on = FERRY.req(g).some(r => r.pid === 1 && r.kind === 'ferry');
+      g.players[0].out = true;
+      const dead = FERRY.req(g).length === 0;
+      return off && on && dead;
+    })());
+  ok('4.13.1⑥ 提交集合与凶手集合交集非空 ⇒ 答「有凶手」（答案只进私人日志，无发布通道 4.13.5）',
+    (() => {
+      const g = mkG(5, [[1, 'ferryman'], [2, 'crew'], [3, 'alien'], [4, 'crew']]);
+      const L = ctx.SKLedger, f = g.players[0];
+      g.lastDeathIds = [2];
+      L.recordAttack(g, g.players[2], g.players[1], 'gun', 'hit');
+      L.settle(g, [2]);
+      g.players[1].out = true;
+      g.decisions[1] = { targets: [4] };            // 不含凶手
+      FERRY.run(g);
+      g.decisions[1] = { targets: [3] };            // 含凶手
+      FERRY.run(g);
+      const answers = f.ferryLog.map(x => x.ans);
+      const noPublic = g.log.every(e => !(e.batch && /凶手/.test(String(e.text) || '')));
+      return JSON.stringify(answers) === JSON.stringify(['无凶手', '有凶手']) && noPublic;
+    })());
+  ok('4.13.1 每次调查至多提交 3 名（超出部分被截断，不报错）',
+    (() => {
+      const g = mkG(5, [[1, 'ferryman'], [2, 'crew'], [3, 'crew'], [4, 'crew'], [5, 'crew']]);
+      g.lastDeathIds = [2];
+      g.decisions[1] = { targets: [3, 4, 5] };
+      FERRY.run(g);
+      return g.players[0].ferryLog[0] && g.players[0].ferryLog[0].ids.length === 3;
+    })());
+  ok('7.2.10 摆渡人调查结论以「私密」送达本人 inbox（结论仅本人可见，7.2.10 同步 2.8.11③）',
+    (() => {
+      const g = mkG(5, [[1, 'ferryman'], [2, 'crew']]);
+      g.lastDeathIds = [2];
+      g.decisions[1] = { targets: [2] };
+      FERRY.run(g);
+      const f = g.players[0];
+      return inboxHas(f, /调查结论：.*凶手/) && !inboxHas(g.players[1], /调查结论/);
+    })());
+  ok('4.13 声明面：白天专属行动位（actionStep=D-ferry）且私人日志 sense 已登记（4.13.3）',
+    (() => {
+      const R = ctx.SKRoleDecl, d = R.ROLE_DECL.ferryman;
+      return d && d.actionStep === 'D-ferry' && R.sensesOf('ferryman').indexOf('ferryLog') >= 0;
+    })());
+}
+
 /* 〔v7 B0〕汇报口径显式列出「已停跑」条数并给出其归属机制分布。
    铁律四（诚实汇报）：不得让「停跑」消失在计数之外——只报通过数会让覆盖率下降不可见。 */
 const byMech = {};

@@ -13,8 +13,17 @@ const ROOT = path.join(__dirname, '..');
    硬编码本机用户名等于把使用者身份写进代码。桌面不存在时回退到工程目录。 */
 const DESKTOP = path.join(os.homedir(), 'Desktop');
 const OUT = process.argv[2] || path.join(fs.existsSync(DESKTOP) ? DESKTOP : ROOT, '太空杀游戏引擎.docx');
-/* 读取路径与 tools/mc.cjs 的写出路径保持一致（Desktop/.tmp_docs），修正此前多一层 .. 导致读到旧快照 */
-const MC = (() => { try { return JSON.parse(fs.readFileSync(path.join(ROOT, '..', '.tmp_docs', 'mc_result.json'), 'utf8')); } catch (e) { return null; } })();
+/* 读取路径与 tools/mc.cjs 的写出路径保持一致（Desktop/.tmp_docs），修正此前多一层 .. 导致读到旧快照。
+   〔2026-10-21〕mc 产物自本版起按席位口径分流：classic ⇒ mc_result.json，variants ⇒
+   mc_result-variants.json。本文档两套都收（以 variants 优先，与本地/UI 真实开局一致），
+   并在正文里标注该读数属哪一套口径——不标口径的胜率表没有意义。 */
+const MC = (() => {
+  for (const name of ['mc_result-variants.json', 'mc_result.json']) {
+    try { return JSON.parse(fs.readFileSync(path.join(ROOT, '..', '.tmp_docs', name), 'utf8')); }
+    catch (e) { /* 继续找下一套 */ }
+  }
+  return null;
+})();
 /* 回归断言条数：从被测文件实时统计。此前正文多处硬编码「100 条 / 64 条 / 71 条」，随批次增长
    已全部失真（v6.6 阶段 2 实测 168 条），而其中一部分本身是「开工前自检」的操作指令——
    硬编码一旦落后即误导判断。此后正文一律引用本常量，不再写死数字。 */
@@ -65,14 +74,25 @@ const pct = v => MC && MC.done ? (100 * v / MC.done).toFixed(1) + '%' : '—';
 /* ============ 源码模块分组（v27 模块化解耦后的分层） ============ */
 const JS = f => codeBlock(path.join(ROOT, 'js', f), f);
 const TOOL = f => codeBlock(path.join(ROOT, 'tools', f), f);
+/* 〔2026-10-21 修复〕v7 B0 推理引擎拆除后，infer/{registry,moe,channels.run} 与
+   corpus/{channels.data,channels} 已移入 js/ 下的 _retired/ 子目录（见 tools/load-order.cjs 头部与
+   test-fix-v26.cjs:30）。本工具仍按旧路径读取 ⇒ npm run doc 直接 ENOENT 崩溃。
+   修法：这些文件**仍随文档收录**（历史章节要说明专家层长什么样），但一律从 _retired/ 取，
+   且在标题里标明归属，读者不会误以为它们还在运行栈里。
+   —— 不把「文档生成工具」与「加载清单」合并成一处真相源：前者要的是**已写下的全部源码**，
+   后者要的是**当前运行的那一份**，两者口径本来就不同。 */
+const RETIRED = { infer: 'infer/_retired/ ', corpus: 'corpus/_retired/ ' };
+const JS_RETIRED = (dir, f) => codeBlock(path.join(ROOT, 'js', dir, '_retired', f), RETIRED[dir] + f);
 const G = {
   config: ['rng.js', 'data.js'].map(JS),
   state:  ['state.js'].map(JS),
   lang:   ['nlp.js', 'lang/ir.js', 'lang/renderer.js'].map(JS),
   ai:     ['ai/util.js', 'ai/belief.js', 'ai/perceive.js', 'ai/decide.js', 'ai.js'].map(JS),
-  infer:  ['infer/tiers.js', 'infer/registry.js', 'infer/moe.js', 'infer/channels.run.js',
-           'infer/visible.js', 'infer/speakable.js', 'infer/pipeline.js'].map(JS),
-  corpus: ['corpus/tactics.js', 'corpus/channels.data.js', 'corpus/channels.js'].map(JS),
+  /* 运行栈（当前在加载清单里）＋ 已归档（_retired/，仅作历史说明） */
+  infer:  ['infer/tiers.js', 'infer/speakable.js', 'infer/pipeline.js', 'infer/visible.js'].map(JS)
+          .concat(['registry.js', 'moe.js', 'channels.run.js'].map(f => JS_RETIRED('infer', f))),
+  corpus: ['corpus/tactics.js'].map(JS)
+          .concat(['channels.data.js', 'channels.js'].map(f => JS_RETIRED('corpus', f))),
   core:   ['engine/announce.js', 'engine/steps.js', 'engine.js'].map(JS),
   view:   ['view.js', 'ui.js'].map(JS),
   drive:  ['main.js', 'audio.js', 'net.js'].map(JS),
@@ -87,32 +107,43 @@ const fileCount = srcBlocks.length + G.mc.length + G.reg.length + G.tool.length;
 const srcCount = f => codeBlock(path.join(ROOT, 'js', f), f).n;
 
 /* ============ 通道接线进度（v26：从源码推导，避免手写清单漂移） ============
-   已接线 = moe.js 里注册了 gate 的编号 ∩ 506 条总表中的编号 ∩ 数值档（Z/F 是零值语义标记，不接线；
-   P 自 v31 批 1 起有显式强度映射 SCORE['P']=10，批 3.5 起更可由门禁用 impl.tier 声明真实强度档）。 */
+   〔2026-10-21〕v7 B0 起 MoE 专家层/门禁执行器/通道总表均已归档到 _retired/，
+   运行栈里没有「已接线」这回事 ⇒ 此处如实报 0，并从归档副本读总条数，
+   让封面那行「通道接线 0/506（v7 B0 已归档）」自己说清楚，而不是让工具崩掉或者印一个假数。 */
+const SRC_INFER = path.join(ROOT, 'js', 'infer');
+const SRC_CORPUS = path.join(ROOT, 'js', 'corpus');
+const pick = (dir, retiredRel, liveRel) => {
+  const live = path.join(dir, liveRel), dead = path.join(dir, '_retired', retiredRel);
+  return fs.existsSync(live) ? live : dead;
+};
 const SCORE_TIERS = (() => {
-  const s = fs.readFileSync(path.join(ROOT, 'js', 'infer', 'tiers.js'), 'utf8');
+  const s = fs.readFileSync(path.join(SRC_INFER, 'tiers.js'), 'utf8');
   const body = /const SCORE = \{([\s\S]*?)\};/.exec(s);
   const set = new Set();
   if (body) for (const k of body[1].matchAll(/'([^']+)':\s*(\d+)/g)) if (+k[2] !== 0) set.add(k[1]);
   return set;
 })();
 const CH_TABLE = (() => {
-  /* v27：总表数据已解耦到 corpus/channels.data.js（v31 批 3.5 后 506 条） */
-  const s = fs.readFileSync(path.join(ROOT, 'js', 'corpus', 'channels.data.js'), 'utf8');
+  /* v27：总表数据已解耦到 corpus/channels.data.js（v31 批 3.5 后 506 条）；v7 B0 后位于 _retired/ */
+  const s = fs.readFileSync(pick(SRC_CORPUS, 'channels.data.js', 'channels.data.js'), 'utf8');
   const m = {};
   const re = /\{ id: '([^']+)', expert: '([^']*)', tier: '([^']*)', target: '([^']*)', on: '([^']*)'/g;
   let x; while ((x = re.exec(s)) !== null) m[x[1]] = { expert: x[2], tier: x[3], target: x[4], on: x[5] };
   return m;
 })();
 const WIRED = (() => {
-  /* v27：门禁表已解耦到 infer/channels.run.js */
-  const s = fs.readFileSync(path.join(ROOT, 'js', 'infer', 'channels.run.js'), 'utf8');
+  /* v27：门禁表已解耦到 infer/channels.run.js；v7 B0 后位于 _retired/ ⇒ 运行栈内 0 条接线 */
+  const live = path.join(SRC_INFER, 'channels.run.js');
+  const archived = !fs.existsSync(live);
+  const s = fs.readFileSync(archived ? path.join(SRC_INFER, '_retired', 'channels.run.js') : live, 'utf8');
   const ids = new Set(); let x;
   const re = /^\s{4}([A-Z]+\d+):\s*\{/gm;
   while ((x = re.exec(s)) !== null) ids.add(x[1]);
   const mounted = [...ids].filter(id => CH_TABLE[id] && SCORE_TIERS.has(CH_TABLE[id].tier));
   const unmounted = [...ids].filter(id => !CH_TABLE[id]);
-  return { mounted: mounted.sort(), unmounted };
+  /* 归档 ⇒ 门禁表虽在，但并不运行：接线进度按运行栈口径报 0（不把归档表算成「已接线」） */
+  return archived ? { mounted: [], unmounted: [], archived: true }
+                  : { mounted: mounted.sort(), unmounted, archived: false };
 })();
 const SCORE_BY_EXPERT = () => {
   const by = {};
@@ -127,7 +158,7 @@ children.push(
   new Paragraph({ spacing: { before: 2200 }, alignment: AlignmentType.CENTER, children: [new TextRun({ text: '太空杀 · 三阵营对抗', bold: true, size: 56 })] }),
   new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: '游戏引擎技术文档（模块化 · 含 AI 独立运行模块）', size: 30, color: '555F6E' })] }),
   new Paragraph({ spacing: { before: 160 }, alignment: AlignmentType.CENTER, children: [new TextRun({ text: '正式版 v4.1 规则实现 · v25 反靶向架构优化 · v26 阶段②接线 · v27 模块化解耦 · v28 交接落地（A1/A5/A6 + 仪器）· v28b B 类裁定（B1/B2/B3）· v28c 标定（B6/B7）· v31 三合一（批 0~3：清理 / B4+B2′ / A3 / 战术库接线）+ 三项裁定（口头汇报≠公告 / AI 加否认 / 自证调档位）+ 批 3.5 人类侧保护专项（N401~N407 / N414~N417）', size: 22, color: '8a93a3' })] }),
-  new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: `生成日期：2026-09-10　共 ${fileCount} 个源文件 / ${totalLines} 行　通道接线 ${WIRED.mounted.length}/${Object.keys(CH_TABLE).length}`, size: 22, color: '8a93a3' })] }),
+  new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: `生成日期：${new Date().toISOString().slice(0, 10)}　共 ${fileCount} 个源文件 / ${totalLines} 行　通道接线 ${WIRED.mounted.length}/${Object.keys(CH_TABLE).length}${WIRED.archived ? '（v7 B0 后专家层归档，运行栈内为 0）' : ''}`, size: 22, color: '8a93a3' })] }),
   new Paragraph({ children: [new PageBreak()] }),
 );
 children.push(h1('目录'), new TableOfContents('目录', { hyperlink: true, headingStyleRange: '1-2' }), new Paragraph({ children: [new PageBreak()] }));
@@ -144,8 +175,8 @@ children.push(
     ['L3 引擎核心', 'engine/announce.js（投递原语）· engine/steps.js（26 个步骤条目）· engine.js（状态机与驱动，617 行）', '步骤状态机、表单决策、全部结算规则、胜负判定', '✓（headless）'],
     ['L4 语言层', 'nlp.js / lang/ir.js / lang/renderer.js', '语义识别、Claim IR 交换格式、发言渲染', '✓（随 L1~L3）'],
     ['L5 AI 运行层', 'ai/util.js · ai/belief.js（估值）· ai/perceive.js（入账）· ai/decide.js（决策）· ai.js（门面 54 行）', 'E 三通道证据分模型、投影与危险度、推理链 R1~R41 入账、效用 + ε-greedy、发言与票型协调', '✓（随 L1~L3）'],
-    ['L6 推理层', 'infer/tiers.js · infer/registry.js（专家/门禁注册表）· infer/moe.js（路由/仲裁/影子）· infer/channels.run.js（门禁表 + 执行器）· infer/visible.js · infer/speakable.js · infer/pipeline.js', '专家路由与三档仲裁、通道门禁执行、可见性过滤、可说性候选、统一发言管道', '✓（随 L1~L5）'],
-    ['L7 语料层', 'corpus/tactics.js（战术库 + 人类侧保护优先级池 N414~N416）· corpus/channels.data.js（506 条数据）· corpus/channels.js（查询 API）', '战术库、推断通道总表', '✓'],
+    ['L6 推理层', 'infer/tiers.js（档位表）· infer/speakable.js · infer/pipeline.js · infer/visible.js；**已归档（js/infer/_retired/）**：registry.js（专家/门禁注册表）· moe.js（路由/仲裁/影子）· channels.run.js（门禁表 + 执行器）', '档位表、可说性候选、统一发言管道、可见性过滤；专家路由与三档仲裁自 v7 B0 起归档', '✓（随 L1~L5）'],
+    ['L7 语料层', 'corpus/tactics.js（战术库 + 人类侧保护优先级池 N414~N416）· corpus/voice.js（发言语料）；**已归档**：corpus/_retired/channels.data.js（506 条数据）· channels.js（查询 API）', '战术库；推断通道总表自 v7 B0 起归档', '✓'],
     ['L8 视图层', 'view.js / ui.js', '信息可见性裁剪（SKVisible 投递侧）、界面渲染', '浏览器'],
     ['L9 驱动层', 'main.js / audio.js / net.js', '单机时钟、静默检测、音频、联机客户端（开发中）', '浏览器'],
     ['L10 服务器', 'server/server.js', '房间与广播（联机，开发中）', 'Node'],
@@ -258,6 +289,7 @@ if (MC) {
   children.push(table([
     ['项目', '值'],
     ['对局数', `${MC.done} / ${MC.N}（种子 ${MC.seed0} ~ ${MC.seedEnd}）`],
+    ['席位口径', MC.seatMode ? `${MC.seatMode.seatMode}（${MC.seatMode.seatModeSource}）` : '未标注（旧版产物，按 classic 读）'],
     ['耗时', (MC.elapsedMs / 1000).toFixed(1) + ' 秒'],
     ['运行异常', String(MC.errs.length)],
     ['全部 AI', '是（g.humans = []，真人席位 0）'],

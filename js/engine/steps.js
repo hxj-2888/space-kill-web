@@ -1743,8 +1743,12 @@
                 priv(g, p, `接种 ${used} 名（余 ${p.vaccineDoses} 支）。`);
               }
             } else if (d.act === 'brew') {
-              /* 4.14.1②：制药产物**固定为 1 瓶救援药剂**（无治疗药剂选项——2.8.9(23) 例外） */
-              PROC.invest(g, p, 'brew', 'rescueDose', { say: t => priv(g, p, t) });
+              /* 4.14.1②：制药产物**固定为 1 瓶救援药剂**（无治疗药剂选项——2.8.9(23) 例外）
+                 〔2026-10-21 修复〕产品键原写作 'rescueDose'，而声明层的 brew.products 只有
+                 rescue / heal ⇒ 即便 owner 校验放行，resolve 也会静默落空（进度照走、领不到额度）。
+                 改为声明的 'rescue'，并把 {resource} 一并传下去，让「产物到账」私反馈被渲染出
+                 「救援」二字（否则 {resource} 原样漏进玩家视野）。 */
+              PROC.invest(g, p, 'brew', 'rescue', { say: t => priv(g, p, t), resource: 'rescueLeft', announceId: 'brew' });
             }
             continue;
           }

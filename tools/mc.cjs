@@ -6,10 +6,22 @@
  * 否则 AI 发言不进证据链（Bridge 缺席会使 Claim 路由全失效，结果失真）
  * 用法：node tools/mc.cjs [对局数] [起始种子]
  * 输出：胜负分布 / 阶段分布 / 平均夜数 / 场均驱逐 / 异常清单 + mc_result.json
+ *
+ * 〔2026-10-21〕席位口径接入：本工具原先**从不传 seatPicks**，于是恒为经典局——
+ *   交接文档 §九 把它记为「未改」，但它在 K1 里被误读成「量变体」（K1 脚注称缺省 variants），
+ *   两处文档互相矛盾。现改为走 tools/seat-mode.cjs 的**单点开关**（与 handsover-sim / parity-sim
+ *   同一口径）：
+ *     · 缺省 = variants：逐种子显式传 Setup.rollSeatPicks(seed)，与本地/UI 真实开局一致；
+ *     · SK_MEASURE_SEATS=classic 或 SK_SEAT_CLASSIC=1：退回历史经典口径（与换版前基线可比）；
+ *     · 口径写进产物 meta.seatMode，产物文件名按口径分流（classic 沿用 mc_result.json，
+ *       variants 为 mc_result-variants.json）——两套数字不会落进同一个文件。
+ *   席位替换发生在 rng.shuffle 之前、rollSeatPicks 走独立随机流 ⇒ 变体局与经典局的 g.rng
+ *   消耗序列逐位相同（seat-mode.cjs 头部已论证），故两种口径可做严格 A/B。
  * ============================================================= */
 const fs = require('fs');
 const path = require('path');
 const { makeCtx, loadInto, profiles } = require('./load-order.cjs');
+const SeatMode = require('./seat-mode.cjs');
 
 const N = parseInt(process.argv[2] || '300', 10);
 const SEED0 = parseInt(process.argv[3] || '1', 10);
@@ -177,7 +189,9 @@ for (let i = 0; i < N; i++) {
   const seed = SEED0 + i;
   let g;
   try {
-    g = Setup.createGame(seed, 'random');
+    /* 席位口径由 tools/seat-mode.cjs 单点决定：variants ⇒ 传 seatPicks（与 main.js 真实开局同路），
+       classic ⇒ 不传（保持「不传 seatPicks 的经典局逐字节不变」这一回归前提）。 */
+    g = SeatMode.seatGame(Setup, seed, 'random');
     g.humans = [];                          // 全 AI 对局（蒙特卡洛基线）
     /* v21 修复：必须同时清空 humanId 与 isHuman——只清 humans 会残留一个「幻影真人席位」，
        该席位每步被空提交（视为放弃行动），把人类胜率从 ~50% 拖到 ~7%，蒙特卡洛基线失真 */
@@ -440,6 +454,7 @@ const metrics = {
 };
 const result = {
   N, done, seed0: SEED0, seedEnd: SEED0 + N - 1, elapsedMs: Date.now() - t0,
+  seatMode: SeatMode.seatTag(),      // 〔2026-10-21〕口径进产物：variants / classic 两套数字不可混算
   sabEval: sabStats,               // v28b（B6）：破坏决策的局势相关性（只观测）
   abOverride: AB,                  // v28b（B6/B7）：本次运行覆盖过的标定对象（A/B 追溯用）
   wins, phases, errs,
@@ -454,10 +469,15 @@ const result = {
   aucByFaction: avgAucFaction,     // v26：分阵营 AUC（人类/异形/外星人各自视角）
   metrics,                         // v25 §三 指标体系
 };
-fs.writeFileSync(path.join(__dirname, '..', '..', '.tmp_docs', 'mc_result.json'),
-  JSON.stringify(result, null, 2));
+/* 产物路径：口径分流在文件层兑现（classic＝历史名 mc_result.json，variants＝mc_result-variants.json） */
+const OUT_DIR = path.join(__dirname, '..', '..', '.tmp_docs');
+if (!fs.existsSync(OUT_DIR)) fs.mkdirSync(OUT_DIR, { recursive: true });
+const OUT_FILE = path.join(OUT_DIR, SeatMode.artifactFor('mc_result'));
+fs.writeFileSync(OUT_FILE, JSON.stringify(result, null, 2));
 
 console.log('\n===== 蒙特卡洛结果 =====');
+console.log(`席位口径: ${SeatMode.note()}`);
+console.log(`产物: ${OUT_FILE}`);
 console.log(`对局 ${done}/${N}（种子 ${SEED0}~${SEED0 + N - 1}）  耗时 ${(result.elapsedMs / 1000).toFixed(1)}s  异常 ${errs.length}`);
 console.log(`胜负分布: 人类 ${pct(wins.human)} | 异形 ${pct(wins.alien)} | 外星人 ${pct(wins.xeno)} | 平局 ${pct(wins.draw)}`);
 console.log(`阶段分布: 常规 ${pct(phases['常规'])} | 寂灭 ${pct(phases['寂灭'])} | 决斗 ${pct(phases['决斗'])}`);

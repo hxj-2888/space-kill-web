@@ -33,6 +33,9 @@
    * 投入一夜。
    * @param g 对局；p 玩家；procId 进程键；product 产物键（缺省沿用既有选择；首次缺省取首个可选项）
    * @param opts.say 私反馈投递函数（注入，避免执行层直接依赖引擎的 priv）
+   * @param opts.resource 仅「到账」模板会用到：{resource} 由**调用方**指定该进程产物所在的资源键
+   *        （brew 的救援药剂＝rescueLeft、治疗药剂＝cureLeft，同一个 brew 进程两种产物，声明层
+   *        的 products 里没有唯一资源名可推）。缺省时由 deliverText 按 products 反查。
    * @returns {invested, completed, progress, product} ；未登记的进程返回 null（fail loud 由调用方判定）
    */
   function invest(g, p, procId, product, opts) {
@@ -82,6 +85,9 @@
    */
   function deliver(g, p, opts) {
     const say = (opts && opts.say) || function () {};
+    /* 到账文案的 {resource}：只对 announceId（opts.announceId）对应的那个进程生效——
+        同一玩家可能同时挂着多个进程的产物，调用方声明的资源名不能张冠李戴。 */
+    const announceId = opts && opts.announceId;
     const done = [];
     for (const id of REG.keys()) {
       const d = REG.get(id);
@@ -98,7 +104,8 @@
           p[resKey] = cur + room;
           if (room < amount) p[resKey + 'Wasted'] = (p[resKey + 'Wasted'] || 0) + (amount - room);
         }
-        const txt = REG.deliverText(id, product);
+        const txt = REG.deliverText(id, product, id === announceId && opts && opts.resource
+          ? { resource: opts.resource } : null);
         if (txt) say(txt);
       }
       p[d.doneKey] = null;
