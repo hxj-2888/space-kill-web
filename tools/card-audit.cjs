@@ -248,5 +248,12 @@ for (const sev of ['P0', 'P1']) {
   out.push(NL + '── ' + sev + ' ──');
   for (const r of bySev[sev]) out.push('  [' + r.key + '] ' + r.kind + '：' + r.detail);
 }
-fs.writeFileSync('C:/Users/ASUS/AppData/Local/Temp/opencode/card-audit.txt', out.join(NL));
+/* 〔2026-10-21 修复〕原实现写死 C:/Users/ASUS/AppData/Local/Temp/opencode/，该目录不存在会 ENOENT；
+   改为「目录存在则用，否则回退系统临时目录」，并打印实际落盘位置。 */
+const OUT_DIR = fs.existsSync('C:/Users/ASUS/AppData/Local/Temp/opencode')
+  ? 'C:/Users/ASUS/AppData/Local/Temp/opencode'
+  : require('os').tmpdir();
+const OUT_FILE = require('path').join(OUT_DIR, 'card-audit.txt');
+fs.writeFileSync(OUT_FILE, out.join(NL));
+console.log('审计结果已写入：' + OUT_FILE);
 console.log(out.join(NL));

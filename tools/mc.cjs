@@ -485,11 +485,12 @@ if (metrics) {
     (metrics.A_接入度.evidence_divergence_per_game != null ? ` · 局内口径（v32 批 5′）${metrics.A_接入度.evidence_divergence_per_game}` : ''));
   console.log(`通道触发次数: ${JSON.stringify(metrics.A_接入度.chan_fires)}`);
   console.log(`官方③神探公告: ${announce3} 次 / ${done || '—'} 局（v32 仪器——公告先得发生才有用）`);
-  console.log(`仲裁: 输入 ${metrics.B_仲裁.arb_input_total} · 多Claim率 ${metrics.B_仲裁.arb_multi_rate} · 三档 ${JSON.stringify(metrics.B_仲裁.arb_tier)}`);
+  /* 〔2026-10-21 修复〕moe 缺席时 B_仲裁 / C_影子 为 null，原代码直接取属性会 TypeError 中断整份 MC 报告 */
+  if (metrics.B_仲裁) console.log(`仲裁: 输入 ${metrics.B_仲裁.arb_input_total} · 多Claim率 ${metrics.B_仲裁.arb_multi_rate} · 三档 ${JSON.stringify(metrics.B_仲裁.arb_tier)}`);
   /* v32 批 4′：统一入账口的四类路径改道计数；批 5′ 增 private 流水与 ATTEND 调制读数 */
   if (metrics.B1_改道) console.log(`改道计数（v32 批 4′/5′）: ${JSON.stringify(metrics.B1_改道)}` +
     (moe && moe.stats.attended ? ` · ATTEND 调制 ${moe.stats.attended} 条` : ''));
-  console.log(`影子: calls ${metrics.C_影子.shadow_calls} · 采纳率 ${metrics.C_影子.shadow_hit_rate}` +
+  if (metrics.C_影子) console.log(`影子: calls ${metrics.C_影子.shadow_calls} · 采纳率 ${metrics.C_影子.shadow_hit_rate}` +
     (metrics.C_影子.shadow_dist ? ` · 分布 n ${metrics.C_影子.shadow_dist.n} 非零 ${metrics.C_影子.shadow_dist.nonzero} (min/p50/p90/max ${metrics.C_影子.shadow_dist.min}/${metrics.C_影子.shadow_dist.p50}/${metrics.C_影子.shadow_dist.p90}/${metrics.C_影子.shadow_dist.max})` : ''));
   /* v27（C1）：硬源锁定三分类——srcKind.fact 漏掉的正是这一块 */
   const hl = metrics.C1_硬源;

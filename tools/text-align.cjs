@@ -27,10 +27,51 @@ const fs = require('fs');
 const path = require('path');
 
 const ROOT = process.argv[2] || process.cwd();
-const EXTRACT = path.join(ROOT, 'docs', '_v66正文_提取.txt');
-const PDF_SHA = 'EE5F95CE16C63042F25282BC99A29D82566017F66EE34C2D9373233E84E6834F';
-const PDF_HINT = 'C:\\Users\\ASUS\\Documents\\xwechat_files\\wxid_6zst4zjefbzm22_8cbf'
-  + '\\msg\\file\\2026-10\\太空杀V6.6正文_v66修订版.pdf';
+/* ---------- 正文版本选择（2026-10-21 换版 v1preview1.0）----------
+ * 正文自 v6.6 升到 v1preview1.0 后，新增 4.13 摆渡人 / 4.14 疫苗研究员 等条款。
+ * 抽取件按版本分文件、各自带 PDF SHA256：**版本与指纹必须成对**，否则
+ * 「拿旧抽取件对账新声明层」会把新条款一律判成「查无此条」（假 P0）。
+ * 选择顺序：--extract 参数 > 环境变量 SK_RULES_EXTRACT > v1preview1.0 > v6.6（回退并告警）。 */
+const RULES_VERSIONS = [
+  {
+    id: 'v1preview1.0',
+    extract: path.join(ROOT, 'docs', '_返航录v1preview1.0_提取.txt'),
+    pdfSha: 'E24B543CB1D0FA15463C260248C6CB2F116250BFB490236272D1E2A1AA1FC166',
+    pdfHint: path.join(ROOT, 'attachment-site', '规则正文', '返航录三阵营对抗规则·正文v1preview1.0.pdf'),
+    rebuild: 'python -c "import pdfplumber,sys; d=pdfplumber.open(sys.argv[1]); sys.stdout.write(chr(10).join(p.extract_text() or \\"\\" for p in d.pages))" <PDF> > docs/_返航录v1preview1.0_提取.txt',
+  },
+  {
+    id: 'v6.6',
+    extract: path.join(ROOT, 'docs', '_v66正文_提取.txt'),
+    pdfSha: 'EE5F95CE16C63042F25282BC99A29D82566017F66EE34C2D9373233E84E6834F',
+    pdfHint: 'C:\\Users\\ASUS\\Documents\\xwechat_files\\wxid_6zst4zjefbzm22_8cbf'
+      + '\\msg\\file\\2026-10\\太空杀V6.6正文_v66修订版.pdf',
+    rebuild: 'python -c "import fitz,sys; d=fitz.open(sys.argv[1]); sys.stdout.write(chr(10).join(p.get_text() for p in d))" <PDF> > docs/_v66正文_提取.txt',
+  },
+];
+const argExtract = (() => {
+  const i = process.argv.indexOf('--extract');
+  return i >= 0 ? process.argv[i + 1] : null;
+})();
+const explicitExtract = argExtract || process.env.SK_RULES_EXTRACT || null;
+const RULES = explicitExtract
+  ? { ...RULES_VERSIONS[0], extract: path.resolve(explicitExtract), id: 'explicit' }
+  : RULES_VERSIONS.find((v) => fs.existsSync(v.extract)) || RULES_VERSIONS[0];
+const EXTRACT = RULES.extract;
+const PDF_SHA = RULES.pdfSha;
+const PDF_HINT = RULES.pdfHint;
+/* 〔2026-10-21〕回退必须**响**：现行声明层已引用 v1preview1.0 的 4.13.3 / 4.14.4⑦ 等条款，
+ * 若因 v1preview1.0 抽取件缺失而静默回退到 v6.6，会把它们判成「查无此条」——那是**假 P0**，
+ * 会让人误以为声明层写错了。故回退时打印醒目告警，并在结论区复述一次。 */
+const FELL_BACK = !explicitExtract && RULES.id !== RULES_VERSIONS[0].id;
+if (FELL_BACK) {
+  console.warn('');
+  console.warn('⚠⚠ 警告：未找到 ' + RULES_VERSIONS[0].id + ' 的正文抽取件，已回退到 ' + RULES.id + '。');
+  console.warn('    现行声明层引用 ' + RULES_VERSIONS[0].id + ' 的新增条款（4.13.3 / 4.14.4 等），');
+  console.warn('    在旧抽取件下必然判「查无此条」—— 这是假 P0，不是声明层写错。');
+  console.warn('    重建：' + RULES_VERSIONS[0].rebuild.replace('<PDF>', '"' + RULES_VERSIONS[0].pdfHint + '"'));
+  console.warn('');
+}
 
 /* ---------- 载入声明层 ---------- */
 const lo = require(path.join(ROOT, 'tools', 'load-order.cjs'));
@@ -59,14 +100,19 @@ function buildIndex(text) {
    *            首版正是这样，6.8.3 的真标题被 `⑧` 顶掉。
    *      排除判据：标题以**圈号（①…⑳）或阿拉伯数字**开头 ⇒ 分项续行，不是标题。 */
   for (const line of text.split('\n')) {
-    const m = /^(\d+\.\d+(?:\.\d+)?)\s*(\S.*)$/.exec(line.trim());
+    /* ⚠〔2026-10-21 修正〕旧正则是 `^(\d+\.\d+(?:\.\d+)?)\s*(\S.*)$`，`\s*` 允许**零个空格**，
+     * 于是独占一行的 `3.3.10` 会被回溯拆成条款号 `3.3.1` + 剩余 `0`（`0` 又以数字开头被当续行丢弃），
+     * 真正的 `3.3.10` 只能从后文引用它的那行（`3.3.10①「医生可见…`）登记 —— 窗口因此落到错误位置，
+     * 3.3.10 的 ②③④ 全部「查无此项」。
+     * 现改为：条款号后**必须**是行尾或空白，剩余部分可为空。 */
+    const m = /^(\d+(?:\.\d+)+)(?:\s+(.*))?$/.exec(line.trim());
     /* ⚠ 顺序不可调换：**先剥重复条款号，再判分项续行**。
      *   自检抓到过这个反例：噪声①那行「6.8.3 6.8.3 变形」的 rest 是「6.8.3 变形」，
      *   它以数字开头 ⇒ 若先判 ITEM_HEAD，真标题会被当成续行丢掉，6.8.3 于是在合成
      *   正文里根本不在册。反过来先剥号就对了：剥完剩「变形」；而真续行
      *   「6.8.3⑧克隆…」剥不动（⑧ 不是 N.N），仍被 ITEM_HEAD 拦下。 */
-    const rest = m && m[2].replace(/^\d+\.\d+(?:\.\d+)?\s*/, '').trim();
-    if (m && m[2].length <= 44 && rest && !ITEM_HEAD.test(rest)) {
+    const rest = m && (m[2] || '').replace(/^\d+(?:\.\d+)+\s*/, '').trim();
+    if (m && rest && rest.length <= 44 && !ITEM_HEAD.test(rest)) {
       const num = m[1];
       const title = rest;
       {
@@ -75,6 +121,17 @@ function buildIndex(text) {
           clausePos.set(num, flat.length);
           clauseTitle.set(num, title);
         }
+      }
+    } else if (m && (!rest || ITEM_HEAD.test(rest))) {
+      /* 〔2026-10-21 新增〕噪声③：v1preview1.0 的 PDF 里，部分条款号被单独排成一行，
+       * 标题与 ① 项连写在**下一行**（`3.3.10` 换行 `感染标记可⻅性①医生可⻅…`）。
+       * 处理：仅当本行没有可作标题的内容时，把它登记为条款起点（位置即本行），
+       * 标题留空 —— 标题只用于报错可读性，不参与授权判定；正文窗口由 clauseBody 负责。 */
+      const num = m[1];
+      clauseNumbers.add(num);
+      if (!clausePos.has(num)) {
+        clausePos.set(num, flat.length);
+        clauseTitle.set(num, '');
       }
     }
     flat += line.replace(/\s+/g, '');
@@ -186,9 +243,9 @@ console.log('✓ 自检 ' + cases.length + '/' + cases.length + ' 通过：本�
 if (!fs.existsSync(EXTRACT)) {
   console.error('正文提取件缺失：' + EXTRACT);
   console.error('这是**有意不入库**的（复制规则文本进仓库等于制造第二份规则，见 .gitignore）。');
+  console.error('当前正文版本：' + RULES.id);
   console.error('重建命令：');
-  console.error('  python -c "import fitz,sys; d=fitz.open(r\'' + PDF_HINT
-    + '\'); sys.stdout.write(\'\'.join(\'\\n===== PAGE %d =====\\n\'%(i+1)+p.get_text(\'text\') for i,p in enumerate(d)))\" > docs\\_v66正文_提取.txt');
+  console.error('  ' + RULES.rebuild.replace('<PDF>', '"' + PDF_HINT + '"'));
   console.error('预期 SHA256（正文 PDF）：' + PDF_SHA);
   console.error('');
   console.error('⚠ 未对账就退出 —— 不静默跳过，否则「全绿」会变成「什么都没查」。');

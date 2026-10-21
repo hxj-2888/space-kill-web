@@ -312,6 +312,13 @@
     checkPool:             { kind: 'derived', clause: '4.7.3', note: '已查验池（累积池），池内固定存「查验当夜所显示的呈现职业」' },
     mirrorLedger:          { kind: 'derived', clause: '2.8.5', note: '2.8.5 变身份时的资源账本通则（镜像账本）' },
     morphTargetPool:       { kind: 'derived', clause: '6.8.3', item: '③', note: '变形目标＝本局实际在场者' },
+
+    /* —— v1preview1.0 新增席位变体（4.13 摆渡人 / 4.14 疫苗研究员）——
+     * 〔2026-10-21 补齐〕这两条 sense 自 v1preview1.0 落地起就在引擎里使用
+     * （steps.js 的 ferryLog、疫苗生效反馈），但 SENSE_SOURCE 一直没登记，
+     * tools/text-align.cjs 报 P0「无出处登记」。现按正文 v1preview1.0 逐条补录。 */
+    ferryLog:              { kind: 'own',     clause: '4.13.3', note: '4.13.3① 系统代记的摆渡人私人日志，本人可随时查阅；②出局即作废' },
+    vaccineAntibodyFired:  { kind: 'granted', clause: '4.14.4', item: '⑦', note: '4.14.4⑦ 疫苗抗体真的拦下一次感染时，研究员本人获得一条私人反馈（不含被保护者）' },
   };
 
   /* duty.cost ＝ 速查卡明写的代价与陷阱。这是 AI 权衡的另一半：

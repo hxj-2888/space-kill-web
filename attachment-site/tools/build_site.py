@@ -16,7 +16,7 @@ import docx
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC2 = os.path.join(ROOT, '剧情')
-SRC3 = os.path.join(ROOT, '公测3.0')
+SRC3 = os.path.join(ROOT, '公测3.1')  # 〔2026-10-21 修正〕实际数据目录是 公测3.1，原 公测3.0 早已不存在
 OUT = os.path.join(ROOT, 'site')
 
 # 规则正文：唯一权威源是《返航录三阵营对抗规则·正文 v1preview1.0》PDF
@@ -27,6 +27,15 @@ RULES_MD = os.path.join('规则正文', '返航录正文v1preview1.0_规则.md')
 # PDF 原件随站分发（在线阅读 / 下载），构建时复制到 site/
 RULES_PDF_SRC = os.path.join(ROOT, '规则正文', '返航录三阵营对抗规则·正文v1preview1.0.pdf')
 RULES_PDF_NAME = '返航录三阵营对抗规则·正文v1preview1.0.pdf'
+
+# 规则资料（2026-10-21 起）：除正文外还随站分发三份配套文档。
+# 权威原件均由作者提供，存放于 规则正文/，构建时逐份复制到 site/ 并提供下载/在线阅读。
+RULE_DOCS = [
+    ('返航录三阵营对抗规则·正文v1preview1.0.pdf', '正文'),
+    ('返航录三阵营对抗规则·职业速查卡v1preview1.0.pdf', '职业速查卡'),
+    ('返航录三阵营对抗规则·术语表v1preview1.0.pdf', '术语表'),
+    ('返航录三阵营对抗规则·判定流程图v1preview1.0.pdf', '判定流程图'),
+]
 
 DOCS = [
     # (来源路径, 输出文件名, 栏目, 短标题, 副标题, 转换器)
@@ -531,6 +540,24 @@ body::before{
         <div class="file-meta">47 页权威原件 · 打印友好</div>
         <div><span class="badge pdf">PDF</span></div>
       </a>
+      <a class="file" href="返航录三阵营对抗规则·职业速查卡v1preview1.0.pdf">
+        <div class="file-id">FILE-06b · LOG-002</div>
+        <div class="file-title">职业速查卡</div>
+        <div class="file-meta">按席位查技能与额度 · 对局时随手翻</div>
+        <div><span class="badge pdf">PDF</span></div>
+      </a>
+      <a class="file" href="返航录三阵营对抗规则·术语表v1preview1.0.pdf">
+        <div class="file-id">FILE-06c · LOG-002</div>
+        <div class="file-title">术语表</div>
+        <div class="file-meta">正文术语统一口径（0.6 术语统一）</div>
+        <div><span class="badge pdf">PDF</span></div>
+      </a>
+      <a class="file" href="返航录三阵营对抗规则·判定流程图v1preview1.0.pdf">
+        <div class="file-id">FILE-06d · LOG-002</div>
+        <div class="file-title">判定流程图</div>
+        <div class="file-meta">结算顺序与判定分支一图看完</div>
+        <div><span class="badge pdf">PDF</span></div>
+      </a>
       <a class="file" href="story-human.html">
         <div class="file-id">FILE-07 · LOG-003</div>
         <div class="file-title">人类胜利线</div>
@@ -745,12 +772,36 @@ def build():
     if os.path.exists(pdf_src):
         pdf_dst = os.path.join(OUT, RULES_PDF_NAME)
         if os.path.exists(pdf_dst):
-            os.remove(pdf_dst)          # Windows 上直接 copy2 覆盖会被占用拒绝
+            # 〔2026-10-21〕site/ 下的副本可能带只读属性（历史产物被整目录复制/同步过），
+            # 只读文件在 Windows 上 os.remove 会抛 WinError 5，先清标志再删。
+            try:
+                os.chmod(pdf_dst, 0o666)
+            except OSError:
+                pass
+            os.remove(pdf_dst)
         shutil.copy2(pdf_src, pdf_dst)
         print('%-40s -> site/%s  (%.2f MB)' % (RULES_PDF_SRC, RULES_PDF_NAME,
       os.path.getsize(pdf_src) / 1048576.0))
     else:
         print('WARN 规则 PDF 原件缺失，跳过复制：%s' % pdf_src)
+
+    # 规则资料四件套（2026-10-21）：正文已由上面复制；速查卡 / 术语表 / 判定流程图在此逐份复制。
+    # 官方判定：缺失只告警不失败（正文是唯一必需项），但每份都会打印复制结果，便于核对。
+    for name, label in RULE_DOCS[1:]:
+        src = os.path.join(ROOT, '规则正文', name)
+        if not os.path.exists(src):
+            print('WARN 规则资料缺失（%s）：%s' % (label, src))
+            continue
+        dst = os.path.join(OUT, name)
+        if os.path.exists(dst):
+            try:
+                os.chmod(dst, 0o666)
+            except OSError:
+                pass
+            os.remove(dst)
+        shutil.copy2(src, dst)
+        print('%-40s -> site/%s  (%.2f MB)' % (os.path.join('规则正文', name), name,
+          os.path.getsize(src) / 1048576.0))
 
     # 安卓下载二维码：随站分发，但它是**静态资源**而非生成产物 ——
     # 必须由构建复制，不能只躺在 site/ 里。否则「产物可由源确定性重建」这道门禁必然失败
