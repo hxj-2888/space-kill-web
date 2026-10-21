@@ -830,7 +830,7 @@ const jsFiles = [];
   const ann = (g.log || []).filter(e => e.batch === '④').map(e => e.text).join(' ');
   /* v6.6 B2 反转 v31 定案 1：暴露公告只报「编号＋呈现职业」（2.8.12④）——
      原职业标注会向全场泄露「转职已发生 ⇒ 存活≤6 或已过第 6 夜」（N401 cond 连带） */
-  ok('④ 暴露公告不再标注原职业（v6.6 B2 取代 v31 定案 1）',
+  ok('④ 暴露公告不再标注原职业（4.7.4 身份标注 / v6.6 B2 取代 v31 定案 1）',
     ann.indexOf('原职业') < 0, ann.slice(0, 120));
   ok('普通船员协助维修不产生 ④ 暴露（口径一：暴露主体收窄为工程师系）',
     (g.log || []).filter(e => e.batch === '④').every(e => String(e.text).indexOf('维修者暴露') < 0 || eng.repairExposed));
@@ -1116,13 +1116,13 @@ const RULE_FILES = ['js/ai/belief.js', 'js/ai/perceive.js', 'js/ai/decide.js',
 /* ---------- 36. 阶段 1 硬数值（v6.6 2.3 表 × 2026-10-03 拍板 I1/I2） ---------- */
 {
   /* A8/A9 队列口径 */
-  ok('DUEL 队列补 0.5/0.55/2/4a/4b（A9，v6.6 夜间全序列）',
+  ok('DUEL 队列补 0.5/0.55/2/4a/4b（1.4.2 决斗时刻，A9，v6.6 夜间全序列）',
     ['0.5', '0.55', '2', '4a', '4b'].every(s => Engine.DUEL.includes(s)), Engine.DUEL.join(','));
-  ok('决斗期步骤 11 在队列中（拍板 I2：倒计时不冻）', Engine.DUEL.includes('11'));
+  ok('决斗期步骤 11 在队列中（1.4.2，拍板 I2：倒计时不冻）', Engine.DUEL.includes('11'));
   ok('寂灭期冻结 0a/0b/0c/4a/11（1.4.1 明文列举制）',
     ['0a', '0b', '0c', '4a', '11'].every(s => !Engine.EXTINCT.includes(s)), Engine.EXTINCT.join(','));
   ok('寂灭期 4b 保留（结茧分支不冻，1.4.1）', Engine.EXTINCT.includes('4b'));
-  ok('寂灭期 0.6 保留（拍板 I1：进化/转化不冻）', Engine.EXTINCT.includes('0.6'));
+  ok('寂灭期 0.6 保留（1.4.1，拍板 I1：进化/转化不冻）', Engine.EXTINCT.includes('0.6'));
 }
 {
   /* #1/#2 停摆档位 +2.5/+5.0（1.3.2 跨档累加）——4b 已改为决策步（A7） */
@@ -1131,7 +1131,7 @@ const RULE_FILES = ['js/ai/belief.js', 'js/ai/perceive.js', 'js/ai/decide.js',
   g.net10 = 25; g.countdown = 20; g.tiers = {}; g.step = '4b'; g.decisions = {};
   g.decisions[al.id] = { branch: 'destroy', num: 20 };              // 未进化自选 2.0
   Engine.STEPS['4b'].run(g);
-  ok('停摆 3.0 档 +2.5（v6.6 2.3 表 #1）',
+  ok('停摆 3.0 档 +2.5（1.3.1 停摆档位）',
     g.tiers[3] === true && Math.abs(g.countdown - 22.5) < 1e-9, `tiers=${JSON.stringify(g.tiers)} cd=${g.countdown}`);
   ok('破坏后 branch 标记 → 步骤 7 跳过（5.8.1）', al.branch === 'destroy', al.branch);
 
@@ -1141,7 +1141,7 @@ const RULE_FILES = ['js/ai/belief.js', 'js/ai/perceive.js', 'js/ai/decide.js',
   g2.net10 = 55; g2.countdown = 20; g2.tiers = {}; g2.step = '4b'; g2.decisions = {};
   g2.decisions[a2.id] = { branch: 'destroy', num: 20 };             // 破坏进化自选 2.0
   Engine.STEPS['4b'].run(g2);
-  ok('停摆同夜跨档累加 +2.5+5.0（1.3.2）',
+  ok('停摆同夜跨档累加 +2.5+5.0（1.3.1 / 1.3.2）',
     g2.tiers[3] === true && g2.tiers[6] === true && Math.abs(g2.countdown - 27.5) < 1e-9, `cd=${g2.countdown}`);
 }
 {
@@ -1162,14 +1162,14 @@ const RULE_FILES = ['js/ai/belief.js', 'js/ai/perceive.js', 'js/ai/decide.js',
   Engine.STEPS['4a'].run(g);
   ok('维修+追加 −2.9（六档自选，合计≤3.0；v6.6 2.3 表 #5/#6）',
     Math.abs(eng.repairTotal - 2.9) < 1e-9 && eng.extraRepair === 2, `total=${eng.repairTotal} left=${eng.extraRepair}`);
-  ok('维修同额削减倒计时与净破坏量', Math.abs(g.countdown - 17.1) < 1e-9 && g.net10 === 1, `cd=${g.countdown} net=${g.net10}`);
+  ok('维修同额削减倒计时与净破坏量（1.3.3 净破坏量）', Math.abs(g.countdown - 17.1) < 1e-9 && g.net10 === 1, `cd=${g.countdown} net=${g.net10}`);
 
   const g2 = newGame(305);
   const crew = g2.players.find(p => p.role === 'crew' && !p.out);
   g2.countdown = 20; g2.net10 = 10; g2.step = '4a'; g2.decisions = {};
   crew.repairValue = 0.3;
   Engine.STEPS['4a'].run(g2);
-  ok('协助维修同减净破坏量（v6.6 2.3 表 #7，4.1.2①）',
+  ok('协助维修同减净破坏量（1.3.3 / v6.6 2.3 表 #7，4.1.2①）',
     Math.abs(g2.countdown - 19.7) < 1e-9 && g2.net10 === 7, `cd=${g2.countdown} net=${g2.net10}`);
 }
 {
@@ -1181,7 +1181,7 @@ const RULE_FILES = ['js/ai/belief.js', 'js/ai/perceive.js', 'js/ai/decide.js',
   g.night = 1; g.step = '5'; g.decisions = {};
   g.decisions[xeno.id] = { targets: [eng.id] };
   Engine.STEPS['5'].run(g);
-  ok('工程师第 1 夜被动全能免疫已移除（无安全室时被刀命中）', eng.dying === true, `dying=${eng.dying}`);
+  ok('工程师第 1 夜被动全能免疫已移除（无安全室时被刀命中）（4.3.1 安全室）', eng.dying === true, `dying=${eng.dying}`);
 
   eng.dying = false; eng.dyingCause = null; eng.killedBy = null;
   eng.safeRoomUsed = true; eng.safeRoomNight = g.night; eng.guardDmg = true;
@@ -1310,7 +1310,7 @@ const RULE_FILES = ['js/ai/belief.js', 'js/ai/perceive.js', 'js/ai/decide.js',
   const crew = g.players.find(p => p.role === 'crew' && !p.out);
   crew.infection = { real: true, appliedNight: 1, deathNight: 4 };
   crew.transferred = true; crew.role = 'armed'; crew.roleName = '武装船员';
-  ok('感染标记跨转职形态保留且 deathNight 不变（5.3.3）',
+  ok('感染标记跨转职形态保留且 deathNight 不变（5.3.3 / 3.3.3 致死时点）',
     crew.infection && crew.infection.real === true && crew.infection.deathNight === 4,
     JSON.stringify(crew.infection));
 }
@@ -1790,7 +1790,7 @@ const RULE_FILES = ['js/ai/belief.js', 'js/ai/perceive.js', 'js/ai/decide.js',
   ok('C5/C4：倒排契约自检为空（角色/机制行动位均已登记于事件族步骤表、每批次有产出步骤、无重复步位）',
     A.audit().length === 0, A.audit().join('；'));
   /* 〔批次 29〕步骤 6 候选发出者按声明纳入 hunter（猎手持枪已在步骤 6 实装）；其余步位未变。 */
-  ok('C5：已接线步位的候选发出者与迁移前判定逐项等集（4a 维修 / 6 枪击 / 8 医生系 / 10 紧急会议）',
+  ok('C5：已接线步位的候选发出者与迁移前判定逐项等集（4a 维修 / 6 枪击 / 8 医生系 / 10 紧急会议）（4.9.2）',
     A.rolesAt('4a').join(',') === 'engineer,assistant' &&
     A.rolesAt('6').join(',') === 'sheriff,hunter,armed' &&
     /* 〔v1preview1.0 4.14〕疫苗主行动位为步骤 8（与生化医师同席位、同行动位） */
@@ -1848,7 +1848,7 @@ const RULE_FILES = ['js/ai/belief.js', 'js/ai/perceive.js', 'js/ai/decide.js',
   const P = ctx.SKProcess, PE = ctx.SKProcessEngine;
   ok('C11：进程注册表自检为空（nights/产物/资源标签/文案齐备，delivery 仅 nextNight）',
     P.audit().length === 0, P.audit().join('；'));
-  ok('C11：制药声明与迁移前实现逐项一致（投入 2 夜 / 产物以完成时之选为准 / 缺省 heal）',
+  ok('C11：制药声明与迁移前实现逐项一致（3.3.1 制药 / 投入 2 夜 / 产物以完成时之选为准 / 缺省 heal）',
     P.get('brew').nights === 2 && P.get('brew').interruptible === true &&
     P.get('brew').defaultProduct === 'heal' &&
     P.get('brew').productChoices.join(',') === 'rescue,heal' &&
@@ -2292,7 +2292,7 @@ const RULE_FILES = ['js/ai/belief.js', 'js/ai/perceive.js', 'js/ai/decide.js',
     !!EF.STEP_INDEX['M-speech'] && EF.STEP_INDEX['M-speech'].roles.join(',') === 'inspector' &&
     DER.declaredActors('M-speech').indexOf('inspector') >= 0);
   /* 阵营级能力（感染抑制）：声明为「非异形阵营 + 真有感染 + 有额度」，而不是职业清单 */
-  ok('C1：感染抑制声明为阵营级能力（human+xeno，非职业清单——state.js 给非异形阵营每人 3 次额度）',
+  ok('C1：感染抑制声明为阵营级能力（human+xeno，非职业清单——state.js 给非异形阵营每人 3 次额度）（3.3.4）',
     EF.STEP_INDEX['0.5'].capability === 'suppress' &&
     EF.STEP_INDEX['0.5'].factions.join(',') === 'human,xeno' &&
     DER.declaredActors('0.5').indexOf('crew') >= 0 && DER.declaredActors('0.5').indexOf('alien') < 0);
@@ -2449,7 +2449,7 @@ const RULE_FILES = ['js/ai/belief.js', 'js/ai/perceive.js', 'js/ai/decide.js',
   const g99 = newGame(8103);
   Engine.begin(g99);
   g99.night = Engine.NIGHT_CAP; g99.extinction = false;
-  ok('C1（实测）：第 99 夜步骤 9 结算后 checkWin 不返回 draw（判定节点为步骤 11）',
+  ok('C1（实测）：第 99 夜步骤 9 结算后 checkWin 不返回 draw（1.2.3 判定顺序 / 判定节点为步骤 11）',
     Engine.checkWin(g99, '9') !== 'draw', String(Engine.checkWin(g99, '9')));
   ok('C1（实测）：同局步骤 11 节点返回 draw（平局优先于 ①②③④）',
     Engine.checkWin(g99, '11') === 'draw', String(Engine.checkWin(g99, '11')));
@@ -2532,14 +2532,14 @@ const RULE_FILES = ['js/ai/belief.js', 'js/ai/perceive.js', 'js/ai/decide.js',
   ok('C7：报告覆盖该死者的当夜死因（致死那一次必属落身来源）',
     causeMiss.length === 0 && deathRecords.length > 0,
     causeMiss.slice(0, 3).join(' | ') + ` (样本 ${deathRecords.length} 例)`);
-  ok('C7【感染单列】：感染致死者报告中单列「感染」一项，不并入出刀∕枪击',
+  ok('C7【感染单列】：感染致死者报告中单列「感染」一项，不并入出刀∕枪击（3.3.3 致死时点）',
     infectOk, `感染死亡样本 ${infectSeen} 例`);
 
-  ok('C6（实测）：⑥死亡公告含「呈现职业：…／真实职业：…」两项且不含原职业标注',
+  ok('C6（实测）：⑥死亡公告含「呈现职业：…／真实职业：…」两项且不含原职业标注（2.3.4）',
     sixth.filter(t => t.indexOf('号死亡') >= 0).length > 0 &&
     sixth.filter(t => t.indexOf('号死亡') >= 0).every(t => t.indexOf('呈现职业：') >= 0 && t.indexOf('真实职业：') >= 0) &&
     sixth.every(t => t.indexOf('原职业') < 0));
-  ok('C6（实测）：⑩驱逐公告含「呈现职业：…／真实职业：…」两项且不含原职业标注',
+  ok('C6（实测）：⑩驱逐公告含「呈现职业：…／真实职业：…」两项且不含原职业标注（2.3.4）',
     tenth.filter(t => t.indexOf('号被驱逐') >= 0).length > 0 &&
     tenth.filter(t => t.indexOf('号被驱逐') >= 0).every(t => t.indexOf('呈现职业：') >= 0 && t.indexOf('真实职业：') >= 0) &&
     tenth.every(t => t.indexOf('原职业') < 0),
@@ -2618,7 +2618,7 @@ const RULE_FILES = ['js/ai/belief.js', 'js/ai/perceive.js', 'js/ai/decide.js',
   /* ③ 非验票官渲染 quote → 划水句（不替他人编造指控） */
   const quoteClaim = IR.mk('quote', [tgt.id], { by: 3 }, meta);
   const t3 = Lang.render(quoteClaim, ctxFull);
-  ok('T18-e：非验票官渲染 quote → 划水句（票源仅验票官可见，4.9.1）',
+  ok('T18-e：非验票官渲染 quote → 划水句（4.9.3 票源图 / 票源仅验票官可见，4.9.1）',
     /先不表态|先听大家/.test(t3), t3);
 
   /* ④ 神探池内 reveal → 只报职业不报阵营；池外 → 降级 */
@@ -2913,7 +2913,7 @@ const RULE_FILES = ['js/ai/belief.js', 'js/ai/perceive.js', 'js/ai/decide.js',
     const oTrue = Object.keys(RS2.PATHS).filter(k => RS2.PATHS[k].originNote);
     ok('R3：真实阵营仅在出局揭示（⑩驱逐/⑥死亡）两路径开启——与 2.8.12① 之默认范围一致',
       fTrue.slice().sort().join(',') === 'death,expel', fTrue.join(','));
-    ok('R3：原职业标注仅在神探公告与蛰伏查验开启（2.8.12③ 差量③④，v66.1 已重排为四处）',
+    ok('R3：原职业标注仅在神探公告与蛰伏查验开启（4.7.4 / 2.8.12③ 差量③④，v66.1 已重排为四处）',
       oTrue.slice().sort().join(',') === 'detectiveAnnounce,xenoCheck', oTrue.join(','));
   }
 
@@ -2998,7 +2998,7 @@ const RULE_FILES = ['js/ai/belief.js', 'js/ai/perceive.js', 'js/ai/decide.js',
   ok('AIR：暴露/神探节点无阵营与真实职业字段（2.8.12④〔2.8.9(17)〕／4.7.2 只报两项）',
     AIR.SCHEMA.announceExpose.indexOf('factionName') < 0 && AIR.SCHEMA.announceExpose.indexOf('trueRole') < 0 &&
     AIR.SCHEMA.announceDetective.indexOf('factionName') < 0 && AIR.SCHEMA.announceDetective.indexOf('trueRole') < 0);
-  ok('AIR：原职业标注仅神探公告节点持有（4.7.5；B2 后 ④⑤⑥⑩ 均无）',
+  ok('AIR：原职业标注仅神探公告节点持有（4.7.4 / 4.7.5；B2 后 ④⑤⑥⑩ 均无）',
     AIR.SCHEMA.announceDetective.indexOf('originRole') >= 0 &&
     AIR.SCHEMA.announceDeath.indexOf('originRole') < 0 && AIR.SCHEMA.announceExpose.indexOf('originRole') < 0);
 
@@ -3185,7 +3185,7 @@ const RULE_FILES = ['js/ai/belief.js', 'js/ai/perceive.js', 'js/ai/decide.js',
     g.decisions[aliens[0].id] = { branch: 'destroy', num: 30 };
     g.decisions[aliens[1].id] = { branch: 'destroy', num: 20 };
     Engine.STEPS['4b'].run(g);
-    ok('A20：两只破坏进化异形执行破坏 → 次夜削减 50%（3.2.6①，占位上限即 50%）',
+    ok('A20：两只破坏进化异形执行破坏 → 次夜削减 50%（5.2 破坏进化 / 3.2.6①，占位上限即 50%）',
       g.repairCutNext === 50, 'cut=' + g.repairCutNext);
     /* 单只/未进化/外星人不触发或触发 25% */
     const g2 = newGame(9705);
@@ -3197,7 +3197,7 @@ const RULE_FILES = ['js/ai/belief.js', 'js/ai/perceive.js', 'js/ai/decide.js',
     g2.decisions[al2[0].id] = { branch: 'destroy', num: 20 };
     g2.decisions[xeno2.id] = { branch: 'destroy', num: 30 };
     Engine.STEPS['4b'].run(g2);
-    ok('A20：未进化异形破坏不触发；外星人破坏不触发（仅破坏进化异形，3.2.6①）',
+    ok('A20：未进化异形破坏不触发；外星人破坏不触发（6.3 / 5.2，仅破坏进化异形，3.2.6①）',
       g2.repairCutNext === 0 && g2.pendingStop === true, 'cut=' + g2.repairCutNext);
     /* 4a 折算（显式设 25%）：工程师 1.2×0.75＝0.90；协助维修 0.4×0.75＝0.30；
        同额计入倒计时削减与维修暴露累计（2.8.13⑥） */
@@ -3542,7 +3542,7 @@ const RULE_FILES = ['js/ai/belief.js', 'js/ai/perceive.js', 'js/ai/decide.js',
       h.inbox.every(m => !/保镖|安全室|施加/.test(m.text)),
       h.inbox.filter(m => /嗅探/.test(m.text)).map(m => m.text).join(' | '));
     ok('A6：嗅探按「夜晚」计消耗（2 夜→1 夜，与目标数无关；4.4.8⑧）', h.sniffLeft === 1, 'left=' + h.sniffLeft);
-    ok('A6：全额减免者不呈现保护状态（安全室不在查询范围，4.4.8⑤）',
+    ok('A6：全额减免者不呈现保护状态（4.3.1 安全室 / 不在查询范围，4.4.8⑤）',
       !h.inbox.some(m => m.text.indexOf(eng.id + ' 号呈现保护状态') >= 0));
     ok('A6：嗅探仅本人可见、不产生公告（2.8.7）',
       !g.log.some(e => e.batch && /嗅探/.test(e.text || '')));
@@ -3897,7 +3897,7 @@ const RULE_FILES = ['js/ai/belief.js', 'js/ai/perceive.js', 'js/ai/decide.js',
   {
     const g = newGameV(9805, { rescue: 'poisoner' });
     const ps = g.players.find(p => p.role === 'poisoner');
-    ok('A6：毒师初始各 1 份（第 1 夜到账），不继承救援/治疗额度（4.6.4②⑥）',
+    ok('A6：毒师初始各 1 份（第 1 夜到账），不继承救援/治疗额度（4.6.4②⑥，4.6.1 救援额度）',
       ps.poisonLeft === 1 && ps.antidoteLeft === 1 && ps.rescueLeft === 0 && ps.cureLeft === 0 && ps.healLeft === 0,
       `毒${ps.poisonLeft}/解${ps.antidoteLeft} 救援${ps.rescueLeft} 治疗${ps.cureLeft}`);
     /* 第 3、5 夜各 +1 ⇒ 全局合计 3 */
@@ -5035,7 +5035,7 @@ const RULE_FILES = ['js/ai/belief.js', 'js/ai/perceive.js', 'js/ai/decide.js',
     const leak = ks.filter(k => XENO_ONLY.indexOf(k) >= 0);
     ok('死囚E：未变形的死囚拿不到蛰伏/沉默/击杀/自我治疗/觉醒任一项（6.8.2 零外星人技能）',
       leak.length === 0, '泄漏=' + (leak.join(',') || '0') + ' 实得=' + ks.join(','));
-    ok('死囚F：未变形的死囚仍持有自己的两项能力入口（变形 P-id / 复生 8）',
+    ok('死囚F：未变形的死囚仍持有自己的两项能力入口（变形 P-id / 复生 8）（6.8.4 复生）',
       ks.indexOf('morph') >= 0, '实得=' + ks.join(','));
     /* 乔装（7.3）是异形与外星人共有的技能，死囚不持（6.8.2）——〔v1preview1.0 6.8.3⑧〕
        其 2 次于**呈现异形时克隆取得**（全局次数按本体计、跨形态累计）。故：
@@ -5057,7 +5057,7 @@ const RULE_FILES = ['js/ai/belief.js', 'js/ai/perceive.js', 'js/ai/decide.js',
       const g1 = Setup.createGame(8102, 'random', CV_OPTS);
       const c1 = g1.players.find(p => p.convict);
       Engine.applyInfection(g1, c1, null);
-      ok('死囚H：被感染不累积感染治疗额度（6.5 是经典外星人的被动）', c1.cureSelf === 0,
+      ok('死囚H：被感染不累积感染治疗额度（6.8.2 无经典技能 / 6.5 是经典外星人的被动）', c1.cureSelf === 0,
         'cureSelf=' + c1.cureSelf);
     }
     /* 43.2 的两处门禁（被动发放 / 步骤 8 派发）互为冗余：任一处单独失效，另一处仍能挡住症状，
