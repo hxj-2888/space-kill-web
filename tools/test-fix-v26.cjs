@@ -5440,15 +5440,26 @@ okSurfaced('死囚O：req.kind 与 form.kind 逐次一致（这一致性正是�
       return g.players[1].vaccineUntil === 9 && g.players[1].vaccineBy === 1 &&
              g.players[2].vaccineUntil == null && v.vaccineDoses === 0;
     })());
-  ok('4.14.4 疫苗抗体逐夜独立：仅 [末夜-3, 末夜] 窗口内拦截，接种当夜与第 5 夜起不拦（不结转）',
+  /* 〔2026-10-21 更正〕上一版这条曾被误读成「V-1：接种当夜即生效」。实际 vaccineUntil = N+4，
+     窗口 [N+1, N+4] 恰为「自次夜起连续 4 夜」，**接种当夜不在窗口内**（实现与 4.14.4 逐字一致）。
+     这里走**真实接种路径**取得 vaccineUntil，不再手写 9 这种魔数——手写正是上次算错的来源。 */
+  ok('4.14.4 疫苗抗体窗口：接种当夜不生效，自次夜起连续 4 夜拦截，第 5 夜起失效（不结转）',
     (() => {
-      const probe = n => {
+      const N = 5;                                   // 接种夜
+      const g0 = mkG(N, [[1, 'vaccinist'], [2, 'crew']]);
+      g0.players[0].vaccineDoses = 1;
+      g0.decisions[1] = { act: 'inoculate', targets: [2] };
+      STEP8.run(g0);                                 // 真实接种：由引擎写 vaccineUntil
+      const until = g0.players[1].vaccineUntil;
+      const at = n => {
         const g = mkG(n, [[1, 'vaccinist'], [2, 'crew']]);
-        const t = g.players[1]; t.vaccineUntil = 9; t.vaccineBy = 1;
+        const t = g.players[1]; t.vaccineUntil = until; t.vaccineBy = 1;
         return Engine.applyInfection(g, t, n);
       };
-      return probe(5) !== 'blocked' && probe(6) === 'blocked' && probe(9) === 'blocked' &&
-             probe(10) === 'real' && probe(11) === 'real';
+      return until === N + 4                                   // 末夜 = 接种夜 + 4
+             && at(N) === 'real'                               // 当夜：不生效（次夜起）
+             && [N + 1, N + 2, N + 3, N + 4].every(n => at(n) === 'blocked')   // 连续 4 夜
+             && at(N + 5) === 'real' && at(N + 6) === 'real';  // 第 5 夜起失效
     })());
   ok('7.2.9 疫苗抗体生效感知：只送达研究员本人（目标本人不得收到，免透视接种者）',
     (() => {
