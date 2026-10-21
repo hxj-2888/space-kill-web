@@ -1303,7 +1303,19 @@
             .sort((a, b) => b.U - a.U);
           opts.push({ v: 'rescue', U: scored[0].U, targets: scored.slice(0, Math.min(p.rescueLeft, 2)).map(s => s.x.id) });
         }
-        if (!p.brew) opts.push({ v: 'brew', U: p.healLeft + p.cureLeft + p.rescueLeft <= 0 ? 30 : 8 });
+        /* 〔2026-10-21 修复〕制药：**续投**与**新开**必须分开判。
+           旧实现写 `if (!p.brew)`，本意是「没有已完成待发放的产物就别再开」，实际却读成了
+           「身上没有进行中的进度」⇒ 一旦投入第 1 夜（p.brew 存在），这个选项就永久消失，
+           进度永远停在 1/2、制药**从来不可能完成**（实测 60 局经典局 brewDone 出现 0 次）。
+           这正是疫苗研究员制药 bug 一直没被察觉的原因之一：连生化医师的制药都跑不完。
+           正确口径（比照下面 'craft' 分支）：有进度 ⇒ 续投（高效用，否则前功尽弃）；
+           无进度且无待发放产物 ⇒ 新开（额度见底时更值得）。 */
+        if (!p.brewDone) {
+          const brewSt = global.SKProcessEngine && global.SKProcessEngine.stateOf(p, 'brew');
+          const starving = p.healLeft + p.cureLeft + p.rescueLeft <= 0;
+          opts.push({ v: 'brew', U: brewSt ? 55 + gauss(g) * 8      // 续投：不续就永远完不成
+                                          : (starving ? 30 : 8) }); // 新开：额度见底时更值得
+        }
         /* A6 批次 31 · 4.6.4：毒师的毒药/解药进入同场 argmax（五选一互斥，2.5.3）。
            · 下毒目标＝敌方阵营中危险度最高者（毒药要 2 夜才发作，押注对象价值高）；
              额度有限（全局 3），故只在敌营存在候选时出手，不浪费在无信息的第 1 夜。

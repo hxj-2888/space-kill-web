@@ -5476,6 +5476,91 @@ okSurfaced('死囚O：req.kind 与 form.kind 逐次一致（这一致性正是�
     ctx.SKProcessEngine.invest(mkG(5, [[1, 'vaccinist']]), mkG(5, [[1, 'vaccinist']]).players[0], 'brew', 'rescue')
       .invested === true,
     'owner=' + JSON.stringify(ctx.SKProcess.get('brew').owner));
+  /* 〔2026-10-21 验收补】到账文案的 {resource} 必须按**实际产物**取。
+     反面教材（本轮自查抓到的回归）：engine.js 曾把 brew 的 resource 硬编码成 rescueLeft
+     ⇒ 生化医师制治疗药剂时，玩家实际拿到 cureLeft+2，文案却写「获得 2 次救援额度」。
+     一个进程两种产物，resource 只能由 doneKey 的**值**反查，不能由进程名决定。 */
+  ok('3.3.1 制药到账文案与产物一致：救援药剂→「救援额度」、治疗药剂→「治疗额度」（按产物取 resource）',
+    (() => {
+      const deliver = (role, product) => {
+        const g = mkG(6, [[1, role]]);
+        const v = g.players[0];
+        v[ctx.SKProcess.get('brew').doneKey] = product;
+        /* 复刻 engine.js 的到账口径：由 doneKey 值反查声明层 products 的资源键 */
+        const deltas = ctx.SKProcess.get('brew').products[product];
+        ctx.SKProcessEngine.deliver(g, v, {
+          say: t => v.inbox.push({ text: t }),
+          resource: Object.keys(deltas)[0], announceId: 'brew',
+        });
+        return { text: v.inbox.map(e => e.text).join('|'), rescue: v.rescueLeft, cure: v.cureLeft };
+      };
+      const heal = deliver('bio', 'heal');
+      const resc = deliver('bio', 'rescue');
+      const vac = deliver('vaccinist', 'rescue');
+      return /治疗额度/.test(heal.text) && heal.cure === 2 && heal.rescue === 0 &&
+             /救援额度/.test(resc.text) && resc.rescue === 1 &&
+             /救援额度/.test(vac.text) && vac.rescue === 1;
+    })(), '文案必须与实际到账资源同名，否则玩家看到的额度种类是错的');
+  /* 〔2026-10-21 验收补 · 根因层】AI 决策里的制药守卫写错过一次：`if (!p.brew)` 把
+     「没有进行中进度」当成了「没有待发放产物」⇒ 投入第 1 夜后该选项永久消失，制药永远停在
+     1/2。下面两条从**行为面**锁死它：① 有进度时必须仍把 brew 列为可选项且效用显著高于新开；
+     ② 真实对局里制药必须真的完成过（不是「代码看起来对」）。 */
+  ok('3.3.1 制药续投：已有 1/2 进度时 AI 仍须可选 brew，且续投效用高于新开（否则永远完不成）',
+    (() => {
+      const g = Setup.createGame(66031, 'random');
+      g.humans = []; g.humanId = -1;
+      for (const p of g.players) p.isHuman = false;
+      const bio = g.players.find(p => p.role === 'bio');
+      const hasBrewOpt = () => Engine.STEPS['8'].form(g, bio).opts.some(o => o.v === 'brew');
+      const before = hasBrewOpt();
+      bio.brew = { progress: 1, product: 'rescue', lastNight: g.night };
+      const after = hasBrewOpt();
+      /* 决策层：进度在身时仍须能返回 brew。**给随机流打桩**（红线 3：探针不得扰动 g.rng），
+         打完桩原样还原，保证本条不改变任何后续断言的随机序列。
+         桩必须实现 RNG 的完整接口（next/int/pick/chance/shuffle），否则 decide 内部会抛
+         `g.rng.next is not a function`——这正是上一版桩只写了 5 个方法却漏掉 next 的教训。 */
+      const stub = {
+        seed: 1,
+        next: () => 0.5,                    // 恒定中点：chance(p) 对 p>0.5 为真、ε 分支稳定
+        int: n => 0,
+        pick: a => a[0],
+        chance: p => 0.5 < p,
+        shuffle: a => a,
+      };
+      const keep = g.rng;
+      g.rng = stub;
+      let hit = 0;
+      try {
+        for (let i = 0; i < 20; i++) {
+          const d = AI.decide(g, { pid: bio.id, kind: 'doctor' });
+          if (d && d.act === 'brew') hit++;
+        }
+      } finally { g.rng = keep; }
+      return before && after && hit > 0;
+    })(), '续投选项缺失时 hit=0（旧实现 `if (!p.brew)` 正是此态）');
+  ok('3.3.1 制药可完成（真实对局）：60 局经典局里 brewDone 至少出现一次，且两种额度都到账过',
+    (() => {
+      let done = 0, resc = 0, cure = 0;
+      for (let seed = 1; seed <= 60; seed++) {
+        const g = Setup.createGame(seed, 'random');
+        g.humans = []; g.humanId = -1;
+        for (const p of g.players) p.isHuman = false;
+        Engine.begin(g);
+        let steps = 0, saw = false;
+        while (!g.over && steps < 4000) {
+          steps++; Engine.stepOnce(g);
+          for (const p of g.players) if (p.brewDone) saw = true;
+          if (g.pending) Engine.submit(g, { opt: null, targets: [], num: null, text: '' });
+        }
+        if (saw) done++;
+        for (const p of g.players) for (const e of (p.inbox || [])) {
+          if (!/产物到账/.test(e.text)) continue;
+          if (/救援额度/.test(e.text)) resc++;
+          if (/治疗额度/.test(e.text)) cure++;
+        }
+      }
+      return done > 0 && resc > 0 && cure > 0;
+    })(), '若 brew 守卫写回 !p.brew，本条会退化为 done=0');
   ok('4.14 声明面：无自救额度（selfSaveLeft=0）且不自带救援额度——自救收束仅生化医师（H-18）',
     (() => {
       const g = Setup.createGame(66021, 'random', { seatPicks: { bio: 'vaccinist' } });

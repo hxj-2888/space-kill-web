@@ -401,20 +401,25 @@
       /* C11（进程注册表）：进程型产出的次夜到账——通用引擎按声明的资源增量落实并按模板发私反馈
          （制药的 rescueLeft+1 / cureLeft+2 与文案均在 js/v66/declaration/processRegistry.js）。
          〔批次 31〕铸造产物为 armorStock（工匠护甲入库），同走此口。
-         〔2026-10-21〕疫苗研究员的制药产物是**固定**的救援药剂（4.14.1②）⇒ 到账文案的
-         {resource} 明确按 rescueLeft 渲染。此处是「谁来领」的唯一公共入口，故三个进程的
-         resource 都显式给出；宣布哪一条由 announceId 决定（同一玩家可能同时挂着两种产物）。 */
+         〔2026-10-21〕到账文案的 {resource} 必须按**实际产物**取，不能按进程名硬编码：
+         brew 一个进程有 rescue / heal 两种产物，分别落在 rescueLeft / cureLeft
+         （4.14.1② 对疫苗研究员固定为救援药剂，但生化医师仍可选治疗药剂）。
+         故这里读玩家身上待发放的 doneKey **值**（即产物键），再用声明层 products 反查资源键。 */
       if (global.SKProcessEngine) {
-        const RES = { brew: 'rescueLeft', gatherAmmo: 'bullets', cast: 'armorStock', castFast: 'fastArmorStock' };
-        /* 只挑「确有已完成待发放产物」的进程（doneKey 值非空）；同一玩家可能同时挂着两个，
-           此时给第一个（文案只描述被点名的那个，其余按声明模板渲染）。 */
-        const pid = Object.keys(RES).find(k => {
-          const d = global.SKProcess.get(k); return !!(d && p[d.doneKey]);
-        }) || null;
+        const doneOf = k => {
+          const d = global.SKProcess.get(k);
+          return d && p[d.doneKey] ? { id: k, product: p[d.doneKey], d } : null;
+        };
+        const pend = ['brew', 'gatherAmmo', 'cast', 'castFast'].map(doneOf).filter(Boolean)[0] || null;
+        let resource = null;
+        if (pend) {
+          const deltas = (pend.d.products || {})[pend.product];
+          resource = deltas ? (Object.keys(deltas)[0] || null) : null;
+        }
         global.SKProcessEngine.deliver(g, p, {
           say: t => priv(g, p, t),
-          resource: pid ? RES[pid] : null,
-          announceId: pid,
+          resource,
+          announceId: pend ? pend.id : null,
         });
       }
     }
