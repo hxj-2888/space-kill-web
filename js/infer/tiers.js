@@ -150,6 +150,70 @@
      语义正确：空口「我是普通船员」几乎不产生减疑（最廉价、最不可验证的宣称）。 */
   const SELF_CLAIM = { bias: 5, half: 0.5 };
 
+  /* ============ 2026-10-24 批 4（可调参化收口）：决策层散落字面量 ============
+     数值与收口前逐一相同（位等价重构：行为指纹必须逐位不变）。
+     只做「字面量 → 具名常量」的搬运，不改任何表达式形状与求值顺序；
+     语义依据留在各消费点注释里，本表只登记取值。批 6/7 的行为批次在此调值。 */
+  const DECIDE = {
+    /* ε 硬配额（decide.argmax）：「25.6% 决策掷骰子」的直接旋钮 */
+    EPS: { main: 0.4, phenotype: 0.65, survival: 0.15, floor: 0.05 },
+    /* 发言分支链（decide.speak 的 else-if 概率） */
+    speak: {
+      respondAccuse: 0.35,    // 被指控 → 回应/反咬
+      accuseJitter: 12,       // 指控效用 gauss 抖动
+      askLow: 0.18,           // 异形低频反向质询
+      frame: 0.25,            // 做戏指控（构陷）
+      deny: 0.5,              // 被指控 → 证伪型宣称
+      detPromise: 0.15,       // 神探指名预告
+      detPromiseAnon: 0.25,   // 预告匿名份额
+      crewReport: 0.6,        // 船员口头汇报验证结果
+      tactic: 0.55,           // 非人类战术库分支
+      banter: 0.3,            // 非公开语料池（拟人层）
+    },
+    vote: {
+      W: { detective: 80, inspector: 80, sheriff: 65, armed: 60, bio: 55, rescue: 55, tempdoc: 55,
+           engineer: 45, assistant: 45, bodyguard: 35, crew: 30 },
+      noEvBase: 40,           // 外星人无证据兜底效用
+      evidenceOff: 25,        // 有证据 U = susp−25 / 兜底 U = W×coef−25
+      priorSelf: 50,          // 人类 U 的性格项 (50−θ)×0.5
+      priorHalf: 0.5,
+      mateHeatLine: 22,       // 弃保跟票热度线（≈1×B 或 2×C 档指控）
+      planIncLine: 30,        // 队内计划票跟随线（增量 <30 跟随）
+    },
+    /* 进化方向价值（evolve / convert 共用 base；表达式形状保留在消费点） */
+    dir: {
+      base: { destroy: 34, infect: 32, kill: 38 },
+      destroyUrgW: 20,        // destroy 加 urg×20
+      infectDocPenalty: 4,    // infect 减 doctorsAlive×4
+      killRamp: 20,           // kill 加 0.5×clearedK×20
+      sigma: 0.15,            // DIR_SIGMA
+      costK: 1.5,             // TRANSFORM_COST_K（5.5 转化决策启发式）
+      costJitterLo: 0.8,      // 阈值 ×(0.8 + rng×0.4)
+      costJitterSpan: 0.4,
+      delayN3: 0.15,          // 第 3 夜 15% 延后再评估
+    },
+    /* alienAct 感染目标数盲选分布（v4 2.3，键 = 当夜上限 cap） */
+    infectDist: {
+      3: [[3, 0.62], [2, 0.26], [1, 0.10], [0, 0.02]],
+      2: [[2, 0.70], [1, 0.22], [0, 0.08]],
+    },
+    doctor: {
+      pNeutral: 0.5,          // 无标记（N416 预投抗体）：中性
+      pUnknown: 0.6,          // 有标记、无历史比对
+      pFake: 0.1,             // 滞留超预期致死间隔 → 大概率假标记
+      pReal: 0.8,             // 滞留在预期内 → 大概率真标记
+      healW: 60,              // 治疗效用 pReal×60 − (1−pReal)×10 + gauss×12
+      healMissW: 10,
+      healJitter: 12,
+    },
+    xenoSilence: {
+      W: { detective: 40, inspector: 38, sheriff: 34, bio: 30, rescue: 30, armed: 30,
+           tempdoc: 24, engineer: 22, assistant: 20, bodyguard: 14, crew: 8 },
+      def: 10,                // 表外职业回落
+      alienMateOff: -25,      // 呈现为异形 ⇒ 队友，降权
+    },
+  };
+
   /* R 规则 → 档位映射（初步标定） */
   const RULE = {
     'R17':        'B+',   // 错误指控被证伪：指控=半闭环，22×阶段系数
@@ -291,6 +355,8 @@
     /* v28（B2）：怀疑度 / 危险度的结构性常量（唯一真源，调用点只引用名字） */
     PRIOR, PRIOR_E, DG_W, CAP, UNIVERSAL, SUSP_RANGE, CONSENSUS,
     CLAIM_DECAY, GRUDGE_DECAY, FLOOR, SELF_CLAIM, SAB, PROMISE,
+    /* 2026-10-24 批 4（可调参化收口）：决策层散落字面量的具名表（位等价搬运） */
+    DECIDE,
     /* v31 批 3.5（人类侧保护专项）：N414~N417 的保护优先级权重与下界 */
     PROTECT,
     /* v32 批 5′：角色注意力连续权重表 + 解析器 */

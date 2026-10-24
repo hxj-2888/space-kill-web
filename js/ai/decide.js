@@ -77,7 +77,7 @@
      ε 绑主观置信度（分布最大项，非熵）：信息不全时赌一把是理性的，信息闭环时还赌是犯蠢；
      被误导的 AI 果断做错选择是好剧情，错误可归因。硬源确证（conf=1）时归零——那不是推理，是事实。
      硬下限 0.05 防信息茧房。ε 不随性格变（激进是敢冒险不是乱来）。 */
-  const EPS = { main: 0.4, phenotype: 0.65, survival: 0.15, floor: 0.05 };
+  const EPS = T.DECIDE.EPS;   /* 批 4 收口：真源 = Tiers.DECIDE.EPS（数值同前；AIDecide.EPS 导出不变） */
   /* 〔批次 37 · U1 变体 AI 策略〕三个变体/规则主动技能的策略参数（decide 派发 case 消费）。
      此前 sniff／wiretapReport／disguise 恒缓发（批次 28/29 注释「随批次 22」）——本批接上。
      θ 档发动率（sniffRate/disguiseRate/disguiseProactive）在 traits.js 声明轴（K2 纪律：
@@ -234,7 +234,7 @@
     const mustAccuse = top && socialT >= p.theta + 20;
     const night0 = g.night === 0;
 
-    if (accuseMe.length && rng.chance(0.35)) {
+    if (accuseMe.length && rng.chance(T.DECIDE.speak.respondAccuse)) {
       /* 响应真实指控：accuseMe 来自 accuseHistory，绝不凭空引用 */
       const a = pick(rng, accuseMe);
       text = pick(rng, [
@@ -245,7 +245,7 @@
         text += ` 我反倒盯 ${top.id} 号。`; p.lastAccuse = top.id;
         if (IR) p.outClaims.push(IR.mk('accuse', [top.id], { tier: 'med' }, meta));
       }
-    } else if (mustAccuse || (canAccuse && (socialT - thEff) + gauss(g) * 12 > 0 &&
+    } else if (mustAccuse || (canAccuse && (socialT - thEff) + gauss(g) * T.DECIDE.speak.accuseJitter > 0 &&
                               rng.chance(1 - EPS.phenotype))) {
       /* v21 审查 #4：表型层接入 ε-greedy——指控是效用最优分支，但 EPS.phenotype=0.65
          的硬分歧配额强制 65% 的可指控局面转入下位分支（质询 / 做戏 / 中性），
@@ -274,7 +274,7 @@
           `${top.id} 号的发言我踩一下，节奏不对。`,
         ]);
       }
-    } else if (top && (p.faction === 'human' ? (socialT >= thEff - 15) : rng.chance(0.18))) {
+    } else if (top && (p.faction === 'human' ? (socialT >= thEff - 15) : rng.chance(T.DECIDE.speak.askLow))) {
       /* v4 7.4 质询（提问曲线）：疑似目标进入 [θ−15, θ] 中段 → 公开质询而非指控。
          异形也低频反向质询（试探/带节奏，合法策略）。回答与对证由 streamPump/talk 驱动。 */
       p.lastAsk = top.id;
@@ -291,7 +291,7 @@
         `我质询 ${top.id} 号：你凭什么自证清白？`,
         `${top.id} 号，别光划水，摊牌吧。`,
       ]);
-    } else if (p.faction !== 'human' && top && rng.chance(0.25)) {
+    } else if (p.faction !== 'human' && top && rng.chance(T.DECIDE.speak.frame)) {
       /* 做戏指控（规则允许的合法策略）：异形低频构陷，事后由 R17 追责链暴露——
          这是人类识别异形的核心信息渠道（v4 9.2：指控是高阶策略，误指会被追责）。
          v25 批次 8：影子层接线（§2.2 伪装收益评估）——frame 目标用 shadowRisk 复核：
@@ -318,7 +318,7 @@
         `${top.id} 号聊爆了吧，这种话也敢往外说。`,
         `大家别被 ${top.id} 号带节奏，票稳住。`,
       ]);
-    } else if (!quiet && IR && accuseMe.length && rng.chance(0.5)) {
+    } else if (!quiet && IR && accuseMe.length && rng.chance(T.DECIDE.speak.deny)) {
       /* v31 裁定（用户拍板「可以加否认」）：被指控时产出【证伪型宣称】A12~A15——
          「我昨晚没被查验。／没人查过我。」（神探/船员）/「我身上没有感染标记。」（外星人）。
          它的独特价值是【可被观察者的私有知识当场证伪】：真的查过我的人，方才知道这句是谎
@@ -330,7 +330,7 @@
         ? global.Lang.render(dc, { g, p, rng })
         : (about === 'checked' ? '我昨晚没被查验。' : '我身上没有感染标记。');
       p.outClaims.push(dc);
-    } else if (!evilIntent(p) && p.role === 'detective' && !quiet && rng.chance(0.15) && al.length > 1 && g.night >= 2 &&
+    } else if (!evilIntent(p) && p.role === 'detective' && !quiet && rng.chance(T.DECIDE.speak.detPromise) && al.length > 1 && g.night >= 2 &&
                (!p.promiseCheck || p.promiseCheck.night <= g.night - 2)) {
       /* v31 批 2（A3）：神探【指名预告】——全仓唯一产出 tier=strong 承诺的地方。
          病灶（v31 §6.2）：判据要 strong、生产者只产 mid/weak，三处词表不一致 →
@@ -349,7 +349,7 @@
         /* v33 复审 O6：A02 匿名预告生产端——约 1/4 的预告不点名（E4 的 A02 gate 读
            strongPromises 中无 targets 的条目，此前全仓无生产者 → A02 永久 0 命中）。
            匿名预告无 targets ⇒ settlePromises 的「无指向不结算」跳过——不可核验即不可违约，语义自洽。 */
-        const anon = rng.chance(0.25);
+        const anon = rng.chance(T.DECIDE.speak.detPromiseAnon);
         if (IR) p.outClaims.push(IR.mk('promise', anon ? [] : [t.id], { tier: T.PROMISE.STRONG, kind: 'announce' }, meta));
         text = anon ? '我今晚查一个人，明晚公告结果。' : `我今晚查 ${t.id} 号，明晚公告结果。`;
       } else text = '我手里的查验结果先压一夜。';
@@ -363,7 +363,7 @@
         text = `我查过 ${rec.id} 号，他的职业是（${D.ROLES[rec.role].name}）。`;
         claimRole = 'detective';
       } else text = '我手里的查验结果先压一夜。';
-    } else if (!evilIntent(p) && p.role === 'crew' && p.crewChecks.size && rng.chance(0.6)) {
+    } else if (!evilIntent(p) && p.role === 'crew' && p.crewChecks.size && rng.chance(T.DECIDE.speak.crewReport)) {
       const rec = [...p.crewChecks.entries()].map(([id, v]) => ({ id: +id, v })).filter(x => !byId(g, x.id).out);
       if (rec.length) {
         const r0 = rng.pick(rec);
@@ -386,7 +386,7 @@
     } else if (!evilIntent(p) && RD.hasGrant(p.role, 'shoot') && rng.chance(TR.traitValue('theta', 'shootRate', p.theta))) {   // D6/K2
       text = p.bullets > 0 ? `我是${D.ROLES[p.role].name}，枪口对着谁不用报备。` : '子弹打出去了，结果看今晚名单。';
       claimRole = p.role;
-    } else if (p.faction !== 'human' && rng.chance(0.55) && global.Tactics &&
+    } else if (p.faction !== 'human' && rng.chance(T.DECIDE.speak.tactic) && global.Tactics &&
                (tac = global.Tactics.pickTactic(g, p, rng, {
                  accusedBy: () => accuseMe,
                  susp: id => suspOf(g, p, id),
@@ -410,7 +410,7 @@
         }
       }
       (g._tacticUse = g._tacticUse || {})[tac.opt.id] = (g._tacticUse[tac.opt.id] || 0) + 1;
-    } else if (p.faction !== 'human' && rng.chance(0.3)) {
+    } else if (p.faction !== 'human' && rng.chance(T.DECIDE.speak.banter)) {
       /* 〔第三十批 拟人层〕队内/伪装语料池 2 条 → 5 条：这两条是异形/外星人的「非公开语料」，
          出现频率高（每夜约 30% 概率触发），池小必然复读。内容仍受 2.8.7 约束
          ——不泄露己方身份与计划，只做带节奏/稳住阵线这类公开可见的表层动作。 */
@@ -580,15 +580,15 @@
     if (me.faction === 'xeno') {                                  // 8.3 外星人：排序量 = p_alien（v21 裁定 §3.5）
       const r = aliveF(g, 'alien').length / Math.max(1, aliveF(g, 'human').length);
       const coef = clamp(3 * r, 0.5, 2.0);
-      const W = { detective: 80, inspector: 80, sheriff: 65, armed: 60, bio: 55, rescue: 55, tempdoc: 55, engineer: 45, assistant: 45, bodyguard: 35, crew: 30 };
+      const W = T.DECIDE.vote.W;                                  // 批 4 收口：职业威胁表（v21 裁定 §3.5）
       const opts = [{ v: null, U: 0 }];                           // 5.1：「不做」同为候选
       for (const x of al) {
         const hasEv = (me.tEvents.get(x.id) || []).length > 0;
         let U;
-        if (hasEv) U = suspOf(g, me, x.id) - 25;                  // 有证据：p_alien 排序量（suspOf 对外星人即 p_alien×100）
+        if (hasEv) U = suspOf(g, me, x.id) - T.DECIDE.vote.evidenceOff;                  // 有证据：p_alien 排序量（suspOf 对外星人即 p_alien×100）
         else {
           const k = me.known.get(x.id);                           // 无信息兜底：职业威胁启发式（W 表降级用途，裁定 §3.5）
-          U = (k && k.role && W[k.role] != null ? W[k.role] * coef : 40) - 25;
+          U = (k && k.role && W[k.role] != null ? W[k.role] * coef : T.DECIDE.vote.noEvBase) - T.DECIDE.vote.evidenceOff;
         }
         opts.push({ v: x.id, U, conf: confOf(g, me, x.id) });
       }
@@ -612,7 +612,7 @@
         U = Dg - param;
       } else {
         if (exposedEngineer(g, x)) continue;                      // 官方确证自家人：人类一律 U=−∞
-        U = Dg - priorOf(g, me) + (50 - me.theta) * 0.5;          // v21：baseRate → 先验（改动 #1）
+        U = Dg - priorOf(g, me) + (T.DECIDE.vote.priorSelf - me.theta) * T.DECIDE.vote.priorHalf;   // v21：baseRate → 先验（改动 #1）
       }
       /* v23 批次 3：报复心行为项——R31 报复心转化为「优先投他」（异形对队友除外） */
       if (!(me.faction === 'alien' && isAlly(me, x))) U += GRUDGE_W[me.theta] * grudgeLevel(g, me, x.id);
@@ -631,7 +631,7 @@
           for (const a of (o.accuseHistory || []))
             if (a.id === mate.id && a.night >= g.night - 1) heat += T.SCORE[T.RULE.mateHeat];
         }
-        if (heat >= 22) best = mate.id;                           // ≈一条 B 档或两条 C 档指控
+        if (heat >= T.DECIDE.vote.mateHeatLine) best = mate.id;   // ≈一条 B 档或两条 C 档指控
       }
     }
     /* 2.3 例外二 · 本方票型协调：无强信息（增量 <30）时跟随队内计划票，避免三票分散 */
@@ -639,8 +639,8 @@
       g.alienVotePlan = g.alienVotePlan || [];
       const planT = g.alienVotePlan.find(id => id !== me.id && byId(g, id) && !byId(g, id).out);
       const myInc = dangerOf(g, me, best) - 50;   // 增量相对异形基准 50（v4）
-      if (planT != null && myInc < 30) best = planT;
-      else if (!g.alienVotePlan.length || myInc >= 30) {
+      if (planT != null && myInc < T.DECIDE.vote.planIncLine) best = planT;
+      else if (!g.alienVotePlan.length || myInc >= T.DECIDE.vote.planIncLine) {
         g.alienVotePlan = [best].concat(g.alienVotePlan.filter(id => id !== best));
       }
     }
@@ -713,8 +713,9 @@
         if (g.night < 3 || p.alien.dir) return { dir: null };
         const occ = dirOcc(g);
         const dirVal = d => {
-          const base = { destroy: 34, infect: 32, kill: 38 }[d];
-          return base + (d === 'destroy' ? urg * 20 : 0) - (d === 'infect' ? doctorsAlive * 4 : 0);
+          const base = T.DECIDE.dir.base[d];                      // 批 4 收口：方向基础价值（与 convert 共用）
+          return base + (d === 'destroy' ? urg * T.DECIDE.dir.destroyUrgW : 0)
+            - (d === 'infect' ? doctorsAlive * T.DECIDE.dir.infectDocPenalty : 0);
         };
         const vals = ['destroy', 'infect', 'kill'].filter(d => occ[d] < 2).map(dirVal);
         const spread = vals.length >= 2 ? Math.max(...vals) - Math.min(...vals) : 0;
@@ -722,7 +723,7 @@
         if (!rng.chance(evoProb)) return { dir: null };
         /* 方向选择：dirValue + 个体噪声（DIR_SIGMA=0.15）后 argmax */
         const opts = ['destroy', 'infect', 'kill'].filter(d => occ[d] < 2)
-          .map(d => ({ v: d, U: dirVal(d) * (1 + gauss(g) * 0.15) }));
+          .map(d => ({ v: d, U: dirVal(d) * (1 + gauss(g) * T.DECIDE.dir.sigma) }));
         opts.push({ v: 'none', U: 0 });
         const c = argmax(g, opts, EPS.main);
         return { dir: c.v === 'none' ? null : c.v };
@@ -736,21 +737,22 @@
         if (!p.alien.dir || g.night <= p.alien.evoNight || p.alien.converts >= 2) return { do: false };
         const occ = dirOcc(g);
         const dirVal = d => {
-          const base = { destroy: 34, infect: 32, kill: 38 }[d];
-          return base + (d === 'destroy' ? urg * 20 : 0) - (d === 'infect' ? doctorsAlive * 4 : 0)
-            + (d === 'kill' ? 0.5 * clearedK(g) * 20 : 0);
+          const base = T.DECIDE.dir.base[d];                      // 批 4 收口：方向基础价值（与 evolve 共用）
+          return base + (d === 'destroy' ? urg * T.DECIDE.dir.destroyUrgW : 0)
+            - (d === 'infect' ? doctorsAlive * T.DECIDE.dir.infectDocPenalty : 0)
+            + (d === 'kill' ? 0.5 * clearedK(g) * T.DECIDE.dir.killRamp : 0);
         };
         const curVal = Math.max(dirVal(p.alien.dir), 1);
         let best = null;
         for (const d of ['kill', 'destroy', 'infect']) {
           if (d === p.alien.dir || occ[d] >= 2) continue;
-          const val = dirVal(d) * (1 + gauss(g) * 0.15);                          // DIR_SIGMA 0.15
-          if (val > curVal * 1.5 * (0.8 + g.rng.next() * 0.4)) {
+          const val = dirVal(d) * (1 + gauss(g) * T.DECIDE.dir.sigma);            // DIR_SIGMA
+          if (val > curVal * T.DECIDE.dir.costK * (T.DECIDE.dir.costJitterLo + g.rng.next() * T.DECIDE.dir.costJitterSpan)) {
             if (!best || val > best.val) best = { dir: d, val };
           }
         }
         /* 第 3 夜 15% 概率延后一夜再评估（v4 4.3 随机性保障） */
-        if (best && g.night === 3 && rng.chance(0.15)) return { do: false };
+        if (best && g.night === 3 && rng.chance(T.DECIDE.dir.delayN3)) return { do: false };
         return best ? { do: true, dir: best.dir } : { do: false };
       }
       case 'transfer': {                                   // 按场上缺口
@@ -1067,10 +1069,9 @@
         const t = rec && byId(g, rec.id);
         /* 6.1.2(a)：上一夜已被沉默者本夜不可再沉默 */
         if (!t || t.out || t.lastSilenceNight === g.night - 1) return { silence: false };
-        const val = { detective: 40, inspector: 38, sheriff: 34, bio: 30, rescue: 30, armed: 30,
-                      tempdoc: 24, engineer: 22, assistant: 20, bodyguard: 14, crew: 8 }[t.role] || 10;
+        const val = T.DECIDE.xenoSilence.W[t.role] || T.DECIDE.xenoSilence.def;   // 批 4 收口：职业价值表
         /* B5（6.1.1①）：蛰伏查验不报阵营——按呈现职业判读（呈现为异形 ⇒ 队友，降权） */
-        const U = val - TR.traitValue('theta', 'killBase', p.theta) + (rec.role === 'alien' ? -25 : 0);   // K2
+        const U = val - TR.traitValue('theta', 'killBase', p.theta) + (rec.role === 'alien' ? T.DECIDE.xenoSilence.alienMateOff : 0);   // K2
         return { silence: U + gauss(g) * 6 > 0 };
       }
       case 'xenoKill': {                                   // 双刀：同目标合法（突破用；v21：ε-greedy）
@@ -1190,8 +1191,7 @@
           const cap = p.alien.dir === 'infect' ? 3 : 2;
           /* v4 2.3：目标默认选满上限，偶尔因怕信息暴露少选或不选（盲选分布） */
           const r = g.rng.next();
-          const dist = cap === 3 ? [[3, 0.62], [2, 0.26], [1, 0.10], [0, 0.02]]
-                                 : [[2, 0.70], [1, 0.22], [0, 0.08]];
+          const dist = T.DECIDE.infectDist[cap];                  // 批 4 收口：盲选分布（键 = 上限）
           let n = cap, acc = 0;
           for (const [cnt, prob] of dist) { acc += prob; if (r < acc) { n = cnt; break; } }
           /* 候选 = 存活非异形（按威胁度排序）+ 假标记队友（稀有战术 ≤5%）
@@ -1287,15 +1287,16 @@
                v31 批 3.5 补 `!x.infection` 分支：N416 的预投目标身上没有标记，
                旧写法会在 `x.infection.deathNight` 上抛 TypeError。 */
             const pReal = x => {
-              if (!x.infection) return 0.5;                      // 无标记（N416 预投抗体）：中性
+              if (!x.infection) return T.DECIDE.doctor.pNeutral;   // 无标记（N416 预投抗体）：中性
               const seen = p.markSeen && p.markSeen.get(x.id);
-              if (seen == null || !x.infection.deathNight) return 0.6;
+              if (seen == null || !x.infection.deathNight) return T.DECIDE.doctor.pUnknown;
               const expect = x.infection.deathNight - seen;      // 2 = 普通感染、1 = 感染进化
-              return (g.night - seen) >= expect ? 0.1 : 0.8;
+              return (g.night - seen) >= expect ? T.DECIDE.doctor.pFake : T.DECIDE.doctor.pReal;
             };
             const best = cand.map(x => ({
               x,
-              U: pReal(x) * 60 - (1 - pReal(x)) * 10 + gauss(g) * 12 +
+              U: pReal(x) * T.DECIDE.doctor.healW - (1 - pReal(x)) * T.DECIDE.doctor.healMissW
+                + gauss(g) * T.DECIDE.doctor.healJitter +
                  (p.role === 'bio' && PT ? PT.protectionBonus(g, p, x, 'bio') : 0),
             })).sort((a, b) => b.U - a.U);
             opts.push({ v: 'heal', U: best[0].U, targets: best.slice(0, Math.min(pool, 3)).map(b => b.x.id) });
