@@ -726,7 +726,11 @@
         return { dir: c.v === 'none' ? null : c.v };
       }
       case 'convert': {
-        /* v4 4.2 转化系统（TRANSFORM_COST_K = 1.5）：仅当方向价值剧变、收益 > 一夜产出 × 1.5 */
+        /* v1preview 5.5 转化（改变进化方向；旧正文编号 v4 4.2）。转化当夜无任何行动（5.5.3①）
+           ——机会成本的本体是「损失当前方向的一夜产出」，与 dirVal 同量纲，故门槛取新旧
+           方向产出之比：新方向一夜产出 > 当前方向 × TRANSFORM_COST_K(1.5) × (0.8+rng×0.4)。
+           旧实现把「一夜产出」错接成 threatTop（最危险【他人】的危险度）与全局 urg×50 ——
+           与 dirVal 不同量纲且恒在收益差上限之上，1252 次请求 0 成功（机制性不可达）。 */
         if (!p.alien.dir || g.night <= p.alien.evoNight || p.alien.converts >= 2) return { do: false };
         const occ = dirOcc(g);
         const dirVal = d => {
@@ -734,16 +738,13 @@
           return base + (d === 'destroy' ? urg * 20 : 0) - (d === 'infect' ? doctorsAlive * 4 : 0)
             + (d === 'kill' ? 0.5 * clearedK(g) * 20 : 0);
         };
-        /* 一夜产出（失去行动的机会成本，典型 45~80） */
-        const lost = Math.max(
-          (threatTop(g, p) || 0) * 0.9, urg * 50,
-          p.alien.destroyTotal < 6 ? 30 : 0, p.vSelf * 0.3);
+        const curVal = Math.max(dirVal(p.alien.dir), 1);
         let best = null;
         for (const d of ['kill', 'destroy', 'infect']) {
           if (d === p.alien.dir || occ[d] >= 2) continue;
-          const gain = dirVal(d) * (1 + gauss(g) * 0.15) - dirVal(p.alien.dir);   // DIR_SIGMA 0.15
-          if (gain > lost * 1.5 * (0.8 + g.rng.next() * 0.4)) {
-            if (!best || gain > best.gain) best = { dir: d, gain };
+          const val = dirVal(d) * (1 + gauss(g) * 0.15);                          // DIR_SIGMA 0.15
+          if (val > curVal * 1.5 * (0.8 + g.rng.next() * 0.4)) {
+            if (!best || val > best.val) best = { dir: d, val };
           }
         }
         /* 第 3 夜 15% 概率延后一夜再评估（v4 4.3 随机性保障） */
