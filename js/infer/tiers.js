@@ -169,6 +169,8 @@
       crewReport: 0.6,        // 船员口头汇报验证结果
       tactic: 0.55,           // 非人类战术库分支
       banter: 0.3,            // 非公开语料池（拟人层）
+      voicePrimaryScale: 0.5, /* 批 6：心声主源分支的开口率阻尼（K2 claimRate×1.6×本系数，clamp 0.8）——
+                                 1.0 会让 θ25/50 角色八成发言被心声顶掉、指控循环塌缩；0.5 ≈ 四成发言角色化 */
     },
     vote: {
       W: { detective: 80, inspector: 80, sheriff: 65, armed: 60, bio: 55, rescue: 55, tempdoc: 55,

@@ -234,7 +234,36 @@
     const mustAccuse = top && socialT >= p.theta + 20;
     const night0 = g.night === 0;
 
-    if (accuseMe.length && rng.chance(T.DECIDE.speak.respondAccuse)) {
+    /* 〔批 6 · 心声主源〕v7 角色心声此前只在链末「追加一句」（append），9 个人类角色共用
+       发言模板 ⇒ 路由重合度 0.92 / 重复率 42%。现把非 defer 话题的心声升级为主源分支
+       （链首）：命中即以角色自有材料为正文（含明文代价犹豫），并按话题 claimKind 写宣称。
+       · defer 话题保持让位：defer 的语义就是「decide 专有分支会写更强的 Claim」
+         （crew/detective 的 lock 属 B/A 族证据，不能被 report 顶掉）——故 defer 不解除。
+       · 开口率读声明层 K2 claimRate × voicePrimaryScale（Tiers.DECIDE.speak）阻尼，
+         避免θ25/50 角色的指控循环被心声塌缩。
+       · 追加层原样保留：主源未触发时链末 prepend 照旧（拟人Ⅳ 断言面不变）。 */
+    let voiceAsPrimary = false;
+    if (!quiet && p.faction === 'human' && global.AIVoice && al.length > 1) {
+      try {
+        const v0 = global.AIVoice.thought(g, p);
+        const vr0 = (TR && TR.traitValue) ? TR.traitValue('theta', 'claimRate', p.theta) : 0.35;
+        const rate0 = Math.min(0.8, vr0 * 1.6 * T.DECIDE.speak.voicePrimaryScale);
+        if (v0 && vr0 > 0 && global.AIVoice.voiceRng(g).chance(rate0)) {
+          voiceToday = v0;
+          voiceAsPrimary = true;
+        }
+      } catch (e) { voiceToday = null; }
+    }
+    if (voiceAsPrimary) {
+      text = voiceToday.hedge || voiceToday.line;
+      if (voiceToday.claimKind && IR) p.outClaims.push(IR.mk(voiceToday.claimKind, [], {}, meta));
+      p._lastThought = {
+        sense: voiceToday.sense, night: g.night, step: g.step,
+        hedged: !!(voiceToday.hedge && voiceToday.hedge !== voiceToday.line),
+        claimKind: voiceToday.claimKind || null,
+        line: voiceToday.hedge || voiceToday.line, prependedTo: null,
+      };
+    } else if (accuseMe.length && rng.chance(T.DECIDE.speak.respondAccuse)) {
       /* 响应真实指控：accuseMe 来自 accuseHistory，绝不凭空引用 */
       const a = pick(rng, accuseMe);
       text = pick(rng, [
@@ -487,17 +516,17 @@
       ]);
     }
 
-    /* 〔v7 角色心声〕在分支链**跑完之后**做，且**不参与**分支选择。
+    /* 〔v7 角色心声 · 追加层〕在分支链**跑完之后**做，且**不参与**分支选择。
+       批 6 起心声已有「主源」分支（链首，见上）；本追加层只在主源未触发时生效——
        分支链与接入 voice 之前逐字相同——指控、质询、应答、战术/情绪语料该产出什么
-       就产出什么，谁也没被顶掉。这是本设计的要点：voice 只**增加**一句话，不替换、
-       不抑制任何既有发言路径。
+       就产出什么，谁也没被顶掉。
        ⚠ 随机流（2026-10-24 批 3 起）：心声开口率、COST_HEDGE、语气包装的 roll 一律走
          AIVoice.voiceRng(g) 派生流，**不再消费 g.rng**——决策主流只含决策自身，
          「同种子整局逐步一致」恢复成立（voice.js 顶部有派生规则）。
        取材与成句按 roleDecl.duty.senses（速查卡·可见性列即白名单）；
        说话时的犹豫按 duty.cost（卡里的明文代价）。取不到料就不开口，不制造噪声。
        开口概率读声明层性格档 claimRate（K2 真源），不写死数值。 */
-    if (!quiet && p.faction === 'human' && global.AIVoice && al.length > 1) {
+    if (!voiceAsPrimary && !quiet && p.faction === 'human' && global.AIVoice && al.length > 1) {
       try {
         const v = global.AIVoice.thought(g, p);
         const vRate = (TR && TR.traitValue) ? TR.traitValue('theta', 'claimRate', p.theta) : 0.35;
@@ -558,6 +587,16 @@
       text = pick(rng, ['按计划走，别乱。', '我这边稳住，你们看情况。', '别急着表态，先看死因。',
                         '我先不动，等下一个窗口。', '今晚别单独出头，等我信号。', '目标我心里有数，别点我。']);
       claimRole = null;
+    }
+    /* 〔批 6 · 队内心声〕异形/外星人的角色话题只走 quiet（队内/私聊）频道——公开频道说
+       队友身份/免疫余额即违反 5.10 与 2.8.7（这正是 voice 层当初门控非人类的原因）；
+       2.2⑤ 裁定异形协调走队内机制，此处为其提供角色自有语料（材料驱动，无料不开口）。
+       不写宣称：claim:null 的话题本就禁止产出宣称，且私聊入账由 pipeline 降 D 档处理。 */
+    if (quiet && p.faction !== 'human' && global.AIVoice) {
+      try {
+        const vq = global.AIVoice.thought(g, p, { allowNonHuman: true });
+        if (vq) text = vq.hedge || vq.line;
+      } catch (e) { /* 取料失败按无料处理 */ }
     }
     if (claimRole) { p.claimedRole = claimRole; }   /* accuseHistory 由 onAccuse 统一记录，此处不再手动 push（避免双计） */
     if (quiet) { p.lastAccuse = null; if (claimRole) p.claimedRole = null; }
