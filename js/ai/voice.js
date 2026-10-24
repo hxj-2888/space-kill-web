@@ -435,6 +435,18 @@
       ? '我穿了护甲，但我不知道谁在打我。' : null),
   };
 
+  /* ---- 语音随机流（2026-10-24 批 3：与决策主流分离）----
+   * 语音装饰层（心声开口率 / COST_HEDGE 犹豫 / 语气包装）此前直接消费游戏级共享流 g.rng，
+   * 装饰抽法一变就会移位后续全部击杀/投票（「整局逐步一致」不成立的根源，decide.js 同段
+   * 注释自认）。现派生独立流：种子 = g.seed ⊕ 混洗后的局内调用序号 ⊕ 盐，与主流同族
+   * （mulberry32）但互不耦合；引擎调度确定 ⇒ 序号确定 ⇒ 语音内容仍可复算。
+   * ⚠ 派生流只准语音装饰层用；决策/证据/行动一律仍走 g.rng（红线 3 的观测桩也只针对主流）。 */
+  function voiceRng(g) {
+    const seq = (g._voiceSeq = (g._voiceSeq || 0) + 1);
+    const s = ((g.seed >>> 0) ^ Math.imul(seq + 0x9E37, 0x85EBCA6B) ^ 0xC2B2AE35) >>> 0;
+    return new (global.RNG)(s || 1);
+  }
+
   /* ---- 本席此刻最想说的「自己的想法」 ----
    * 顺序：按 duty.senses 声明顺序逐个取料，第一个有料的即为主导话题。
    * 返回 { sense, topic, material, line, hedge } 或 null。 */
@@ -465,7 +477,7 @@
       if (!line) continue;
       const cost = RD.costOf(p.role);
       let hedge = null;
-      if (cost && COST_HEDGE[cost]) { try { hedge = COST_HEDGE[cost](g.rng); } catch (e) { hedge = null; } }
+      if (cost && COST_HEDGE[cost]) { try { hedge = COST_HEDGE[cost](voiceRng(g)); } catch (e) { hedge = null; } }
       /* claim：话题自报要写哪一种 Claim。缺省＝不写宣称（纯私聊式发言）。
          显式 null（如异形队友类）＝**禁止**写宣称——卡·可见性要求对其他阵营不公开。 */
       const claimKind = Object.prototype.hasOwnProperty.call(t, 'claim') ? t.claim : 'report';
@@ -537,7 +549,7 @@
   }
 
   global.AIVoice = {
-    thought, auditTopics, topicCoverage, probeAll,
+    thought, auditTopics, topicCoverage, probeAll, voiceRng,
     senseTopicKeys: () => Object.keys(SENSE_TOPIC),
     costHedgeKeys: () => Object.keys(COST_HEDGE),
     _SENSE_TOPIC: SENSE_TOPIC,

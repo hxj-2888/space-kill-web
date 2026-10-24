@@ -491,9 +491,9 @@
        分支链与接入 voice 之前逐字相同——指控、质询、应答、战术/情绪语料该产出什么
        就产出什么，谁也没被顶掉。这是本设计的要点：voice 只**增加**一句话，不替换、
        不抑制任何既有发言路径。
-       ⚠ 措辞要说准：g.rng 是**游戏级共享**随机流，voice 取随机必然让整条随机流移位，
-         故「分支选择不变」成立，而「整局逐步一致」**不成立**。后者只能靠 A/B 实测
-         说清影响有多大，不能靠注释断言（见 tools/voice-probe.cjs 与本批报告对比表）。
+       ⚠ 随机流（2026-10-24 批 3 起）：心声开口率、COST_HEDGE、语气包装的 roll 一律走
+         AIVoice.voiceRng(g) 派生流，**不再消费 g.rng**——决策主流只含决策自身，
+         「同种子整局逐步一致」恢复成立（voice.js 顶部有派生规则）。
        取材与成句按 roleDecl.duty.senses（速查卡·可见性列即白名单）；
        说话时的犹豫按 duty.cost（卡里的明文代价）。取不到料就不开口，不制造噪声。
        开口概率读声明层性格档 claimRate（K2 真源），不写死数值。 */
@@ -501,7 +501,8 @@
       try {
         const v = global.AIVoice.thought(g, p);
         const vRate = (TR && TR.traitValue) ? TR.traitValue('theta', 'claimRate', p.theta) : 0.35;
-        if (v && vRate > 0 && rng.chance(Math.min(0.8, vRate * 1.6))) voiceToday = v;
+        /* 批 3：开口率 roll 走语音派生流（原 g.rng——装饰抽法移位决策主流的三个消费点之一） */
+        if (v && vRate > 0 && global.AIVoice.voiceRng(g).chance(Math.min(0.8, vRate * 1.6))) voiceToday = v;
       } catch (e) { voiceToday = null; }
     }
 
@@ -565,7 +566,8 @@
        概率带 θ 档开场/口头禅；私聊只替换交底开场白。只包装不改内容：指控对象、IR 意图
        （p.outClaims 已在上面 push 完）与声称语义均不受影响。rng 消耗发生在出口处，
        顺序确定（开场 roll → 口头禅 roll），可复算。 */
-    if (global.Voice) text = global.Voice.tone(p, text, rng, { quiet });
+    /* 批 3：语气包装的 rng 实参从 g.rng 换成语音派生流（AIVoice 缺席时回退主流，防御式） */
+    if (global.Voice) text = global.Voice.tone(p, text, global.AIVoice ? global.AIVoice.voiceRng(g) : rng, { quiet });
     return text;
   }
   function evilIntent(p) { return p.faction !== 'human'; }
