@@ -81,7 +81,7 @@
           审计看得见「这里有个位空着」，而不是等到有人写了代码才发现没地方声明。
           ⚠ 严禁在 pending 状态下往里写「假装已实装」的值 ——
             那是把空位变成假货，比空着更坏（交接文档 §六 的记账纪律）。 */
-    mind:       { gate: '[B4 空位]', life: 'pending', desc: '**空位·零消费**：AI 的脑（拟人化三层）。{foresight:[预判面], deceive:[欺骗面], backstab:[背刺面]}。当前全部为空数组且无任何实现；待 B4 实装。取值须落在 MIND_* 词表内' },
+    mind:       { gate: '[批 7]', life: 'wired', desc: 'AI 的脑（拟人化三层）。{foresight:[预判面], deceive:[欺骗面], backstab:[背刺面]}。2026-10-24 批 7 实装：消费点 = decide.vote 的 ε 调制（trendRead）与弃保线（allySacrifice）、decide.speak 的心声开口率阻尼（omission）。**只许声明已实装的取值**，未实装轴一律留空数组——词表里的其他取值待其消费点落地后再声明。取值须落在 MIND_* 词表内' },
   };
   /* 角色声明里 schema 之外的字段（同样须标 lifecycle，否则视为未声明语义） */
   const EXTRA_FIELDS = {
@@ -113,10 +113,10 @@
         for (const v of arr)
           if (!Object.prototype.hasOwnProperty.call(MIND_AXES[axis], v))
             bad.push(`${k}.mind.${axis}: 「${v}」不在 MIND_${axis} 词表内`);
-        /* 空位守卫：本字段 life='pending' 且零消费，此时任何非空取值都是越权。 */
-        if (arr.length)
-          bad.push(`${k}.mind.${axis}: B4 空位尚未裁定实装，不许声明取值（当前 ${arr.length} 项）`
-            + '——要实装请先改 SCHEMA.mind 的 life 并在此去掉本守卫，否则这就是把空位变成假货');
+        /* 批 7 起字段 life='wired'：空位守卫退役，换为「只声明已实装取值」的纪律
+           （消费点：decide.vote 的 ε 调制 / 弃保线、decide.speak 的开口率阻尼）。
+           未实装的取值（falseClaim / feintAction / creditSteal / trustCashOut 等）
+           在其消费点落地前**不许**写进任何角色——那是新的「空位变假货」。 */
       }
     }
     return bad;
@@ -131,7 +131,7 @@
     batchDelta: [], restatement: null, selfTarget: true, attend: {},
     grants: [], capClass: null, seats: 0, repairExposeAt: null,
     duty: { mutex: [], senses: [], cost: null },
-    mind: { foresight: [], deceive: [], backstab: [] },   /* B4 空位 · 当前零消费 */
+    mind: { foresight: [], deceive: [], backstab: [] },   /* 未声明角色的缺省：三轴全空（行为与批 6 前一致） */
   };
 
   /* ---------- 〔v7 · B4 空位〕mind 三层的取值词表 ----------
@@ -598,6 +598,8 @@
       duty: { mutex: ['cast', 'castFast', 'distribute'],
               senses: ['ownArmorStock'],
               cost: 'noAttackFeedback' },
+      /* 〔批 7 · B4 mind〕omission：护甲不公开而持有者自知（4.11.4），声面收着走 */
+      mind: { foresight: [], deceive: ['omission'], backstab: [] },
       source: '4.11.1/4.11.2/4.11.3', pending: true,
     },
     poisoner: {
@@ -662,6 +664,8 @@
       duty: { mutex: ['verify', 'announce'],
               senses: ['checkPool', 'presentedRoleOnly'],
               cost: 'checkRevealsSelf' },
+      /* 〔批 7 · B4 mind〕只声明已实装的取值（消费点见 decide.vote / decide.speak） */
+      mind: { foresight: ['trendRead'], deceive: [], backstab: [] },
       source: '4.7.1/4.7.2/4.7.5', pending: true,
     },
     bodyguard: {
@@ -679,6 +683,8 @@
       duty: { mutex: [],
               senses: ['guardFeedback', 'attackTypeOnGuard'],
               cost: null },
+      /* 〔批 7 · B4 mind〕omission：保护位不出声（心声开口率阻尼，消费点 decide.speak） */
+      mind: { foresight: [], deceive: ['omission'], backstab: [] },
       source: '4.8/4.8.1', pending: true,
     },
     inspector: {
@@ -693,6 +699,8 @@
       duty: { mutex: [],
               senses: ['allVoteSources', 'allBallotCounts'],
               cost: 'meetingRevealsSelf' },
+      /* 〔批 7 · B4 mind〕只声明已实装的取值（消费点见 decide.vote / decide.speak） */
+      mind: { foresight: ['trendRead'], deceive: [], backstab: [] },
       source: '4.9.2', pending: true,
     },
     listener: {
@@ -716,6 +724,8 @@
       duty: { mutex: ['report', 'publish'],
               senses: ['pairedPrivateChats'],
               cost: 'reportNotFaithful' },
+      /* 〔批 7 · B4 mind〕omission：窃听者靠听见的不靠说出的 */
+      mind: { foresight: [], deceive: ['omission'], backstab: [] },
       source: '4.12.1/4.12.2/4.12.5', pending: true,
     },
     armed: {
@@ -779,6 +789,9 @@
       duty: { mutex: ['kill', 'infect', 'destroy', 'cocoon'],
               senses: ['teammateIdentities', 'teammateBallots', 'infectMarksTrueFalse'],
               cost: null },
+      /* 〔批 7 · B4 mind〕allySacrifice：卖队友（N358/N359）本就是异形的合法战术，
+         mind 把它从「全员同参数」变成「异形角色的性格面」（弃保热度线 ×0.6） */
+      mind: { foresight: [], deceive: [], backstab: ['allySacrifice'] },
       source: '5.1~5.9', pending: true,
     },
     xeno: {
@@ -1217,7 +1230,7 @@
       /* 互斥组去重：重复登记说明抄错，无语义价值 */
       if (new Set(du.mutex || []).size !== (du.mutex || []).length) bad.push(`${k}: duty.mutex 有重复项`);
     }
-    /* 11b. B4 空位：mind 的词表合法性 + 空位不得伪装成已实装（见 mindAudit） */
+    /* 11b. mind：词表合法性 + 「只声明已实装取值」纪律（批 7 起 life='wired'，见 mindAudit） */
     for (const b of mindAudit()) bad.push(b);
     /* 12. 互斥组里出现该角色根本不具备的动作 ⇒ 声明自相矛盾（mutex ⊆ charges∪grants 的动作身份） */
     /* mutex 的动作身份有**四类**合法来源，缺一即误报：

@@ -214,6 +214,18 @@
       def: 10,                // 表外职业回落
       alienMateOff: -25,      // 呈现为异形 ⇒ 队友，降权
     },
+    /* 批 7：dangerOf 角色项（attend 焦点驱动，DG_W 仍是真源）与 mind 三轴消费系数。
+       mind 取值本身在声明层（roleDecl.mind，只许声明已实装取值）；这里只登记强度。 */
+    danger: {
+      scaleLine: 1.2,           // attend 权重达到此线才启用角色项（未达标角色行为不变）
+      lethalCapScale: 1.06,     // lethal 焦点角色（防御位）：能力项 ×1.15
+      verifyHostileScale: 1.06, // verify 焦点角色（查证位）：敌对项 ×1.06
+    },
+    mind: {
+      omissionDamp: 0.6,            // deceive.omission：心声开口率阻尼（主源 + 追加层）
+      allySacrificeHeatScale: 0.6,  // backstab.allySacrifice：弃保热度线 ×0.6（更愿意卖队友）
+      trendReadEpsScale: 0.7,       // foresight.trendRead：投票 ε ×0.7（预判型更少掷骰）
+    },
   };
 
   /* R 规则 → 档位映射（初步标定） */

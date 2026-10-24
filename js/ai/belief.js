@@ -364,6 +364,14 @@
       const bd = TR2.traitValue('theta', 'baseDanger', p.theta);
       if (bd != null) dg += (bd - 50) * (DG_W.act || 0.25) * 0.5;
     }
+    /* 〔批 7 · dangerOf 角色项〕按观察者声明的 attend 焦点温和加权（DG_W 仍是真源）：
+       lethal 焦点角色（防御位）更看重「能力＝威胁」，verify 焦点角色（查证位）更看重「敌对」。
+       声明里没有该焦点或低于 scaleLine 的角色完全不受影响（×1.0）——差异化由声明驱动。 */
+    const attL = T.attend ? T.attend(p.role, 'lethal') : 1;
+    const attV = T.attend ? T.attend(p.role, 'verify') : 1;
+    const dn = T.DECIDE.danger;
+    if (attL >= dn.scaleLine) dg += (dn.lethalCapScale - 1) * DG_W.cap * capability(g, t) * 100;
+    if (attV >= dn.scaleLine) dg += (dn.verifyHostileScale - 1) * DG_W.host * hostile * 100;
     /* v20 双层估值：普适层偏移（群体基线相对先验的偏离）调制全体候选的危险度——
        局势紧张（群体指纹抬升）则全员危险度同步上移，投票门槛相对下降 */
     dg += (DG_W.uni || 0.15) * (universalOf(g, p) - priorOf(g, p));

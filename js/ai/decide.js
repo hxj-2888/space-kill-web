@@ -247,7 +247,9 @@
       try {
         const v0 = global.AIVoice.thought(g, p);
         const vr0 = (TR && TR.traitValue) ? TR.traitValue('theta', 'claimRate', p.theta) : 0.35;
-        const rate0 = Math.min(0.8, vr0 * 1.6 * T.DECIDE.speak.voicePrimaryScale);
+        /* 〔批 7 · mind〕deceive.omission（选择性沉默）：开口率阻尼——话少的人少开口 */
+        const omDamp = RD.mindOf(p.role, 'deceive').indexOf('omission') >= 0 ? T.DECIDE.mind.omissionDamp : 1;
+        const rate0 = Math.min(0.8, vr0 * 1.6 * T.DECIDE.speak.voicePrimaryScale * omDamp);
         if (v0 && vr0 > 0 && global.AIVoice.voiceRng(g).chance(rate0)) {
           voiceToday = v0;
           voiceAsPrimary = true;
@@ -530,8 +532,9 @@
       try {
         const v = global.AIVoice.thought(g, p);
         const vRate = (TR && TR.traitValue) ? TR.traitValue('theta', 'claimRate', p.theta) : 0.35;
-        /* 批 3：开口率 roll 走语音派生流（原 g.rng——装饰抽法移位决策主流的三个消费点之一） */
-        if (v && vRate > 0 && global.AIVoice.voiceRng(g).chance(Math.min(0.8, vRate * 1.6))) voiceToday = v;
+        /* 批 3：开口率 roll 走语音派生流（原 g.rng）；批 7：omission 角色同样阻尼 */
+        const omDamp2 = RD.mindOf(p.role, 'deceive').indexOf('omission') >= 0 ? T.DECIDE.mind.omissionDamp : 1;
+        if (v && vRate > 0 && global.AIVoice.voiceRng(g).chance(Math.min(0.8, vRate * 1.6 * omDamp2))) voiceToday = v;
       } catch (e) { voiceToday = null; }
     }
 
@@ -634,6 +637,9 @@
       const c = argmax(g, opts, EPS.main);
       return c ? c.v : null;
     }
+    /* 〔批 7 · mind〕foresight.trendRead（预判型）：投票 ε 调制——更少掷骰、判断更收敛 */
+    const epsVote = RD.mindOf(me.role, 'foresight').indexOf('trendRead') >= 0
+      ? EPS.main * T.DECIDE.mind.trendReadEpsScale : EPS.main;
     /* 2026-09-10 注：本分支三处（abstain/actLine/param）曾改为读 Tiers.PERSONALITY 并按 k 等比缩放，
        实测人类 27.0% → 25.4% ⇒ 已整体回退，现为字面量表（与 BASE_DANGER 只登记、不缩放同口径）。 */
     const abstain = me.faction === 'alien' ? 0
@@ -657,7 +663,7 @@
       if (!(me.faction === 'alien' && isAlly(me, x))) U += GRUDGE_W[me.theta] * grudgeLevel(g, me, x.id);
       opts.push({ v: x.id, U, conf: confOf(g, me, x.id) });
     }
-    const c = argmax(g, opts, EPS.main);
+    const c = argmax(g, opts, epsVote);
     let best = c ? c.v : null;
     /* 弃保跟票（v21 改动 #8）：不再读公开共识 g.threat（聚合派生量，AI 决策禁读），
        改用私有估值——自己观察到的「对队友的指控流」强度（近两夜非队友的指控按 C+ 档累加） */
@@ -670,7 +676,10 @@
           for (const a of (o.accuseHistory || []))
             if (a.id === mate.id && a.night >= g.night - 1) heat += T.SCORE[T.RULE.mateHeat];
         }
-        if (heat >= T.DECIDE.vote.mateHeatLine) best = mate.id;   // ≈一条 B 档或两条 C 档指控
+        /* 〔批 7 · mind〕backstab.allySacrifice（背刺型）：弃保热度线更低——更愿意卖队友 */
+        const heatLine = T.DECIDE.vote.mateHeatLine
+          * (RD.mindOf(me.role, 'backstab').indexOf('allySacrifice') >= 0 ? T.DECIDE.mind.allySacrificeHeatScale : 1);
+        if (heat >= heatLine) best = mate.id;                     // ≈一条 B 档或两条 C 档指控
       }
     }
     /* 2.3 例外二 · 本方票型协调：无强信息（增量 <30）时跟随队内计划票，避免三票分散 */

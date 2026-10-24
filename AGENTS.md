@@ -40,7 +40,7 @@
 - `npm run mc -- 500 1` 的三阵营胜率与上一版**漂移 ≤ 3 个百分点**；超了必须解释是哪个机制导致的。
 - `node tools/check-docs.cjs` 退出码 0。
 - 历史基线（`303f9f8` 提交注明）：v26 570/0/30 · round-trip 102/0 · 加角色 9/0 · 加机制 9/0 · uismoke 30 局 0 异常。**新版本以最近一次提交的读数为准，并在记录里写明。**
-  最近一次（2026-10-24 AI 批 6）：v26 **588/0/30** · round-trip 102/0 · 加角色 9/0 · 加机制 9/0 · uismoke 30 局 0 异常 · text-align P0 0 · card-audit 0 处差异 · 行为指纹 `1a728573…`（批 3 语音派生流；批 4 字面量收口 `Tiers.DECIDE`；批 5 project 记忆化；批 6 心声主源 + 队内频道角色语料）。
+  最近一次（2026-10-24 AI 批 7）：v26 **588/0/30** · round-trip 102/0 · 加角色 9/0 · 加机制 9/0 · uismoke 30 局 0 异常 · text-align P0 0 · card-audit 0 处差异 · 行为指纹 `f987ee99…`（批 3 语音派生流；批 4 `Tiers.DECIDE` 收口；批 5 project 记忆化；批 6 心声主源；批 7 mind 三轴实装 + dangerOf attend 角色项）。
 - `npm run mc` 自 2026-10-21 起**缺省跑席位变体局**（`variants`）；要与历史读数比较必须显式
   `SK_MEASURE_SEATS=classic`。两套口径的产物分开落盘（`mc_result-variants.json` / `mc_result.json`），**不得混算**。
 
