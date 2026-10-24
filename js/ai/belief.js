@@ -137,6 +137,7 @@
     /* v32 机制对等：isHuman 排除移除——玩家席位与 AI 席位同权入账（可信度表对玩家同样生效） */
     if (!v || v.out) return;
     ensureE(g, v);
+    v._credVer = (v._credVer || 0) + 1;   /* 批 5：project 记忆化的失效版本号（cred 唯一写点在此） */
     v.cred.set(speakerId, clamp(credOf(v, speakerId) + dv, 0, 1));
   }
 
@@ -241,6 +242,33 @@
     return dist;
   }
 
+  /* ============ 2026-10-24 批 5（性能，位等价）：project 记忆化 ============
+     project 的可变输入全数收口（写点已逐一 grep 核实）：
+       · p.evidence —— 仅 ensureE / state.js 初始化时写入，此后【从不改写】⇒ 不入键；
+       · p.tEvents.get(id) —— 只增不删（全仓唯一写点 = addEvent.push）⇒ 长度入键；
+       · p.known.get(id) 的 {role, faction, viaPrivate} —— knownLockOf 的全部读取面 ⇒ 摘要入键；
+       · p.cred —— 全仓唯一写点 credAdd ⇒ p._credVer 版本号入键；
+       · g.night ⇒ 入键。
+     命中返回【副本 Map】：suspDist 会把投影直传外层，副本杜绝调用方别名写入污染缓存。
+     缓存挂 WeakMap（旁路于玩家对象）：不进存档序列化、hydrate 换对象自然冷启动。
+     仪器局（g._trackFold）整体绕过——fold_folded 指标依赖逐次投影的并罚计数，口径不得变。 */
+  const _projCache = new WeakMap();   // p -> Map(key -> dist)
+  function projectCached(g, p, id) {
+    if (id === p.id || g._trackFold) return project(g, p, id);
+    const evs = p.tEvents.get(id);
+    const k = p.known.get(id);
+    const key = id + '|' + g.night + '|' + (evs ? evs.length : 0) + '|' + (p._credVer || 0) + '|'
+      + (k ? ((k.role || '') + ',' + (k.faction || '') + (k.viaPrivate ? 'p' : '')) : '');
+    let c = _projCache.get(p);
+    if (!c) { c = new Map(); _projCache.set(p, c); }
+    const hit = c.get(key);
+    if (hit) return new Map(hit);
+    const d = project(g, p, id);
+    if (c.size >= 512) c.clear();     // 容量保险丝（正常远达不到；防超长局膨胀）
+    c.set(key, d);
+    return new Map(d);
+  }
+
   /* ============ v20 定案「双层估值」：普适层（全场群体基线）============
      普适层与单体层（per-pair E）并行：普适层承载「证群体不证个体」的通道
      （针对：全场 / 结构事实），不指向个体，以基线偏移调制全体候选的危险度。
@@ -288,7 +316,7 @@
     const t = byId(g, id);
     if (!t || t.out) return 0;
     ensureE(g, p);
-    let s = hostileOf(p, project(g, p, id)) * 100;
+    let s = hostileOf(p, projectCached(g, p, id)) * 100;
     const fl = p.hardFloor.get(id);
     if (fl) s = Math.max(s, fl.v);           // 硬源置位（R30/R7）
     return clamp(s, SUSP.lo, SUSP.hi);
@@ -299,7 +327,7 @@
     const t = byId(g, id);
     if (!t || t.out) return zeroDist();
     ensureE(g, p);
-    return project(g, p, id);
+    return projectCached(g, p, id);
   }
 
   /* 危险度 Dg（改动 #3，§4.1.4）：独立模型，与 S 解耦——
@@ -320,7 +348,7 @@
       if (klock === 'alien') return 100;
       if (klock === 'xeno') return 90;
     }
-    const hostile = hostileOf(p, project(g, p, id));
+    const hostile = hostileOf(p, projectCached(g, p, id));
     if (hostile <= 0) return 0;               // 钳制项：硬源确证为己方 → Dg 归零
     let dg = DG_W.cap * capability(g, t) * 100 + DG_W.host * hostile * 100 + DG_W.act * actF(g, t) * 100;
     /* 〔批次 34 · 性格影响判断〕此前 θ 只经「阈值 + 容忍」两条路径传导、不调制客观量
@@ -388,7 +416,7 @@
     return true;
   }
   global.AIBelief = {
-    ROLE2FACTION, FACTION_SET, CLAIM_DECAY, GRUDGE_DECAY, DG_W, TIER_BY_VAL, priorOf, ensureE, actF, claimDecay, credOf, credAdd, setHardFloor, chanFor, knownLockOf, project, addUniversal, universalOf, hostileOf, suspOf, suspDist, dangerOf, capability, addEvent, once,
+    ROLE2FACTION, FACTION_SET, CLAIM_DECAY, GRUDGE_DECAY, DG_W, TIER_BY_VAL, priorOf, ensureE, actF, claimDecay, credOf, credAdd, setHardFloor, chanFor, knownLockOf, project: projectCached, addUniversal, universalOf, hostileOf, suspOf, suspDist, dangerOf, capability, addEvent, once,
     /* D2 开放维度的分布访问器（唯一入口：调用点不得再写 d.p_human 之类的固定三元组） */
     FACTION_KEYS, factionCount, refreshFactions, distGet, distMax, distEntries, zeroDist, uniformDist,
   };

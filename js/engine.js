@@ -852,11 +852,16 @@ function updatePhases(g) {
             p.lastAsk = null;
           }
         }
-        global.AI.updatePublicThreat(g);
         said = true;
       }
       s.idx += 1;
     }
+    /* 批 5（性能，位等价）：updatePublicThreat 是【显示口径】快照（g.threat，AI 决策禁读——
+       perceive.js「规格定案」注释与 test-fix 1021 断言双锚点）。原实现每条发言全量重算
+       O(agents×alive×投影)，讨论一步 = O(n³·E)；改为每次 streamPump 调用至多重算一次：
+       UI 仍按 tick（200ms）拿到新鲜值，无头驱动（streamPump(g, Infinity)）从 n 次 → 1 次。
+       终值与逐条重算完全一致（lastWriteWins 的纯函数），显示粒度从「每条发言」变「每 tick」。 */
+    if (said && global.AI) global.AI.updatePublicThreat(g);
     return said;
   }
 
