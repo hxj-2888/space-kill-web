@@ -203,7 +203,7 @@
     ranked.forEach((r, idx) => {
       const mult = idx === 0 ? 1 : idx === 1 ? 0.5 : 0.25;   // 并罚公比 0.5
       const e = r.e;
-      if (mult < 1) {                                        // v25 指标组 D：被并罚折叠的条数（按 viewer|target|src 去重——投影会反复重算）
+      if (mult < 1 && g._trackFold) {                        // v25 指标组 D：被并罚折叠的条数（按 viewer|target|src 去重）——仅仪器局维护（mc 打 g._trackFold 读 fold_folded），热路径零开销
         (g._foldSet || (g._foldSet = new Set())).add(p.id + '|' + id + '|' + (e.src || ''));
       }
       const age = Math.max(0, g.night - e.night);

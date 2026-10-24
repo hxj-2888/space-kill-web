@@ -192,6 +192,7 @@ for (let i = 0; i < N; i++) {
     /* 席位口径由 tools/seat-mode.cjs 单点决定：variants ⇒ 传 seatPicks（与 main.js 真实开局同路），
        classic ⇒ 不传（保持「不传 seatPicks 的经典局逐字节不变」这一回归前提）。 */
     g = SeatMode.seatGame(Setup, seed, 'random');
+    g._trackFold = true;                    // D 组并罚折叠计数（fold_folded）：belief 只在打标的局维护 _foldSet，其余路径不再维护
     g.humans = [];                          // 全 AI 对局（蒙特卡洛基线）
     /* v21 修复：必须同时清空 humanId 与 isHuman——只清 humans 会残留一个「幻影真人席位」，
        该席位每步被空提交（视为放弃行动），把人类胜率从 ~50% 拖到 ~7%，蒙特卡洛基线失真 */

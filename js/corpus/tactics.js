@@ -200,6 +200,10 @@
       let ok = true;
       if (o.when) { try { ok = !!o.when(g, p, ctx || {}); } catch (e) { ok = false; } }
       if (!ok) continue;
+      /* 认知/调度类条目（无 say 且无 act，如 N366~N371/N375/N378/N383/N385/N386）不进抽签池：
+         抽中即 text/claim 双空，Bridge.say 拒空串 ⇒ 整次发言作废（v7 方案 B6「死战术条目」）。
+         条目保留在池中，供审计清单（ALIEN/XENO）与调度语义对照。 */
+      if (!o.say && !o.act) continue;
       /* 有出口动作的条目优先（行为 > 发言），但每个条目每次只出一份 */
       cand.push(o);
       for (let i = 1; i < (W[o.risk] || 1); i++) cand.push(o);
