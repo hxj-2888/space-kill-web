@@ -274,14 +274,6 @@
  *   · 小标题是手写分组（.ld-h），不是色块条
  * 数据口径未变（见 ui.js ledgerLines 注释）。
  * ============================================================= */
-.sk-notebook { cursor: pointer; }
-.sk-notebook:hover rect:nth-of-type(2) { fill: #f3e9d2; }
-.sk-notebook-t {
-  fill: #b9a882;
-  font-size: 13px;
-  letter-spacing: 2px;
-  opacity: .85;
-}
 
 #ledger-overlay {
   position: fixed;
@@ -558,22 +550,25 @@
 @keyframes sk-fade { 0%, 82% { opacity: 1; } 100% { opacity: 0; } }
 
 /* ---- 场景内轻提示（替代 alert；纯展示，不承载决策）---- */
+/* 〔U2〕提示条挪到场景顶部：画面中央要留给"点道具的白框"，不能被提示条压住。
+   旧版在 bottom:96px，正好盖住房间下半部分。 */
 .sk-toast {
   position: absolute;
   left: 50%;
-  bottom: 96px;
-  transform: translateX(-50%) translateY(8px);
+  top: 12px;
+  transform: translateX(-50%) translateY(-8px);
   background: rgba(12, 18, 30, .96);
   border: 1px solid #3d6b96;
   color: #dbe4f3;
-  font-size: 14px;
-  padding: 8px 16px;
+  font-size: 13.5px;
+  padding: 7px 15px;
   border-radius: 10px;
   opacity: 0;
   pointer-events: none;
   transition: opacity .25s, transform .25s;
-  z-index: 30;
-  max-width: 80%;
+  z-index: 40;
+  max-width: 60%;
+  white-space: nowrap;
   text-align: center;
 }
 .sk-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
@@ -743,3 +738,98 @@
   color: #7e8ca3;
   letter-spacing: .3px;
 }
+
+/* =============================================================
+   〔U2〕房间制：入场行走 + 点道具白框
+   -------------------------------------------------------------
+   ① 行走 = 素材「向下走」那一行的 4 帧（96px 一帧），靠平移内部 <g> 逐列切换，
+      节奏 1-2-3-2（素材 README 给的建议），8fps ⇒ 一步 125ms。
+   ② 入场位移：从门到落点，用 CSS 变量 --dx/--dy 驱动，逐人不同。
+   ③ 白框：落在道具矩形上的描边，2.6s 后自清；不是对话框。
+   ============================================================= */
+
+/* ---- 入场行走 ---- */
+.sk-crew-layer.sk-walking .sk-enter {
+  animation: sk-walk-in var(--walk-ms, 900ms) cubic-bezier(.33,0,.2,1) both;
+  animation-delay: var(--delay, 0ms);
+}
+@keyframes sk-walk-in {
+  from { transform: translate(var(--dx, 0), var(--dy, 0)); }
+  to   { transform: translate(0, 0); }
+}
+
+/* 行走帧循环：4 列 × 96px 平移（1-2-3-2 = 0 → -96 → -192 → -96） */
+.sk-crew-layer.sk-walking .sk-frames {
+  animation: sk-walk-frames 500ms steps(1, end) infinite;
+  animation-delay: var(--delay, 0ms);
+}
+@keyframes sk-walk-frames {
+  0%   { transform: translateX(0); }
+  25%  { transform: translateX(-96px); }
+  50%  { transform: translateX(-192px); }
+  75%  { transform: translateX(-96px); }
+  100% { transform: translateX(0); }
+}
+
+/* 待机：不再平移（渲染时 viewBox 已框住单帧） */
+.sk-crew-layer:not(.sk-walking) .sk-frames { transform: none; }
+
+/* 走起来时脚下阴影略微缩小，读作"离地" */
+.sk-crew-layer.sk-walking .sk-crew > .sk-enter > ellipse { opacity: .22; }
+
+/* ---- 点道具：白框 ---- */
+.sk-focus-box {
+  fill: rgba(255, 255, 255, 0.06);
+  stroke: #ffffff;
+  stroke-width: 4;
+  stroke-dasharray: 10 7;
+  filter: drop-shadow(0 0 7px rgba(255, 255, 255, 0.85));
+  animation: sk-focus-breathe 900ms ease-in-out infinite alternate;
+}
+@keyframes sk-focus-breathe {
+  from { opacity: .45; stroke-dashoffset: 0; }
+  to   { opacity: 1;   stroke-dashoffset: -15; }
+}
+.sk-focus-t {
+  font-family: "Microsoft YaHei", system-ui, sans-serif;
+  font-size: 15px;
+  fill: #ffffff;
+  paint-order: stroke;
+  stroke: #04080f;
+  stroke-width: 4px;
+  stroke-linejoin: round;
+}
+
+/* 房间名：压在左上角，不挡家具 */
+.sk-room-name {
+  font-family: "Microsoft YaHei", system-ui, sans-serif;
+  font-size: 17px;
+  fill: #a8cdea;
+  letter-spacing: 3px;
+  paint-order: stroke;
+  stroke: #04080f;
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}
+/* 门：默认低调，轮到我用这间房时高亮 */
+.sk-door { transition: stroke .15s, fill .15s; cursor: pointer; }
+.sk-door:hover { stroke: #8fd0ff; fill: #16283f; }
+.sk-door.sk-lit { stroke: #ffd43b; fill: #3a2f10; }
+.sk-door-t {
+  font-family: "Microsoft YaHei", system-ui, sans-serif;
+  font-size: 12px;
+  fill: #7fa3c4;
+  pointer-events: none;
+}
+.sk-seat-n { font-family: Consolas, monospace; font-size: 12px; fill: #8fb4d4; }
+.sk-pod-n { font-family: Consolas, monospace; font-size: 11px; fill: #6f93b6; }
+.sk-crew-n {
+  font-family: Consolas, monospace; font-size: 12px; fill: #cfe3f5;
+  paint-order: stroke; stroke: #04080f; stroke-width: 3px; stroke-linejoin: round;
+}
+.sk-crew { cursor: pointer; }
+.sk-crew.sk-out { opacity: .38; filter: grayscale(1); }
+.sk-crew.sk-sel > .sk-enter > ellipse { opacity: .9; }
+
+/* 白框四角加实心角标：即使道具本身很淡也能一眼看到"交互已开始" */
+.sk-focus-box { stroke-linecap: round; }

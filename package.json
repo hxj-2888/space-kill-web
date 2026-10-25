@@ -19,13 +19,14 @@
     "shots:mobile": "node tools/mobile-shots.cjs",
     "doc": "node tools/build-engine-docx.cjs",
     "srcdoc": "node tools/build-src-docx.cjs",
-    "test:all": "node tools/test-fix-v26.cjs && node tools/test-lang.cjs && node tools/test-add-role.cjs && node tools/test-add-mechanism.cjs && node tools/audit-step-coverage.cjs && node tools/uismoke.cjs && node tools/mobile-layout-check.cjs && node tools/sim.cjs 60",
+    "test:all": "node tools/test-fix-v26.cjs && node tools/test-space.cjs && node tools/test-lang.cjs && node tools/test-add-role.cjs && node tools/test-add-mechanism.cjs && node tools/audit-step-coverage.cjs && node tools/uismoke.cjs && node tools/mobile-layout-check.cjs && node tools/sim.cjs 60",
     "test:cloud": "node tools/test-cloud.cjs",
     "probe:chan": "node tools/channel-ab.cjs 200 501",
     "trace": "node tools/trace-game.cjs",
     "narrate": "node tools/replay-narrate.cjs",
     "probe:attend": "node tools/attend-ab.cjs",
-    "probe:chatlog": "node tools/probe-chatlog-visibility.cjs 60 1 && node tools/probe-chatlog-human.cjs 60 1"
+    "probe:chatlog": "node tools/probe-chatlog-visibility.cjs 60 1 && node tools/probe-chatlog-human.cjs 60 1",
+    "test:space": "node tools/test-space.cjs"
   },
   "dependencies": {
     "docx": "^9.7.1"

@@ -93,7 +93,9 @@ const ENGINE_STACK = ['v66/reveal/revealService', 'v66/execution/ledger', 'lang/
 /* UI 侧文件（浏览器与 uismoke 需要；纯 AI 工具不需要）。
    〔S1〕ui-scene：圆桌场景渲染器（只读层，依赖 View 的裁剪视图与 SKScene 自身；
    必须后于 view（运行时读 global.View 的产物）先于 ui（ui.render 调 SKScene.render）） */
-const ORDER_UI = ['view', 'ui-scene', 'audio', 'ui', 'net', 'main'];
+/* 〔U1〕space：房间布局数据层（纯数据 + validate，零 DOM）。
+   必须在 ui-scene 之前——场景渲染器读 global.SKSpace 的道具表与座位坐标。 */
+const ORDER_UI = ['view', 'space', 'ui-scene', 'audio', 'ui', 'net', 'main'];
 
 /* —— 常用剖面 —— */
 const profiles = {
