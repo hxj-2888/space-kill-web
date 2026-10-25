@@ -97,14 +97,13 @@ function serve() {
       document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
       const g = document.getElementById('screen-game');
       if (g) g.classList.remove('hidden');
-      /* 灌最小内容：15 人名单 + 4 条发言，验证真实内容下的挤压 */
-      const r = document.getElementById('roster');
-      if (r) for (let i = 1; i <= 15; i++) {
-        const d2 = document.createElement('div');
-        d2.className = 'pl';
-        d2.innerHTML = '<div class="did">' + i + ' 号</div><div class="tags"><span class="tag">船员</span></div>';
-        r.appendChild(d2);
-      }
+      /* 〔S1〕圆桌场景：用真实 SKScene 渲染 mock 裁剪视图（15 席、含 1 个出局态）——
+         mock 只构造 SKScene 的读取面（g.phase/pending + V.id/players[].id/out），不复制渲染逻辑 */
+      try {
+        const mkV = { id: 1, players: Array.from({ length: 15 }, (_, k) => ({ id: k + 1, name: (k + 1) + ' 号', out: k === 3 })) };
+        if (window.SKScene) window.SKScene.render({ phase: 'day', pending: null }, mkV);
+      } catch (e) { /* 渲染失败由下方 sceneSvg 断言暴露 */ }
+      /* 灌最小内容：4 条发言，验证真实内容下的挤压（〔S1〕名单已由场景替代） */
       const c = document.getElementById('chatlog');
       if (c) for (let i = 0; i < 4; i++) {
         const s = document.createElement('div');
@@ -313,7 +312,7 @@ function serve() {
           }));
         }
       };
-      ['#screen-game', '.topbar', '.orb-bar', '#roster', '.seg-stage', '#chatlog', '#f-text', '#btn-send']
+      ['#screen-game', '.topbar', '.orb-bar', '#scene-mount', '.seg-stage', '#chatlog', '#f-text', '#btn-send']
         .forEach(s => { const e = document.querySelector(s); if (e) bad(s, e); });
       /* 侧栏抽屉关闭时故意 translateX 到视口外，不算溢出；打开时必须在视口内 */
       const sd = document.querySelector('.seg-side');
@@ -324,17 +323,28 @@ function serve() {
           out.push('.seg-side 打开态溢出 ' + JSON.stringify({ l: Math.round(r.left), r: Math.round(r.right) }));
         }
       }
-      const r = document.getElementById('roster');
-      let rosterScrollable = false, rosterH = 0;
-      if (r) {
-        rosterH = r.getBoundingClientRect().height;
-        const cs = getComputedStyle(r);
+      /* 〔S1〕名单 → 场景：量两者，按「哪个可见」断言——
+         桌面/常规横屏/竖屏 = 场景可见；矮横屏 = 06-scene.css 切回旧名单横条（S5 做移动场景专项） */
+      const sc = document.getElementById('scene-mount');
+      const rr = document.getElementById('roster');
+      let sceneSvg = false, sceneOverflow = false, sceneH = 0, sceneVisible = false;
+      let rosterScrollable = false, rosterH = 0, rosterVisible = false;
+      if (sc) {
+        sceneVisible = getComputedStyle(sc).display !== 'none';
+        sceneSvg = !!sc.querySelector('svg');
+        sceneH = sc.getBoundingClientRect().height;
+        if (sc.getBoundingClientRect().width > 0) sceneOverflow = sc.scrollWidth > sc.clientWidth + 1;
+      }
+      if (rr) {
+        rosterVisible = getComputedStyle(rr).display !== 'none';
+        rosterH = rr.getBoundingClientRect().height;
+        const cs = getComputedStyle(rr);
         rosterScrollable = cs.overflowX === 'auto' || cs.overflowX === 'scroll';
       }
       const tg = document.getElementById('btn-side-toggle');
       const rot = document.getElementById('rot-hint');
       return {
-        out, rosterScrollable, rosterH,
+        out, sceneSvg, sceneOverflow, sceneH, sceneVisible, rosterScrollable, rosterH, rosterVisible,
         rotShown: !!rot && getComputedStyle(rot).display !== 'none',
         toggleShown: tg ? tg.style.display : 'missing',
       };
@@ -346,8 +356,15 @@ function serve() {
       if (!res.rotShown) errs.push('竖屏未显示旋转提示');
       if (res.toggleShown !== 'none') errs.push('竖屏不应显示抽屉按钮（当前 ' + res.toggleShown + '）');
     } else {
-      if (d.touch && !res.rosterScrollable) errs.push('名单未横向滚动（手机横屏必须是横条）');
-      if (d.touch && res.rosterH > 60) errs.push('名单横条高度异常：' + Math.round(res.rosterH) + 'px');
+      /* 〔S1〕场景/名单双轨断言：场景可见 → 场景三查；矮横屏回退 → 旧名单横条两查 */
+      if (res.sceneVisible) {
+        if (!res.sceneSvg) errs.push('圆桌场景未渲染（#scene-mount 无 SVG）');
+        if (res.sceneOverflow) errs.push('场景横向溢出');
+        if (d.touch && res.sceneH > d.height * 0.6) errs.push('场景高度异常：' + Math.round(res.sceneH) + 'px');
+      } else if (d.touch && !res.rosterScrollable) {
+        errs.push('名单未横向滚动（手机横屏必须是横条）');
+      }
+      if (d.touch && res.rosterVisible && res.rosterH > 60) errs.push('名单横条高度异常：' + Math.round(res.rosterH) + 'px');
       if (d.touch) {
         /* 抽屉打开态必须完整落在视口内（等transition 结束再量，否则量到动画中间态） */
         await page.evaluate(() => { const s = document.querySelector('.seg-side'); if (s) s.classList.add('open'); });
@@ -368,7 +385,8 @@ function serve() {
       errs.forEach(e => console.log('    · ' + e));
     } else {
       console.log('✓ ' + d.name + ' ' + d.width + '×' + d.height +
-        (d.touch ? '（名单横条 ' + Math.round(res.rosterH) + 'px，抽屉按钮 ' + (res.toggleShown || 'none') + '）' : ''));
+        (d.touch ? '（' + (res.sceneVisible ? '场景 ' + Math.round(res.sceneH) + 'px' : '名单横条 ' + Math.round(res.rosterH) + 'px')
+          + '，抽屉按钮 ' + (res.toggleShown || 'none') + '）' : ''));
     }
     await ctx.close();
   }

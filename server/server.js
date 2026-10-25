@@ -56,8 +56,11 @@ function decode(buf, cb) {
   return buf.slice(off);
 }
 
-/* ---------- 静态文件 ---------- */
-const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.md': 'text/plain; charset=utf-8' };
+/* ---------- 静态文件 ----------
+   〔S1〕补 .svg/.jpg/.png 的 MIME：本地 server 此前只有 html/js/css/md 四类，
+   素材以 application/octet-stream 下发时 <image> 出于安全策略拒绝渲染 SVG
+   （<image>/<img> 只认 image/svg+xml；CF Pages 线上默认 MIME 正确，仅本地服务缺表） */
+const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.md': 'text/plain; charset=utf-8', '.svg': 'image/svg+xml', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp' };
 const httpd = http.createServer((req, res) => {
   let p = decodeURIComponent(req.url.split('?')[0]);
   if (p === '/') p = '/index.html';

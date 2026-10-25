@@ -1184,6 +1184,8 @@ const SKD = global.SKDerivation;               // 〔43〕阵营成员 ≠ 能�
     renderHud(g); renderRoster(g, V); renderPlayerPop(g, V);
     applyStageLayout(g);            /* 〔43〕主区布局：必须在 renderStage 之前 —— 它决定哪块区域存在 */
     renderStage(g, V); renderSide(g, V);
+    /* 〔S1〕圆桌场景（只读层）：数据走 V（View.viewFor 裁剪视图）；场景层异常不得阻塞对局渲染 */
+    if (global.SKScene) { try { global.SKScene.render(g, V); } catch (_) { } }
     /* 开发者浮层：显隐由「上帝模式 && 浮层开关」双条件决定——✕ 关闭后重渲染不会再弹出 */
     const ov = el('dev-overlay');
     if (ov) {

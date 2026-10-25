@@ -184,9 +184,10 @@
     </div>
 
     <div class="board">
-      <!-- 左栏 3：只留玩家格子（5×3 紧凑网格） -->
+      <!-- 左栏 3：〔S1〕圆桌场景（名单的视觉替身，桌面/常规横屏）；矮横屏由 06-scene.css 切回旧名单横条（S5 做移动场景专项） -->
       <section class="seg seg-roster">
-        <div class="seg-t">玩家名单</div>
+        <div class="seg-t">圆桌 · 玩家名单</div>
+        <div id="scene-mount" class="scene-mount" aria-label="圆桌场景"></div>
         <div id="roster" class="roster"></div>
       </section>
 
@@ -322,6 +323,7 @@
   <script src="js/engine/steps.js"></script>
   <script src="js/engine.js"></script>
   <script src="js/view.js"></script>
+  <script src="js/ui-scene.js"></script>
   <script src="js/audio.js"></script>
   <script src="js/ui.js"></script>
   <script src="js/net.js"></script>

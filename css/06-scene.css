@@ -1,0 +1,67 @@
+/* =============================================================
+ * 场景化 UI · 批 S1（2026-10-25）
+ * ⚠ 本文件必须排在 style.css @import 列表【最末】——与 05-late-overrides 同理，
+ *   同特异性靠后取胜；场景层样式会压过前段对 .seg-roster 区的布局规则。
+ * 本批范围：圆桌场景容器 + 席位状态件（闭眼/出局/自己高亮）+ 矮横屏约束。
+ *   房间环/背景/书记官 = S2；交互 = S3a；气泡与散桌 = S3b。
+ * ============================================================= */
+
+/* ---- 场景容器（左栏：名单的视觉替身） ----
+   roster 的显隐由本文件按视口切换（响应式布局，非状态显隐——05 层媒体档同例）：
+   桌面/常规横屏/竖屏 = 场景；矮横屏 = 切回旧名单横条（单列预算 46px 是既有平衡，
+   手机场景专项布局归 S5，本批不挤占）。 */
+#screen-game .seg-roster { overflow: hidden; }
+/* ⚠ 特异性必须 ≥ 03 层的 #screen-game .seg-roster .roster（1-2-1），否则 display:none 被压掉（实测踩过） */
+#screen-game .seg-roster > .roster { display: none; }
+#screen-game .scene-mount {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.sk-scene { width: 100%; height: auto; max-height: 100%; display: block; }
+
+/* ---- 圆桌与船核心 ---- */
+.sk-table {
+  fill: #16202f;
+  stroke: #33445f;
+  stroke-width: 3;
+}
+.sk-core { fill: #152a40; stroke: #3d6b96; stroke-width: 2; }
+.sk-core-night {
+  animation: sk-breathe 2.4s ease-in-out infinite;
+}
+@keyframes sk-breathe {
+  50% { stroke: #86c0f2; fill: #1d3b57; }
+}
+.sk-core-t { fill: #4dabf7; font-size: 12px; letter-spacing: 2px; }
+
+/* ---- 席位 ---- */
+.sk-seat { cursor: default; }
+.sk-seat image { transition: filter .25s; }
+.sk-num-bg { fill: #0d1524; stroke-width: 1.5; }
+.sk-num { fill: #fff; font-weight: 800; font-size: 12px; }
+
+/* 自己席位：金环脉冲（签名重绘不频繁，动画不会被 tick 打断） */
+.sk-mine { filter: drop-shadow(0 0 5px rgba(255, 212, 59, .75)); animation: sk-mine-pulse 1.8s ease-in-out infinite; }
+@keyframes sk-mine-pulse {
+  50% { filter: drop-shadow(0 0 13px rgba(255, 212, 59, .95)); }
+}
+
+/* 夜间闭眼：暗幕 + 眼帘纹（观察者视角——除自己外全员闭眼） */
+.sk-lids { fill: rgba(4, 8, 15, .52); }
+.sk-lids-t { fill: #c7d4ec; font-size: 11px; }
+
+/* 出局（公开信息）：灰度离席 + ✕；濒死是私有信息——本层零视觉（4.10.4） */
+.sk-out image { filter: grayscale(1) brightness(.5); }
+.sk-out .sk-num-bg { fill: #2a1f22; }
+.sk-out-x { fill: #ff6b6b; font-weight: 800; font-size: 13px; }
+
+/* ---- 矮横屏（与 05 层的同名媒体档对齐）：切回旧名单横条布局，场景收起 ----
+   05 层在该档把 .board 变单列、.roster 变 46px 横条——整套预算以「无场景」调平，
+   本批不在该档硬塞场景（会把输入 dock 挤出视口，实测验证过）。 */
+@media (orientation: landscape) and (max-height: 560px) {
+  #screen-game .scene-mount { display: none; }
+  #screen-game .seg-roster > .roster { display: flex; }
+}
