@@ -160,6 +160,15 @@
     }
     /* 桌面摆件（Kenney CC0 原尺寸 64px，不放大）：让桌子不是一块空板。
        这些是纯装饰，不承载任何游戏信息，也不可点击。 */
+    /* 〔R4〕桌面笔记本：点开是我的账本（不再是 DEV 里的方框表格） */
+    const notebook = '<g id="sk-notebook" class="sk-notebook" transform="translate(' + (GEO.cx + 96) + ',' + (GEO.cy + 58) + ')">'
+      + '<rect x="-34" y="-22" width="68" height="44" rx="4" fill="#2b2116" stroke="#6b563a" stroke-width="2"/>'
+      + '<rect x="-30" y="-18" width="60" height="36" rx="3" fill="#e8dcc0"/>'
+      + '<line x1="-22" y1="-8" x2="22" y2="-8" stroke="#b9a882" stroke-width="1.5"/>'
+      + '<line x1="-22" y1="0" x2="22" y2="0" stroke="#b9a882" stroke-width="1.5"/>'
+      + '<line x1="-22" y1="8" x2="10" y2="8" stroke="#b9a882" stroke-width="1.5"/>'
+      + '<text x="0" y="-30" text-anchor="middle" class="sk-notebook-t">账本</text>'
+      + '</g>';
     const deck = [
       ['table-display', GEO.cx - 210, GEO.cy - 42],
       ['computer-wide', GEO.cx - 92, GEO.cy - 64],
@@ -176,6 +185,7 @@
       + '<ellipse class="sk-table-inner" cx="' + GEO.cx + '" cy="' + GEO.cy + '" rx="' + (GEO.tableRx - 22) + '" ry="' + (GEO.tableRy - 14) + '"/>'
       + '<ellipse class="sk-table-rim" cx="' + GEO.cx + '" cy="' + GEO.cy + '" rx="' + GEO.tableRx + '" ry="' + GEO.tableRy + '"/>'
       + deck
+      + notebook
       + '<polygon class="sk-core' + (night ? ' sk-core-night' : '') + '" points="' + CORE_POINTS + '"/>'
       + '<text x="' + GEO.cx + '" y="' + (GEO.cy + 5) + '" text-anchor="middle" class="sk-core-t">船核心</text>'
       + seats
@@ -396,6 +406,7 @@
         const room = t.closest('[data-room]');
         if (room) { onRoomClick(room.getAttribute('data-room'), mount); return; }
         if (t.closest('.sk-core')) { onCoreClick(mount); return; }
+        if (t.closest('#sk-notebook')) { if (global.UI && global.UI.openLedger) global.UI.openLedger(); return; }
       } catch (_) { /* 交互层异常不外抛 */ }
     });
   }

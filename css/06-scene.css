@@ -265,6 +265,130 @@
 }
 #screen-game .opt.tgt-avatar:has(input:checked) .ta-face b { border-color: #ffd43b; color: #ffe58a; }
 
+/* =============================================================
+ * 〔R4〕账本：场景笔记本打开后的手写纸面
+ * -------------------------------------------------------------
+ * 用户要求「记账还在，但不再以方框形式表现」。故这里：
+ *   · 纸面用暖米色 + 横线 + 左侧装订孔，模拟实体笔记本
+ *   · 每条是一行手写体（行首手写标记 + 正文），不是 kv 表格 / evt 色块
+ *   · 小标题是手写分组（.ld-h），不是色块条
+ * 数据口径未变（见 ui.js ledgerLines 注释）。
+ * ============================================================= */
+.sk-notebook { cursor: pointer; }
+.sk-notebook:hover rect:nth-of-type(2) { fill: #f3e9d2; }
+.sk-notebook-t {
+  fill: #b9a882;
+  font-size: 13px;
+  letter-spacing: 2px;
+  opacity: .85;
+}
+
+#ledger-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(3, 6, 12, .72);
+  backdrop-filter: blur(3px);
+  padding: 20px;
+}
+#ledger-overlay.hidden { display: none; }
+
+.ledger-paper {
+  position: relative;
+  width: min(520px, 92vw);
+  max-height: 82vh;
+  display: flex;
+  flex-direction: column;
+  /* 米色纸 + 横线：横线用 repeating-linear-gradient，行高 30px 与 .ld-line 对齐 */
+  background:
+    repeating-linear-gradient(180deg, transparent 0 29px, rgba(150, 120, 80, .22) 29px 30px),
+    linear-gradient(180deg, #f4ecd8, #ece1c8);
+  border-radius: 6px;
+  box-shadow: 0 22px 60px rgba(0, 0, 0, .6), inset 0 0 60px rgba(160, 130, 80, .18);
+  padding: 18px 22px 14px 34px;
+  color: #3a2f22;
+  border-left: 14px solid #d9c9a8;
+  animation: ld-open .22s ease-out;
+}
+@keyframes ld-open { from { opacity: 0; transform: translateY(10px) rotate(-.4deg); } to { opacity: 1; transform: none; } }
+/* 左侧装订孔 */
+.ledger-paper::before {
+  content: "";
+  position: absolute;
+  left: -8px;
+  top: 26px;
+  bottom: 26px;
+  width: 6px;
+  background: radial-gradient(circle at 3px 6px, #8d7a58 3px, transparent 3.5px) 0 0 / 6px 34px repeat-y;
+  opacity: .55;
+}
+.ld-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid rgba(140, 110, 70, .45);
+  margin-bottom: 10px;
+  flex: 0 0 auto;
+}
+.ld-head b { font-size: 19px; letter-spacing: 3px; color: #4a3a24; }
+.ld-head span { font-size: 12px; color: #7a6547; }
+.ld-close {
+  margin-left: auto;
+  background: transparent;
+  border: 1px solid rgba(120, 95, 60, .5);
+  color: #6b563a;
+  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.ld-close:hover { background: rgba(120, 95, 60, .12); }
+.ld-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  line-height: 30px;          /* 与纸面横线对齐 */
+  font-size: 14px;
+}
+.ld-h {
+  line-height: 30px;
+  font-size: 12.5px;
+  letter-spacing: 2px;
+  color: #8a6f45;
+  font-weight: 700;
+  margin-top: 6px;
+  text-decoration: underline;
+  text-decoration-color: rgba(138, 111, 69, .4);
+  text-underline-offset: 5px;
+}
+.ld-line {
+  line-height: 30px;
+  color: #40331f;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ld-line i {
+  display: inline-block;
+  width: 22px;
+  font-style: normal;
+  color: #9a7c4e;
+  font-weight: 700;
+}
+.ld-foot {
+  flex: 0 0 auto;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(140, 110, 70, .45);
+  font-size: 11.5px;
+  color: #8a7452;
+  letter-spacing: .3px;
+}
+
 /* ---- 桌面摆件（Kenney CC0 原尺寸，不放大）---- */
 .sk-deck { pointer-events: none; }
 

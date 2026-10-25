@@ -4743,6 +4743,38 @@ const RULE_FILES = ['js/ai/belief.js', 'js/ai/perceive.js', 'js/ai/decide.js',
   ok('主区N：移动端门禁已覆盖 6 相位场景主区扫描（行为层验收在此，不在 Node 断言里）',
     /场景主区扫描/.test(mobileSrc) && /PHASES/.test(mobileSrc) &&
     (mobileSrc.match(/\{ label: '/g) || []).length >= 6);
+
+  /* ---- 〔R3〕行动提交必须能搬进房间，且不新建提交路径 ---- */
+  ok('主区O：点房间进入近景——把 #region-dec 搬进房间，提交仍走表单原按钮',
+    /function openRoom\(roomId, mount\)/.test(sceneCode43) &&
+    /body\.appendChild\(dec\)/.test(sceneCode43) &&
+    /function closeRoom\(mount\)/.test(sceneCode43) &&
+    /dock\.insertBefore\(dec, dock\.firstChild\)/.test(sceneCode43) &&
+    /* 反向守卫：房间层不得自己调 Game.submit（否则等于新建提交路径） */
+    !/function openRoom[\s\S]{0,900}Game\.submit/.test(sceneCode43));
+
+  /* ---- 〔R3〕点头像直接发起行动 ---- */
+  ok('主区P：点角色头像直接发起行动（勾选目标 + 无需补参时自动提交）',
+    /function onSeatClick\(pid, mount\)/.test(sceneCode43) &&
+    /pick\.click\(\)/.test(sceneCode43) &&
+    /NEEDS_MORE/.test(sceneCode43) &&
+    /btn\.click\(\)/.test(sceneCode43));
+
+  /* ---- 〔R3〕目标选择是一排头像，不是方框列表 ---- */
+  ok('主区Q：目标选择渲染为头像按钮（tgt-avatar），底层仍是 radio/checkbox',
+    /class="opt tgt-avatar"/.test(uiCode43) &&
+    /tgt-avatars/.test(uiCode43) &&
+    /type="\$\{max > 1 \? 'checkbox' : 'radio'\}"/.test(uiCode43) &&
+    /\.opt\.tgt-avatar/.test(cssCode43));
+
+  /* ---- 〔R4〕账本是场景笔记本 + 手写纸面，不得退回方框 ---- */
+  ok('主区R：账本 = 场景笔记本道具 + 手写纸面（不含 kv/evt 方框）',
+    /id="sk-notebook"/.test(sceneCode43) &&
+    /function ledgerLines\(g\)/.test(uiCode43) &&
+    /ld-line/.test(uiCode43) && /ledger-paper/.test(cssCode43) &&
+    /* 反向守卫：账本渲染里不得再用 .kv / .evt 那套表格皮 */
+    !/function ledgerLines[\s\S]{0,4000}class="kv"/.test(uiCode43) &&
+    !/function ledgerLines[\s\S]{0,4000}class="evt/.test(uiCode43));
 }
 
 /* ---------- 42.6b 〔S4〕开始页场景化 + 结算页轻皮（结构断言；几何由 mobile-check 承担） ----------

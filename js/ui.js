@@ -136,6 +136,116 @@ const SKD = global.SKDerivation;               // 〔43〕阵营成员 ≠ 能�
   let popPid = null;   // 当前详情弹窗的玩家 id（openPlayerPop 与弹窗关闭共用）
 
   /* 玩家详情弹窗：开发者模式下展示完整信息（身份/技能/各 AI 视角威胁度/指控记录） */
+  /* =============================================================
+   * 〔R4〕账本：场景里的笔记本道具点开的**手写纸面**
+   * -------------------------------------------------------------
+   * 用户要求：「记账功能还在，但不再以方框形式表现」。
+   * 故这里不用 .sec / .evt / .kv 那套表格皮，改成：
+   *   · 一张纸（.ledger-paper），有横线、有装订孔
+   *   · 每条记录是一行手写体（.ld-line），行首是手写标记 + 「第N夜」
+   *   · 分组用小标题手写（.ld-h），不是色块标题
+   * **数据口径逐字不变**：仍读 me.known / AI.suspDist / me.crewChecks / me.bulletLog 等，
+   * 只换呈现方式。这是纯展示层改造，零规则改动。
+   * ============================================================= */
+  function ledgerLines(g) {
+    const me = E.P(g, g.humanId);
+    if (!me) return [];
+    const AI = global.AI;
+    const out = [];
+    const facName2 = f => ({ human: '人类', alien: '异形', xeno: '外星人' }[f] || f);
+
+    /* 硬源 / 弱记录 */
+    const hard = [], weak = [];
+    (me.known || new Map()).forEach((k, id) => {
+      let txt = id + ' 号';
+      if (k.role) txt += ' 是 ' + roleNameOf(k.role);
+      if (k.faction) txt += '（' + facName2(k.faction) + '）';
+      if (k.excludes && k.excludes.length) txt += ' 不是 ' + k.excludes.map(roleNameOf).join('/');
+      (k && k.viaPrivate ? weak : hard).push(txt);
+    });
+    if (hard.length) { out.push({ h: '确证' }); hard.forEach(t => out.push({ m: '✓', t })); }
+    if (weak.length) { out.push({ h: '听说（未证实）' }); weak.forEach(t => out.push({ m: '?', t: t + '　私聊' })); }
+
+    /* 怀疑度：不再是条形图表格，而是一句手写排序。
+       ⚠ AI.suspDist 返回的是 **Map<阵营键, 概率>**（不是 {best:[...]}）——
+       首版按 {best:[role,p]} 取值，于是每条只剩编号、没有"更像谁"。
+       这里按声明序取最大阵营项（与 AI 的 distMax 同口径）。 */
+    if (AI && AI.suspDist) {
+      const ranked = E.alive(g).filter(x => x.id !== me.id).map(x => {
+        let d = null;
+        try { d = AI.suspDist(g, me, x.id); } catch (e) { d = null; }
+        if (!d || !d.size) return null;
+        let topK = null, topV = -1;
+        d.forEach((v, k) => { if (v > topV) { topV = v; topK = k; } });
+        return { id: x.id, top: topK, p: topV };
+      }).filter(Boolean).sort((a, b) => b.p - a.p).slice(0, 6);
+      if (ranked.length) {
+        out.push({ h: '我的怀疑顺序' });
+        ranked.forEach((r, i) => out.push({
+          m: (i + 1) + '.',
+          t: r.id + ' 号' + (r.top ? '　更像 ' + facName2(r.top) + '（' + Math.round(r.p * 100) + '%）' : ''),
+        }));
+      }
+    }
+
+    /* 各角色私有资产：仍逐条列出，但用手写行 */
+    if (me.crewChecks && me.crewChecks.size) {
+      out.push({ h: '查验记录' });
+      [...me.crewChecks.entries()].forEach(([id, v]) => out.push({
+        m: '·',
+        t: id + ' 号（查了 ' + v.n + ' 次）：' + ((v.results || []).map(r => roleNameOf(r.id) + '→' + (r.ans ? '是' : '否')).join('、') || '无有效作答'),
+      }));
+    }
+    if (me.markEverSeen && me.markEverSeen.size) {
+      out.push({ h: '标记记忆' });
+      [...me.markEverSeen.entries()].forEach(([id, v]) => out.push({
+        m: '·',
+        t: id + ' 号：第 ' + v.night + ' 夜首见' + (v.goneNight != null ? '，第 ' + v.goneNight + ' 夜消失' + (v.noCure ? '（无人治疗——隐形清除）' : '') : '，仍在'),
+      }));
+    }
+    if (me.dyingSeen && me.dyingSeen.ids) {
+      out.push({ h: '最近濒死' });
+      out.push({ m: '·', t: '第 ' + me.dyingSeen.night + ' 夜：' + (me.dyingSeen.ids.join('、') || '无') + ' 号' });
+    }
+    if (me.bulletLog && me.bulletLog.length) {
+      out.push({ h: '子弹流水' });
+      me.bulletLog.forEach(b => out.push({
+        m: '·', t: '第 ' + b.night + ' 夜 ' + (b.delta > 0 ? '+' : '') + b.delta + '（' + b.src + '）· 现余 ' + me.bullets + ' 发',
+      }));
+    }
+    if (!out.length) out.push({ m: '·', t: '还什么都没记下。' });
+    return out;
+  }
+
+  function renderLedger() {
+    const g = global.Game && global.Game.g;
+    const ov = el('ledger-overlay');
+    if (!ov) return;
+    if (!g) { ov.classList.add('hidden'); return; }
+    const me = E.P(g, g.humanId);
+    const fac = me ? ({ human: '人类', alien: '异形', xeno: '外星人' }[me.faction] || me.faction) : '';
+    const rows = ledgerLines(g).map(r =>
+      r.h ? '<div class="ld-h">' + esc(r.h) + '</div>'
+        : '<div class="ld-line"><i>' + esc(r.m) + '</i>' + esc(r.t) + '</div>').join('');
+    ov.innerHTML =
+      '<div class="ledger-paper">'
+      + '<div class="ld-head"><b>我的账本</b><span>' + (me ? esc(me.roleName) + '（' + esc(fac) + '）' : '') + '</span>'
+      + '<button class="ld-close" data-ld-close="1">合上</button></div>'
+      + '<div class="ld-body">' + rows + '</div>'
+      + '<div class="ld-foot">与 AI 的账本同一机制生成 —— 它靠这个投票/出刀，你靠这个盘人。</div>'
+      + '</div>';
+    ov.classList.remove('hidden');
+  }
+
+  function closeLedger() {
+    const ov = el('ledger-overlay');
+    if (ov) ov.classList.add('hidden');
+  }
+
+  function openLedger() {
+    try { renderLedger(); } catch (e) { showFatal('账本打开失败：' + (e && e.message ? e.message : e)); }
+  }
+
   function renderPlayerPop(g, V) {
     const pop = el('p-pop');
     if (!pop) return;
@@ -811,7 +921,8 @@ const SKD = global.SKDerivation;               // 〔43〕阵营成员 ≠ 能�
     }
     /* v32（用户拍板）：账本并入 DEV——「我的账本」是开发者视角的一部分，不再单独暴露按钮。
        账本内容 = 玩家席位自己的推理资产（与 AI 同一份机制产生）。 */
-    html += `<div class="sec">我的账本（席位证据资产 · 与 AI 同一份机制）</div>` + ledgerHtml(g);
+    /* 〔R4〕账本已改为场景笔记本；DEV 里保留一个入口（点开同一个覆盖层） */
+    html += `<div class="sec">我的账本</div><div class="hint">已移到场景里的笔记本（点桌面上的本子打开）</div>`;
     return html;
   }
 
@@ -1353,6 +1464,7 @@ const SKD = global.SKDerivation;               // 〔43〕阵营成员 ≠ 能�
         return;
       }
       if (e.target && e.target.closest && e.target.closest('#btn-p-close')) { popPid = null; render(global.Game.g); }
+      if (e.target && e.target.closest && e.target.closest('[data-ld-close]')) { closeLedger(); return; }
     });
     document.addEventListener('keydown', e => {
       if (e && e.key === 'Escape') { closeRules(); closeDevView(); popPid = null; render(global.Game.g); }
@@ -1523,6 +1635,7 @@ const SKD = global.SKDerivation;               // 〔43〕阵营成员 ≠ 能�
   }
 
   global.UI = { render, init, updateTimer, renderRoom, renderReplayBody, stageLayout, applyStageLayout,
-    mountRolePicker, preferredRole, rpPick, renderRoleGrid, openPlayerPop };
+    mountRolePicker, preferredRole, rpPick, renderRoleGrid, openPlayerPop,
+    openLedger, closeLedger, ledgerLines };
 })(typeof window !== 'undefined' ? window : globalThis);
 
