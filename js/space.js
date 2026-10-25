@@ -21,8 +21,8 @@
   'use strict';
 
   /* ---- 房间尺寸（格）：22 × 14，与 Blender 版一致 ---- */
-  const ROOM_W = 22;
-  const ROOM_H = 14;
+  const ROOM_W = 26;
+  const ROOM_H = 17;
 
   /* ---- 道具表 ----
      w/h = 占地格数（按素材实际尺寸：bed 1×2、desk 3×1、console 2×1 …）
@@ -48,15 +48,18 @@
               { to: 'verify', side: 'l' }, { to: 'patrol', side: 'r' }],
       /* 圆桌居中；15 座由渲染器按角度算（见 SEATS） */
       props: [
-        { t: 'rug', x: 7, y: 5, w: 8, h: 4, tint: 'deck' },
-        { t: 'table', x: 10, y: 6, w: 4, h: 2, k: 'round_table', label: '圆桌' },
+        { t: 'rug', x: 5, y: 4, w: 12, h: 7, tint: 'deck' },
+        { t: 'table', x: 9, y: 6, w: 4, h: 2, k: 'round_table', label: '圆桌' },
         { t: 'console', x: 2, y: 11, k: 'nav', label: '导航台' },
         { t: 'console', x: 18, y: 11, k: 'nav', label: '导航台' },
         { t: 'screen', x: 9, y: 1, k: 'monitor', label: '舰桥大屏' },
         { t: 'plant', x: 1, y: 1 }, { t: 'plant', x: 20, y: 1 },
         { t: 'tallplant', x: 1, y: 12 }, { t: 'tallplant', x: 20, y: 12 },
       ],
-      seats: { cx: 11, cy: 7, rx: 5.2, ry: 3.2, n: 15 },
+      /* 注意（批 H1 修）：座位圈必须**在桌子外面**：桌占 4×2 格（半宽 2、半高 1），
+         圈 rx 必须 > 2 + 座椅半径，否则 15 席会压在桌上（批 H1 修）。
+         当前 rx 7 / ry 4：座位离桌缘 ≈ (7-2)×62 ≈ 310px，余量充足。 */
+      seats: { cx: 11, cy: 7, rx: 7, ry: 4, n: 15 },
     },
     verify: {
       name: '查证室', floor: 'floor-lab', size: [ROOM_W, ROOM_H],

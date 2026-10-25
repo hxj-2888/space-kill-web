@@ -95,7 +95,10 @@ const ENGINE_STACK = ['v66/reveal/revealService', 'v66/execution/ledger', 'lang/
    必须后于 view（运行时读 global.View 的产物）先于 ui（ui.render 调 SKScene.render）） */
 /* 〔U1〕space：房间布局数据层（纯数据 + validate，零 DOM）。
    必须在 ui-scene 之前——场景渲染器读 global.SKSpace 的道具表与座位坐标。 */
-const ORDER_UI = ['view', 'space', 'ui-scene', 'audio', 'ui', 'net', 'main'];
+/* 〔H1〕arena：主页「游戏预览页」交互层（铭牌 / 设置 / 我这席）。
+   必须后于 ui-scene（调 SKScene.renderHomeScene）与 ui（读 role-overlay 等既有控件），
+   先于 main（main.js 的 DOMContentLoaded 里调 SKArena.init）。 */
+const ORDER_UI = ['view', 'space', 'ui-scene', 'audio', 'ui', 'arena', 'net', 'main'];
 
 /* —— 常用剖面 —— */
 const profiles = {

@@ -305,7 +305,9 @@
   document.addEventListener('DOMContentLoaded', () => {
     global.UI.init();
     global.UI.mountRolePicker();          // 〔44〕自选身份面板（角色清单由声明层派生）
-    global.UI.mountRosterBoard();         // 〔R5〕登船名册（15 席头像，替代原数字配置条）
+    global.UI.mountRosterBoard();         // 〔R5〕登船名册（隐藏宿主，批 H1 起不再显示）
+    /* 〔H1〕主页 = 游戏预览页：铭牌 / 设置 / 我这席 / 中间场景 */
+    if (global.SKArena) { try { global.SKArena.init(); } catch (e) { console.warn('SKArena init', e); } }
 
     document.querySelectorAll('.fp').forEach(fp => fp.onclick = () => {
       document.querySelectorAll('.fp').forEach(x => x.classList.remove('active'));

@@ -4812,16 +4812,25 @@ const RULE_FILES = ['js/ai/belief.js', 'js/ai/perceive.js', 'js/ai/decide.js',
   const svgPath = path.join(base, '..', 'assets', 'scene', 'bg', 'departure-ring.svg');
 
   /* ---- ① 装饰件在位 ---- */
-  ok('S4A：开始页有返航环装饰件，且素材文件在位（静态 SVG，运行时不生成）',
-    /id="start-scene"/.test(htmlCodeS4) && /departure-ring\.svg/.test(htmlCodeS4) &&
-    fs.existsSync(svgPath));
+  /* 〔H1 迁移〕主页改成「游戏预览页」后，右下角那个小返航环被**真实场景**取代
+     （#arena-stage 由 SKScene.renderHomeScene 注入）。
+     原判据「有装饰件」换成「有场景挂载点、且旧装饰件确实退役」——
+     守的仍是同一件事：主页要有**主视觉**，且不是靠一张静态图充数。 */
+  ok('S4A：开始页主视觉 = 场景挂载点（旧返航环装饰件已随 H1 退役）',
+    /id="arena-stage"/.test(htmlCodeS4) &&
+    !/id="start-scene"/.test(htmlCodeS4) &&
+    /renderHomeScene/.test(fs.readFileSync(path.join(base, 'ui-scene.js'), 'utf8')) &&
+    fs.existsSync(svgPath));   /* 素材仍留在仓里，供结算页/旧分支使用 */
   ok('S4B：结算页有归航状态条（同语言轻皮，不含对局数据）',
     /id="over-scene"/.test(htmlCodeS4) && /返航程序/.test(htmlCodeS4));
 
   /* ---- ② 装饰件不挡事 ---- */
-  ok('S4C：装饰层是纯视觉（aria-hidden + pointer-events:none，不接收点击）',
-    /id="start-scene"[^>]*aria-hidden="true"/.test(htmlS4) &&
-    /#screen-start \.start-scene \{[^}]*pointer-events: none/.test(cssS4));
+  /* 〔H1 迁移〕场景挂载点也必须是纯视觉（不接收点击，点击由 SKArena 委托到席位）：
+     守的是「装饰/场景层不得抢走控件的点击」。 */
+  ok('S4C：场景挂载点是纯视觉层（不接收点击，点击委托给 SKArena）',
+    /id="arena-stage"[^>]*aria-label/.test(htmlCodeS4) &&
+    /\.arena-stage/.test(cssS4) &&
+    /data-home-seat/.test(fs.readFileSync(path.join(base, 'ui-scene.js'), 'utf8')));
   ok('S4D：开始页/结算页的既有控件 id 一个都没少（换皮不删控件）',
     ['btn-music-start', 'btn-sfx-start', 'btn-rules-start', 'seed', 'btn-start',
       'role-chip', 'role-clear', 'role-grid', 'btn-create', 'btn-join',

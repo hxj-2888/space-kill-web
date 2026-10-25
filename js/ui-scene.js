@@ -234,7 +234,7 @@
         + '" fill="' + ring + '" opacity="0.35"/>'
         + '<svg x="' + (-w / 2).toFixed(1) + '" y="' + (-h * 0.62).toFixed(1)
         + '" width="' + w.toFixed(1) + '" height="' + h.toFixed(1)
-        + '" viewBox="' + vb + '" preserveAspectRatio="xMidYMax meet">'
+        + '" viewBox="' + vb + '" overflow="hidden" preserveAspectRatio="xMidYMax meet">'
         + '<g class="sk-frames">'
         + '<image href="' + ASSET + 'crew/' + file + '.png" x="0" y="0" width="'
         + (CREW_W * 4) + '" height="' + (CREW_H * 5) + '" image-rendering="pixelated"/>'
@@ -472,8 +472,115 @@
     });
   } catch (_) {}
 
+  /* =============================================================
+   * 〔H1〕主页场景：俯视圆桌 + 15 席（与游戏内同一套绘制代码）
+   * -------------------------------------------------------------
+   * 用户拍板「主页就是游戏预览页」「俯视圆桌」。
+   * 复用 roomOrigin / propsHtml 的数据来源（js/space.js），但**不读 g/V**：
+   *   主页阶段没有对局状态，只有 15 个空席位 + 我这席的名字牌。
+   * 输出：一个 <svg>，其中「我这席」带 data-home-seat="me"，供名字牌定位。
+   * ============================================================= */
+  function renderHomeScene(host, opt) {
+    const S = global.SKSpace;
+    if (!host || !S) return;
+    const o = global.document;
+    const r = S.room('bridge');
+    if (!r) return;
+    const [w, h] = r.size;
+    const W2 = w * TILE, H2 = h * TILE;
+    const OX = 0, OY = 0;
+    const myId = 3;                      /* 主页固定展示「我这席」坐在 3 号位 */
+    const myName = (opt && opt.myName) || '玄武岩';
+
+    let html = '<svg class="sk-scene sk-home" viewBox="0 0 ' + (W2 + 40) + ' ' + (H2 + 40)
+      + '" preserveAspectRatio="xMidYMid meet">';
+    /* 底板 */
+    html += '<rect x="0" y="0" width="' + (W2 + 40) + '" height="' + (H2 + 40)
+      + '" fill="none"/>';
+    html += '<g transform="translate(20,20)">';
+
+    /* 地板：与游戏内同一张 pattern */
+    html += '<defs><pattern id="sk-home-floor" width="' + TILE + '" height="' + TILE
+      + '" patternUnits="userSpaceOnUse"><image href="' + ASSET + 'tiles/' + r.floor
+      + '.png" width="' + TILE + '" height="' + TILE + '" image-rendering="pixelated"/></pattern></defs>';
+    html += '<rect x="0" y="0" width="' + W2 + '" height="' + H2
+      + '" fill="url(#sk-home-floor)" rx="10"/>';
+    html += '<rect x="0" y="0" width="' + W2 + '" height="' + H2
+      + '" fill="#0a1524" opacity="0.42" rx="10"/>';
+
+    /* 四壁（同游戏内：上壁两格高） */
+    html += '<defs><pattern id="sk-home-wall" width="' + TILE + '" height="' + (TILE * 2)
+      + '" patternUnits="userSpaceOnUse"><image href="' + ASSET + 'tiles/wall.png" width="'
+      + TILE + '" height="' + (TILE * 2) + '" image-rendering="pixelated"/></pattern></defs>';
+    html += '<rect x="0" y="0" width="' + W2 + '" height="' + (TILE * 1.35) + '" fill="url(#sk-home-wall)"/>';
+    html += '<rect x="0" y="0" width="' + (TILE * 0.55) + '" height="' + H2 + '" fill="url(#sk-home-wall)"/>';
+    html += '<rect x="' + (W2 - TILE * 0.55) + '" y="0" width="' + (TILE * 0.55) + '" height="' + H2 + '" fill="url(#sk-home-wall)"/>';
+    html += '<rect x="0" y="' + (H2 - TILE * 0.28) + '" width="' + W2 + '" height="' + (TILE * 0.28) + '" fill="#0a1220" opacity="0.9"/>';
+
+    /* 家具（复用 space.js 的桥房道具表，跳过地毯与座位） */
+    for (const p of r.props) {
+      const d = S.PROP[p.t];
+      if (!d) continue;
+      const pw = (p.w || d.w) * TILE, ph = (p.h || d.h) * TILE;
+      const px = p.x * TILE, py = p.y * TILE;
+      if (p.t === 'rug') {
+        /* 地毯只画**细边框轮廓**：整块实心会把桌子与座位全盖住（批 H1 实测） */
+        html += '<rect x="' + px + '" y="' + py + '" width="' + pw + '" height="' + ph
+          + '" rx="18" fill="none" stroke="#2f5178" stroke-width="2" opacity="0.55" stroke-dasharray="10 8"/>';
+        continue;
+      }
+      html += '<image href="' + ASSET + 'furniture/' + p.t + '.png" x="' + px + '" y="' + py
+        + '" width="' + pw + '" height="' + ph + '" preserveAspectRatio="none" image-rendering="pixelated"/>';
+    }
+
+    /* 15 席 */
+    const seats = S.seatPositions('bridge');
+    for (const s of seats) {
+      const cx = s.x * TILE, cy = s.y * TILE;
+      const isMe = s.i === myId;
+      const col = PALETTE[(s.i - 1) % PALETTE.length];
+      html += '<g data-home-seat="' + (isMe ? 'me' : 'seat-' + s.i) + '">';
+      html += '<ellipse cx="' + cx + '" cy="' + cy + '" rx="' + (TILE * 0.34) + '" ry="'
+        + (TILE * 0.20) + '" fill="#0b1424" stroke="' + (isMe ? MINE : col)
+        + '" stroke-width="' + (isMe ? 2.5 : 1.6) + '"/>';
+      if (isMe) {
+        /* 我这席：画一个小人站在座前（用 crew 素材的待机帧）。其余 14 席留空椅 ——
+           主页是"预览"，不是"已经坐满了"。 */
+        const w2 = TILE * 1.15, h2 = w2 * (CREW_H / CREW_W);
+        /* 注意（批 H1 实测）：嵌套 <svg> 的裁剪不可靠，整张 4×5 行走图可能被完整画出来
+           （批 H1 实测：不裁剪时画面上是"一堆红小人"）。 */
+        html += '<svg x="' + (cx - w2 / 2) + '" y="' + (cy - h2 * 0.62) + '" width="' + w2
+          + '" height="' + h2 + '" viewBox="' + CREW_W + ' ' + (CREW_H * ROW_IDLE) + ' ' + CREW_W + ' ' + CREW_H
+          + '" overflow="hidden" preserveAspectRatio="xMidYMax meet"><image href="' + ASSET + 'crew/crew-commander-red.png"'
+          + ' x="0" y="0" width="' + (CREW_W * 4) + '" height="' + (CREW_H * 5) + '" image-rendering="pixelated"/></svg>';
+      }
+      /* 编号放到椅面下方一点：与椅面椭圆同心会糊成一团（实测像"一堆小人"） */
+      html += '<text x="' + cx + '" y="' + (cy + TILE * 0.40) + '" text-anchor="middle" class="sk-seat-n">'
+        + s.i + '</text></g>';
+    }
+
+    /* 中央船核心：全息环（与游戏内同一套观感） */
+    const hx = w / 2 * TILE, hy = h / 2 * TILE;
+    html += '<circle cx="' + hx + '" cy="' + hy + '" r="' + (TILE * 0.9)
+      + '" fill="#0a3350" opacity="0.9"/>';
+    html += '<circle cx="' + hx + '" cy="' + hy + '" r="' + (TILE * 0.9)
+      + '" fill="none" stroke="#4dd0e1" stroke-width="2" opacity="0.85"/>';
+    html += '<circle class="sk-home-core" cx="' + hx + '" cy="' + hy + '" r="' + (TILE * 0.42)
+      + '" fill="#2fd8e8" opacity="0.2"/>';
+
+    html += '</g></svg>';
+
+    host.innerHTML = html;
+    /* 点击任意席位 → 打开「我这席」面板（可改身份+名字） */
+    host.onclick = function (e) {
+      const t = e.target;
+      if (t && t.closest && t.closest('[data-home-seat]') && opt && opt.onSeatClick) opt.onSeatClick();
+    };
+  }
+
   global.SKScene = {
     render: render,
+    renderHomeScene: renderHomeScene,
     refresh: refresh,
     goto: goto,
     currentRoom: function () { return curRoom; },
