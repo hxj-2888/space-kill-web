@@ -227,12 +227,11 @@
       <!-- 右栏 2：页签面板 + 底部规则折叠入口（默认收起，展开为半透明浮层） -->
       <section class="seg seg-side">
         <div class="tabs" id="nb-tabs">
-          <button class="tab active" data-tab="pub">公告</button>
-          <button class="tab" data-tab="priv">私人</button>
-          <button class="tab" data-tab="camp">阵营</button>
-          <!-- 〔43〕发言记录页签：夜间主区收起公开发言区后，白天讨论的全文仍要可回看
-               （renderSide 的 'speak' 分支本就存在，此前无入口）。 -->
-          <button class="tab" data-tab="speak">发言</button>
+          <!-- 〔S3b-3〕三入口：书记官只记公开信息（公告+公开发言）；私人→我的日记；
+               阵营→阵营日记（异形专属）。数据口径与原页签逐字一致（零变更）。 -->
+          <button class="tab active" data-tab="pub">📜 书记官档案</button>
+          <button class="tab" data-tab="priv">📔 我的日记</button>
+          <button class="tab" data-tab="camp">👥 阵营日记</button>
         </div>
         <div id="side-body" class="side-body"></div>
         <div class="side-foot">

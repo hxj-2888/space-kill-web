@@ -938,12 +938,20 @@ const SKD = global.SKDerivation;               // 〔43〕阵营成员 ≠ 能�
         byNight.get(e.night).push(e);
       }
       /* v34 C5：夜晚事件按昼夜折叠收起（最新夜默认展开），右侧滚动区吸收增减 */
-      box.innerHTML = byNight.size
+      const ann = byNight.size
         ? [...byNight.entries()].sort((a, b) => b[0] - a[0]).map(([night, items], idx) =>
           `<details class="night-fold"${idx === 0 ? ' open' : ''}><summary>第 ${night} 夜 · ${items.length} 条公告</summary>` +
           items.map(e => `<div class="logline"><span class="b">${e.batch}</span> ${esc(e.text)}</div>`).join('') +
           `</details>`).join('')
         : '<div class="empty">暂无公告</div>';
+      /* 〔S3b-3〕书记官档案 = 公告 + 公开发言（原「发言」页签并入，数据口径逐字不变——
+         书记官只记公开信息，不记任何私人/阵营内容） */
+      const speaks = (g.chatLog || []).slice().reverse();
+      const speak = speaks.length ? speaks.map(t =>
+        `<div class="logline"><span class="n">第${t.night}夜·${esc(t.kind)}</span> <span class="b">${t.id} 号</span> ${esc(t.text)}</div>`
+      ).join('') : '<div class="empty">暂无公开发言</div>';
+      box.innerHTML = `<div class="sec">📜 书记官档案 · 只记公开信息，不参与游戏</div>${ann}
+        <div class="sec" style="margin-top:8px">公开发言流水</div>${speak}`;
     } else if (tab === 'speak') {
       const rows = (g.chatLog || []).slice().reverse();
       box.innerHTML = rows.length ? rows.map(t =>
