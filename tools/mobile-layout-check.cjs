@@ -355,30 +355,43 @@ function serve() {
         errs.push('名单未横向滚动（手机横屏必须是横条）');
       }
       if (d.touch && res.rosterVisible && res.rosterH > 60) errs.push('名单横条高度异常：' + Math.round(res.rosterH) + 'px');
-      /* 〔R2〕旧右栏抽屉（.seg-side）已随表单式设计删除，抽屉断言改为
-         「8 个技能室在矮屏上不互相压、不出视口」—— 这是新布局真正会坏的地方。 */
+      /* 〔U1 迁移〕房间制之后，场景一次只画**一间**房，旧的 8 张四角房间卡已退役。
+         矮屏真正会坏的地方变了，断言随之改测：
+           ① 场景 SVG 必须在位且按画布等比缩放（不溢出、不变形）；
+           ② 房间地板矩形必须落在视口内（矮屏最容易把房间底部切掉）；
+           ③ 门热区必须可点（矮屏上曾被行动面板压住）。 */
       if (d.touch) {
         const rooms = await page.evaluate((vp) => {
-          const els = [...document.querySelectorAll('.sk-room')];
           const out = [];
-          if (els.length !== 8) out.push('技能室数量 ' + els.length + '（期望 8）');
-          const boxes = els.map(e => {
+          const svg = document.querySelector('#scene-mount svg.sk-scene');
+          if (!svg) { out.push('场景 SVG 不在位'); return { out, n: 0 }; }
+          const sr = svg.getBoundingClientRect();
+          if (sr.width < 40 || sr.height < 40) out.push('场景 SVG 尺寸异常 ' + Math.round(sr.width) + '×' + Math.round(sr.height));
+          if (sr.left < -1 || sr.right > vp.w + 1 || sr.top < -1 || sr.bottom > vp.h + 1)
+            out.push('场景 SVG 出视口 ' + JSON.stringify({ l: Math.round(sr.left), r: Math.round(sr.right), t: Math.round(sr.top), b: Math.round(sr.bottom) }));
+          /* 门热区：至少要有一扇可点的门，且不越界 */
+          const doors = [...document.querySelectorAll('#scene-mount [data-door]')];
+          if (!doors.length) out.push('房间没有门热区（无法离开房间）');
+          const boxes = doors.map(e => {
             const r = e.getBoundingClientRect();
-            return { id: e.getAttribute('data-room'), l: r.left, t: r.top, r: r.right, b: r.bottom };
+            return { id: e.getAttribute('data-door'), l: r.left, t: r.top, r: r.right, b: r.bottom };
           });
           for (const b of boxes) {
             if (b.l < -1 || b.r > vp.w + 1 || b.t < -1 || b.b > vp.h + 1)
-              out.push('技能室 ' + b.id + ' 出视口 ' + JSON.stringify({ l: Math.round(b.l), r: Math.round(b.r), t: Math.round(b.t), b: Math.round(b.b) }));
+              out.push('门 ' + b.id + ' 出视口 ' + JSON.stringify({ l: Math.round(b.l), r: Math.round(b.r), t: Math.round(b.t), b: Math.round(b.b) }));
           }
-          /* 两两重叠检测（同角两张卡曾因 :nth-of-type 错位而叠在一起） */
-          for (let i = 0; i < boxes.length; i++) {
-            for (let j = i + 1; j < boxes.length; j++) {
-              const a = boxes[i], c = boxes[j];
-              if (a.l < c.r - 1 && c.l < a.r - 1 && a.t < c.b - 1 && c.t < a.b - 1)
-                out.push('技能室重叠：' + a.id + ' × ' + c.id);
+          /* 家具不得超出房间地板（矮屏缩放过小时最容易挤出去） */
+          const floor = document.querySelector('#scene-mount .sk-room-floor');
+          const fr = floor && floor.getBoundingClientRect ? floor.getBoundingClientRect() : null;
+          if (fr) {
+            for (const p of document.querySelectorAll('#scene-mount .sk-prop')) {
+              const r = p.getBoundingClientRect();
+              if (r.width < 1 || r.height < 1) continue;
+              if (r.left < fr.left - 2 || r.right > fr.right + 2)
+                out.push('家具越出房间边界 ' + (p.getAttribute('href') || '').split('/').pop());
             }
           }
-          return { out, n: boxes.length };
+          return { out, n: doors.length };
         }, { w: d.width, h: d.height });
         rooms.out.forEach(m => errs.push(m));
         res.roomCount = rooms.n;

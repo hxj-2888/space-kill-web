@@ -106,3 +106,19 @@
 - [ ] 新增/删除 js 文件是否更新了 `tools/load-order.cjs`？
 - [ ] 文档链接是否还有效（`node tools/check-docs.cjs`）？
 - [ ] 记录写了「未做」和「已知遗留」吗？
+---
+
+## 七、素材待更新（2026-10-25 用户留痕）
+
+> 用户原话：「内衬素材先别管，留到 md 留痕，后续将会更新素材」；
+> 「房间显得空的问题暂时搁置和内衬素材一起改」。
+
+**当前状态**：批 U1 已把场景切到房间制（`js/space.js` + `js/ui-scene.js`），
+素材统一到 Cozy Space 三件套（Interiors / Furniture / Walking Crew，**CC-BY 4.0，署名不可删**，
+见 `assets/scene/cozy/LICENSE.txt`）。
+
+**待办（下一批素材到位后）**：
+1. 按新素材重做 `js/space.js` 的道具清单（`PROP` 尺寸表 + 各房间 `props` 坐标）；
+2. 同步重跑 `node tools/test-space.cjs` 的 U1E（素材在位）与 U1C（布局不越界/不重叠）；
+3. **同批解决"房间显空"**：目前非舰桥/宿舍的房间只画「我」一个角色，家具密度也低；
+4. 换素材时注意：若新素材不再是 Cozy Space，**旧的 CC-BY 署名要一并移除**（漏署名整份素材不能用）。

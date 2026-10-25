@@ -4732,11 +4732,20 @@ const RULE_FILES = ['js/ai/belief.js', 'js/ai/perceive.js', 'js/ai/decide.js',
      红在断言自己读错了文件。这类错误与"恒真式"是同一族：都没在测真正的东西。 */
   const sceneCode43 = fs.readFileSync(path.join(base, 'ui-scene.js'), 'utf8')
     .replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/^\s*\/\/.*$/gm, ' ');
-  ok('主区M：8 个技能室进场景四角（每间带道具图，不用 emoji 当图标）',
-    (sceneCode43.match(/\{ id: '[a-z]+', corner: '(lt|rt|lb|rb)', slot: [01], name: '/g) || []).length === 8 &&
-    /assets\/scene\/station\//.test(sceneCode43) &&
-    /* 房间卡渲染必须走 <img>（道具图），不是 <span class="sk-room-ico">文字图标 */
-    /class="sk-room-art"/.test(sceneCode43) &&
+  /* 〔U1 迁移〕原判据是"8 个房间卡在四角"，R2/R3 的场景已整体换成**房间制**：
+     一次只画一间房，房间表在 js/space.js。断言随之迁移，但**守的仍是同一件事**：
+       ① 房间是数据（不是散落在渲染器里的字符串）—— 9 间，含舰桥与宿舍；
+       ② 家具走素材图，不是 emoji / 文字图标；
+       ③ 反向守卫：渲染器里不得再出现 emoji 房图标或旧的四角房间卡。
+     ⚠ 这条曾经读错文件（在 ui.js 里找房间声明），迁移后读 space.js —— 声明在哪就读哪。 */
+  const spaceCode43 = fs.readFileSync(path.join(base, 'space.js'), 'utf8')
+    .replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/^\s*\/\/.*$/gm, ' ');
+  ok('主区M：房间表是数据层（9 间，含舰桥/宿舍），家具走素材图不用 emoji',
+    (spaceCode43.match(/^\s{4}[a-z]+: \{/gm) || []).length >= 9 &&
+    /bridge: \{/.test(spaceCode43) && /dorms: \{/.test(spaceCode43) &&
+    /name: '舰桥'/.test(spaceCode43) && /floor: 'floor-/.test(spaceCode43) &&
+    /* 家具渲染走 <image href=...furniture/…>，不是文字图标 */
+    /sk-prop/.test(sceneCode43) && /furniture\//.test(sceneCode43) &&
     !/sk-room-ico/.test(sceneCode43));
 
   /* ---- 行为层验收的落点：门禁必须真的覆盖 6 相位扫描 ---- */
@@ -4745,13 +4754,20 @@ const RULE_FILES = ['js/ai/belief.js', 'js/ai/perceive.js', 'js/ai/decide.js',
     (mobileSrc.match(/\{ label: '/g) || []).length >= 6);
 
   /* ---- 〔R3〕行动提交必须能搬进房间，且不新建提交路径 ---- */
-  ok('主区O：点房间进入近景——把 #region-dec 搬进房间，提交仍走表单原按钮',
-    /function openRoom\(roomId, mount\)/.test(sceneCode43) &&
-    /body\.appendChild\(dec\)/.test(sceneCode43) &&
-    /function closeRoom\(mount\)/.test(sceneCode43) &&
-    /dock\.insertBefore\(dec, dock\.firstChild\)/.test(sceneCode43) &&
-    /* 反向守卫：房间层不得自己调 Game.submit（否则等于新建提交路径） */
-    !/function openRoom[\s\S]{0,900}Game\.submit/.test(sceneCode43));
+  /* 〔U1 迁移〕原判据是"点房间把 #region-dec 搬进房间"。房间制之后不再搬 DOM
+     （一次只画一间房，行动面板始终在底部 dock），所以"搬"这个实现细节消失了。
+     但**真正要守的不变量没变**：
+       ① 点房间能切换（goto + data-door 热区）；
+       ② 房间层**不得自造提交路径** —— 这条最关键，是"交互层不许绕过表单"的机械证据；
+       ③ 点席位仍走既有 #f-targets + #btn-submit（不新增 submit）。 */
+  ok('主区O：房间可切换，且房间层不自造提交路径（点席位仍走既有表单按钮）',
+    /function goto\(roomId\)/.test(sceneCode43) &&
+    /data-door/.test(sceneCode43) &&
+    /curRoom = roomId/.test(sceneCode43) &&
+    /#f-targets input\[value=/.test(sceneCode43) &&
+    /* 反向守卫：整个场景渲染器里不得出现 Game.submit / 自建表单提交 */
+    !/Game\.submit/.test(sceneCode43) &&
+    !/form\.submit\(/.test(sceneCode43));
 
   /* ---- 〔R3〕点头像直接发起行动 ---- */
   ok('主区P：点角色头像直接发起行动（勾选目标 + 无需补参时自动提交）',
@@ -4768,8 +4784,11 @@ const RULE_FILES = ['js/ai/belief.js', 'js/ai/perceive.js', 'js/ai/decide.js',
     /\.opt\.tgt-avatar/.test(cssCode43));
 
   /* ---- 〔R4〕账本是场景笔记本 + 手写纸面，不得退回方框 ---- */
-  ok('主区R：账本 = 场景笔记本道具 + 手写纸面（不含 kv/evt 方框）',
-    /id="sk-notebook"/.test(sceneCode43) &&
+  /* 〔U1 迁移〕笔记本道具随旧场景一起退役（房间制里没有"桌面"可摆本子）。
+     账本本身没删（openLedger 仍在、手写纸面仍在），只是入口改由 HUD / 席位弹窗承担。
+     本断言拆成两半：**账本实现仍在**（不得退化成 kv/evt），**旧道具已清**（不得留死代码）。 */
+  ok('主区R：账本 = 手写纸面（不含 kv/evt 方框）；场景笔记本道具已随旧场景退役',
+    !/sk-notebook/.test(sceneCode43) &&
     /function ledgerLines\(g\)/.test(uiCode43) &&
     /ld-line/.test(uiCode43) && /ledger-paper/.test(cssCode43) &&
     /* 反向守卫：账本渲染里不得再用 .kv / .evt 那套表格皮 */
