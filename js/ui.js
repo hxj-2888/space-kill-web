@@ -637,6 +637,8 @@ const SKD = global.SKDerivation;               // 〔43〕阵营成员 ≠ 能�
       if (sel.length > (f.targets.max || 1)) { i.checked = false; return; }
       formState.targets = sel;
       box.querySelectorAll('.opt').forEach(l => l.classList.toggle('sel', sel.indexOf(+l.dataset.v) >= 0));
+      /* 〔S3a〕场景选中环联动（决策等待期 tick 不跑 render，须即时通知） */
+      if (global.SKScene && global.SKScene.refresh) global.SKScene.refresh();
     });
     /* A13：身份选择为字符串键（'crew'…），数值档仍解析为数字 */
     if (f.num) el('f-num').onchange = e => { const v = e.target.value; formState.num = v !== '' && !isNaN(+v) ? +v : v; };
@@ -1719,7 +1721,15 @@ const SKD = global.SKDerivation;               // 〔43〕阵营成员 ≠ 能�
     return html;
   }
 
+  /* 〔S3a〕场景席位点击的入口：与名单卡片点击同行为（再点同一席位 = 收起弹窗）。
+     独立成函数是因为 #roster 在场景化后按视口可能 display:none——场景需要一条
+     不依赖 roster 可见性的等价路径（弹窗内的自动讯问按钮仍走 [data-probe] 委托）。 */
+  function openPlayerPop(pid) {
+    popPid = popPid === pid ? null : pid;
+    render(global.Game.g);
+  }
+
   global.UI = { render, init, updateTimer, renderRoom, renderReplayBody, stageLayout, applyStageLayout,
-    mountRolePicker, preferredRole, rpPick, renderRoleGrid };
+    mountRolePicker, preferredRole, rpPick, renderRoleGrid, openPlayerPop };
 })(typeof window !== 'undefined' ? window : globalThis);
 

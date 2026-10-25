@@ -144,7 +144,7 @@
   }
 
   let sig = null;
-  /** 渲染入口（ui.render 每 tick 调）：签名不变则零 DOM 写入。 */
+  /** 渲染入口（ui.render 每 tick 调）：签名不变则零结构写入；交互态（点亮/选中环）每 tick 增量 toggle。 */
   function render(g, V) {
     if (!g || !V || !V.players || V.players.length !== N) return;
     const doc = global.document;
@@ -152,17 +152,157 @@
     if (!mount) return;
     /* pending 只为真人步骤存在（AI 步骤即时结算）⇒ 「pending 非 stream = 轮到我」 */
     const myTurn = !!(g.pending && !g.pending.stream);
+    const kind = myTurn ? (g.pending.kind || '') : '';
     const key = [V.id, g.phase === 'night' ? 1 : 0, myTurn ? 1 : 0,
       V.players.map(p => (p.out ? 1 : 0)).join('')].join('|');
-    if (key === sig && mount.__skBuilt) return;
-    const svg = svgFor(g, V, myTurn);
-    if (!svg) return;
-    /* 〔S2〕三段结构：房间环（上）+ 圆桌场景（中）+ 书记官（下）—— rooms/scribe 为
-       静态信息件，随签名一同重绘（S3a 接点亮态，S3b 接档案面板） */
-    mount.innerHTML = roomsHtml() + svg + scribeHtml();
-    mount.__skBuilt = true;
-    sig = key;
+    if (key !== sig || !mount.__skBuilt) {
+      const svg = svgFor(g, V, myTurn);
+      if (!svg) return;
+      /* 〔S2〕三段结构：房间环（上）+ 圆桌场景（中）+ 书记官（下） */
+      mount.innerHTML = roomsHtml() + svg + scribeHtml();
+      mount.__skBuilt = true;
+      bindEvents(mount);
+      sig = key;
+    }
+    updateInteractive(g, V, myTurn, kind, mount);
+    lastG = g; lastV = V; lastMount = mount;
   }
 
-  global.SKScene = { render, _ang: ANG, _palette: PALETTE };
+  /* =============================================================
+   * 〔S3a〕交互层：场景点击 100% 委托给既有表单控件与弹窗——
+   *   · 席位点击：表单态（有目标区）= 委托点击对应目标 input（复用 onchange → formState）；
+   *     非表单态 = 打开玩家详情弹窗（与旧名单卡片同行为，讯问句在弹窗内）。
+   *   · 房间点击：待决策 kind 匹配该舱 ⇒ 滚到表单并闪烁提示；否则 toast 说明。
+   *   · 核心点击：对船动作（破坏/逃亡等）同理。
+   * 不新建任何提交路径——提交仍只有 renderForm 的「提交」按钮（Game.submit 协议不变）。
+   * ============================================================= */
+  const ROOM_KINDS = {
+    verify: ['detective'], patrol: ['patrol'], medical: ['doctor'],
+    pharma: ['doctor'], repair: ['crewAction', 'crewRepair', 'repair'],
+    safe: ['safeRoom'], meeting: ['meeting'], armory: ['shoot'],
+  };
+  const CORE_KINDS = ['branch', 'escape', 'xenoCure'];
+  function kindRoom(kind) {
+    for (const r in ROOM_KINDS) if (ROOM_KINDS[r].indexOf(kind) >= 0) return r;
+    return null;
+  }
+
+  let toastTimer = null;
+  function toast(mount, msg) {
+    try {
+      let t = mount.querySelector('.sk-toast');
+      if (!t) {
+        mount.insertAdjacentHTML('beforeend', '<div class="sk-toast"></div>');
+        t = mount.querySelector('.sk-toast');
+      }
+      t.textContent = msg;
+      t.classList.add('show');
+      if (toastTimer) clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => { t.classList.remove('show'); }, 1800);
+    } catch (_) { /* 桩环境静默 */ }
+  }
+
+  function flashForm() {
+    try {
+      const body = document.getElementById('stage-body');
+      if (!body) return;
+      body.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      body.classList.remove('sk-flash');
+      void body.offsetWidth;                     /* 重启动画 */
+      body.classList.add('sk-flash');
+      setTimeout(() => body.classList.remove('sk-flash'), 900);
+    } catch (_) { }
+  }
+
+  function bindEvents(mount) {
+    if (!mount.addEventListener || mount.__skBound) return;
+    mount.__skBound = true;
+    mount.addEventListener('click', e => {
+      try {
+        const t = e.target && e.target.closest ? e.target : null;
+        if (!t) return;
+        const seat = t.closest('[data-seat]');
+        if (seat) { onSeatClick(+seat.getAttribute('data-seat'), mount); return; }
+        const room = t.closest('[data-room]');
+        if (room) { onRoomClick(room.getAttribute('data-room'), mount); return; }
+        if (t.closest('.sk-core')) { onCoreClick(mount); return; }
+        if (t.closest('#scene-scribe')) { toast(mount, '书记官档案将在下一批开放（S3b）'); }
+      } catch (_) { /* 交互层异常不外抛 */ }
+    });
+  }
+
+  /* 席位点击：表单态委托目标 input；其余打开详情弹窗（ui.openPlayerPop，S3a 起 ui.js 导出） */
+  function onSeatClick(pid, mount) {
+    const g = global.Game && global.Game.g;
+    if (!g) return;
+    if (g.pending && !g.pending.stream) {
+      const body = document.getElementById('stage-body');
+      const inp = body && body.querySelector('#f-targets input[value="' + pid + '"]:not([disabled])');
+      const inpPool = body && body.querySelector('#f-pool input[value="' + pid + '"]:not([disabled])');
+      const pick = inp || inpPool;
+      if (pick) {
+        pick.click();                              // 复用 renderForm 的 onchange → formState
+        refresh();                                 /* 决策等待期 tick 不跑 UI.render——场景环即时联动 */
+        if (body) body.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        return;
+      }
+      toast(mount, '当前决策不需要选择 ' + pid + ' 号（在表单里选择行动）');
+      return;
+    }
+    if (global.UI && global.UI.openPlayerPop) global.UI.openPlayerPop(pid);
+  }
+
+  function onRoomClick(roomId, mount) {
+    const g = global.Game && global.Game.g;
+    const kind = g && g.pending && !g.pending.stream ? (g.pending.kind || '') : '';
+    const room = ROOMS.find(r => r.id === roomId);
+    if (kind && ROOM_KINDS[roomId] && ROOM_KINDS[roomId].indexOf(kind) >= 0) {
+      flashForm();
+      toast(mount, room ? room.name + ' · 在右侧表单完成本次行动' : '完成本次行动');
+    } else {
+      toast(mount, (room ? room.name : roomId) + '：现在没有待办的相关行动');
+    }
+  }
+
+  function onCoreClick(mount) {
+    const g = global.Game && global.Game.g;
+    const kind = g && g.pending && !g.pending.stream ? (g.pending.kind || '') : '';
+    if (kind && CORE_KINDS.indexOf(kind) >= 0) {
+      flashForm();
+      toast(mount, '船核心 · 在表单完成对船行动');
+    } else {
+      toast(mount, '船核心：对船行动（破坏/逃亡）在对应夜晚窗口开放');
+    }
+  }
+
+  /* 交互态增量：房间点亮 + 席位选中环（读表单 checked 态，幂等 toggle 不重绘） */
+  let lastG = null, lastV = null, lastMount = null;
+  /** 即时刷新交互态（ui.js 表单 onchange 调用；决策等待期 tick 不跑 UI.render，必须由此补） */
+  function refresh() {
+    if (lastG && lastV && lastMount) {
+      const myTurn = !!(lastG.pending && !lastG.pending.stream);
+      updateInteractive(lastG, lastV, myTurn, myTurn ? (lastG.pending.kind || '') : '', lastMount);
+    }
+  }
+  function updateInteractive(g, V, myTurn, kind, mount) {
+    try {
+      const lit = myTurn ? kindRoom(kind) : null;
+      mount.querySelectorAll('.sk-room').forEach(r => {
+        r.classList.toggle('sk-lit', !!lit && r.getAttribute('data-room') === lit);
+      });
+      const core = mount.querySelector('.sk-core');
+      if (core) core.classList.toggle('sk-lit', myTurn && CORE_KINDS.indexOf(kind) >= 0);
+      let sel = [];
+      const body = document.getElementById('stage-body');
+      if (body && myTurn) {
+        sel = [...body.querySelectorAll('#f-targets input:checked, #f-pool input:checked')].map(x => +x.value);
+      }
+      for (let i = 1; i <= N; i++) {
+        const s = document.getElementById('sk-seat-' + i);
+        if (s && s.classList) s.classList.toggle('sk-sel', sel.indexOf(i) >= 0);
+      }
+    } catch (_) { /* 桩环境静默 */ }
+  }
+
+  global.SKScene = { render, refresh, _ang: ANG, _palette: PALETTE };
 })(typeof window !== 'undefined' ? window : globalThis);
