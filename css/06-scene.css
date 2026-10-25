@@ -10,31 +10,38 @@
    roster 的显隐由本文件按视口切换（响应式布局，非状态显隐——05 层媒体档同例）：
    桌面/常规横屏/竖屏 = 场景；矮横屏 = 切回旧名单横条（单列预算 46px 是既有平衡，
    手机场景专项布局归 S5，本批不挤占）。 */
-/* ⚠ 03 层把 .seg-roster 定为 grid（roster 5×3 时代）——场景化后改为「标题占顶 + 场景绝对
-   铺满余量」的确定性布局（曾试 flex-grow 拉伸，svg 固有高度与 max-height:100% 百分比
-   循环导致 grow 失效，故放弃） */
-#screen-game .seg-roster {
-  position: relative;
+/* ---- 〔S5 布局收敛〕board 两栏：主区（场景+行动面板+输入）+ 侧栏（三入口） ----
+   旧三栏（roster / chatlog 流水）退役：场景即名单、发言走气泡+书记官档案。
+   03/05 层对 .board 三栏与 .seg-stage/.region-* 的规则随之成为死码（本层覆盖）。 */
+#screen-game .board {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) clamp(250px, 21vw, 330px);
+  gap: 10px;
+}
+#screen-game .seg-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  gap: 8px;
   overflow: hidden;
 }
-/* ⚠ 特异性必须 ≥ 03 层的 #screen-game .seg-roster .roster（1-2-1），否则 display:none 被压掉（实测踩过） */
-#screen-game .seg-roster > .roster { display: none; }
+#screen-game .seg-side { min-height: 0; }
+
+/* 场景（主视觉，占主区余量） */
 #screen-game .scene-mount {
-  position: absolute;
-  top: 30px;
-  left: 8px;
-  right: 8px;
-  bottom: 8px;
+  flex: 1 1 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   align-items: stretch;
   justify-content: flex-start;
-  border-radius: 12px;
+  position: relative;
+  border-radius: 14px;
   overflow: hidden;
   background: #060a12;
 }
-/* 〔S2〕太空船背景（CC0，OpenGameArt/Parker West）：底层位图 + 压暗，
-   保证席位/房间可读；背景属装饰层，不承载任何游戏信息 */
+/* 〔S2〕太空船背景（CC0）：底层位图 + 压暗；装饰层不承载游戏信息 */
 #screen-game .scene-mount::before {
   content: "";
   position: absolute;
@@ -60,6 +67,42 @@
   position: relative;
   z-index: 1;
 }
+
+/* ---- 〔S5〕行动面板（场景下缘）：决策/事件/表单的宿主——renderForm 的内容原样
+   渲染进 #stage-body（协议不变），这里只给「贴场景的浮层卡片」的皮 ---- */
+#screen-game #region-dec {
+  flex: 0 0 auto;
+  max-height: 44vh;
+  overflow-y: auto;
+  border-radius: 12px;
+  background: rgba(10, 15, 25, .92);
+  border: 1px solid #2a3550;
+  padding: 8px 10px;
+}
+#screen-game #region-dec:empty { display: none; }
+#screen-game .stage-body { min-height: 0; }
+#screen-game .stage-actions { margin-top: 6px; }
+/* 表单控件场景化重皮：radio/checkbox label → 胶囊按钮观感 */
+#screen-game #region-dec .opts { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0; }
+#screen-game #region-dec .opts.grid3 { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+#screen-game #region-dec .opt {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  background: rgba(21, 29, 46, .9);
+  border: 1px solid #2a3550;
+  border-radius: 9px;
+  padding: 6px 9px;
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+}
+#screen-game #region-dec .opt:hover { border-color: #4dabf7; }
+#screen-game #region-dec .opt.sel { border-color: #ffd43b; background: rgba(52, 42, 14, .55); }
+#screen-game #region-dec .opt.dis { opacity: .45; cursor: default; }
+#screen-game #region-dec .opt input { margin-top: 3px; }
+#screen-game #region-dec .sec { margin: 6px 0 3px; }
+#screen-game #region-dec .evt,
+#screen-game #region-dec .prv { border-radius: 8px; }
 
 /* ---- 〔S2〕人类工具舱房间环（信息态；点亮 = S3a） ---- */
 .sk-rooms {
@@ -221,11 +264,14 @@
 .sk-out .sk-num-bg { fill: #2a1f22; }
 .sk-out-x { fill: #ff6b6b; font-weight: 800; font-size: 13px; }
 
-/* ---- 矮横屏（与 05 层的同名媒体档对齐）：切回旧名单横条布局，场景收起 ----
-   05 层在该档把 .board 变单列、.roster 变 46px 横条——整套预算以「无场景」调平，
-   本批不在该档硬塞场景（会把输入 dock 挤出视口，实测验证过）。
-   ⚠ roster 从 display:none 切回 flex 时也要覆盖本文件的 03-特异性选择器。 */
+/* ---- 矮横屏：场景保持主视觉但限高（名单已由场景承担，无回退布局） ----
+   ⚠ 05 层同档定义了 #screen-game .board 的单列 columns + 46px/1fr rows（旧 roster 横条预算）
+   ——本块必须逐项压回（同特异性靠后取胜），否则主区被压进 46px 行（实测踩过）。 */
 @media (orientation: landscape) and (max-height: 560px) {
-  #screen-game .scene-mount { display: none; }
-  #screen-game .seg-roster > .roster { display: flex; }
+  #screen-game .board {
+    grid-template-columns: minmax(0, 1fr) clamp(220px, 24vw, 300px);
+    grid-template-rows: minmax(0, 1fr);
+  }
+  #screen-game .scene-mount { flex: 1 1 0; }
+  #screen-game #region-dec { max-height: 20vh; }
 }

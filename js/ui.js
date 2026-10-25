@@ -400,7 +400,6 @@ const SKD = global.SKDerivation;               // 〔43〕阵营成员 ≠ 能�
     const nightChat = L.key === 'night' ? nightChatHtml(g) : '';
     if (g.pending && g.pending.stream) {
       renderTalkForm(g, head, body, acts, nightChat);
-      renderChat(g);
       return;
     }
     if (g.pending) { renderForm(g, head, body, acts, nightChat); }
@@ -428,7 +427,7 @@ const SKD = global.SKDerivation;               // 〔43〕阵营成员 ≠ 能�
       const cf = el('chk-fast');
       if (cf) cf.onchange = e => { global.Game.fast = e.target.checked; };
     }
-    renderChat(g);
+    /* 〔S5〕renderChat 退役：公开发言以场景气泡呈现，全文归书记官档案（右栏） */
   }
 
   /* v34 C4：发言流过滤态——点击发言中的编号 = 只看该玩家；点角标清除 */
@@ -1191,7 +1190,7 @@ const SKD = global.SKDerivation;               // 〔43〕阵营成员 ≠ 能�
     let V = null;
     try { V = global.View.viewFor(g, g.humanId); }
     catch (e) { showFatal('视图裁剪失败：' + (e && e.message ? e.message : e)); return; }
-    renderHud(g); renderRoster(g, V); renderPlayerPop(g, V);
+    renderHud(g); renderPlayerPop(g, V);   /* 〔S5〕renderRoster 退役：场景即名单（席位点击=openPlayerPop） */
     applyStageLayout(g);            /* 〔43〕主区布局：必须在 renderStage 之前 —— 它决定哪块区域存在 */
     renderStage(g, V); renderSide(g, V);
     /* 〔S1〕圆桌场景（只读层）：数据走 V（View.viewFor 裁剪视图）；场景层异常不得阻塞对局渲染 */

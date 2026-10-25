@@ -103,13 +103,10 @@ function serve() {
         const mkV = { id: 1, players: Array.from({ length: 15 }, (_, k) => ({ id: k + 1, name: (k + 1) + ' 号', out: k === 3 })) };
         if (window.SKScene) window.SKScene.render({ phase: 'day', pending: null }, mkV);
       } catch (e) { /* 渲染失败由下方 sceneSvg 断言暴露 */ }
-      /* 灌最小内容：4 条发言，验证真实内容下的挤压（〔S1〕名单已由场景替代） */
-      const c = document.getElementById('chatlog');
-      if (c) for (let i = 0; i < 4; i++) {
-        const s = document.createElement('div');
-        s.className = 'say';
-        s.innerHTML = '<span class="ava">3</span><div class="say-main"><div class="who">3 号</div>我怀疑 7 号是外星人，昨晚的查验方向不对。</div></div>';
-        c.appendChild(s);
+      /* 灌最小内容：行动面板一条事件，验证真实内容下的挤压（〔S5〕发言流退役、名单由场景承担） */
+      const dec = document.getElementById('stage-body');
+      if (dec) {
+        dec.innerHTML = '<div class="evt info">夜间流程 · 私聊 / 决策 / 公告（示例内容，验证面板高度预算）。</div>';
       }
       const tb = document.getElementById('talkbar');
       if (tb) tb.classList.remove('hidden');
@@ -249,55 +246,48 @@ function serve() {
       });
     }
 
-    /* ---------- 〔43〕主区相位扫描 ----------
-       主区改为 f(阶段) 后，「对局页不溢出」这条老断言已不足够：它只量一种布局。
-       这里对四个布局键各扫一遍，判定两件事：
-         ① 夜间发言区必须**真的收起**（display:none），否则又变成半屏死区
-         ② 流程区必须吃掉全部可用高度（不能因为改 flex 而留出一大块空）
-       布局键由 UI.stageLayout 裁决 —— 门禁直接调它，不复述判定逻辑，
-       避免「门禁和实现各写一份、两边漂移」。 */
+    /* ---------- 〔S5〕场景主区扫描 ----------
+       布局收敛后主区 = 场景（主视觉）+ 行动面板 + 输入 dock，恒定布局（无相位显隐）。
+       六相位仍逐个过 applyStageLayout（幂等回归）＋ 断言：场景可见、主区吃满、面板不挤没 dock。 */
     const PHASES = [
-      { label: '白天·自由讨论', g: { phase: 'day', night: 2, pending: { kind: 'talk', stream: true } }, chat: true },
-      { label: '白天·投票', g: { phase: 'day', night: 2, pending: { kind: 'vote' } }, chat: true },
-      { label: '白天·自动步骤', g: { phase: 'day', night: 2, pending: null }, chat: true },
-      { label: '夜间·决策', g: { phase: 'night', night: 3, pending: { kind: 'repair' } }, chat: false },
-      { label: '夜间·自动步骤', g: { phase: 'night', night: 3, pending: null }, chat: false },
-      { label: '夜间·紧急会议', g: { phase: 'night', night: 3, pending: { kind: 'chat', stream: true } }, chat: true },
+      { label: '白天·自由讨论', g: { phase: 'day', night: 2, pending: { kind: 'talk', stream: true } } },
+      { label: '白天·投票', g: { phase: 'day', night: 2, pending: { kind: 'vote' } } },
+      { label: '白天·自动步骤', g: { phase: 'day', night: 2, pending: null } },
+      { label: '夜间·决策', g: { phase: 'night', night: 3, pending: { kind: 'repair' } } },
+      { label: '夜间·自动步骤', g: { phase: 'night', night: 3, pending: null } },
+      { label: '夜间·紧急会议', g: { phase: 'night', night: 3, pending: { kind: 'chat', stream: true } } },
     ];
     const phaseErrs = [];
     for (const ph of PHASES) {
       const m = await page.evaluate((g) => {
-        const L = UI.applyStageLayout(g);
-        const st = document.getElementById('seg-stage');
+        UI.applyStageLayout(g);
+        const main = document.querySelector('.seg-main');
+        const sc = document.getElementById('scene-mount');
+        const dec = document.getElementById('region-dec');
         const dockEl = document.querySelector('#screen-game .input-dock');
-        const dcs = getComputedStyle(dockEl);
-        const cs = getComputedStyle(st);
-        const rce = document.getElementById('region-chat');
-        const rde = document.getElementById('region-dec');
-        const a = rce.getBoundingClientRect(), b = rde.getBoundingClientRect();
-        const dockTotal = dockEl.offsetHeight + parseFloat(dcs.marginTop) + parseFloat(dcs.marginBottom);
-        const avail = st.getBoundingClientRect().height - parseFloat(cs.paddingTop)
-          - parseFloat(cs.paddingBottom) - dockTotal;
+        const mainH = main.getBoundingClientRect().height;
+        const dockH = dockEl ? dockEl.offsetHeight : 0;
+        const scH = sc ? sc.getBoundingClientRect().height : 0;
+        const decH = dec ? dec.getBoundingClientRect().height : 0;
         return {
-          key: L.key, chatVis: getComputedStyle(rce).display !== 'none',
-          decVis: getComputedStyle(rde).display !== 'none',
-          chatH: Math.round(a.height), fill: Math.round(((a.height || 0) + (b.height || 0)) / avail * 100),
+          mainH: Math.round(mainH), scH: Math.round(scH), decH: Math.round(decH),
+          sceneVis: sc && getComputedStyle(sc).display !== 'none',
+          decVis: dec && getComputedStyle(dec).display !== 'none',
         };
       }, ph.g);
-      if (m.chatVis !== ph.chat) phaseErrs.push(ph.label + '：发言区' + (m.chatVis ? '应收起却仍在' : '被误收起'));
-      if (!m.decVis) phaseErrs.push(ph.label + '：流程区不可见');
-      /* 发言区保留时必须够高（否则讨论窗口被压成一条缝） */
-      if (m.chatVis && m.chatH < 70) phaseErrs.push(ph.label + '：发言区仅 ' + m.chatH + 'px');
-      /* 流程区必须占满可用高度 —— 低于 90% 即出现明显留空 */
-      if (m.fill < 90) phaseErrs.push(ph.label + '：主区只占 ' + m.fill + '%（留空过多）');
+      if (!m.sceneVis) phaseErrs.push(ph.label + '：圆桌场景不可见');
+      if (!m.decVis) phaseErrs.push(ph.label + '：行动面板不可见');
+      if (m.mainH < d.height * 0.6) phaseErrs.push(ph.label + '：主区仅 ' + m.mainH + 'px（未吃满）');
+      if (m.scH < 100) phaseErrs.push(ph.label + '：场景仅 ' + m.scH + 'px（过小）');
+      if (m.decH > d.height * 0.5) phaseErrs.push(ph.label + '：行动面板挤压场景（' + m.decH + 'px）');
     }
     if (phaseErrs.length) {
       fail++;
-      console.log('✗ ' + d.name + ' ' + d.width + '×' + d.height + '（主区相位扫描）');
+      console.log('✗ ' + d.name + ' ' + d.width + '×' + d.height + '（场景主区扫描）');
       phaseErrs.forEach(e => console.log('    · ' + e));
     } else {
       console.log('✓ ' + d.name + ' ' + d.width + '×' + d.height +
-        '（主区相位 6 态：夜间收发言区 / 白天保发言区 / 流程区占满）');
+        '（场景主区 6 相位：场景可见 / 面板与输入不挤压）');
     }
 
     const res = await page.evaluate((vp) => {
@@ -312,7 +302,7 @@ function serve() {
           }));
         }
       };
-      ['#screen-game', '.topbar', '.orb-bar', '#scene-mount', '.seg-stage', '#chatlog', '#f-text', '#btn-send']
+      ['#screen-game', '.topbar', '.orb-bar', '#scene-mount', '.seg-main', '#region-dec', '#f-text', '#btn-send']
         .forEach(s => { const e = document.querySelector(s); if (e) bad(s, e); });
       /* 侧栏抽屉关闭时故意 translateX 到视口外，不算溢出；打开时必须在视口内 */
       const sd = document.querySelector('.seg-side');

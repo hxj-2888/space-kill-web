@@ -184,25 +184,12 @@
     </div>
 
     <div class="board">
-      <!-- 左栏 3：〔S1〕圆桌场景（名单的视觉替身，桌面/常规横屏）；矮横屏由 06-scene.css 切回旧名单横条（S5 做移动场景专项） -->
-      <section class="seg seg-roster">
-        <div class="seg-t">圆桌 · 玩家名单</div>
+      <!-- 〔S5 布局收敛〕主区 = 圆桌场景（主视觉）+ 场景下缘行动面板 + 输入 dock。
+           旧表单式三栏退役：roster（场景即名单）、chatlog 流水（发言走气泡+书记官档案）。
+           决策/事件面板（stage-body/actions）保留原 id 与渲染函数——位置与皮换，协议不变。 -->
+      <section class="seg seg-main">
         <div id="scene-mount" class="scene-mount" aria-label="圆桌场景"></div>
-        <div id="roster" class="roster"></div>
-      </section>
-
-      <!-- 中栏 5：发言流水（70%）→ 决策/事件区（30%）→ 操作行 → 输入组 -->
-      <!-- 中栏：两个可按阶段整体隐藏的「区域」。
-           〔43〕主区 = f(阶段)：白天以公开发言为主（发言 + 投票表单），
-           夜间以流程为主（私聊 / 决策 / 公告报告），发言区在夜间整体收起。
-           区域整体显隐由 ui.js 的 UI.stageLayout 写入 #seg-stage 的 data-layout 驱动。 -->
-      <section class="seg seg-stage" id="seg-stage" data-layout="day">
-        <div class="region" id="region-chat">
-          <div class="seg-t" id="t-chat">公开发言流水（当天）</div>
-          <div id="chatlog" class="chatlog"></div>
-        </div>
-        <div class="region" id="region-dec">
-          <div class="seg-t" id="t-dec">决策 · 事件</div>
+        <div id="region-dec">
           <div id="stage-body" class="stage-body"></div>
           <div id="stage-actions" class="stage-actions"></div>
         </div>
@@ -214,7 +201,7 @@
           <!-- @ 提及自动补全浮层（悬浮，不占布局流） -->
           <div id="at-pop" class="at-pop hidden"></div>
           <div id="talkbar" class="talkrow hidden">
-            <input id="f-text" type="text" placeholder="输入发言…（≤120 字，点击左侧玩家可自动生成讯问句）" maxlength="120" />
+            <input id="f-text" type="text" placeholder="输入发言…（≤120 字，点击场上玩家可自动生成讯问句）" maxlength="120" />
             <button id="btn-send" class="act primary">发送</button>
           </div>
           <div id="f-camp-row" class="talkrow hidden">
@@ -224,7 +211,7 @@
         </div>
       </section>
 
-      <!-- 右栏 2：页签面板 + 底部规则折叠入口（默认收起，展开为半透明浮层） -->
+      <!-- 右栏：三入口页签面板 + 底部规则折叠入口 -->
       <section class="seg seg-side">
         <div class="tabs" id="nb-tabs">
           <!-- 〔S3b-3〕三入口：书记官只记公开信息（公告+公开发言）；私人→我的日记；
