@@ -119,6 +119,16 @@
         </details>
       </div>
 
+      <!-- 〔S4〕返航环：主卡片右下角的装饰件（该区域本就空白——联机卡折叠后只有一行）。
+           纯视觉，pointer-events:none，不承载控件与游戏信息。
+           素材为静态 SVG（tools/gen-start-scene.cjs 生成，15 席等弧长座次）；
+           开局前没有任何对局状态，故这里不走 SKScene（它依赖 View.viewFor）。
+           桌面显示 / 矮横屏与竖屏由 07-start-scene.css 关掉（空间不够时不占位）。 -->
+      <div id="start-scene" class="start-scene" aria-hidden="true">
+        <img src="assets/scene/bg/departure-ring.svg" alt="" draggable="false" />
+        <span class="start-scene-cap">返航环 · 15 席</span>
+      </div>
+
       <!-- v32：bgm checkbox 保留为音效按钮的状态真源（隐藏），main.js 开局逻辑零改动 -->
       <input type="checkbox" id="bgm" checked style="display:none" />
     </div>
@@ -231,6 +241,13 @@
   <!-- ============ 结算 / 复盘 ============ -->
   <section id="screen-over" class="screen hidden">
     <div class="start-box wide">
+      <!-- 〔S4〕归航状态条：纯装饰的「返航仪表」，交代这是归航时刻；
+           数据全部由 #over-body 里的既有内容承担，本块不含任何对局数据。 -->
+      <div id="over-scene" class="over-scene" aria-hidden="true">
+        <span class="os-line"></span>
+        <span class="os-tag">返航程序 · 已归档</span>
+        <span class="os-line"></span>
+      </div>
       <h1 id="over-title">对局结束</h1>
       <div id="over-body"></div>
       <div class="row" style="margin-top:14px">

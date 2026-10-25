@@ -4727,6 +4727,75 @@ const RULE_FILES = ['js/ai/belief.js', 'js/ai/perceive.js', 'js/ai/decide.js',
     (mobileSrc.match(/\{ label: '/g) || []).length >= 6);
 }
 
+/* ---------- 42.6b 〔S4〕开始页场景化 + 结算页轻皮（结构断言；几何由 mobile-check 承担） ----------
+   本批只换皮，**不动任何控件语义**。故断言分两组：
+     ① 「装饰件确实进了页面」（否则就是没做）；
+     ② 「装饰件确实没挡事」——纯装饰 = pointer-events:none + aria-hidden + 不参与布局，
+        且开始页/结算页的既有控件 id 一个都没少（换皮不得顺手删控件）。
+   几何（卡片不溢出 / CTA 可达 / 自选身份面板）仍由 mobile-layout-check 量，Node 侧不重复。 */
+{
+  const htmlS4 = fs.readFileSync(path.join(base, '..', 'index.html'), 'utf8');
+  const cssS4 = readCss().replace(/\/\*[\s\S]*?\*\//g, ' ');
+  const cssRawS4 = readCss();
+  const htmlCodeS4 = htmlS4.replace(/<!--[\s\S]*?-->/g, ' ');
+  const styleEntry = fs.readFileSync(path.join(base, '..', 'css', 'style.css'), 'utf8');
+  const genSrc = fs.readFileSync(path.join(base, '..', 'tools', 'gen-start-scene.cjs'), 'utf8');
+  const svgPath = path.join(base, '..', 'assets', 'scene', 'bg', 'departure-ring.svg');
+
+  /* ---- ① 装饰件在位 ---- */
+  ok('S4A：开始页有返航环装饰件，且素材文件在位（静态 SVG，运行时不生成）',
+    /id="start-scene"/.test(htmlCodeS4) && /departure-ring\.svg/.test(htmlCodeS4) &&
+    fs.existsSync(svgPath));
+  ok('S4B：结算页有归航状态条（同语言轻皮，不含对局数据）',
+    /id="over-scene"/.test(htmlCodeS4) && /返航程序/.test(htmlCodeS4));
+
+  /* ---- ② 装饰件不挡事 ---- */
+  ok('S4C：装饰层是纯视觉（aria-hidden + pointer-events:none，不接收点击）',
+    /id="start-scene"[^>]*aria-hidden="true"/.test(htmlS4) &&
+    /#screen-start \.start-scene \{[^}]*pointer-events: none/.test(cssS4));
+  ok('S4D：开始页/结算页的既有控件 id 一个都没少（换皮不删控件）',
+    ['btn-music-start', 'btn-sfx-start', 'btn-rules-start', 'seed', 'btn-start',
+      'role-chip', 'role-clear', 'role-grid', 'btn-create', 'btn-join',
+      'over-title', 'over-body', 'btn-replay', 'btn-again', 'replay-box']
+      .every(id => new RegExp('id="' + id + '"').test(htmlCodeS4)));
+
+  /* ---- ③ 特异性纪律（本批踩过一次：装饰件被同特异性的内容层规则压掉 position） ---- */
+  ok('S4E：内容层压装饰件的规则排除 .start-scene（同特异性靠后取胜，不排除就会静默压掉定位）',
+    /#screen-start \.start-box > \*:not\(\.start-scene\)/.test(cssS4) &&
+    /* .start-box 必须有定位上下文，否则绝对定位子元素会以页面为参照（本批实测踩过） */
+    /#screen-start \.start-box \{ position: relative; \}/.test(cssS4));
+
+  /* ---- ④ 加载序：新分片必须挂在 style.css 最末（否则压不过 03/05 层） ---- */
+  ok('S4F：07-start-scene.css 已注册且排在 @import 列表最末',
+    (function () {
+      const imports = [...styleEntry.matchAll(/@import url\("\.\/([^"]+)"\)/g)].map(m => m[1]);
+      return imports[imports.length - 1] === '07-start-scene.css';
+    })());
+
+  /* ---- ⑤ 生成器的两条硬约束（都付过时间） ---- */
+  ok('S4G：生成器对 XML 注释双连字符自检（该错误会让整份 SVG 静默解析失败）',
+    /assertNoDoubleHyphen/.test(genSrc) && /双连字符/.test(genSrc));
+  /* 席位重叠是几何问题，不是代码问题：直接量生成物，别信参数看起来合理。
+     15 席挤在椭圆上时**短轴方向必然最密**（首版 rx/ry=132/92 实测最小中心距 33.1 < 直径 38）。 */
+  ok('S4H：生成物的 15 席互不重叠（最小中心距 > 席位直径）',
+    (function () {
+      const s = fs.readFileSync(svgPath, 'utf8');
+      const pts = [...s.matchAll(/translate\(([-\d.]+) ([-\d.]+)\)/g)].map(m => [+m[1], +m[2]]);
+      const r = /const SEAT_R = (\d+(?:\.\d+)?)/.exec(genSrc);
+      if (pts.length !== 15 || !r) return false;
+      let min = Infinity;
+      for (let i = 0; i < pts.length; i++) for (let j = i + 1; j < pts.length; j++)
+        min = Math.min(min, Math.hypot(pts[i][0] - pts[j][0], pts[i][1] - pts[j][1]));
+      return min > 2 * Number(r[1]);
+    })());
+
+  /* ---- ⑥ 素材许可：只用已登记的 CC0，不许引外链 ---- */
+  ok('S4I：开始页装饰件不引任何外链素材（素材须已入库且登记 CREDITS）',
+    !/https?:\/\/(?!www\.w3\.org)/.test(
+      fs.readFileSync(svgPath, 'utf8').replace(/<!--[\s\S]*?-->/g, '')) &&
+    /departure-ring|自绘/.test(fs.readFileSync(path.join(base, '..', 'assets', 'scene', 'CREDITS.md'), 'utf8')));
+}
+
 /* ---------- 42.7 首页与入口（UI 文本口径，文件级断言） ----------
    这几项不是「逻辑对不对」，而是「改完有没有留下残骸」—— 本批删了下载入口、
    加了 ENABLE_DEV 开关，故把「删干净」与「开关存在且默认为开」钉成断言。 */
