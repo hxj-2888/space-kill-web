@@ -66,29 +66,26 @@
       .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
-  /* 单席：<g> = 裁剪头像 + 色环 + 编号徽章 + 状态叠加件（闭眼暗幕 / 出局✕） */
+  /* 单席：<g> 以 translate(x,y) 定位（子元素全部相对 0,0）——
+     〔S3b〕散桌动画的前提：布局切换只改 g 的 CSS transform，交由 transition 补间 */
   function seatSvg(p, i, st) {
-    const a = ANG[i - 1];
-    const x = GEO.cx + Math.cos(a) * (st.out ? GEO.outRx : GEO.rx);
-    const y = GEO.cy + Math.sin(a) * (st.out ? GEO.outRy : GEO.ry);
     const r = GEO.seatR;
     const clip = 'sk-clip-' + i;
     const img = ASSET.replace('XX', String(i).padStart(2, '0'));
     const ring = st.mine ? MINE : PALETTE[i - 1];
-    const tilt = st.out ? ' transform="rotate(-8 ' + x.toFixed(1) + ' ' + y.toFixed(1) + ')"' : '';
     return '<g id="sk-seat-' + i + '" data-seat="' + i + '" class="sk-seat'
-      + (st.mine ? ' sk-mine' : '') + (st.out ? ' sk-out' : '') + (st.closed ? ' sk-closed' : '') + '"' + tilt + '>'
-      + '<defs><clipPath id="' + clip + '"><circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="' + (r - 2) + '"/></clipPath></defs>'
-      + '<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="' + r + '" fill="#0a0f18" stroke="' + ring + '" stroke-width="' + (st.mine ? 4 : 3) + '"/>'
-      + '<image href="' + escAttr(img) + '" xlink:href="' + escAttr(img) + '" x="' + (x - r + 2).toFixed(1) + '" y="' + (y - r + 2).toFixed(1)
+      + (st.mine ? ' sk-mine' : '') + (st.out ? ' sk-out' : '') + (st.closed ? ' sk-closed' : '') + '">'
+      + '<defs><clipPath id="' + clip + '"><circle cx="0" cy="0" r="' + (r - 2) + '"/></clipPath></defs>'
+      + '<circle cx="0" cy="0" r="' + r + '" fill="#0a0f18" stroke="' + ring + '" stroke-width="' + (st.mine ? 4 : 3) + '"/>'
+      + '<image href="' + escAttr(img) + '" xlink:href="' + escAttr(img) + '" x="' + (2 - r) + '" y="' + (2 - r)
       + '" width="' + (2 * r - 4) + '" height="' + (2 * r - 4) + '" clip-path="url(#' + clip + ')" preserveAspectRatio="xMidYMid slice"/>'
       + (st.closed
-        ? '<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="' + (r - 2) + '" class="sk-lids"/>'
-          + '<text x="' + x.toFixed(1) + '" y="' + (y + 4).toFixed(1) + '" text-anchor="middle" class="sk-lids-t">‿‿</text>'
+        ? '<circle cx="0" cy="0" r="' + (r - 2) + '" class="sk-lids"/>'
+          + '<text x="0" y="4" text-anchor="middle" class="sk-lids-t">‿‿</text>'
         : '')
-      + (st.out ? '<text x="' + (x + r - 5).toFixed(1) + '" y="' + (y - r + 8).toFixed(1) + '" text-anchor="middle" class="sk-out-x">✕</text>' : '')
-      + '<circle cx="' + x.toFixed(1) + '" cy="' + (y - r + 1).toFixed(1) + '" r="11" class="sk-num-bg" stroke="' + ring + '"/>'
-      + '<text x="' + x.toFixed(1) + '" y="' + (y - r + 5).toFixed(1) + '" text-anchor="middle" class="sk-num">' + i + '</text>'
+      + (st.out ? '<text x="' + (r - 5) + '" y="' + (2 - r + 8) + '" text-anchor="middle" class="sk-out-x">✕</text>' : '')
+      + '<circle cx="0" cy="' + (1 - r) + '" r="11" class="sk-num-bg" stroke="' + ring + '"/>'
+      + '<text x="0" y="' + (5 - r) + '" text-anchor="middle" class="sk-num">' + i + '</text>'
       + '</g>';
   }
 
@@ -143,6 +140,69 @@
       + '</svg>';
   }
 
+  /* =============================================================
+   * 〔S3b〕布局态与散桌：seated（圆桌）/ scattered（0c 私聊散开）
+   * 配对关系公开（批次①公告「谁和谁配对」）→ 散开时各组结伴；正文气泡只给己方组。
+   * 配对数据源 g.nightChats（{a,b,lines} 全量组，正文只在其中；2.2 口径）。
+   * ============================================================= */
+  function pairGroups(g) {
+    const groups = [];
+    const seen = {};
+    for (const c of (g.nightChats || [])) {
+      if (seen[c.a] || seen[c.b]) continue;
+      seen[c.a] = seen[c.b] = true;
+      groups.push([c.a, c.b]);
+    }
+    /* 未入组的存活席位（无配对/单人）单独散点 */
+    const loners = [];
+    for (let i = 1; i <= N; i++) if (!seen[i]) loners.push(i);
+    return { groups, loners };
+  }
+  /* 席位中心坐标：mode = seated / scattered */
+  function seatPos(g, i, mode) {
+    const rx = GEO.rx * 1.25, ry = GEO.ry * 0.72;
+    if (mode !== 'scattered') {
+      const a = ANG[i - 1];
+      const out = g && g.players[i - 1] && g.players[i - 1].out;
+      return {
+        x: GEO.cx + Math.cos(a) * (out ? GEO.outRx : rx),
+        y: GEO.cy + Math.sin(a) * (out ? GEO.outRy : ry),
+      };
+    }
+    const { groups, loners } = pairGroups(g);
+    const unit = groups.concat(loners.map(x => [x]));
+    const gi = unit.findIndex(grp => grp.indexOf(i) >= 0);
+    const ga = gi / unit.length * Math.PI * 2 - Math.PI / 2;
+    const gx = GEO.cx + Math.cos(ga) * rx * 1.02;
+    const gy = GEO.cy + Math.sin(ga) * ry * 0.86 - 14;
+    const grp = unit[gi], k = grp.indexOf(i), n = grp.length;
+    const off = (k - (n - 1) / 2) * (GEO.seatR * 2 + 6);
+    return { x: gx + Math.cos(ga + Math.PI / 2) * off, y: gy + Math.sin(ga + Math.PI / 2) * off * 0.4 };
+  }
+  /* 布局态切换（每 tick 幂等）：只写 g 的 CSS transform，散桌/回桌由 transition 补间 */
+  let lastMode = '';
+  function updateLayout(g, V, mount) {
+    try {
+      const svg = mount.querySelector('.sk-scene');
+      if (!svg) return;
+      const mode = (g.step === '0c') ? 'scattered' : 'seated';
+      if (mode === lastMode && mount.__skMode) return;
+      for (let i = 1; i <= N; i++) {
+        const s = svg.querySelector('#sk-seat-' + i);
+        if (!s) continue;
+        const p = seatPos(g, i, mode);
+        s.style.transform = 'translate(' + p.x.toFixed(1) + 'px,' + p.y.toFixed(1) + 'px)';
+      }
+      mount.__skMode = mode;
+      lastMode = mode;
+      /* 首布局落定后才启用补间（sk-anim），避免重建时席位从 (0,0) 飞入 */
+      if (!svg.classList.contains('sk-anim')) {
+        void svg.getBoundingClientRect();
+        svg.classList.add('sk-anim');
+      }
+    } catch (_) { /* 桩环境静默 */ }
+  }
+
   let sig = null;
   /** 渲染入口（ui.render 每 tick 调）：签名不变则零结构写入；交互态（点亮/选中环）每 tick 增量 toggle。 */
   function render(g, V) {
@@ -158,14 +218,97 @@
     if (key !== sig || !mount.__skBuilt) {
       const svg = svgFor(g, V, myTurn);
       if (!svg) return;
-      /* 〔S2〕三段结构：房间环（上）+ 圆桌场景（中）+ 书记官（下） */
-      mount.innerHTML = roomsHtml() + svg + scribeHtml();
+      /* 〔S2〕三段结构：房间环（上）+ 圆桌场景（中）+ 书记官（下）+ 气泡层（S3b） */
+      mount.innerHTML = roomsHtml() + svg + scribeHtml()
+        + '<div id="sk-bubbles" class="sk-bubbles" aria-live="polite"></div>';
       mount.__skBuilt = true;
       bindEvents(mount);
+      lastMode = '';                             /* 重建后强制全量写席位 transform（首布局免动画） */
       sig = key;
     }
+    updateLayout(g, V, mount);
+    updateBubbles(g, V, mount);
     updateInteractive(g, V, myTurn, kind, mount);
     lastG = g; lastV = V; lastMount = mount;
+  }
+
+  /* =============================================================
+   * 〔S3b〕发言气泡（气泡纪律——正文可见性严格分流）：
+   *   · 公开发言（讨论/会议）：talks 尾条 → 作者席位头顶冒泡，全员可见；
+   *   · 0c 私聊：只冒【己方配对组】的双向气泡（nightChats 己组 lines + inbox 私聊行）；
+   *     他人组、异形队内频道 —— 零气泡（2.2 / 3.3④）。
+   * 气泡走 SVG foreignObject（viewBox 坐标精确定位），5s 自动淡出。
+   * ============================================================= */
+  let lastTalkKey = '';
+  let lastPmKey = '';
+  function escHtml(s) {
+    return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  /* pt = 气泡锚点（viewBox 坐标，气泡底部中心） */
+  function popBubble(g, V, mount, pt, label, text, isMe) {
+    try {
+      const box = mount.querySelector('#sk-bubbles');
+      if (!box) return;
+      while (box.childNodes.length >= 6) box.removeChild(box.firstChild);   /* 上限防堆积 */
+      const fo = document.createElementNS('http://www.w3.org/2000/svg', 'foreignObject');
+      fo.setAttribute('x', Math.max(2, Math.min(VB.w - 194, pt.x - 96)).toFixed(1));
+      fo.setAttribute('y', Math.max(2, pt.y - 74).toFixed(1));
+      fo.setAttribute('width', 192);
+      fo.setAttribute('height', 76);
+      fo.setAttribute('class', 'sk-fo');
+      fo.innerHTML = '<div xmlns="http://www.w3.org/1999/xhtml" class="sk-bubble' + (isMe ? ' sk-me' : '') + '">'
+        + (label ? '<span class="who">' + escHtml(label) + '</span>' : '') + escHtml(text)
+        + '</div>';
+      box.appendChild(fo);
+      setTimeout(() => { try { fo.remove(); } catch (_) {} }, 5200);
+    } catch (_) { /* 桩环境静默 */ }
+  }
+  function updateBubbles(g, V, mount) {
+    try {
+      /* 公开发言：g.talks 只增，尾条变化即冒泡 */
+      const talks = g.talks || [];
+      const tk = g.night + ':' + talks.length;
+      if (tk !== lastTalkKey) {
+        lastTalkKey = tk;
+        if (talks.length) {
+          const t = talks[talks.length - 1];
+          if (t && t.text) {
+            const p = seatPos(g, t.id, 'seated');
+            popBubble(g, V, mount, { x: p.x, y: p.y - GEO.seatR - 4 }, t.id + ' 号' + (t.id === V.id ? '（我）' : ''), t.text, t.id === V.id);
+          }
+        }
+      }
+      /* 0c 私聊：只冒【己方配对组】的中性气泡（定位组中心上方）；
+         nightChats.lines 无作者标记 ⇒ 不标谁说的（与 nightChatHtml「N 号 ↔ 我」口径一致）；
+         他人组、异形队内频道 —— 零气泡（2.2 / 3.3④，队内内容归阵营日记本） */
+      if (g.step === '0c') {
+        const me = g.players[V.id - 1];
+        let tail = null, myGroup = null;
+        for (const c of (g.nightChats || [])) {
+          if (c.a !== V.id && c.b !== V.id) continue;
+          myGroup = [c.a, c.b];
+          const ls = c.lines || [];
+          if (ls.length) tail = ls[ls.length - 1];
+        }
+        for (const e of (me.inbox || [])) {
+          if (e.night !== g.night) continue;
+          if (/（队内）：/.test(e.text || '')) continue;          /* 队内零气泡 */
+          const m = /^(\d+) 号（私聊）：(.*)$/.exec(e.text || '');
+          if (m) { tail = m[2]; if (!myGroup) myGroup = [V.id, +m[1]]; }
+        }
+        const pk = g.night + '|' + (tail != null ? tail : '');
+        if (pk !== lastPmKey && tail != null && myGroup) {
+          lastPmKey = pk;
+          const p1 = seatPos(g, myGroup[0], 'scattered');
+          const p2 = seatPos(g, myGroup[1], 'scattered');
+          const mid = { x: (p1.x + p2.x) / 2, y: Math.min(p1.y, p2.y) - 6 };
+          popBubble(g, V, mount, mid, '私聊', tail, false);
+        }
+      } else if (lastPmKey) {
+        lastPmKey = '';
+      }
+    } catch (_) { /* 桩环境静默 */ }
   }
 
   /* =============================================================
