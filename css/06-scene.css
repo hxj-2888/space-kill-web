@@ -10,17 +10,99 @@
    roster 的显隐由本文件按视口切换（响应式布局，非状态显隐——05 层媒体档同例）：
    桌面/常规横屏/竖屏 = 场景；矮横屏 = 切回旧名单横条（单列预算 46px 是既有平衡，
    手机场景专项布局归 S5，本批不挤占）。 */
-#screen-game .seg-roster { overflow: hidden; }
+/* ⚠ 03 层把 .seg-roster 定为 grid（roster 5×3 时代）——场景化后改为「标题占顶 + 场景绝对
+   铺满余量」的确定性布局（曾试 flex-grow 拉伸，svg 固有高度与 max-height:100% 百分比
+   循环导致 grow 失效，故放弃） */
+#screen-game .seg-roster {
+  position: relative;
+  overflow: hidden;
+}
 /* ⚠ 特异性必须 ≥ 03 层的 #screen-game .seg-roster .roster（1-2-1），否则 display:none 被压掉（实测踩过） */
 #screen-game .seg-roster > .roster { display: none; }
 #screen-game .scene-mount {
-  flex: 1;
+  position: absolute;
+  top: 30px;
+  left: 8px;
+  right: 8px;
+  bottom: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #060a12;
+}
+/* 〔S2〕太空船背景（CC0，OpenGameArt/Parker West）：底层位图 + 压暗，
+   保证席位/房间可读；背景属装饰层，不承载任何游戏信息 */
+#screen-game .scene-mount::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: url("../assets/scene/bg/spaceship-interior-1600.jpg") center / cover no-repeat;
+  filter: brightness(.42) saturate(.8);
+  pointer-events: none;
+}
+#screen-game .scene-mount::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 55%, transparent 42%, rgba(3, 6, 12, .62) 100%);
+  pointer-events: none;
+}
+.sk-scene {
+  flex: 1 1 0;
   min-height: 0;
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  display: block;
+  position: relative;
+  z-index: 1;
+}
+
+/* ---- 〔S2〕人类工具舱房间环（信息态；点亮 = S3a） ---- */
+.sk-rooms {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  padding: 6px 8px;
+}
+.sk-room {
+  background: rgba(13, 20, 34, .82);
+  border: 1px solid #2a3550;
+  border-radius: 8px;
+  text-align: center;
+  padding: 4px 2px 5px;
+  cursor: default;
+  transition: border-color .2s, box-shadow .2s;
+  user-select: none;
+}
+.sk-room:hover { border-color: #4dabf7; box-shadow: 0 0 8px rgba(77, 171, 247, .25); }
+.sk-room-ico { font-size: 14px; line-height: 1.25; display: block; }
+.sk-room b { display: block; font-size: 11px; font-weight: 700; color: #dbe4f3; }
+
+/* ---- 〔S2〕书记官台（摆件；档案面板 = S3b） ---- */
+.sk-scribe {
+  position: relative;
+  z-index: 2;
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 8px;
+  margin: 4px 8px 8px;
+  padding: 6px 10px;
+  background: rgba(10, 15, 25, .88);
+  border: 1px solid #2a3550;
+  border-radius: 10px;
+  cursor: default;
+  user-select: none;
 }
-.sk-scene { width: 100%; height: auto; max-height: 100%; display: block; }
+.sk-scribe:hover { border-color: #ffd43b; }
+.sk-scribe img { width: 34px; height: 34px; border-radius: 50%; border: 2px solid #7a8699; flex: 0 0 auto; }
+.sk-scribe-t b { display: block; font-size: 12px; color: #dbe4f3; }
+.sk-scribe-t i { display: block; font-style: normal; font-size: 10.5px; color: #8a97b0; }
 
 /* ---- 圆桌与船核心 ---- */
 .sk-table {
@@ -60,7 +142,8 @@
 
 /* ---- 矮横屏（与 05 层的同名媒体档对齐）：切回旧名单横条布局，场景收起 ----
    05 层在该档把 .board 变单列、.roster 变 46px 横条——整套预算以「无场景」调平，
-   本批不在该档硬塞场景（会把输入 dock 挤出视口，实测验证过）。 */
+   本批不在该档硬塞场景（会把输入 dock 挤出视口，实测验证过）。
+   ⚠ roster 从 display:none 切回 flex 时也要覆盖本文件的 03-特异性选择器。 */
 @media (orientation: landscape) and (max-height: 560px) {
   #screen-game .scene-mount { display: none; }
   #screen-game .seg-roster > .roster { display: flex; }

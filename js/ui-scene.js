@@ -92,6 +92,37 @@
       + '</g>';
   }
 
+  /* 〔S2〕人类工具舱（房间环）：**只含工具型技能**——异形/外星人的天赋（出刀/感染/结茧/
+     蛰伏/双刀）是卡载能力，S3a 起直接点目标发动，不经房间（正文依据见各 grant 注记）。
+     S2 全部呈信息态（title 提示 + 锁定样式）；点亮（轮到自己 + 待决策 kind 匹配）= S3a。 */
+  const ROOMS = [
+    { id: 'verify',  ico: '🔍', name: '查证室', tip: '神探 · 每夜查验 / 发布官方公告（4.7）' },
+    { id: 'patrol',  ico: '🚓', name: '巡逻岗', tip: '警长 · 全局 1 次巡逻保护（4.4.4）' },
+    { id: 'medical', ico: '⚕️', name: '医疗室', tip: '医生族 · 治疗 / 救援 / 自救（4.5/4.6）' },
+    { id: 'pharma',  ico: '💊', name: '制药室', tip: '医生族 / 疫苗研究员 · 制药攒额度（3.3.1/4.14）' },
+    { id: 'repair',  ico: '🔧', name: '维修室', tip: '工程师系 / 船员 · 维修与协助维修（4.3/4.1.2）' },
+    { id: 'safe',    ico: '🛡️', name: '安全室', tip: '进入安全室 · 全额减免层（4.3.1）' },
+    { id: 'meeting', ico: '📢', name: '议事厅', tip: '验票官 · 发动紧急会议（4.9.2）' },
+    { id: 'armory',  ico: '🔫', name: '军械库', tip: '警长 / 猎手 / 武装 · 枪械与嗅探（4.4.7）' },
+  ];
+  function roomsHtml() {
+    let h = '<div id="scene-rooms" class="sk-rooms" aria-label="飞船功能舱">';
+    for (const r of ROOMS) {
+      h += '<div class="sk-room" data-room="' + r.id + '" title="' + escAttr(r.tip) + '">'
+        + '<span class="sk-room-ico">' + r.ico + '</span><b>' + r.name + '</b></div>';
+    }
+    return h + '</div>';
+  }
+
+  /* 〔S2〕书记官：非玩家 NPC 摆件——只记录公开信息（公告/公开发言/投票/公开揭示），
+     不参与游戏进程；档案面板 = S3b 接线。形象与 15 席明显区分（无编号、灰底）。 */
+  function scribeHtml() {
+    return '<div id="scene-scribe" class="sk-scribe" title="书记官：只记公开信息，不参与游戏">'
+      + '<img src="assets/scene/characters/scribe/scribe.svg" alt="书记官" draggable="false">'
+      + '<div class="sk-scribe-t"><b>书记官 · 公开档案</b><i>公告 / 发言 / 票决 · 不参与游戏</i></div>'
+      + '</div>';
+  }
+
   function svgFor(g, V, myTurn) {
     const night = g.phase === 'night';
     let seats = '';
@@ -126,7 +157,9 @@
     if (key === sig && mount.__skBuilt) return;
     const svg = svgFor(g, V, myTurn);
     if (!svg) return;
-    mount.innerHTML = svg;
+    /* 〔S2〕三段结构：房间环（上）+ 圆桌场景（中）+ 书记官（下）—— rooms/scribe 为
+       静态信息件，随签名一同重绘（S3a 接点亮态，S3b 接档案面板） */
+    mount.innerHTML = roomsHtml() + svg + scribeHtml();
     mount.__skBuilt = true;
     sig = key;
   }
