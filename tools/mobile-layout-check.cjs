@@ -355,18 +355,33 @@ function serve() {
         errs.push('名单未横向滚动（手机横屏必须是横条）');
       }
       if (d.touch && res.rosterVisible && res.rosterH > 60) errs.push('名单横条高度异常：' + Math.round(res.rosterH) + 'px');
+      /* 〔R2〕旧右栏抽屉（.seg-side）已随表单式设计删除，抽屉断言改为
+         「8 个技能室在矮屏上不互相压、不出视口」—— 这是新布局真正会坏的地方。 */
       if (d.touch) {
-        /* 抽屉打开态必须完整落在视口内（等transition 结束再量，否则量到动画中间态） */
-        await page.evaluate(() => { const s = document.querySelector('.seg-side'); if (s) s.classList.add('open'); });
-        await page.waitForTimeout(500);
-        const dr = await page.evaluate(() => {
-          const el = document.querySelector('.seg-side');
-          const r = el.getBoundingClientRect();
-          return { l: Math.round(r.left), r: Math.round(r.right), tf: getComputedStyle(el).transform };
-        });
-        if (dr.tf !== 'none') errs.push('抽屉未完全展开（transform=' + dr.tf + '）');
-        if (dr.l < -1 || dr.r > d.width + 1) errs.push('抽屉打开态溢出 ' + JSON.stringify(dr));
-        await page.evaluate(() => { const s = document.querySelector('.seg-side'); if (s) s.classList.remove('open'); });
+        const rooms = await page.evaluate((vp) => {
+          const els = [...document.querySelectorAll('.sk-room')];
+          const out = [];
+          if (els.length !== 8) out.push('技能室数量 ' + els.length + '（期望 8）');
+          const boxes = els.map(e => {
+            const r = e.getBoundingClientRect();
+            return { id: e.getAttribute('data-room'), l: r.left, t: r.top, r: r.right, b: r.bottom };
+          });
+          for (const b of boxes) {
+            if (b.l < -1 || b.r > vp.w + 1 || b.t < -1 || b.b > vp.h + 1)
+              out.push('技能室 ' + b.id + ' 出视口 ' + JSON.stringify({ l: Math.round(b.l), r: Math.round(b.r), t: Math.round(b.t), b: Math.round(b.b) }));
+          }
+          /* 两两重叠检测（同角两张卡曾因 :nth-of-type 错位而叠在一起） */
+          for (let i = 0; i < boxes.length; i++) {
+            for (let j = i + 1; j < boxes.length; j++) {
+              const a = boxes[i], c = boxes[j];
+              if (a.l < c.r - 1 && c.l < a.r - 1 && a.t < c.b - 1 && c.t < a.b - 1)
+                out.push('技能室重叠：' + a.id + ' × ' + c.id);
+            }
+          }
+          return { out, n: boxes.length };
+        }, { w: d.width, h: d.height });
+        rooms.out.forEach(m => errs.push(m));
+        res.roomCount = rooms.n;
       }
     }
     if (errs.length) {

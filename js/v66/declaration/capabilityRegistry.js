@@ -1,5 +1,5 @@
 /* =============================================================
- * 太空杀 · 能力注册表 Capability Registry（v6.6 重构 C2 · 阶段 2 声明层）
+ * 返航录 · 能力注册表 Capability Registry（v6.6 重构 C2 · 阶段 2 声明层）
  *
  * ⚠️ 本文件由 tools/gen-capability-registry.cjs 自九关核验提取数据生成，请勿手改；
  *    规则侧修订后重跑生成器：node tools/gen-capability-registry.cjs

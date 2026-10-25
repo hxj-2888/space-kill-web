@@ -9,6 +9,7 @@
 | 太空船内景背景 | [Spaceship Interior — OpenGameArt / Parker West](https://opengameart.org/content/spaceship-interior)（源自 Pixabay） | CC0 1.0 | 原图直存 bg/spaceship-interior-v1.jpg（2.1MB；SHA256 a1b98506…） |
 | 其余（圆桌/椅子/气泡/房间门/叠加件） | 本仓自绘 | 随仓库 LICENSE | 场景 SVG 组合件，非角色素材 |
 | 开始页「返航环」bg/departure-ring.svg | 本仓自绘 | 随仓库 LICENSE | `node tools/gen-start-scene.cjs [--force]`（15 席等弧长座次，与对局页同算法；纯装饰，不含角色暗示） |
+| 太空站房间道具 · station/*.png（97 件） | [Kenney · Space Station Kit](https://kenney.nl/assets/space-station-kit) | **CC0 1.0**（见 `station/LICENSE-Kenney.txt`） | 官方 2D 预览图（64×64 等距小件）**原尺寸入库，不放大**；用于 8 个技能室的场景拼装 |
 
 - DiceBear 风格许可证逐档核对：https://www.dicebear.com/licenses/ （open-peeps / voxel-bot / critters / notionists 均为 CC0 1.0，无署名义务）
 - 生成脚本：`node tools/gen-scene-assets.cjs [--force]`；产物为静态文件，**产品运行时不访问任何外部服务**。

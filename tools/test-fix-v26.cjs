@@ -4666,15 +4666,18 @@ const RULE_FILES = ['js/ai/belief.js', 'js/ai/perceive.js', 'js/ai/decide.js',
   const cssCode43 = css43.replace(/\/\*[\s\S]*?\*\//g, ' ');
   const mobileSrc = fs.readFileSync(path.join(base, '..', 'tools', 'mobile-layout-check.cjs'), 'utf8');
 
-  /* ---- 结构：主区三件套同属 .seg-main，且旧发言流水节点确已退役 ---- */
-  ok('主区A：主区 = 场景 + #region-dec + 输入 dock（三者同属 .seg-main），旧发言流水已退役',
+  /* ---- 结构：主区三件套同属 .seg-main，且表单式旧设计确已退役 ---- */
+  ok('主区A：主区 = 场景 + 行动面板 + 输入（同属 .seg-main），表单式旧设计已清除',
     /class="seg seg-main"/.test(htmlCode43) && /id="region-dec"/.test(htmlCode43) &&
     /id="scene-mount"/.test(htmlCode43) && /class="input-dock"/.test(htmlCode43) &&
-    /* 旧的发言流水节点必须已退役（否则又回到三栏，场景被挤回一列） */
+    /* 表单式设计的四个标志性节点必须全部退役：
+       #chatlog 发言流水 / #seg-stage 三栏舞台 / #region-chat 发言区 / #nb-tabs 右栏页签。
+       这些若回来，就是「又回到表单式」——用户明确要求彻底清除。 */
     !/id="chatlog"/.test(htmlCode43) && !/id="seg-stage"/.test(htmlCode43) &&
-    !/id="region-chat"/.test(htmlCode43) &&
-    /* 右栏三入口必须在（发言全文的唯一归宿——退役 #chatlog 的前提） */
-    /data-tab="pub"/.test(htmlCode43) && /data-tab="priv"/.test(htmlCode43));
+    !/id="region-chat"/.test(htmlCode43) && !/id="nb-tabs"/.test(htmlCode43) &&
+    !/id="side-body"/.test(htmlCode43) && !/data-tab=/.test(htmlCode43) &&
+    /* 退役的实现必须留在备份里（不是删了就算） */
+    fs.existsSync(path.join(base, '..', 'backup', 'form-ui-20261025', 'ui.js')));
 
   /* ---- 布局裁决：单点写入 data-layout，宿主是仍在 DOM 里的 .seg-main ---- */
   ok('主区B：applyStageLayout 把布局键写进 .seg-main 的 data-layout（宿主不再是被删的 #seg-stage）',
@@ -4707,19 +4710,34 @@ const RULE_FILES = ['js/ai/belief.js', 'js/ai/perceive.js', 'js/ai/decide.js',
   ok('主区J：私聊小结只取本人参与的配对组（私聊正文不公开，2.2）',
     /if \(c\.a !== me\.id && c\.b !== me\.id\) continue;/.test(uiCode43));
 
-  /* ---- 〔S5 新增不变量〕场景是主视觉：CSS 必须让它吃余量、面板限高 ---- */
-  ok('主区K：场景吃满主区余量，行动面板限高（面板不得把场景压成一条缝）',
+  /* ---- 〔R2 重设计〕场景是唯一主视觉：CSS 必须让它吃余量、操作区在流内不压场景 ---- */
+  ok('主区K：场景吃满余量，底部操作区在流内（面板与输入不得绝对定位压住席位）',
     /#screen-game \.scene-mount \{[^}]*flex: 1 1 0/.test(cssCode43) &&
-    /#screen-game #region-dec \{[^}]*max-height: 44vh/.test(cssCode43));
+    /* 操作区必须是 .ops-dock 容器 + flex:0 0 auto —— 这正是"不再压住底部席位"的实现方式 */
+    /#screen-game \.ops-dock \{[^}]*flex: 0 0 auto/.test(cssCode43) &&
+    /* 反向守卫：面板/输入若回到 position:absolute，就会重新压住席位 */
+    !/#screen-game #region-dec \{[^}]*position: absolute/.test(cssCode43) &&
+    !/#screen-game \.input-dock \{[^}]*position: absolute/.test(cssCode43));
 
-  /* ---- 〔S5 新增不变量〕矮横屏必须逐项压回 05 层的旧 roster 预算 ---- */
-  ok('主区L：矮横屏逐项压回旧 roster 预算（rows 显式覆盖 + 面板限高 20vh）',
-    /@media \(orientation: landscape\) and \(max-height: 560px\) \{[^}]*#screen-game \.board \{[^}]*grid-template-rows: minmax\(0, 1fr\)/.test(cssCode43) &&
-    /#screen-game #region-dec \{ max-height: 20vh; \}/.test(cssCode43));
+  /* ---- 〔R2 重设计〕矮横屏：面板压到 10vh，把高度让给场景 ---- */
+  ok('主区L：矮横屏面板压到 10vh（高度让给场景，15 席才看得清）',
+    /* ⚠ 正则里 { 后必须容忍换行与缩进：CSS 是多行书写的，写死 `{ max-height` 会永远不匹配
+       （这类"断言永远红"与"断言永远绿"一样糟，都是没在测真东西）。 */
+    /@media \(orientation: landscape\) and \(max-height: 560px\) \{[\s\S]*?#region-dec \{\s*max-height: 10vh/.test(cssCode43) &&
+    /\.sk-room \{ width: 84px; \}/.test(cssCode43));
 
-  /* ---- 〔S5 新增不变量〕data-layout 必须有消费方（写进 DOM 却没人读 = 死属性） ---- */
-  ok('主区M：data-layout 在 CSS 侧有消费方（相位档确实按布局键调面板高度）',
-    /\[data-layout="night"\]/.test(cssCode43) && /\[data-layout="talk"\]/.test(cssCode43));
+  /* ---- 〔R2 重设计〕8 个技能室必须在场景里、各有独立道具视觉，且无 emoji ----
+     ⚠ 技能室声明在 js/ui-scene.js（场景渲染器），**不在** ui.js。首版这条断言读的是
+     uiCode43（= ui.js），于是四项条件里"房间声明数=8"永远为假——断言红得有道理，
+     红在断言自己读错了文件。这类错误与"恒真式"是同一族：都没在测真正的东西。 */
+  const sceneCode43 = fs.readFileSync(path.join(base, 'ui-scene.js'), 'utf8')
+    .replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/^\s*\/\/.*$/gm, ' ');
+  ok('主区M：8 个技能室进场景四角（每间带道具图，不用 emoji 当图标）',
+    (sceneCode43.match(/\{ id: '[a-z]+', corner: '(lt|rt|lb|rb)', slot: [01], name: '/g) || []).length === 8 &&
+    /assets\/scene\/station\//.test(sceneCode43) &&
+    /* 房间卡渲染必须走 <img>（道具图），不是 <span class="sk-room-ico">文字图标 */
+    /class="sk-room-art"/.test(sceneCode43) &&
+    !/sk-room-ico/.test(sceneCode43));
 
   /* ---- 行为层验收的落点：门禁必须真的覆盖 6 相位扫描 ---- */
   ok('主区N：移动端门禁已覆盖 6 相位场景主区扫描（行为层验收在此，不在 Node 断言里）',

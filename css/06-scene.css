@@ -1,87 +1,305 @@
 /* =============================================================
- * 场景化 UI · 批 S1（2026-10-25）
- * ⚠ 本文件必须排在 style.css @import 列表【最末】——与 05-late-overrides 同理，
- *   同特异性靠后取胜；场景层样式会压过前段对 .seg-roster 区的布局规则。
- * 本批范围：圆桌场景容器 + 席位状态件（闭眼/出局/自己高亮）+ 矮横屏约束。
- *   房间环/背景/书记官 = S2；交互 = S3a；气泡与散桌 = S3b。
+ * 返航录 · 场景层（2026-10-25 重设计 R2）
+ * -------------------------------------------------------------
+ * ⚠ 本文件必须排在 style.css @import 列表里 05 之后（当前顺序 06 < 07）：
+ *   与 05-late-overrides 同理，同特异性靠后取胜；场景层要压过 03/05 对 .board 的布局规则。
+ *
+ * 这一版按用户拍板重做，与旧版（backup/form-ui-20261025/css/06-scene.css）的差别：
+ *   ① **横版大场景**：旧版是竖版 400×480，圆桌 96×120 配座圈 152×182 —— 桌子比座圈小，
+ *      15 个角色全贴桌边（"桌子太小、围得太挤"的根因）。新版 1600×820、桌面 732×396、
+ *      座圈 1040×560，相邻席位净空 13.1px、席位离桌 42px。
+ *   ② **8 个技能室进四角**：旧版是一排 8 个纯文字方块横在场景上方（"十分呆板"）。
+ *      新版每间一张场景卡（Kenney CC0 太空站道具拼装），分列左右上下四角。
+ *   ③ **无 emoji**：房间标识 = 道具图 + 中文房名。
+ *   ④ 气泡是唯一发言载体（旧版的发言流水列表已随表单式设计一并删除）。
  * ============================================================= */
 
-/* ---- 场景容器（左栏：名单的视觉替身） ----
-   roster 的显隐由本文件按视口切换（响应式布局，非状态显隐——05 层媒体档同例）：
-   桌面/常规横屏/竖屏 = 场景；矮横屏 = 切回旧名单横条（单列预算 46px 是既有平衡，
-   手机场景专项布局归 S5，本批不挤占）。 */
-/* ---- 〔S5 布局收敛〕board 两栏：主区（场景+行动面板+输入）+ 侧栏（三入口） ----
-   旧三栏（roster / chatlog 流水）退役：场景即名单、发言走气泡+书记官档案。
-   03/05 层对 .board 三栏与 .seg-stage/.region-* 的规则随之成为死码（本层覆盖）。 */
-#screen-game .board {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) clamp(250px, 21vw, 330px);
-  gap: 10px;
-}
-#screen-game .seg-main {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  min-height: 0;
-  gap: 8px;
-  overflow: hidden;
-}
-#screen-game .seg-side { min-height: 0; }
-
-/* 场景（主视觉，占主区余量） */
+/* ---- 场景容器：主区唯一主视觉，吃掉全部余量 ---- */
 #screen-game .scene-mount {
   flex: 1 1 0;
   min-height: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  justify-content: flex-start;
   position: relative;
   border-radius: 14px;
   overflow: hidden;
-  background: #060a12;
+  background: #05080f;
 }
-/* 〔S2〕太空船背景（CC0）：底层位图 + 压暗；装饰层不承载游戏信息 */
+/* 船内背景（CC0）：底层位图 + 压暗 + 暗角 */
 #screen-game .scene-mount::before {
   content: "";
   position: absolute;
   inset: 0;
   background: url("../assets/scene/bg/spaceship-interior-1600.jpg") center / cover no-repeat;
-  filter: brightness(.42) saturate(.8);
+  filter: brightness(.30) saturate(.7);
   pointer-events: none;
 }
 #screen-game .scene-mount::after {
   content: "";
   position: absolute;
   inset: 0;
-  background: radial-gradient(ellipse at 50% 55%, transparent 42%, rgba(3, 6, 12, .62) 100%);
+  background: radial-gradient(ellipse at 50% 50%, transparent 38%, rgba(3, 6, 12, .78) 100%);
   pointer-events: none;
 }
+
+/* SVG 场景：保持 1600×900 比例。
+   ⚠ 关键：preserveAspectRatio 写在 <svg> 元素属性上（不是 CSS）——见 ui-scene.js 的 svgFor。
+   用 xMidYMin meet 而非默认的 slice：矮横屏容器比 16:9 更扁，slice 会把上下裁掉，
+   顶部与底部席位同时被切，这正是"底部席位被面板挡住"的观感来源之一。
+   meet 保证 15 席完整可见，多余空间由背景填充（背景本有暗角，看不出留白）。 */
 .sk-scene {
-  flex: 1 1 0;
-  min-height: 0;
+  position: relative;
+  z-index: 1;
+  display: block;
   width: 100%;
   height: 100%;
   max-height: none;
-  display: block;
-  position: relative;
-  z-index: 1;
 }
 
-/* ---- 〔S5〕行动面板（场景下缘）：决策/事件/表单的宿主——renderForm 的内容原样
-   渲染进 #stage-body（协议不变），这里只给「贴场景的浮层卡片」的皮 ---- */
-#screen-game #region-dec {
+/* ---- 桌面摆件（Kenney CC0 原尺寸，不放大）---- */
+.sk-deck { pointer-events: none; }
+
+/* ---- 桌面：三层（投影 / 台面 / 台缘高光）+ 内圈 ---- */
+.sk-table-shadow { fill: rgba(0, 0, 0, .55); }
+.sk-table { fill: #101b2b; stroke: #2b4059; stroke-width: 4; }
+.sk-table-rim { fill: none; stroke: rgba(120, 170, 225, .28); stroke-width: 2; }
+.sk-table-inner { fill: #0b1421; stroke: rgba(70, 110, 160, .22); stroke-width: 1.5; }
+
+/* 船核心：六边形，夜间呼吸 */
+.sk-core { fill: #14263a; stroke: #3d6b96; stroke-width: 2.5; }
+.sk-core-night { animation: sk-breathe 2.6s ease-in-out infinite; }
+@keyframes sk-breathe {
+  50% { stroke: #86c0f2; fill: #1d3b57; }
+}
+.sk-core-t { fill: #4dabf7; font-size: 17px; letter-spacing: 3px; }
+.sk-core { cursor: pointer; }
+.sk-core.sk-lit {
+  stroke: #ffd43b;
+  animation: sk-core-lit 1.6s ease-in-out infinite;
+}
+@keyframes sk-core-lit {
+  50% { stroke: #ffe58a; fill: #274d6e; }
+}
+
+/* ---- 席位 ---- */
+.sk-seat { cursor: pointer; }
+.sk-seat image { transition: filter .25s; }
+.sk-seat-halo { fill: none; stroke-width: 1.5; opacity: .30; }
+.sk-num-bg { fill: #0d1524; stroke-width: 2; }
+.sk-num { fill: #fff; font-weight: 800; font-size: 17px; }
+
+/* 自己席位：金环脉冲 */
+.sk-mine { filter: drop-shadow(0 0 6px rgba(255, 212, 59, .75)); animation: sk-mine-pulse 1.9s ease-in-out infinite; }
+@keyframes sk-mine-pulse {
+  50% { filter: drop-shadow(0 0 16px rgba(255, 212, 59, .95)); }
+}
+
+/* 夜间闭眼：暗幕 + 眼帘纹（观察者视角——除自己外全员闭眼） */
+.sk-lids { fill: rgba(4, 8, 15, .55); }
+.sk-lids-t { fill: #c7d4ec; font-size: 15px; }
+
+/* 出局（公开信息）：灰度离席 + ✕；濒死是私有信息——本层零视觉（4.10.4） */
+.sk-out image { filter: grayscale(1) brightness(.45); }
+.sk-out .sk-num-bg { fill: #2a1f22; }
+.sk-out-x { fill: #ff6b6b; font-weight: 800; font-size: 20px; }
+
+/* 目标选中环（场景 ↔ 表单联动：#f-targets/#f-pool 的 checked 态投射） */
+.sk-seat.sk-sel .sk-num-bg { stroke: #4dabf7; fill: #12355c; }
+.sk-seat.sk-sel image { filter: brightness(1.2) drop-shadow(0 0 10px rgba(77, 171, 247, .95)); }
+.sk-seat.sk-sel .sk-seat-halo { opacity: .9; stroke: #4dabf7; }
+
+/* ---- 8 个技能室：四角场景卡 ----
+   旧版是一排纯文字方块；这里每间一张卡：上方道具拼装（Kenney CC0 原尺寸小件），
+   下方房名。卡片绝对定位贴场景四角，不参与中央主视觉的排布。 */
+.sk-rooms {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;          /* 容器不拦点击，卡片自己开 */
+}
+.sk-room {
+  position: absolute;
+  width: 200px;
+  pointer-events: auto;
+  background: linear-gradient(180deg, rgba(12, 19, 32, .90), rgba(7, 12, 21, .94));
+  border: 1px solid #253a54;
+  border-radius: 10px;
+  overflow: hidden;
+  cursor: pointer;
+  user-select: none;
+  transition: border-color .2s, box-shadow .2s, transform .2s;
+}
+.sk-room:hover { border-color: #4dabf7; transform: translateY(-1px); box-shadow: 0 6px 18px rgba(0, 0, 0, .5); }
+
+/* 四角定位：左右各两间，用 slot 明确分位（旧写法用 :nth-of-type 会因 DOM 顺序错位重叠） */
+.sk-room-lt.sk-slot-0 { left: 10px; top: 10px; }
+.sk-room-lt.sk-slot-1 { left: 10px; top: 132px; }
+.sk-room-lb.sk-slot-0 { left: 10px; bottom: 132px; }
+.sk-room-lb.sk-slot-1 { left: 10px; bottom: 10px; }
+.sk-room-rt.sk-slot-0 { right: 10px; top: 10px; }
+.sk-room-rt.sk-slot-1 { right: 10px; top: 132px; }
+.sk-room-rb.sk-slot-0 { right: 10px; bottom: 132px; }
+.sk-room-rb.sk-slot-1 { right: 10px; bottom: 10px; }
+
+/* 道具拼装区：深色底 + 网格纹理，让 64px 小件有"房间"的层次 */
+.sk-room-art {
+  position: relative;
+  height: 74px;
+  background:
+    linear-gradient(180deg, rgba(26, 40, 60, .75), rgba(10, 16, 26, .9)),
+    repeating-linear-gradient(90deg, rgba(60, 90, 130, .10) 0 1px, transparent 1px 16px);
+  border-bottom: 1px solid #1e2f45;
+}
+.sk-room-art img {
+  position: absolute;
+  width: 64px;
+  height: 64px;
+  image-rendering: auto;          /* 原尺寸入库，不放大 → 保持清晰 */
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, .55));
+}
+/* 三件道具错落摆放（0 = 主件居中偏下，1 = 左后，2 = 右后） */
+.sk-room-art .p0 { left: 68px; top: 10px; }
+.sk-room-art .p1 { left: 8px; top: 2px; transform: scale(.82); transform-origin: top left; opacity: .85; }
+.sk-room-art .p2 { right: 6px; top: 4px; transform: scale(.78); transform-origin: top right; opacity: .8; }
+
+.sk-room-cap {
+  padding: 4px 8px 5px;
+  text-align: center;
+}
+.sk-room-cap b {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  color: #cfdcef;
+  letter-spacing: 1px;
+}
+
+/* 点亮（轮到我 + 待决策 kind 匹配） */
+.sk-room.sk-lit {
+  border-color: #ffd43b;
+  box-shadow: 0 0 14px rgba(255, 212, 59, .45);
+  animation: sk-room-lit 1.6s ease-in-out infinite;
+}
+@keyframes sk-room-lit {
+  50% { box-shadow: 0 0 24px rgba(255, 212, 59, .8); }
+}
+
+/* ---- 散桌补间 + 气泡（气泡是唯一发言载体）---- */
+.sk-scene.sk-anim .sk-seat { transition: transform 1.05s cubic-bezier(.5, .05, .3, 1); }
+.sk-bubbles {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 20;
+}
+.sk-fo { overflow: visible; }
+.sk-bubble {
+  background: rgba(236, 243, 253, .97);
+  color: #12203a;
+  border-radius: 14px;
+  padding: 10px 14px;
+  font-size: 15px;
+  line-height: 1.55;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, .5);
+  max-height: 104px;
+  overflow: hidden;
+  animation: sk-pop .25s ease-out, sk-fade 14s ease-in forwards;
+  /* 气泡尾巴：指向说话者的席位 */
+  position: relative;
+}
+.sk-bubble::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -7px;
+  transform: translateX(-50%);
+  border: 7px solid transparent;
+  border-top-color: rgba(236, 243, 253, .97);
+  border-bottom: 0;
+}
+.sk-bubble .who { font-weight: 800; font-size: 12.5px; color: #33507e; margin-right: 6px; }
+.sk-bubble.sk-me { background: rgba(255, 226, 138, .98); }
+.sk-bubble.sk-me .who { color: #7a5b00; }
+.sk-bubble.sk-me::after { border-top-color: rgba(255, 226, 138, .98); }
+@keyframes sk-pop { from { transform: scale(.78) translateY(8px); opacity: 0; } }
+@keyframes sk-fade { 0%, 82% { opacity: 1; } 100% { opacity: 0; } }
+
+/* ---- 场景内轻提示（替代 alert；纯展示，不承载决策）---- */
+.sk-toast {
+  position: absolute;
+  left: 50%;
+  bottom: 96px;
+  transform: translateX(-50%) translateY(8px);
+  background: rgba(12, 18, 30, .96);
+  border: 1px solid #3d6b96;
+  color: #dbe4f3;
+  font-size: 14px;
+  padding: 8px 16px;
+  border-radius: 10px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .25s, transform .25s;
+  z-index: 30;
+  max-width: 80%;
+  text-align: center;
+}
+.sk-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* 点房间/核心 → 行动面板闪烁引导 */
+#stage-body.sk-flash { animation: sk-flash 0.9s ease-out 1; }
+@keyframes sk-flash {
+  0% { box-shadow: inset 0 0 0 2px rgba(255, 212, 59, .9); }
+  100% { box-shadow: inset 0 0 0 2px rgba(255, 212, 59, 0); }
+}
+
+/* =============================================================
+ * 布局：主区 = 场景（吃满）+ 底部操作区（面板 + 输入）
+ * ⚠ 旧版把面板与输入都 position:absolute 贴场景底缘，结果是**压住底部席位**
+ *   （实测矮横屏 1/2/15 号被输入框盖住）。这里改成 flex 列：
+ *   场景 flex:1 吃掉剩余高度，操作区 flex:0 0 auto 排在下面 —— 两者永不重叠，
+ *   场景高度不足时由 SVG 的 meet 自动缩放（15 席始终完整可见）。
+ * ============================================================= */
+#screen-game .board {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  gap: 0;
+}
+#screen-game .seg-main {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* 底部操作区：面板 + 输入，二者在流内竖排（不再绝对定位） */
+#screen-game .ops-dock {
   flex: 0 0 auto;
-  max-height: 44vh;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px 8px 6px;
+  z-index: 10;
+}
+
+/* 行动面板：卡片化，限高后可滚 */
+#screen-game #region-dec {
+  position: relative;
+  width: min(760px, 100%);
+  margin: 0 auto;
+  max-height: 30vh;
   overflow-y: auto;
   border-radius: 12px;
-  background: rgba(10, 15, 25, .92);
-  border: 1px solid #2a3550;
-  padding: 8px 10px;
+  background: rgba(8, 13, 22, .94);
+  border: 1px solid #2a3d57;
+  box-shadow: 0 8px 26px rgba(0, 0, 0, .55);
+  padding: 8px 12px;
+  backdrop-filter: blur(6px);
 }
 #screen-game #region-dec:empty { display: none; }
 #screen-game .stage-body { min-height: 0; }
-#screen-game .stage-actions { margin-top: 6px; }
+#screen-game .stage-actions { margin-top: 8px; }
+
 /* 表单控件场景化重皮：radio/checkbox label → 胶囊按钮观感 */
 #screen-game #region-dec .opts { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0; }
 #screen-game #region-dec .opts.grid3 { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
@@ -92,7 +310,7 @@
   background: rgba(21, 29, 46, .9);
   border: 1px solid #2a3550;
   border-radius: 9px;
-  padding: 6px 9px;
+  padding: 6px 10px;
   cursor: pointer;
   transition: border-color .15s, background .15s;
 }
@@ -104,174 +322,79 @@
 #screen-game #region-dec .evt,
 #screen-game #region-dec .prv { border-radius: 8px; }
 
-/* ---- 〔S2〕人类工具舱房间环（信息态；点亮 = S3a） ---- */
-.sk-rooms {
+/* 输入 dock：在操作区内、面板之下（流内定位，永不与场景重叠） */
+#screen-game .input-dock {
   position: relative;
-  z-index: 2;
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 4px;
-  padding: 6px 8px;
-}
-.sk-room {
-  background: rgba(13, 20, 34, .82);
-  border: 1px solid #2a3550;
-  border-radius: 8px;
-  text-align: center;
-  padding: 4px 2px 5px;
-  cursor: default;
-  transition: border-color .2s, box-shadow .2s;
-  user-select: none;
-}
-.sk-room:hover { border-color: #4dabf7; box-shadow: 0 0 8px rgba(77, 171, 247, .25); }
-.sk-room-ico { font-size: 14px; line-height: 1.25; display: block; }
-.sk-room b { display: block; font-size: 11px; font-weight: 700; color: #dbe4f3; }
-
-/* ---- 〔S2〕书记官台（摆件；档案面板 = S3b） ---- */
-.sk-scribe {
-  position: relative;
-  z-index: 2;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 4px 8px 8px;
-  padding: 6px 10px;
-  background: rgba(10, 15, 25, .88);
-  border: 1px solid #2a3550;
-  border-radius: 10px;
-  cursor: default;
-  user-select: none;
-}
-.sk-scribe:hover { border-color: #ffd43b; }
-.sk-scribe img { width: 34px; height: 34px; border-radius: 50%; border: 2px solid #7a8699; flex: 0 0 auto; }
-.sk-scribe-t b { display: block; font-size: 12px; color: #dbe4f3; }
-.sk-scribe-t i { display: block; font-style: normal; font-size: 10.5px; color: #8a97b0; }
-
-/* ---- 〔S3a〕交互态 ---- */
-.sk-seat { cursor: pointer; }
-.sk-room { cursor: pointer; }
-.sk-room.sk-lit {
-  border-color: #ffd43b;
-  box-shadow: 0 0 10px rgba(255, 212, 59, .4);
-  animation: sk-room-lit 1.6s ease-in-out infinite;
-}
-@keyframes sk-room-lit {
-  50% { box-shadow: 0 0 18px rgba(255, 212, 59, .75); }
-}
-.sk-core { cursor: pointer; }
-.sk-core.sk-lit {
-  stroke: #ffd43b;
-  animation: sk-core-lit 1.6s ease-in-out infinite;
-}
-@keyframes sk-core-lit {
-  50% { stroke: #ffe58a; fill: #274d6e; }
-}
-/* 目标选中环（场景 ↔ 表单联动：#f-targets/#f-pool 的 checked 态投射） */
-.sk-seat .sk-sel-ring { pointer-events: none; }
-.sk-seat.sk-sel .sk-num-bg { stroke: #4dabf7; fill: #12355c; }
-.sk-seat.sk-sel image { filter: brightness(1.18) drop-shadow(0 0 6px rgba(77, 171, 247, .9)); }
-
-/* 场景内轻提示（替代 alert；纯展示，不承载决策） */
-.sk-toast {
-  position: absolute;
-  left: 50%;
-  bottom: 64px;
-  transform: translateX(-50%) translateY(8px);
-  background: rgba(12, 18, 30, .95);
-  border: 1px solid #3d6b96;
-  color: #dbe4f3;
-  font-size: 12px;
-  padding: 6px 12px;
-  border-radius: 9px;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity .25s, transform .25s;
-  z-index: 30;
-  max-width: 88%;
-  text-align: center;
-}
-.sk-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-
-/* 点房间/核心 → 表单闪烁引导 */
-#stage-body.sk-flash { animation: sk-flash 0.9s ease-out 1; }
-@keyframes sk-flash {
-  0% { box-shadow: inset 0 0 0 2px rgba(255, 212, 59, .9); }
-  100% { box-shadow: inset 0 0 0 2px rgba(255, 212, 59, 0); }
+  width: min(760px, 100%);
+  margin: 0 auto;
+  flex: 0 0 auto;
+  z-index: 11;
 }
 
-/* ---- 〔S3b〕散桌补间与发言气泡 ----
-   席位 transform 由 JS 写 style；transition 只在首次布局完成后启用（sk-anim），
-   避免重建时从 (0,0) 飞入。 */
-.sk-scene.sk-anim .sk-seat { transition: transform 1.05s cubic-bezier(.5, .05, .3, 1); }
-.sk-bubbles {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: 20;
-}
-.sk-fo { overflow: visible; }
-.sk-bubble {
-  background: rgba(233, 240, 252, .96);
-  color: #12203a;
-  border-radius: 12px;
-  padding: 7px 10px;
-  font-size: 12.5px;
-  line-height: 1.5;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, .45);
-  max-height: 72px;
-  overflow: hidden;
-  animation: sk-pop .25s ease-out, sk-fade 5.2s ease-in forwards;
-}
-.sk-bubble .who { font-weight: 800; font-size: 11px; color: #33507e; margin-right: 4px; }
-.sk-bubble.sk-me { background: rgba(255, 222, 125, .97); }
-.sk-bubble.sk-me .who { color: #7a5b00; }
-@keyframes sk-pop { from { transform: scale(.72) translateY(6px); opacity: 0; } }
-@keyframes sk-fade { 0%, 72% { opacity: 1; } 100% { opacity: 0; } }
-
-/* ---- 圆桌与船核心 ---- */
-.sk-table {
-  fill: #16202f;
-  stroke: #33445f;
-  stroke-width: 3;
-}
-.sk-core { fill: #152a40; stroke: #3d6b96; stroke-width: 2; }
-.sk-core-night {
-  animation: sk-breathe 2.4s ease-in-out infinite;
-}
-@keyframes sk-breathe {
-  50% { stroke: #86c0f2; fill: #1d3b57; }
-}
-.sk-core-t { fill: #4dabf7; font-size: 12px; letter-spacing: 2px; }
-
-/* ---- 席位 ---- */
-.sk-seat { cursor: default; }
-.sk-seat image { transition: filter .25s; }
-.sk-num-bg { fill: #0d1524; stroke-width: 1.5; }
-.sk-num { fill: #fff; font-weight: 800; font-size: 12px; }
-
-/* 自己席位：金环脉冲（签名重绘不频繁，动画不会被 tick 打断） */
-.sk-mine { filter: drop-shadow(0 0 5px rgba(255, 212, 59, .75)); animation: sk-mine-pulse 1.8s ease-in-out infinite; }
-@keyframes sk-mine-pulse {
-  50% { filter: drop-shadow(0 0 13px rgba(255, 212, 59, .95)); }
-}
-
-/* 夜间闭眼：暗幕 + 眼帘纹（观察者视角——除自己外全员闭眼） */
-.sk-lids { fill: rgba(4, 8, 15, .52); }
-.sk-lids-t { fill: #c7d4ec; font-size: 11px; }
-
-/* 出局（公开信息）：灰度离席 + ✕；濒死是私有信息——本层零视觉（4.10.4） */
-.sk-out image { filter: grayscale(1) brightness(.5); }
-.sk-out .sk-num-bg { fill: #2a1f22; }
-.sk-out-x { fill: #ff6b6b; font-weight: 800; font-size: 13px; }
-
-/* ---- 矮横屏：场景保持主视觉但限高（名单已由场景承担，无回退布局） ----
-   ⚠ 05 层同档定义了 #screen-game .board 的单列 columns + 46px/1fr rows（旧 roster 横条预算）
-   ——本块必须逐项压回（同特异性靠后取胜），否则主区被压进 46px 行（实测踩过）。 */
+/* ---- 矮横屏（≤560px 高）----
+   ⚠ 矮屏是这套布局最难的档：844×390 里，顶栏 57 + 输入 46 之后只剩 ~280px 给场景。
+   实测三个必须同时成立的约束：
+     ① 8 张房间卡不能互相压 —— 每角两张卡的高度必须 ≤ (可用高 - 间距)/2；
+     ② 底部席位不能被行动面板压 —— 面板限 20vh 且座圈下缘留白；
+     ③ 场景 15 席完整可见 —— SVG 用 meet（见 ui-scene.js 的 preserveAspectRatio）。
+   实现：房间卡压到 84×50（art 30 + cap 20），四角各两张竖排；面板 20vh。 */
 @media (orientation: landscape) and (max-height: 560px) {
-  #screen-game .board {
-    grid-template-columns: minmax(0, 1fr) clamp(220px, 24vw, 300px);
-    grid-template-rows: minmax(0, 1fr);
+  /* ⚠ 卡高必须**实测**，不能按 art+cap 估：art 30 + cap(字 9.5×1.2 + padding 3) ≈ 48，
+     而 844×390 的场景区只有 ~216px 高 —— 上下各放两张 48px 卡 + 4px 间距 = 200px，
+     刚好贴边；但实测 patrol(lt-slot1, top 56) 与 medical(lb-slot0, bottom 56) 会重叠，
+     说明单卡实际高度 > 52。把 art 压到 26、cap 行高压到 1.05，单卡 ≈ 42，间距改 2。
+     门禁 mobile-layout-check 有「技能室两两不重叠」断言，改完必须复跑。 */
+  #screen-game .sk-room { width: 84px; }
+  #screen-game .sk-room-art { height: 26px; }
+  #screen-game .sk-room-art img { width: 24px; height: 24px; }
+  #screen-game .sk-room-art .p0 { left: 30px; top: 1px; }
+  #screen-game .sk-room-art .p1 { left: 1px; top: 0; transform: scale(.38); }
+  #screen-game .sk-room-art .p2 { right: 1px; top: 0; transform: scale(.36); }
+  #screen-game .sk-room-cap { padding: 0 2px 1px; line-height: 1.05; }
+  #screen-game .sk-room-cap b { font-size: 9px; letter-spacing: 0; }
+
+  /* 单卡 ≈ 42；同角两张：slot0 top 4，slot1 top 48（4 + 42 + 2） */
+  .sk-room-lt.sk-slot-0 { left: 4px; top: 4px; }
+  .sk-room-lt.sk-slot-1 { left: 4px; top: 48px; }
+  .sk-room-lb.sk-slot-0 { left: 4px; bottom: 48px; }
+  .sk-room-lb.sk-slot-1 { left: 4px; bottom: 4px; }
+  .sk-room-rt.sk-slot-0 { right: 4px; top: 4px; }
+  .sk-room-rt.sk-slot-1 { right: 4px; top: 48px; }
+  .sk-room-rb.sk-slot-0 { right: 4px; bottom: 48px; }
+  .sk-room-rb.sk-slot-1 { right: 4px; bottom: 4px; }
+
+  /* 面板与输入都在 .ops-dock 流内，矮屏只需限高，不再需要左右让位。
+     ⚠ 13vh 仍然偏高：844×390 里顶栏 57 + 面板 50 + 输入 46 = 153，场景只剩 ~215px。
+     压到 10vh（≈39px，一行事件的高度）+ 输入行压到 34px，场景可拿回 ~60px。 */
+  #screen-game #region-dec {
+    max-height: 10vh;
+    padding: 2px 8px;
   }
-  #screen-game .scene-mount { flex: 1 1 0; }
-  #screen-game #region-dec { max-height: 20vh; }
+  #screen-game .ops-dock { padding: 2px 6px 2px; gap: 2px; }
+  #screen-game .sk-bubble { font-size: 12px; padding: 6px 9px; }
+  #screen-game .sk-toast { bottom: 50px; font-size: 12px; padding: 5px 10px; }
+  /* 输入行矮屏收紧：单行高度由 44 压到 34，省下的全给场景 */
+  #screen-game .talkrow input { padding: 5px 10px; font-size: 13px; }
+  #screen-game .talkrow .act { padding: 5px 12px; font-size: 13px; }
+  #screen-game .input-timeline { display: none; }   /* 矮屏省 3px，进度改由顶栏 timerbar 承担 */
+}
+
+/* ---- 竖屏：房间卡改两列网格贴底，场景缩到上半 ---- */
+@media (orientation: portrait) {
+  #screen-game .sk-rooms {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 4px;
+    padding: 4px;
+    align-content: end;
+  }
+  #screen-game .sk-room { position: static; width: auto; }
+  #screen-game .sk-room-art { height: 40px; }
+  #screen-game .sk-room-art img { width: 36px; height: 36px; }
+  #screen-game .sk-room-art .p0 { left: 12px; top: 2px; }
+  #screen-game .sk-room-art .p1,
+  #screen-game .sk-room-art .p2 { display: none; }
+  #screen-game .sk-room-cap b { font-size: 10px; letter-spacing: 0; }
+  #screen-game #region-dec,
+  #screen-game .input-dock { width: calc(100% - 16px); }
 }

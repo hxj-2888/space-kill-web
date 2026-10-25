@@ -1,0 +1,277 @@
+/* =============================================================
+ * 场景化 UI · 批 S1（2026-10-25）
+ * ⚠ 本文件必须排在 style.css @import 列表【最末】——与 05-late-overrides 同理，
+ *   同特异性靠后取胜；场景层样式会压过前段对 .seg-roster 区的布局规则。
+ * 本批范围：圆桌场景容器 + 席位状态件（闭眼/出局/自己高亮）+ 矮横屏约束。
+ *   房间环/背景/书记官 = S2；交互 = S3a；气泡与散桌 = S3b。
+ * ============================================================= */
+
+/* ---- 场景容器（左栏：名单的视觉替身） ----
+   roster 的显隐由本文件按视口切换（响应式布局，非状态显隐——05 层媒体档同例）：
+   桌面/常规横屏/竖屏 = 场景；矮横屏 = 切回旧名单横条（单列预算 46px 是既有平衡，
+   手机场景专项布局归 S5，本批不挤占）。 */
+/* ---- 〔S5 布局收敛〕board 两栏：主区（场景+行动面板+输入）+ 侧栏（三入口） ----
+   旧三栏（roster / chatlog 流水）退役：场景即名单、发言走气泡+书记官档案。
+   03/05 层对 .board 三栏与 .seg-stage/.region-* 的规则随之成为死码（本层覆盖）。 */
+#screen-game .board {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) clamp(250px, 21vw, 330px);
+  gap: 10px;
+}
+#screen-game .seg-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  gap: 8px;
+  overflow: hidden;
+}
+#screen-game .seg-side { min-height: 0; }
+
+/* 场景（主视觉，占主区余量） */
+#screen-game .scene-mount {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  position: relative;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #060a12;
+}
+/* 〔S2〕太空船背景（CC0）：底层位图 + 压暗；装饰层不承载游戏信息 */
+#screen-game .scene-mount::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: url("../assets/scene/bg/spaceship-interior-1600.jpg") center / cover no-repeat;
+  filter: brightness(.42) saturate(.8);
+  pointer-events: none;
+}
+#screen-game .scene-mount::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 55%, transparent 42%, rgba(3, 6, 12, .62) 100%);
+  pointer-events: none;
+}
+.sk-scene {
+  flex: 1 1 0;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  display: block;
+  position: relative;
+  z-index: 1;
+}
+
+/* ---- 〔S5〕行动面板（场景下缘）：决策/事件/表单的宿主——renderForm 的内容原样
+   渲染进 #stage-body（协议不变），这里只给「贴场景的浮层卡片」的皮 ---- */
+#screen-game #region-dec {
+  flex: 0 0 auto;
+  max-height: 44vh;
+  overflow-y: auto;
+  border-radius: 12px;
+  background: rgba(10, 15, 25, .92);
+  border: 1px solid #2a3550;
+  padding: 8px 10px;
+}
+#screen-game #region-dec:empty { display: none; }
+#screen-game .stage-body { min-height: 0; }
+#screen-game .stage-actions { margin-top: 6px; }
+/* 表单控件场景化重皮：radio/checkbox label → 胶囊按钮观感 */
+#screen-game #region-dec .opts { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0; }
+#screen-game #region-dec .opts.grid3 { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+#screen-game #region-dec .opt {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  background: rgba(21, 29, 46, .9);
+  border: 1px solid #2a3550;
+  border-radius: 9px;
+  padding: 6px 9px;
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+}
+#screen-game #region-dec .opt:hover { border-color: #4dabf7; }
+#screen-game #region-dec .opt.sel { border-color: #ffd43b; background: rgba(52, 42, 14, .55); }
+#screen-game #region-dec .opt.dis { opacity: .45; cursor: default; }
+#screen-game #region-dec .opt input { margin-top: 3px; }
+#screen-game #region-dec .sec { margin: 6px 0 3px; }
+#screen-game #region-dec .evt,
+#screen-game #region-dec .prv { border-radius: 8px; }
+
+/* ---- 〔S2〕人类工具舱房间环（信息态；点亮 = S3a） ---- */
+.sk-rooms {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  padding: 6px 8px;
+}
+.sk-room {
+  background: rgba(13, 20, 34, .82);
+  border: 1px solid #2a3550;
+  border-radius: 8px;
+  text-align: center;
+  padding: 4px 2px 5px;
+  cursor: default;
+  transition: border-color .2s, box-shadow .2s;
+  user-select: none;
+}
+.sk-room:hover { border-color: #4dabf7; box-shadow: 0 0 8px rgba(77, 171, 247, .25); }
+.sk-room-ico { font-size: 14px; line-height: 1.25; display: block; }
+.sk-room b { display: block; font-size: 11px; font-weight: 700; color: #dbe4f3; }
+
+/* ---- 〔S2〕书记官台（摆件；档案面板 = S3b） ---- */
+.sk-scribe {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 8px 8px;
+  padding: 6px 10px;
+  background: rgba(10, 15, 25, .88);
+  border: 1px solid #2a3550;
+  border-radius: 10px;
+  cursor: default;
+  user-select: none;
+}
+.sk-scribe:hover { border-color: #ffd43b; }
+.sk-scribe img { width: 34px; height: 34px; border-radius: 50%; border: 2px solid #7a8699; flex: 0 0 auto; }
+.sk-scribe-t b { display: block; font-size: 12px; color: #dbe4f3; }
+.sk-scribe-t i { display: block; font-style: normal; font-size: 10.5px; color: #8a97b0; }
+
+/* ---- 〔S3a〕交互态 ---- */
+.sk-seat { cursor: pointer; }
+.sk-room { cursor: pointer; }
+.sk-room.sk-lit {
+  border-color: #ffd43b;
+  box-shadow: 0 0 10px rgba(255, 212, 59, .4);
+  animation: sk-room-lit 1.6s ease-in-out infinite;
+}
+@keyframes sk-room-lit {
+  50% { box-shadow: 0 0 18px rgba(255, 212, 59, .75); }
+}
+.sk-core { cursor: pointer; }
+.sk-core.sk-lit {
+  stroke: #ffd43b;
+  animation: sk-core-lit 1.6s ease-in-out infinite;
+}
+@keyframes sk-core-lit {
+  50% { stroke: #ffe58a; fill: #274d6e; }
+}
+/* 目标选中环（场景 ↔ 表单联动：#f-targets/#f-pool 的 checked 态投射） */
+.sk-seat .sk-sel-ring { pointer-events: none; }
+.sk-seat.sk-sel .sk-num-bg { stroke: #4dabf7; fill: #12355c; }
+.sk-seat.sk-sel image { filter: brightness(1.18) drop-shadow(0 0 6px rgba(77, 171, 247, .9)); }
+
+/* 场景内轻提示（替代 alert；纯展示，不承载决策） */
+.sk-toast {
+  position: absolute;
+  left: 50%;
+  bottom: 64px;
+  transform: translateX(-50%) translateY(8px);
+  background: rgba(12, 18, 30, .95);
+  border: 1px solid #3d6b96;
+  color: #dbe4f3;
+  font-size: 12px;
+  padding: 6px 12px;
+  border-radius: 9px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .25s, transform .25s;
+  z-index: 30;
+  max-width: 88%;
+  text-align: center;
+}
+.sk-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* 点房间/核心 → 表单闪烁引导 */
+#stage-body.sk-flash { animation: sk-flash 0.9s ease-out 1; }
+@keyframes sk-flash {
+  0% { box-shadow: inset 0 0 0 2px rgba(255, 212, 59, .9); }
+  100% { box-shadow: inset 0 0 0 2px rgba(255, 212, 59, 0); }
+}
+
+/* ---- 〔S3b〕散桌补间与发言气泡 ----
+   席位 transform 由 JS 写 style；transition 只在首次布局完成后启用（sk-anim），
+   避免重建时从 (0,0) 飞入。 */
+.sk-scene.sk-anim .sk-seat { transition: transform 1.05s cubic-bezier(.5, .05, .3, 1); }
+.sk-bubbles {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 20;
+}
+.sk-fo { overflow: visible; }
+.sk-bubble {
+  background: rgba(233, 240, 252, .96);
+  color: #12203a;
+  border-radius: 12px;
+  padding: 7px 10px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .45);
+  max-height: 72px;
+  overflow: hidden;
+  animation: sk-pop .25s ease-out, sk-fade 5.2s ease-in forwards;
+}
+.sk-bubble .who { font-weight: 800; font-size: 11px; color: #33507e; margin-right: 4px; }
+.sk-bubble.sk-me { background: rgba(255, 222, 125, .97); }
+.sk-bubble.sk-me .who { color: #7a5b00; }
+@keyframes sk-pop { from { transform: scale(.72) translateY(6px); opacity: 0; } }
+@keyframes sk-fade { 0%, 72% { opacity: 1; } 100% { opacity: 0; } }
+
+/* ---- 圆桌与船核心 ---- */
+.sk-table {
+  fill: #16202f;
+  stroke: #33445f;
+  stroke-width: 3;
+}
+.sk-core { fill: #152a40; stroke: #3d6b96; stroke-width: 2; }
+.sk-core-night {
+  animation: sk-breathe 2.4s ease-in-out infinite;
+}
+@keyframes sk-breathe {
+  50% { stroke: #86c0f2; fill: #1d3b57; }
+}
+.sk-core-t { fill: #4dabf7; font-size: 12px; letter-spacing: 2px; }
+
+/* ---- 席位 ---- */
+.sk-seat { cursor: default; }
+.sk-seat image { transition: filter .25s; }
+.sk-num-bg { fill: #0d1524; stroke-width: 1.5; }
+.sk-num { fill: #fff; font-weight: 800; font-size: 12px; }
+
+/* 自己席位：金环脉冲（签名重绘不频繁，动画不会被 tick 打断） */
+.sk-mine { filter: drop-shadow(0 0 5px rgba(255, 212, 59, .75)); animation: sk-mine-pulse 1.8s ease-in-out infinite; }
+@keyframes sk-mine-pulse {
+  50% { filter: drop-shadow(0 0 13px rgba(255, 212, 59, .95)); }
+}
+
+/* 夜间闭眼：暗幕 + 眼帘纹（观察者视角——除自己外全员闭眼） */
+.sk-lids { fill: rgba(4, 8, 15, .52); }
+.sk-lids-t { fill: #c7d4ec; font-size: 11px; }
+
+/* 出局（公开信息）：灰度离席 + ✕；濒死是私有信息——本层零视觉（4.10.4） */
+.sk-out image { filter: grayscale(1) brightness(.5); }
+.sk-out .sk-num-bg { fill: #2a1f22; }
+.sk-out-x { fill: #ff6b6b; font-weight: 800; font-size: 13px; }
+
+/* ---- 矮横屏：场景保持主视觉但限高（名单已由场景承担，无回退布局） ----
+   ⚠ 05 层同档定义了 #screen-game .board 的单列 columns + 46px/1fr rows（旧 roster 横条预算）
+   ——本块必须逐项压回（同特异性靠后取胜），否则主区被压进 46px 行（实测踩过）。 */
+@media (orientation: landscape) and (max-height: 560px) {
+  #screen-game .board {
+    grid-template-columns: minmax(0, 1fr) clamp(220px, 24vw, 300px);
+    grid-template-rows: minmax(0, 1fr);
+  }
+  #screen-game .scene-mount { flex: 1 1 0; }
+  #screen-game #region-dec { max-height: 20vh; }
+}

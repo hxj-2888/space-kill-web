@@ -26,8 +26,8 @@
         <h1>返航录 <span class="sub">三阵营对抗</span></h1>
         <div class="start-actions" id="start-actions">
           <button id="btn-music-start" class="act" title="背景音乐开关（与音效独立）">♫ 音乐：开</button>
-          <button id="btn-sfx-start" class="act" title="音效开关（与音乐独立）">🔔 音效：开</button>
-          <button id="btn-rules-start" class="act">📖 规则速览</button>
+          <button id="btn-sfx-start" class="act" title="音效开关（与音乐独立）">音效：开</button>
+          <button id="btn-rules-start" class="act">规则速览</button>
         </div>
       </div>
 
@@ -37,7 +37,7 @@
            〔45〕首页新增「自选身份」（软偏好），见下方 .role-pick。 -->
       <div class="preview-note">
         <span class="pn-badge">V1preview</span>
-        <span><b>返航录 V1preview</b>（原名太空杀；规则口径 v1preview1.0）· 可玩测试版 —— 本版落地<b>强力乔装与染血指认</b>、<b>外星人逃亡（次胜）</b>、<b>摆渡人 · 疫苗研究员</b>两个新席位职业，后续将全力优化 <b>AI 判断逻辑</b> 与 <b>AI 语言</b>。</span>
+        <span><b>返航录 V1preview</b>（原名返航录；规则口径 v1preview1.0）· 可玩测试版 —— 本版落地<b>强力乔装与染血指认</b>、<b>外星人逃亡（次胜）</b>、<b>摆渡人 · 疫苗研究员</b>两个新席位职业，后续将全力优化 <b>AI 判断逻辑</b> 与 <b>AI 语言</b>。</span>
       </div>
 
       <!-- 本局配置预览条：这是即将开局的预设，不是实时战况；总数与分项呈包含关系 -->
@@ -59,10 +59,10 @@
         <div class="mode-card main">
           <h2>单机对局</h2>
           <div class="faction-pick">
-            <label class="fp fp-random active"><input type="radio" name="fac" value="random" checked /><span class="fp-ico">🎲</span><span class="fp-nm">随机</span><span class="fp-ds">系统随机分配阵营</span></label>
-            <label class="fp fp-human"><input type="radio" name="fac" value="human" /><span class="fp-ico">🧑‍🚀</span><span class="fp-nm">人类</span><span class="fp-ds">修船 · 查验 · 撑到倒计时归零</span></label>
-            <label class="fp fp-alien"><input type="radio" name="fac" value="alien" /><span class="fp-ico">👾</span><span class="fp-nm">异形</span><span class="fp-ds">潜伏 · 击杀 · 感染，三人小队共享情报</span></label>
-            <label class="fp fp-xeno"><input type="radio" name="fac" value="xeno" /><span class="fp-ico">👽</span><span class="fp-nm">外星人</span><span class="fp-ds">独狼搅局 · 夜行免疫 · 觉醒双刀</span></label>
+            <label class="fp fp-random active"><input type="radio" name="fac" value="random" checked /><span class="fp-nm">随机</span><span class="fp-ds">系统随机分配阵营</span></label>
+            <label class="fp fp-human"><input type="radio" name="fac" value="human" /><span class="fp-nm">人类</span><span class="fp-ds">修船 · 查验 · 撑到倒计时归零</span></label>
+            <label class="fp fp-alien"><input type="radio" name="fac" value="alien" /><span class="fp-nm">异形</span><span class="fp-ds">潜伏 · 击杀 · 感染，三人小队共享情报</span></label>
+            <label class="fp fp-xeno"><input type="radio" name="fac" value="xeno" /><span class="fp-nm">外星人</span><span class="fp-ds">独狼搅局 · 夜行免疫 · 觉醒双刀</span></label>
           </div>
           <!-- 〔44〕自选身份：软偏好。不选 = 系统随机分配原样不变；选了则尽量给到。
                双向联动规则见 js/ui.js 的 mountRolePicker：选身份会带上阵营，改阵营会清掉冲突的身份。 -->
@@ -70,7 +70,7 @@
             <div class="rp-head">
               <span class="rp-cap">选择身份<em>可选 · 不选则由系统随机分配</em></span>
               <span class="rp-slot">
-                <button type="button" class="rp-chip" id="role-chip" aria-haspopup="dialog">未选择 🎲</button>
+                <button type="button" class="rp-chip" id="role-chip" aria-haspopup="dialog">未选择</button>
                 <button type="button" class="act tiny" id="role-clear" hidden>清除</button>
               </span>
             </div>
@@ -148,8 +148,9 @@
     </div>
   </section>
 
-  <!-- ============ 对局（v33：顶部状态条 + 左中右 3:5:2 三栏；
-       左栏只留玩家格子，中栏 = 发言流水 70% + 决策区 + 输入组，右栏 = 页签面板 + 规则折叠入口） ============ -->
+  <!-- ============ 对局（R2 重设计：飞船场景即主页面） ============
+       主区 = 圆桌场景（15 席 + 8 个技能室 + 船核心）+ 底部操作区（行动面板 + 输入）。
+       表单式三栏（左名单 / 中发言流水 / 右页签）已整体退役，见 backup/form-ui-20261025/。 -->
   <section id="screen-game" class="screen hidden">
     <div id="banner" class="banner hidden"></div>
     <div id="dev-overlay" class="hidden">
@@ -159,11 +160,11 @@
     <div id="p-pop" class="hidden"></div>
     <div id="dev-chip" class="devchip hidden">DEV 已开启 · 展开总览</div>
 
-    <!-- 竖屏提示（v35 移动端适配）：竖屏放不下三栏，明确引导旋转而非硬塞一套劣化布局 -->
+    <!-- 竖屏提示：竖屏放不下飞船全景与 8 个技能室，明确引导旋转而非硬塞一套劣化布局 -->
     <div id="rot-hint" aria-live="polite">
-      <div class="rot-ico">📱↻</div>
+      <div class="rot-ico">↻</div>
       <b>请横屏游玩</b>
-      <span>竖屏无法容纳三栏布局，旋转手机后即可进入对局</span>
+      <span>竖屏放不下飞船全景与 8 个技能室，旋转手机后即可进入对局</span>
     </div>
 
     <!-- 〔42〕扫码下载浮层已移除（游戏内不做分发下载），对应 assets/qr/ 与 openApkQr 一并退役 -->
@@ -180,10 +181,10 @@
       <!-- 圆钮组并入状态条右端（定尺寸控件，不参与信息增减） -->
       <div class="orb-bar">
         <button id="btn-side-toggle" class="orb" title="公告 / 私人 / 阵营面板" style="display:none">☰</button>
-        <button id="btn-rules" class="orb" title="规则速览（v6.6 精简）">📖</button>
+        <button id="btn-rules" class="orb" title="规则速览（v6.6 精简）"></button>
         <button id="btn-dev" class="orb" title="开发者视角（含我的账本）">DEV</button>
         <button id="btn-music" class="orb" title="背景音乐开关">♫</button>
-        <button id="btn-sfx" class="orb" title="音效开关">🔔</button>
+        <button id="btn-sfx" class="orb" title="音效开关"></button>
         <span class="tempo-ctl" title="背景音乐播放速度（0.5× ~ 2×，拖动条调节）">
           <input type="range" id="tempo-slider" min="0.5" max="2" step="0.05" value="1" aria-label="背景音乐速度" />
           <b id="tempo-val">×1.00</b>
@@ -194,45 +195,37 @@
     </div>
 
     <div class="board">
-      <!-- 〔S5 布局收敛〕主区 = 圆桌场景（主视觉）+ 场景下缘行动面板 + 输入 dock。
-           旧表单式三栏退役：roster（场景即名单）、chatlog 流水（发言走气泡+书记官档案）。
+      <!-- 〔R2 重设计〕主区 = 场景（唯一主视觉）+ 浮层行动面板 + 输入 dock。
+           表单式设计已整体退役并归档到 backup/form-ui-20261025/：
+             · 右栏三页签（书记官档案 / 我的日记 / 阵营日记）—— 删除
+             · 发言流水（一行一行的列表）—— 删除，发言改为场景气泡
+             · 公告列表（右栏按夜分组）—— 删除，公告改在行动面板逐条浮现
            决策/事件面板（stage-body/actions）保留原 id 与渲染函数——位置与皮换，协议不变。 -->
       <section class="seg seg-main">
-        <div id="scene-mount" class="scene-mount" aria-label="圆桌场景"></div>
-        <div id="region-dec">
-          <div id="stage-body" class="stage-body"></div>
-          <div id="stage-actions" class="stage-actions"></div>
-        </div>
-        <div class="input-dock">
-          <!-- 决策窗口收缩进度线（≤30s 青转橙红并脉冲），恒定 3px 高不占增量 -->
-          <div class="input-timeline"><i id="input-timeline-fill"></i></div>
-          <!-- 识别预览：悬浮于输入组上方，不占布局流 -->
-          <div id="talk-preview" class="talk-preview hidden"></div>
-          <!-- @ 提及自动补全浮层（悬浮，不占布局流） -->
-          <div id="at-pop" class="at-pop hidden"></div>
-          <div id="talkbar" class="talkrow hidden">
-            <input id="f-text" type="text" placeholder="输入发言…（≤120 字，点击场上玩家可自动生成讯问句）" maxlength="120" />
-            <button id="btn-send" class="act primary">发送</button>
+        <div id="scene-mount" class="scene-mount" aria-label="飞船场景"></div>
+        <!-- 〔R2〕底部操作区：行动面板 + 输入，二者在流内竖排（不再绝对定位贴场景底缘
+             ——旧做法会压住底部三个席位，实测矮横屏 1/2/15 号被输入框盖住）。 -->
+        <div class="ops-dock">
+          <div id="region-dec">
+            <div id="stage-body" class="stage-body"></div>
+            <div id="stage-actions" class="stage-actions"></div>
           </div>
-          <div id="f-camp-row" class="talkrow hidden">
-            <input id="f-camp" type="text" placeholder="队内频道（异形专属）：白天密谈，仅队友可见，AI 队友会真的听见" maxlength="120" />
-            <button id="btn-camp" class="act">队内发送</button>
+          <div class="input-dock">
+            <!-- 决策窗口收缩进度线（≤30s 青转橙红并脉冲），恒定 3px 高不占增量 -->
+            <div class="input-timeline"><i id="input-timeline-fill"></i></div>
+            <!-- 识别预览：悬浮于输入组上方，不占布局流 -->
+            <div id="talk-preview" class="talk-preview hidden"></div>
+            <!-- @ 提及自动补全浮层（悬浮，不占布局流） -->
+            <div id="at-pop" class="at-pop hidden"></div>
+            <div id="talkbar" class="talkrow hidden">
+              <input id="f-text" type="text" placeholder="输入发言…（≤120 字，点击场上玩家可自动生成讯问句）" maxlength="120" />
+              <button id="btn-send" class="act primary">发送</button>
+            </div>
+            <div id="f-camp-row" class="talkrow hidden">
+              <input id="f-camp" type="text" placeholder="队内频道（异形专属）：白天密谈，仅队友可见，AI 队友会真的听见" maxlength="120" />
+              <button id="btn-camp" class="act">队内发送</button>
+            </div>
           </div>
-        </div>
-      </section>
-
-      <!-- 右栏：三入口页签面板 + 底部规则折叠入口 -->
-      <section class="seg seg-side">
-        <div class="tabs" id="nb-tabs">
-          <!-- 〔S3b-3〕三入口：书记官只记公开信息（公告+公开发言）；私人→我的日记；
-               阵营→阵营日记（异形专属）。数据口径与原页签逐字一致（零变更）。 -->
-          <button class="tab active" data-tab="pub">📜 书记官档案</button>
-          <button class="tab" data-tab="priv">📔 我的日记</button>
-          <button class="tab" data-tab="camp">👥 阵营日记</button>
-        </div>
-        <div id="side-body" class="side-body"></div>
-        <div class="side-foot">
-          <button id="btn-rules-side" class="act">📖 规则速览</button>
         </div>
       </section>
     </div>

@@ -87,7 +87,7 @@ const SKD = global.SKDerivation;               // 〔43〕阵营成员 ≠ 能�
       lastTickSec = s;
       if (global.SKAudio) global.SKAudio.sfx('tick');
     }
-    if (live) live.textContent = `⏱ ${s}s${waitTxt}`;
+    if (live) live.textContent = `${s}s${waitTxt}`;
     if (fl) fl.textContent = s;
     if (live) live.style.color = s <= 5 ? '#ff5a7a' : 'var(--accent)';
     const pct = Math.max(0, Math.min(100, (info.left / info.duration) * 100));
@@ -182,7 +182,7 @@ const SKD = global.SKDerivation;               // 〔43〕阵营成员 ≠ 能�
       html += `<div class="kv"><span>身份</span><span class="${facCls(p.faction)}">${facName(p.faction)} · ${esc(p.roleName)}${p.transferred ? '（原职业：普通船员）' : ''}</span></div>`;
       if (p.theta) html += `<div class="kv"><span>西塔档</span><span>θ${p.theta}${p.isHuman ? ' · 真人席位' : ' · AI'}</span></div>`;
       html += `<div class="kv"><span>状态</span><span>${p.out
-        ? (p.outType === 'vote' ? '💀 第' + p.outNight + ' 夜被驱逐' : '💀 第' + p.outNight + ' 夜死于' + (D.CAUSE_NAME[p.cause] || '—'))
+        ? (p.outType === 'vote' ? '第' + p.outNight + ' 夜被驱逐' : '第' + p.outNight + ' 夜死于' + (D.CAUSE_NAME[p.cause] || '—'))
         : skillDesc(g, rec)}</span></div>`;
       if (rec.infection) html += `<div class="kv"><span>感染</span><span>${rec.infection.real === false ? '假标记（欺诈）' : '真感染 · 第 ' + rec.infection.deathNight + ' 夜致死'}</span></div>`;
       if (p.claimedRole) html += `<div class="kv"><span>曾声称</span><span>${esc(D.ROLES[p.claimedRole] ? D.ROLES[p.claimedRole].name : p.claimedRole)}</span></div>`;
@@ -217,9 +217,23 @@ const SKD = global.SKDerivation;               // 〔43〕阵营成员 ≠ 能�
       /* 非开发者：只展示公开可知信息（数据源 = View.sanitize 后的 pv） */
       const k = knownLabel(g, me, pv);
       html += `<div class="kv"><span>身份</span><span>${k ? esc(k) : '未知'}</span></div>`;
-      if (pv.out) html += `<div class="kv"><span>出局</span><span>${pv.outType === 'vote' ? '💀 第' + pv.outNight + ' 夜被驱逐' : '💀 第' + pv.outNight + ' 夜死于' + (D.CAUSE_NAME[pv.cause] || '—')}</span></div>`;
+      if (pv.out) html += `<div class="kv"><span>出局</span><span>${pv.outType === 'vote' ? '第' + pv.outNight + ' 夜被驱逐' : '第' + pv.outNight + ' 夜死于' + (D.CAUSE_NAME[pv.cause] || '—')}</span></div>`;
       if (pv.accusers && pv.accusers.length) html += `<div class="kv"><span>曾被指控</span><span>${pv.accusers.join('、')} 号</span></div>`;
       if (!g.dev) html += `<div class="empty">开启 DEV 后可查看完整私有信息（技能 / 各 AI 视角威胁度 / 记事本）。</div>`;
+    }
+    /* 〔R2〕右栏「阵营日记」已随表单式设计删除，但 selfPanel / campPanel 承载的
+       **本人资产与阵营共享信息**是玩家真正需要的（死囚资产隔离、异形队内共享、
+       技能余额）。这里把它们并入玩家详情弹窗的「我的状态」段 —— 数据源与口径
+       逐字未变，只是入口从右栏页签换成「点自己席位」。
+       注意：只对**自己**展开（别人看我的资产属私有信息，2.8.7）。 */
+    if (me && p.id === me.id) {
+      try {
+        html += '<div class="sec">我的状态 · 技能与资产</div>' + selfPanel(g, me);
+        const camp = campPanel(g, me);
+        if (camp && camp.trim()) html += '<div class="sec">阵营共享</div>' + camp;
+      } catch (e) {
+        html += '<div class="empty">状态面板渲染失败：' + esc(e && e.message ? e.message : String(e)) + '</div>';
+      }
     }
     pop.innerHTML = html;
     pop.classList.remove('hidden');
@@ -237,23 +251,11 @@ const SKD = global.SKDerivation;               // 〔43〕阵营成员 ≠ 能�
 
   /* 〔43〕主区 = f(阶段)：区域布局的唯一裁决点
      ------------------------------------------------------------
-     改造前：#chatlog 与 #stage-body 是两个**常驻** DOM，各占一半高度，与当前阶段无关。
-       夜里没有公开发言，发言区照样占着半屏（显示「暂无公开发言」），真正要看的
-       私聊 / 决策 / 公告报告被挤在半屏里 —— 这是「主区留空」的根因。
-
-     四个布局键（写入 #seg-stage[data-layout]，由 CSS v43 段消费）：
-       talk     实时讨论窗口（D-open / D-talk / M-talk / M-speech）——公开发言即主流程，
-                决策区压到副位。**不看 phase**：步骤 10 紧急会议虽在夜间相内，
-                但它本质是讨论窗口，收起发言区等于让玩家看不见自己在讨论什么。
-       day-form 白天待决策表单（D-vote 投票 / D-will 留言 / D-report 窃听报告）——
-                发言区压到副位但**不隐藏**：投票时要对照刚才的发言。
-       day      白天自动步骤 —— 发言区为主。
-       night    夜间（不论是否有表单）—— **发言区整体收起**，主区只剩
-                私聊 / 决策 / 公告报告。
-
-     为什么夜间连表单也不留发言区：夜间没有任何公开发言（发言流水按 `t.night === g.night`
-     过滤，夜里本就是空的），留着它等于一块永远写着「暂无公开发言」的死区。
-     白天的发言全文改由右栏「发言」页签随时回看。 */
+     〔R2 2026-10-25 现状〕发言流水（#chatlog）与右栏三页签已随表单式设计删除，
+     布局键目前只驱动 **#region-dec 的显隐**（夜间无表单时也可能为空 → 面板自动隐藏）。
+     四个键保留原语义，是为了「紧急会议在夜间相内仍按 talk 处理」这条规则判断不变形；
+     tChat / tDec 两个标题字段已无消费点（标题随 #t-chat/#t-dec 一起退役），
+     但**保留字段**以免将来恢复分栏时又要重算一遍语义。 */
   function stageLayout(g) {
     const phase = (g && g.phase) || 'day';
     const stream = !!(g && g.pending && g.pending.stream);
@@ -337,7 +339,7 @@ const SKD = global.SKDerivation;               // 〔43〕阵营成员 ≠ 能�
         ? (waiting ? `等待其他玩家决策（剩 ${waiting} 人）` : '点击「继续」立即推进')
         : '点击「继续」推进；需要你操作时会自动停下。'}</span>
         <label class="hint" style="flex:0 0 auto"><input type="checkbox" id="chk-fast" ${global.Game.fast ? 'checked' : ''}/> 快速模式</label>
-        <button class="act" id="btn-next">继续 ▶</button>`;
+        <button class="act" id="btn-next">继续</button>`;
       const bn = el('btn-next');
       if (bn) bn.onclick = () => global.Game.next();
       const cf = el('chk-fast');
@@ -375,7 +377,7 @@ const SKD = global.SKDerivation;               // 〔43〕阵营成员 ≠ 能�
       : '';
     acts.innerHTML = `<b id="timer-live" class="live"></b>
       <span class="hint">${askNote}发言立即对全场可见；点名指控会立即抬高对方威胁度，影响 AI 投票。</span>
-      <button class="act ghost" id="btn-submit">结束讨论 ▶</button>`;
+      <button class="act ghost" id="btn-submit">结束讨论</button>`;
     showTalkBar(g);
     el('btn-submit').onclick = () => { global.SKAudio.sfx('click'); global.Game.submit({}); };
   }
@@ -536,7 +538,7 @@ const SKD = global.SKDerivation;               // 〔43〕阵营成员 ≠ 能�
       if (hint) {
         hint.innerHTML = `<b style="color:var(--warn)">${esc(msg)}</b><br/>再次点击「${esc(f.skipLabel ? '提交' : '提交')}」即确认发动。`;
       }
-      el('btn-submit').textContent = '确认发动 ▶';
+      el('btn-submit').textContent = '确认发动';
       el('btn-submit').classList.add('primary');
     };
     el('btn-submit').onclick = () => {
@@ -806,113 +808,14 @@ const SKD = global.SKDerivation;               // 〔43〕阵营成员 ≠ 能�
     return html;
   }
 
-  function renderSide(g, V) {
-    const me = E.P(g, g.humanId);
-    const box = el('side-body');
-    document.querySelectorAll('#nb-tabs .tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
-    if (!me) { box.innerHTML = '<div class="empty">—</div>'; return; }
-
-    if (tab === 'pub') {
-      /* v32（用户拍板）：公告按夜数分组记录——同一夜的公告聚合显示，最新夜在最上 */
-      const rows = g.log.filter(e => e.batch && visible(g, e));
-      const byNight = new Map();
-      for (const e of rows) {
-        if (!byNight.has(e.night)) byNight.set(e.night, []);
-        byNight.get(e.night).push(e);
-      }
-      /* v34 C5：夜晚事件按昼夜折叠收起（最新夜默认展开），右侧滚动区吸收增减 */
-      const ann = byNight.size
-        ? [...byNight.entries()].sort((a, b) => b[0] - a[0]).map(([night, items], idx) =>
-          `<details class="night-fold"${idx === 0 ? ' open' : ''}><summary>第 ${night} 夜 · ${items.length} 条公告</summary>` +
-          items.map(e => `<div class="logline"><span class="b">${e.batch}</span> ${esc(e.text)}</div>`).join('') +
-          `</details>`).join('')
-        : '<div class="empty">暂无公告</div>';
-      /* 〔S3b-3〕书记官档案 = 公告 + 公开发言（原「发言」页签并入，数据口径逐字不变——
-         书记官只记公开信息，不记任何私人/阵营内容） */
-      const speaks = (g.chatLog || []).slice().reverse();
-      const speak = speaks.length ? speaks.map(t =>
-        `<div class="logline"><span class="n">第${t.night}夜·${esc(t.kind)}</span> <span class="b">${t.id} 号</span> ${esc(t.text)}</div>`
-      ).join('') : '<div class="empty">暂无公开发言</div>';
-      box.innerHTML = `<div class="sec">📜 书记官档案 · 只记公开信息，不参与游戏</div>${ann}
-        <div class="sec" style="margin-top:8px">公开发言流水</div>${speak}`;
-    } else if (tab === 'speak') {
-      const rows = (g.chatLog || []).slice().reverse();
-      box.innerHTML = rows.length ? rows.map(t =>
-        `<div class="logline"><span class="n">第${t.night}夜·${esc(t.kind)}</span> <span class="b">${t.id} 号</span> ${esc(t.text)}</div>`
-      ).join('') : '<div class="empty">暂无</div>';
-    } else if (tab === 'priv') {
-      box.innerHTML = me.inbox && me.inbox.length ? me.inbox.slice().reverse().map(e =>
-        `<div class="logline"><span class="n">第${e.night}夜</span> ${esc(e.text)}</div>`
-      ).join('') : '<div class="empty">暂无私人反馈</div>';
-    } else if (tab === 'camp') {
-      box.innerHTML = selfPanel(g, me) + campPanel(g, me);
-    /* 出局记录：〔42〕改读 View.sanitize 后的 pv —— 出局者的身份本就经 ⑥死亡 / ⑩驱逐 公告公开
-       （2.3.4 / 4.10.6，含真实阵营与呈现职业），故取 p.revealed 即是合法口径；
-       原先直读 g.players 的 roleName/faction/transferred 里，transferred（转职史）
-       与 originRole（原职业底册）依 2.8.7 / 2.8.12④ 一律不公开，已一并去掉。 */
-    } else if (tab === 'out') {
-      const src = othersOf(g, V);
-      const rows = src.filter(p => p.out);
-      /* 职业余额表（显示方案 1.3）：总数由声明层派生（人类席位来自 2.8.14 组位表，
-         非人类名额来自各阵营角色的 seats）——取代此前写死的 totals 与角色键清单。
-         D6/D8：加角色/改席位只改声明，本表自动跟上。 */
-      const totals = RD.roleTotals();
-      /* 〔42〕已揭示职业一律取 p.revealed.role（公告授权的那一份），不再用
-         originRole||role —— 后者会把「转职前的底册」与「真身」一并带出来。 */
-      const revealedRole = p => (p.revealed && p.revealed.role) || null;
-      let balance = '<div class="sec">职业余额表（已揭示出局 / 总数）</div>';
-      for (const r of RD.keys().filter(k => totals[k] > 0)) {
-        const outN = src.filter(p => p.out && revealedRole(p) === r).length;
-        const left = totals[r] - outN;
-        const facTag = D.ROLES[r].faction !== 'human' ? `（${D.FACTION[D.ROLES[r].faction].name}）` : '';
-        balance += `<div class="kv"><span>${esc(D.ROLES[r].name)}${facTag}</span>` +
-                   `<span>已揭示出局 ${outN} / ${totals[r]} · 剩余身份 ${left >= 0 ? left : 0} 人（含未揭示）</span></div>`;
-      }
-      /* 死因统计（显示方案 1.3）：仅逐夜累计呈现，不给出任何推断结论 */
-      const causes = ['gun', 'alien', 'xeno', 'infect'];
-      let stat = '<div class="sec">死因统计（逐夜累计，仅供自行比对）</div>';
-      for (const c of causes) {
-        const list = src.filter(p => p.out && p.outType !== 'vote' && p.cause === c);
-        stat += `<div class="kv"><span>${esc(D.CAUSE_NAME[c] || c)}</span><span>累计 ${list.length} 人${list.length ? '（' + list.map(p => p.id + ' 号·第' + p.outNight + '夜').join('、') + '）' : ''}</span></div>`;
-      }
-      box.innerHTML = (rows.length ? rows.map(p =>
-        `<div class="kv"><span>${p.id} 号 ${esc(p.name)}</span>
-         <span>${facName(p.faction)} · ${esc(p.roleName)} · ${p.outType === 'vote' ? '驱逐' : D.CAUSE_NAME[p.cause]} · 第${p.outNight}夜</span></div>`).join('')
-        : '<div class="empty">暂无出局者</div>') + balance + stat;
-    } else {
-      const known = g.players.filter(p => p.id !== me.id && ((me.known && me.known.has(p.id)) || p.revealed))
-        .map(p => {
-          const k = (me.known && me.known.get(p.id)) || p.revealed;
-          /* B5：known/揭示条目可能不含阵营字段（2.8.12④），缺阵营时只显示职业 */
-          const parts = [facName(k.faction), k.role ? roleNameOf(k.role) : ''].filter(Boolean);
-          return `<div class="kv"><span>${p.id} 号 ${esc(p.name)}</span><span>${esc(parts.join(' · '))}</span></div>`;
-        }).join('');
-      /* §2.5 记一笔（医师手动誊抄）＋ §2.1 对账便签：均由玩家手动写入备注，UI 不代记 */
-      const isDoc = RD.hasGrant(me.role, 'treat');      // D6：能力标签取代手写角色清单
-      const isCrew = me.role === 'crew' || me.transferred;
-      const quick = isDoc || isCrew ? `<div class="row" style="margin:4px 0">
-        ${isDoc ? '<button class="act" id="btn-jibi">记一笔（标记清单→备注）</button>' : ''}
-        ${isCrew ? '<button class="act" id="btn-duizhang">＋对账便签</button>' : ''}</div>` : '';
-      box.innerHTML = `<div class="sec">已确认身份</div>${known || '<div class="empty">暂无</div>'}
-        ${quick}
-        <div class="sec">自由备注（仅本人可见，出局后不保留）</div>
-        <textarea id="notes" placeholder="你的推理笔记……">${esc(me.notes || '')}</textarea>`;
-      const n = el('notes');
-      if (n) n.onchange = e => { me.notes = e.target.value; };
-      const jb = el('btn-jibi');
-      if (jb) jb.onclick = () => {
-        const marks = g.players.filter(x => !x.out && x.infection).map(x => x.id + ' 号');
-        const snapshot = `\n[记一笔] 第 ${g.night} 夜标记清单：${marks.length ? marks.join('、') : '（无）'}`;
-        me.notes = (me.notes || '') + snapshot;
-        if (n) n.value = me.notes;
-      };
-      const dz = el('btn-duizhang');
-      if (dz) dz.onclick = () => {
-        me.notes = (me.notes || '') + `\n[对账] 第 ${g.night} 夜协助维修，N＝`;
-        if (n) n.value = me.notes;
-      };
-    }
-  }
+  /* 〔R2 重设计〕renderSide（右栏三页签：书记官档案 / 我的日记 / 阵营日记）已整体删除。
+     它是表单式设计的核心：公告按夜分组列表 + 发言流水 + 三页签切换。用户要求「把原来的设计
+     全部删掉，不需要保留那些所谓的流水，还有那个公告」，故：
+       · 公告 → 改在行动面板逐条浮现（renderStage 的 announceHtml，本来就在主区）；
+       · 发言 → 场景气泡（SKScene.updateBubbles）是唯一载体；
+       · 私人反馈 / 阵营信息 → 仍可从玩家详情弹窗（点席位）与 DEV 浮层查看，数据源未动。
+     旧实现完整保留在 backup/form-ui-20261025/ui.js，需要时可取回。 */
+  function renderSide() { /* 已退役：保留空实现，避免 render() 里的调用点需要条件分支 */ }
 
   /* ---------- 复盘 ---------- */
   function renderOver(g) {
@@ -1262,7 +1165,7 @@ const SKD = global.SKDerivation;               // 〔43〕阵营成员 ≠ 能�
     const chip = el('role-chip'), clear = el('role-clear'), note = el('role-note');
     if (!chip) return;
     const k = RP_STATE.role;
-    chip.textContent = k ? `${roleNameOf(k)} · ${facName(RD.ROLE_DECL[k].faction)}` : '未选择 🎲';
+    chip.textContent = k ? `${roleNameOf(k)} · ${facName(RD.ROLE_DECL[k].faction)}` : '未选择';
     chip.classList.toggle('has-role', !!k);
     if (clear) clear.hidden = !k;
     /* 回落说明只在「本局真的没给到所选身份」时出现，不是常驻文案 */
@@ -1355,9 +1258,9 @@ const SKD = global.SKDerivation;               // 〔43〕阵营成员 ≠ 能�
   }
 
   function init() {
-    document.querySelectorAll('#nb-tabs .tab').forEach(t => t.onclick = () => { tab = t.dataset.tab; renderSide(global.Game.g); });
+    /* 〔R2〕右栏三页签已随表单式设计删除（#nb-tabs 不再存在），页签绑定一并退役。 */
     /* 〔批次 41〕音乐与音效两个独立按钮：此前 orb 栏一个♪ 同时管两者，
-       关掉音乐会连带把按键音也关掉。现在 ♫ 只管 BGM、🔔 只管 sfx；
+       关掉音乐会连带把按键音也关掉。现在 ♫ 只管 BGM、 只管 sfx；
        开启态沿用 v32 的黄光边缘提示（与 DEV 按钮激活态同款）。 */
     const bindAudioToggle = (btnId, onToggle) => {
       const b = el(btnId);
@@ -1371,7 +1274,7 @@ const SKD = global.SKDerivation;               // 〔43〕阵营成员 ≠ 能�
       if (b) b.onclick = () => { b.textContent = label + (onToggle() ? '开' : '关'); };
     };
     bindStartToggle('btn-music-start', '♫ 音乐：', () => global.SKAudio.toggleMusic());
-    bindStartToggle('btn-sfx-start', '🔔 音效：', () => global.SKAudio.toggleSfx());
+    bindStartToggle('btn-sfx-start', '音效：', () => global.SKAudio.toggleSfx());
     /* 〔批次 38b〕BGM 播放速度条状滑杆：连续调节 0.5×~2×，即时生效并回显 ×N.NN。
        音乐未起（bgm 关）时只记档，ensure() 时套用——SKAudio.setRate 的语义。
        拖动过程（input）只改速度不出声（连发 tick 会变机关枪），松手（change）才响一声。 */
@@ -1403,7 +1306,7 @@ const SKD = global.SKDerivation;               // 〔43〕阵营成员 ≠ 能�
       if (e.target && e.target.closest && e.target.closest('#dev-chip')) { devOvOpen = true; render(global.Game.g); return; }
       /* v32：开始页顶部两键——音效开关 / 规则速览（黑话术语表已删，〔批次 36〕） */
       if (e.target && e.target.closest && e.target.closest('#btn-rules')) { openRules(); return; }
-      if (e.target && e.target.closest && e.target.closest('#btn-rules-side')) { openRules(); return; }   // v33：右栏底部规则入口
+      /* 〔R2〕右栏底部规则入口已随右栏删除；规则速览仍在顶栏 orb（#btn-rules）。 */
       if (e.target && e.target.closest && e.target.closest('#btn-rules-start')) { openRules(); return; }
       if (e.target && e.target.closest && e.target.closest('#btn-side-toggle')) { toggleSideDrawer(); return; }
       if (e.target && e.target.closest && e.target.closest('#btn-rules-close')) { closeRules(); return; }

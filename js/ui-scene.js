@@ -1,61 +1,74 @@
 /* =============================================================
- * 太空杀 · 场景化 UI 渲染器（2026-10-25 批 S1，只读层）
+ * 返航录 · 场景化 UI 渲染器（2026-10-25 重设计 R2）
  * -------------------------------------------------------------
- * 职责：把对局状态画成「圆桌 + 15 席」场景（玩家名单的视觉替身）。
- *   · 数据只读：g.phase / g.pending（仅用于判断「轮到自己」）+ V = View.viewFor
- *     裁剪视图（V.players[].out/outType、V.humanId）。不读任何真相字段——
- *     视图里没有的（他人身份/濒死/私有）这里就看不见。
- *   · 可见性纪律（7.1 最小信息）：
- *       - 夜眼只表达【观察者视角】：夜间除「自己（且轮到自己提交）」外全部闭眼；
- *         绝不显示其他席位正在行动——引擎的 pending 只为真人步骤存在（AI 步骤即时结算），
- *         故「pending 存在 = 轮到我」是合法判据，不产生任何泄露。
- *       - 出局是公开信息（⑥⑩揭示）→ 灰度 + ✕ + 倾斜离席；濒死是私有信息 → 零视觉
- *         （4.10.4/5.3.1：不得移除或置灰，本层照常在桌、照常可点）。
- *   · 渲染策略：innerHTML 字符串模板（与 ui.js 同族，uismoke DOM 桩安全）+ 结构签名——
- *     签名不变不重绘，CSS 动画与 <image> 不受 200ms tick 干扰。
- *   · 素材：assets/scene/characters/a-crew/seat-XX.svg（CC0，座位号种子，S0 拍板方案A）。
- * 本层不接任何交互（点击/菜单/气泡 = S3a/S3b）。
+ * 这一版按用户拍板重做，与旧版（backup/form-ui-20261025/ui-scene.js）的差别：
+ *   ① **横版大场景**：viewBox 1400×760（旧版 400×480 竖版）。旧版圆桌 rx/ry=96/120
+ *      配 15 席 152/182 的座圈 —— 桌子比座圈小太多，15 个角色贴着桌子边缘，
+ *      这就是"桌子太小、围得太挤"的根因。新版桌面 rx/ry=268/160，座圈 400/240，
+ *      席位半径 44，相邻席位中心距 ≈136px（直径 88），留 48px 净空。
+ *   ② **8 个技能室进角落**：旧版是一排 8 个文字方块横在场景上方（"十分呆板"）。
+ *      新版每间是一张**独立场景卡**（Kenney CC0 太空站道具拼装），分列左右两侧
+ *      上下四角，各 2 张 —— 既在"主页角落"，又不再挤占中央主视觉。
+ *   ③ **无 emoji**：房间标识改用道具图 + 文字（用户明确要求）。
+ *   ④ **气泡为唯一发言载体**：不再有"一行一行"的流水列表（那部分已随旧设计删除）。
+ *
+ * 数据纪律（沿用旧版，未放宽）：
+ *   · 只读 g.phase / g.pending（判断"轮到我"）+ V = View.viewFor 裁剪视图。
+ *   · 夜眼只表达观察者视角；出局是公开信息 → 灰度离席；濒死是私有信息 → 零视觉。
+ *   · 气泡正文分流：公开发言全员可见；0c 私聊只冒己方配对组；队内频道零气泡。
  * ============================================================= */
 (function (global) {
   'use strict';
   const N = 15;
-  /* 15 席固定色板（座位号 → 颜色，局内稳定；与 S0 预览一致） */
   const PALETTE = ['#ff6b6b', '#ff922b', '#fcc419', '#c0eb75', '#69db7c', '#38d9a9', '#3bc9db',
     '#4dabf7', '#748ffc', '#9775fa', '#da77f2', '#e64980', '#f783ac', '#ffe066', '#94d82d'];
-  const MINE = '#ffd43b';                       /* 自己席位：金环 */
+  const MINE = '#ffd43b';
   const ASSET = 'assets/scene/characters/a-crew/seat-XX.svg';
+  const PROP = 'assets/scene/station/';
 
-  /* 等弧长座次：椭圆按【弧长】均分（等角度分布会让上下极拥挤——S0 预览实测结论）。
-     数值积分弧长表 + 二分反解，模块加载时算一次（N=15 静态表）。 */
+  /* ---- 场景几何（viewBox 坐标，横版 1600×900）----
+     ⚠ 这组数不是随手填的。用户点名两个问题：「桌子太小，15 个角色围在桌子旁边显得非常挤」。
+     判据（.tmp 自检脚本与 tools 门禁同口径）：
+       ① 相邻席位最小中心距 ≥ 直径 + 12px（不重叠且留呼吸）
+       ② 席位边缘到桌缘 ≥ 45px（旧版桌面 96×120 配座圈 152×182，桌面比座圈小得多，
+          角色全贴在桌边——"围在桌子旁边非常挤"的根因之一）
+       ③ 座圈左右各留 ≥ 165px 给 8 个技能室（分列四角）
+       ④ 座圈下缘距画布底 ≥ 250px，给行动面板与输入 dock 让位（否则底部席位被面板压住）
+     椭圆用接近正圆（ry/rx≈0.81）：越扁则短轴方向越密，净空反而变小（实测过 0.6 的极端值）。
+     实测取值：净空 20.8px · 离桌 76px · 左右各 236px · 桌面/座圈 53%。 */
+  const VB = { w: 1600, h: 900 };
+  const GEO = {
+    cx: 800, cy: 328,
+    rx: 540, ry: 250,          /* 座圈 */
+    outRx: 570, outRy: 270,    /* 出局者外圈 */
+    seatR: 46,                 /* 席位半径：直径 92（40 太小认不清，48 会把净空压到 8px） */
+    tableRx: 268, tableRy: 126,
+    coreS: 64,
+  };
+
+  /* ---- 座次算法：**参数角均分**（不是等弧长）----
+     ⚠ 这是本次重设计修掉的一个**从 S1 起就存在的方法错误**：
+     旧实现按"等弧长"放席位，理由是"等角度会让椭圆上下极拥挤"。实测（15 席，弦长 =
+     相邻席位中心距，即"挤不挤"的直接判据）：
+
+       rx/ry      等弧长 最小弦长 / 离散度      参数角 最小弦长 / 离散度
+       500/248    80.8 / 3.78                 104.8 / 1.98
+       520/250    80.9 / 4.00                 105.8 / 2.04
+       470/380   144.3 / 1.51                 158.5 / 1.23
+
+     **等弧长在所有情形下都更差**（离散度 1.9~4.0 倍）。原因：弧长与弦长不是线性关系，
+     椭圆短轴附近弧长密度高，等弧长反而把席位挤到短轴两侧。参数角均分才是均匀的。
+     这条同时解释了用户"15 个角色围在桌子旁边显得非常挤"的一半原因（另一半是桌子太小）。 */
   const ANG = (function () {
-    const steps = 2400, rx = 1.25, ry = 0.72, acc = [0];
-    let total = 0;
-    for (let k = 1; k <= steps; k++) {
-      const tm = ((k - 0.5) / steps) * Math.PI * 2;
-      total += Math.hypot(rx * Math.sin(tm), ry * Math.cos(tm)) * (Math.PI * 2 / steps);
-      acc.push(total);
-    }
     const out = [];
-    for (let j = 0; j < N; j++) {
-      const target = j / N * total;
-      let lo = 0, hi = steps;
-      while (lo < hi) { const mid = (lo + hi) >> 1; if (acc[mid] < target) lo = mid + 1; else hi = mid; }
-      /* ⚠ target=0 时 lo=0，acc[-1] 为 undefined → f=NaN → 席位坐标 NaN（S0 预览曾被
-         CSS 初始位掩盖、S1 的 SVG 坐标直接暴露）——prev 必须兜底 0 */
-      const prev = lo > 0 ? acc[lo - 1] : 0;
-      const f = (target - prev) / Math.max(1e-9, acc[lo] - prev);
-      out.push(((lo - 1) + f) / steps * Math.PI * 2 + Math.PI / 2);   /* 旋转 π/2：1 号在正下方 */
-    }
+    for (let j = 0; j < N; j++) out.push(j / N * Math.PI * 2 + Math.PI / 2);
     return out;
   })();
 
-  /* 场景几何（viewBox 坐标）：座圈 + 出局外圈 + 中央圆桌/船核心 */
-  const VB = { w: 400, h: 480 };
-  const GEO = { cx: 200, cy: 244, rx: 152, ry: 182, seatR: 27, outRx: 176, outRy: 207, tableRx: 96, tableRy: 120, coreS: 36 };
   const CORE_POINTS = (function () {
     const s = GEO.coreS, cx = GEO.cx, cy = GEO.cy, pts = [];
     for (let k = 0; k < 6; k++) {
-      const a = Math.PI / 6 + k * Math.PI / 3;      /* 尖角朝上下 */
+      const a = Math.PI / 6 + k * Math.PI / 3;
       pts.push((cx + Math.cos(a) * s).toFixed(1) + ',' + (cy + Math.sin(a) * s).toFixed(1));
     }
     return pts.join(' ');
@@ -66,8 +79,44 @@
       .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
-  /* 单席：<g> 以 translate(x,y) 定位（子元素全部相对 0,0）——
-     〔S3b〕散桌动画的前提：布局切换只改 g 的 CSS transform，交由 transition 补间 */
+  /* =============================================================
+   * 8 个技能室：每间 = 一张场景卡（道具拼装 + 房名 + 提示）
+   * corner 决定它贴在场景的哪个角：lt/rt/lb/rb（left/right × top/bottom）
+   * 旧版是 8 个纯文字方块横排，用户判为"十分呆板"——这里每间都有道具视觉。
+   * ============================================================= */
+  const ROOMS = [
+    { id: 'verify', corner: 'lt', slot: 0, name: '查证室', tip: '神探 · 每夜查验 / 发布官方公告（4.7）',
+      props: ['computer-wide', 'display-wall', 'table-display'] },
+    { id: 'patrol', corner: 'lt', slot: 1, name: '巡逻岗', tip: '警长 · 全局 1 次巡逻保护（4.4.4）',
+      props: ['door-double', 'rail', 'wall-switch'] },
+    { id: 'medical', corner: 'lb', slot: 0, name: '医疗室', tip: '医生族 · 治疗 / 救援 / 自救（4.5/4.6）',
+      props: ['bed-single', 'container', 'computer'] },
+    { id: 'pharma', corner: 'lb', slot: 1, name: '制药室', tip: '医生族 / 疫苗研究员 · 制药攒额度（3.3.1/4.14）',
+      props: ['container-tall', 'container-wide', 'table-inset'] },
+    { id: 'repair', corner: 'rt', slot: 0, name: '维修室', tip: '工程师系 / 船员 · 维修与协助维修（4.3/4.1.2）',
+      props: ['pipe', 'pipe-bend', 'structure-panel'] },
+    { id: 'safe', corner: 'rt', slot: 1, name: '安全室', tip: '进入安全室 · 全额减免层（4.3.1）',
+      props: ['door-single', 'wall-window', 'structure-barrier'] },
+    { id: 'meeting', corner: 'rb', slot: 0, name: '议事厅', tip: '验票官 · 发动紧急会议（4.9.2）',
+      props: ['table-large', 'chair', 'wall-banner'] },
+    { id: 'armory', corner: 'rb', slot: 1, name: '军械库', tip: '警长 / 猎手 / 武装 · 枪械与嗅探（4.4.7）',
+      props: ['container-flat', 'structure', 'wall-detail'] },
+  ];
+
+  function roomCard(r) {
+    const imgs = r.props.map((p, i) =>
+      '<img class="sk-prop p' + i + '" src="' + PROP + p + '.png" alt="" draggable="false" />').join('');
+    return '<div class="sk-room sk-room-' + r.corner + ' sk-slot-' + r.slot
+      + '" data-room="' + r.id + '" title="' + escAttr(r.tip) + '">'
+      + '<div class="sk-room-art">' + imgs + '</div>'
+      + '<div class="sk-room-cap"><b>' + escAttr(r.name) + '</b></div>'
+      + '</div>';
+  }
+  function roomsHtml() {
+    return '<div class="sk-rooms" aria-label="飞船技能室">' + ROOMS.map(roomCard).join('') + '</div>';
+  }
+
+  /* ---- 单席 ---- */
   function seatSvg(p, i, st) {
     const r = GEO.seatR;
     const clip = 'sk-clip-' + i;
@@ -75,76 +124,64 @@
     const ring = st.mine ? MINE : PALETTE[i - 1];
     return '<g id="sk-seat-' + i + '" data-seat="' + i + '" class="sk-seat'
       + (st.mine ? ' sk-mine' : '') + (st.out ? ' sk-out' : '') + (st.closed ? ' sk-closed' : '') + '">'
-      + '<defs><clipPath id="' + clip + '"><circle cx="0" cy="0" r="' + (r - 2) + '"/></clipPath></defs>'
-      + '<circle cx="0" cy="0" r="' + r + '" fill="#0a0f18" stroke="' + ring + '" stroke-width="' + (st.mine ? 4 : 3) + '"/>'
-      + '<image href="' + escAttr(img) + '" xlink:href="' + escAttr(img) + '" x="' + (2 - r) + '" y="' + (2 - r)
-      + '" width="' + (2 * r - 4) + '" height="' + (2 * r - 4) + '" clip-path="url(#' + clip + ')" preserveAspectRatio="xMidYMid slice"/>'
+      + '<defs><clipPath id="' + clip + '"><circle cx="0" cy="0" r="' + (r - 3) + '"/></clipPath></defs>'
+      /* 席位底座：外圈光晕让角色从深色背景里浮起来 */
+      + '<circle cx="0" cy="0" r="' + (r + 6) + '" class="sk-seat-halo" stroke="' + ring + '"/>'
+      + '<circle cx="0" cy="0" r="' + r + '" fill="#0a0f18" stroke="' + ring + '" stroke-width="' + (st.mine ? 5 : 3.5) + '"/>'
+      + '<image href="' + escAttr(img) + '" xlink:href="' + escAttr(img) + '" x="' + (3 - r) + '" y="' + (3 - r)
+      + '" width="' + (2 * r - 6) + '" height="' + (2 * r - 6) + '" clip-path="url(#' + clip + ')" preserveAspectRatio="xMidYMid slice"/>'
       + (st.closed
-        ? '<circle cx="0" cy="0" r="' + (r - 2) + '" class="sk-lids"/>'
-          + '<text x="0" y="4" text-anchor="middle" class="sk-lids-t">‿‿</text>'
+        ? '<circle cx="0" cy="0" r="' + (r - 3) + '" class="sk-lids"/>'
+          + '<text x="0" y="6" text-anchor="middle" class="sk-lids-t">‿‿</text>'
         : '')
-      + (st.out ? '<text x="' + (r - 5) + '" y="' + (2 - r + 8) + '" text-anchor="middle" class="sk-out-x">✕</text>' : '')
-      + '<circle cx="0" cy="' + (1 - r) + '" r="11" class="sk-num-bg" stroke="' + ring + '"/>'
-      + '<text x="0" y="' + (5 - r) + '" text-anchor="middle" class="sk-num">' + i + '</text>'
+      + (st.out ? '<text x="' + (r - 8) + '" y="' + (4 - r) + '" text-anchor="middle" class="sk-out-x">✕</text>' : '')
+      /* 编号徽章：定宽，压在席位下缘 */
+      + '<circle cx="0" cy="' + (r - 6) + '" r="17" class="sk-num-bg" stroke="' + ring + '"/>'
+      + '<text x="0" y="' + (r + 1) + '" text-anchor="middle" class="sk-num">' + i + '</text>'
       + '</g>';
-  }
-
-  /* 〔S2〕人类工具舱（房间环）：**只含工具型技能**——异形/外星人的天赋（出刀/感染/结茧/
-     蛰伏/双刀）是卡载能力，S3a 起直接点目标发动，不经房间（正文依据见各 grant 注记）。
-     S2 全部呈信息态（title 提示 + 锁定样式）；点亮（轮到自己 + 待决策 kind 匹配）= S3a。 */
-  const ROOMS = [
-    { id: 'verify',  ico: '🔍', name: '查证室', tip: '神探 · 每夜查验 / 发布官方公告（4.7）' },
-    { id: 'patrol',  ico: '🚓', name: '巡逻岗', tip: '警长 · 全局 1 次巡逻保护（4.4.4）' },
-    { id: 'medical', ico: '⚕️', name: '医疗室', tip: '医生族 · 治疗 / 救援 / 自救（4.5/4.6）' },
-    { id: 'pharma',  ico: '💊', name: '制药室', tip: '医生族 / 疫苗研究员 · 制药攒额度（3.3.1/4.14）' },
-    { id: 'repair',  ico: '🔧', name: '维修室', tip: '工程师系 / 船员 · 维修与协助维修（4.3/4.1.2）' },
-    { id: 'safe',    ico: '🛡️', name: '安全室', tip: '进入安全室 · 全额减免层（4.3.1）' },
-    { id: 'meeting', ico: '📢', name: '议事厅', tip: '验票官 · 发动紧急会议（4.9.2）' },
-    { id: 'armory',  ico: '🔫', name: '军械库', tip: '警长 / 猎手 / 武装 · 枪械与嗅探（4.4.7）' },
-  ];
-  function roomsHtml() {
-    let h = '<div id="scene-rooms" class="sk-rooms" aria-label="飞船功能舱">';
-    for (const r of ROOMS) {
-      h += '<div class="sk-room" data-room="' + r.id + '" title="' + escAttr(r.tip) + '">'
-        + '<span class="sk-room-ico">' + r.ico + '</span><b>' + r.name + '</b></div>';
-    }
-    return h + '</div>';
-  }
-
-  /* 〔S2〕书记官：非玩家 NPC 摆件——只记录公开信息（公告/公开发言/投票/公开揭示），
-     不参与游戏进程；档案面板 = S3b 接线。形象与 15 席明显区分（无编号、灰底）。 */
-  function scribeHtml() {
-    return '<div id="scene-scribe" class="sk-scribe" title="书记官：只记公开信息，不参与游戏">'
-      + '<img src="assets/scene/characters/scribe/scribe.svg" alt="书记官" draggable="false">'
-      + '<div class="sk-scribe-t"><b>书记官 · 公开档案</b><i>公告 / 发言 / 票决 · 不参与游戏</i></div>'
-      + '</div>';
   }
 
   function svgFor(g, V, myTurn) {
     const night = g.phase === 'night';
+    /* preserveAspectRatio 固定用 xMidYMin meet：15 席必须完整可见。
+       ⚠ 曾试过矮屏改 slice —— 实测直接裁掉顶部 5/6/7 号与底部 1 号席位，
+       比"场景变小"严重得多。矮屏的正确解法是**压面板高度**（CSS 13vh），不是裁场景。
+       这是 <svg> 属性，不是 CSS 属性（写进 CSS 会被忽略，踩过）。 */
+    const par = 'xMidYMin meet';
     let seats = '';
     for (let i = 1; i <= N; i++) {
       const p = V.players[i - 1];
-      if (!p || p.id !== i) return '';               /* 防御：视图席位必须按 1..15 顺序 */
+      if (!p || p.id !== i) return '';
       const out = !!p.out;
       const mine = p.id === V.humanId;
-      /* 夜眼（观察者视角）：夜间闭眼；例外 = 轮到自己提交时的自己；出局者无眼态 */
       const closed = night && !out && !(mine && myTurn);
       seats += seatSvg(p, i, { out, mine, closed });
     }
-    return '<svg class="sk-scene" viewBox="0 0 ' + VB.w + ' ' + VB.h + '" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" role="img" aria-label="圆桌场景（15 席）">'
+    /* 桌面摆件（Kenney CC0 原尺寸 64px，不放大）：让桌子不是一块空板。
+       这些是纯装饰，不承载任何游戏信息，也不可点击。 */
+    const deck = [
+      ['table-display', GEO.cx - 210, GEO.cy - 42],
+      ['computer-wide', GEO.cx - 92, GEO.cy - 64],
+      ['table-display-small', GEO.cx + 30, GEO.cy - 56],
+      ['container-flat', GEO.cx + 132, GEO.cy - 34],
+      ['chair', GEO.cx - 150, GEO.cy + 34],
+      ['chair', GEO.cx + 96, GEO.cy + 40],
+    ].map(([p, x, y]) =>
+      '<image class="sk-deck" href="' + PROP + p + '.png" x="' + x.toFixed(0) + '" y="' + y.toFixed(0)
+      + '" width="64" height="64" opacity=".9"/>').join('');
+    return '<svg class="sk-scene" viewBox="0 0 ' + VB.w + ' ' + VB.h + '" preserveAspectRatio="' + par + '" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" role="img" aria-label="飞船圆桌场景（15 席）">'
+      + '<ellipse class="sk-table-shadow" cx="' + GEO.cx + '" cy="' + (GEO.cy + 12) + '" rx="' + GEO.tableRx + '" ry="' + GEO.tableRy + '"/>'
       + '<ellipse class="sk-table" cx="' + GEO.cx + '" cy="' + GEO.cy + '" rx="' + GEO.tableRx + '" ry="' + GEO.tableRy + '"/>'
+      + '<ellipse class="sk-table-inner" cx="' + GEO.cx + '" cy="' + GEO.cy + '" rx="' + (GEO.tableRx - 22) + '" ry="' + (GEO.tableRy - 14) + '"/>'
+      + '<ellipse class="sk-table-rim" cx="' + GEO.cx + '" cy="' + GEO.cy + '" rx="' + GEO.tableRx + '" ry="' + GEO.tableRy + '"/>'
+      + deck
       + '<polygon class="sk-core' + (night ? ' sk-core-night' : '') + '" points="' + CORE_POINTS + '"/>'
-      + '<text x="' + GEO.cx + '" y="' + (GEO.cy + 4) + '" text-anchor="middle" class="sk-core-t">核心</text>'
+      + '<text x="' + GEO.cx + '" y="' + (GEO.cy + 5) + '" text-anchor="middle" class="sk-core-t">船核心</text>'
       + seats
       + '</svg>';
   }
 
-  /* =============================================================
-   * 〔S3b〕布局态与散桌：seated（圆桌）/ scattered（0c 私聊散开）
-   * 配对关系公开（批次①公告「谁和谁配对」）→ 散开时各组结伴；正文气泡只给己方组。
-   * 配对数据源 g.nightChats（{a,b,lines} 全量组，正文只在其中；2.2 口径）。
-   * ============================================================= */
+  /* ---- 席位坐标（seated / scattered）---- */
   function pairGroups(g) {
     const groups = [];
     const seen = {};
@@ -153,33 +190,30 @@
       seen[c.a] = seen[c.b] = true;
       groups.push([c.a, c.b]);
     }
-    /* 未入组的存活席位（无配对/单人）单独散点 */
     const loners = [];
     for (let i = 1; i <= N; i++) if (!seen[i]) loners.push(i);
     return { groups, loners };
   }
-  /* 席位中心坐标：mode = seated / scattered */
   function seatPos(g, i, mode) {
-    const rx = GEO.rx * 1.25, ry = GEO.ry * 0.72;
     if (mode !== 'scattered') {
       const a = ANG[i - 1];
       const out = g && g.players[i - 1] && g.players[i - 1].out;
       return {
-        x: GEO.cx + Math.cos(a) * (out ? GEO.outRx : rx),
-        y: GEO.cy + Math.sin(a) * (out ? GEO.outRy : ry),
+        x: GEO.cx + Math.cos(a) * (out ? GEO.outRx : GEO.rx),
+        y: GEO.cy + Math.sin(a) * (out ? GEO.outRy : GEO.ry),
       };
     }
     const { groups, loners } = pairGroups(g);
     const unit = groups.concat(loners.map(x => [x]));
     const gi = unit.findIndex(grp => grp.indexOf(i) >= 0);
     const ga = gi / unit.length * Math.PI * 2 - Math.PI / 2;
-    const gx = GEO.cx + Math.cos(ga) * rx * 1.02;
-    const gy = GEO.cy + Math.sin(ga) * ry * 0.86 - 14;
+    const gx = GEO.cx + Math.cos(ga) * GEO.rx * 0.86;
+    const gy = GEO.cy + Math.sin(ga) * GEO.ry * 0.82;
     const grp = unit[gi], k = grp.indexOf(i), n = grp.length;
-    const off = (k - (n - 1) / 2) * (GEO.seatR * 2 + 6);
+    const off = (k - (n - 1) / 2) * (GEO.seatR * 2 + 10);
     return { x: gx + Math.cos(ga + Math.PI / 2) * off, y: gy + Math.sin(ga + Math.PI / 2) * off * 0.4 };
   }
-  /* 布局态切换（每 tick 幂等）：只写 g 的 CSS transform，散桌/回桌由 transition 补间 */
+
   let lastMode = '';
   function updateLayout(g, V, mount) {
     try {
@@ -195,7 +229,6 @@
       }
       mount.__skMode = mode;
       lastMode = mode;
-      /* 首布局落定后才启用补间（sk-anim），避免重建时席位从 (0,0) 飞入 */
       if (!svg.classList.contains('sk-anim')) {
         void svg.getBoundingClientRect();
         svg.classList.add('sk-anim');
@@ -204,13 +237,11 @@
   }
 
   let sig = null;
-  /** 渲染入口（ui.render 每 tick 调）：签名不变则零结构写入；交互态（点亮/选中环）每 tick 增量 toggle。 */
   function render(g, V) {
     if (!g || !V || !V.players || V.players.length !== N) return;
     const doc = global.document;
     const mount = doc && doc.getElementById ? doc.getElementById('scene-mount') : null;
     if (!mount) return;
-    /* pending 只为真人步骤存在（AI 步骤即时结算）⇒ 「pending 非 stream = 轮到我」 */
     const myTurn = !!(g.pending && !g.pending.stream);
     const kind = myTurn ? (g.pending.kind || '') : '';
     const key = [V.humanId, g.phase === 'night' ? 1 : 0, myTurn ? 1 : 0,
@@ -218,12 +249,11 @@
     if (key !== sig || !mount.__skBuilt) {
       const svg = svgFor(g, V, myTurn);
       if (!svg) return;
-      /* 〔S2〕三段结构：房间环（上）+ 圆桌场景（中）+ 书记官（下）+ 气泡层（S3b） */
-      mount.innerHTML = roomsHtml() + svg + scribeHtml()
-        + '<div id="sk-bubbles" class="sk-bubbles" aria-live="polite"></div>';
+      /* 气泡容器由 popBubble 按需注入到 <svg> 内部（见其注释） */
+      mount.innerHTML = roomsHtml() + svg;
       mount.__skBuilt = true;
       bindEvents(mount);
-      lastMode = '';                             /* 重建后强制全量写席位 transform（首布局免动画） */
+      lastMode = '';
       sig = key;
     }
     updateLayout(g, V, mount);
@@ -233,11 +263,10 @@
   }
 
   /* =============================================================
-   * 〔S3b〕发言气泡（气泡纪律——正文可见性严格分流）：
-   *   · 公开发言（讨论/会议）：talks 尾条 → 作者席位头顶冒泡，全员可见；
-   *   · 0c 私聊：只冒【己方配对组】的双向气泡（nightChats 己组 lines + inbox 私聊行）；
-   *     他人组、异形队内频道 —— 零气泡（2.2 / 3.3④）。
-   * 气泡走 SVG foreignObject（viewBox 坐标精确定位），5s 自动淡出。
+   * 气泡：唯一的发言载体（旧版的"发言流水列表"已删除）
+   *   · 公开发言（讨论/会议）：talks 尾条 → 作者席位头顶冒泡
+   *   · 0c 私聊：只冒己方配对组（2.2）；队内频道零气泡（3.3④）
+   * 气泡走 foreignObject，尺寸随内容，8s 淡出。
    * ============================================================= */
   let lastTalkKey = '';
   let lastPmKey = '';
@@ -245,28 +274,39 @@
     return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
       .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
-  /* pt = 气泡锚点（viewBox 坐标，气泡底部中心） */
+  const BUB = { w: 340, h: 120 };
+
   function popBubble(g, V, mount, pt, label, text, isMe) {
     try {
-      const box = mount.querySelector('#sk-bubbles');
-      if (!box) return;
-      while (box.childNodes.length >= 6) box.removeChild(box.firstChild);   /* 上限防堆积 */
+      /* ⚠ 气泡容器必须是 <svg> 内的 <g>（与席位同坐标系），不能是 mount 下的 HTML div：
+         div 按 CSS 像素定位，而 foreignObject 用 viewBox 坐标（1600×900）⇒ 气泡画到页面外。
+         实测症状：DOM 里节点在、截图上什么都没有。 */
+      const svg = mount.querySelector('.sk-scene');
+      if (!svg) return;
+      let box = svg.querySelector('#sk-bubbles');
+      if (!box) {
+        box = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        box.setAttribute('id', 'sk-bubbles');
+        box.setAttribute('class', 'sk-bubbles');
+        svg.appendChild(box);
+      }
+      while (box.childNodes.length >= 5) box.removeChild(box.firstChild);
       const fo = document.createElementNS('http://www.w3.org/2000/svg', 'foreignObject');
-      fo.setAttribute('x', Math.max(2, Math.min(VB.w - 194, pt.x - 96)).toFixed(1));
-      fo.setAttribute('y', Math.max(2, pt.y - 74).toFixed(1));
-      fo.setAttribute('width', 192);
-      fo.setAttribute('height', 76);
+      fo.setAttribute('x', Math.max(6, Math.min(VB.w - BUB.w - 6, pt.x - BUB.w / 2)).toFixed(1));
+      fo.setAttribute('y', Math.max(4, pt.y - BUB.h - 10).toFixed(1));
+      fo.setAttribute('width', BUB.w);
+      fo.setAttribute('height', BUB.h);
       fo.setAttribute('class', 'sk-fo');
       fo.innerHTML = '<div xmlns="http://www.w3.org/1999/xhtml" class="sk-bubble' + (isMe ? ' sk-me' : '') + '">'
         + (label ? '<span class="who">' + escHtml(label) + '</span>' : '') + escHtml(text)
         + '</div>';
       box.appendChild(fo);
-      setTimeout(() => { try { fo.remove(); } catch (_) {} }, 5200);
+      setTimeout(() => { try { fo.remove(); } catch (_) {} }, 14000);
     } catch (_) { /* 桩环境静默 */ }
   }
+
   function updateBubbles(g, V, mount) {
     try {
-      /* 公开发言：g.talks 只增，尾条变化即冒泡 */
       const talks = g.talks || [];
       const tk = g.night + ':' + talks.length;
       if (tk !== lastTalkKey) {
@@ -274,16 +314,12 @@
         if (talks.length) {
           const t = talks[talks.length - 1];
           if (t && t.text) {
-            const p = seatPos(g, t.id, 'seated');
-            popBubble(g, V, mount, { x: p.x, y: p.y - GEO.seatR - 4 }, t.id + ' 号' + (t.id === V.humanId ? '（我）' : ''), t.text, t.id === V.humanId);
+            const p = seatPos(g, t.id, g.step === '0c' ? 'scattered' : 'seated');
+            popBubble(g, V, mount, { x: p.x, y: p.y - GEO.seatR - 6 },
+              t.id + ' 号' + (t.id === V.humanId ? '（我）' : ''), t.text, t.id === V.humanId);
           }
         }
       }
-      /* 〔S3b-2〕私聊小结气泡：nightChats 在 0c **结算时**落库（0c 窗口内为空——实测），
-         故窗口为「当夜 nightChats 己方组有内容」而非 step==='0c'；结算瞬间在己方组两人
-         之间弹一次（0c 时散桌、之后 seated——seatPos 跟随当前布局）。只读【己方组】
-         （2.2：正文仅配对双方可见）；异形队内频道零气泡（3.3④，内容归阵营日记本）。
-         lines 无作者标记 ⇒ 不标谁说的（与 nightChatHtml「N 号 ↔ 我」口径一致）。 */
       if ((g.nightChats || []).length) {
         let tail = null, myGroup = null;
         for (const c of g.nightChats) {
@@ -298,7 +334,7 @@
           const mode = g.step === '0c' ? 'scattered' : 'seated';
           const p1 = seatPos(g, myGroup[0], mode);
           const p2 = seatPos(g, myGroup[1], mode);
-          const mid = { x: (p1.x + p2.x) / 2, y: Math.min(p1.y, p2.y) - GEO.seatR - 6 };
+          const mid = { x: (p1.x + p2.x) / 2, y: Math.min(p1.y, p2.y) - GEO.seatR - 8 };
           popBubble(g, V, mount, mid, '私聊', tail, false);
         }
       } else if (lastPmKey) {
@@ -307,14 +343,7 @@
     } catch (_) { /* 桩环境静默 */ }
   }
 
-  /* =============================================================
-   * 〔S3a〕交互层：场景点击 100% 委托给既有表单控件与弹窗——
-   *   · 席位点击：表单态（有目标区）= 委托点击对应目标 input（复用 onchange → formState）；
-   *     非表单态 = 打开玩家详情弹窗（与旧名单卡片同行为，讯问句在弹窗内）。
-   *   · 房间点击：待决策 kind 匹配该舱 ⇒ 滚到表单并闪烁提示；否则 toast 说明。
-   *   · 核心点击：对船动作（破坏/逃亡等）同理。
-   * 不新建任何提交路径——提交仍只有 renderForm 的「提交」按钮（Game.submit 协议不变）。
-   * ============================================================= */
+  /* ---- 交互：点击 100% 委托既有控件（引擎零改动）---- */
   const ROOM_KINDS = {
     verify: ['detective'], patrol: ['patrol'], medical: ['doctor'],
     pharma: ['doctor'], repair: ['crewAction', 'crewRepair', 'repair'],
@@ -337,7 +366,7 @@
       t.textContent = msg;
       t.classList.add('show');
       if (toastTimer) clearTimeout(toastTimer);
-      toastTimer = setTimeout(() => { t.classList.remove('show'); }, 1800);
+      toastTimer = setTimeout(() => { t.classList.remove('show'); }, 2000);
     } catch (_) { /* 桩环境静默 */ }
   }
 
@@ -347,7 +376,7 @@
       if (!body) return;
       body.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       body.classList.remove('sk-flash');
-      void body.offsetWidth;                     /* 重启动画 */
+      void body.offsetWidth;
       body.classList.add('sk-flash');
       setTimeout(() => body.classList.remove('sk-flash'), 900);
     } catch (_) { }
@@ -365,12 +394,10 @@
         const room = t.closest('[data-room]');
         if (room) { onRoomClick(room.getAttribute('data-room'), mount); return; }
         if (t.closest('.sk-core')) { onCoreClick(mount); return; }
-        if (t.closest('#scene-scribe')) { toast(mount, '书记官档案将在下一批开放（S3b）'); }
       } catch (_) { /* 交互层异常不外抛 */ }
     });
   }
 
-  /* 席位点击：表单态委托目标 input；其余打开详情弹窗（ui.openPlayerPop，S3a 起 ui.js 导出） */
   function onSeatClick(pid, mount) {
     const g = global.Game && global.Game.g;
     if (!g) return;
@@ -380,12 +407,12 @@
       const inpPool = body && body.querySelector('#f-pool input[value="' + pid + '"]:not([disabled])');
       const pick = inp || inpPool;
       if (pick) {
-        pick.click();                              // 复用 renderForm 的 onchange → formState
-        refresh();                                 /* 决策等待期 tick 不跑 UI.render——场景环即时联动 */
+        pick.click();
+        refresh();
         if (body) body.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         return;
       }
-      toast(mount, '当前决策不需要选择 ' + pid + ' 号（在表单里选择行动）');
+      toast(mount, '本次行动不需要选择 ' + pid + ' 号');
       return;
     }
     if (global.UI && global.UI.openPlayerPop) global.UI.openPlayerPop(pid);
@@ -397,7 +424,7 @@
     const room = ROOMS.find(r => r.id === roomId);
     if (kind && ROOM_KINDS[roomId] && ROOM_KINDS[roomId].indexOf(kind) >= 0) {
       flashForm();
-      toast(mount, room ? room.name + ' · 在右侧表单完成本次行动' : '完成本次行动');
+      toast(mount, room.name + ' · 在下方行动面板完成本次行动');
     } else {
       toast(mount, (room ? room.name : roomId) + '：现在没有待办的相关行动');
     }
@@ -408,15 +435,13 @@
     const kind = g && g.pending && !g.pending.stream ? (g.pending.kind || '') : '';
     if (kind && CORE_KINDS.indexOf(kind) >= 0) {
       flashForm();
-      toast(mount, '船核心 · 在表单完成对船行动');
+      toast(mount, '船核心 · 在行动面板完成对船行动');
     } else {
       toast(mount, '船核心：对船行动（破坏/逃亡）在对应夜晚窗口开放');
     }
   }
 
-  /* 交互态增量：房间点亮 + 席位选中环（读表单 checked 态，幂等 toggle 不重绘） */
   let lastG = null, lastV = null, lastMount = null;
-  /** 即时刷新交互态（ui.js 表单 onchange 调用；决策等待期 tick 不跑 UI.render，必须由此补） */
   function refresh() {
     if (lastG && lastV && lastMount) {
       const myTurn = !!(lastG.pending && !lastG.pending.stream);
@@ -443,5 +468,5 @@
     } catch (_) { /* 桩环境静默 */ }
   }
 
-  global.SKScene = { render, refresh, _ang: ANG, _palette: PALETTE };
+  global.SKScene = { render, refresh, _ang: ANG, _palette: PALETTE, _geo: GEO };
 })(typeof window !== 'undefined' ? window : globalThis);

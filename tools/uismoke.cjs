@@ -135,7 +135,15 @@ for (let s = 0; s < 30; s++) {
  * 比对方式是**整行标签**，不是子串：「感染治疗额度」含「治疗额度」，用 indexOf 判定
  * 会让「外星人行漏进来了」这件事被判成通过。行结构固定为 <div class="kv"><span>标签</span>… */
 const XENO_PANEL_ROWS = ['夜晚免疫', '双刀', '破坏', '感染治疗额度'];
-const panelOf = () => (cache['side-body'] || {}).innerHTML || '';
+/* 〔R2〕右栏「阵营日记」页签已随表单式设计删除，selfPanel/campPanel 改由
+   **点自己席位打开的玩家详情弹窗**承载（ui.js renderPlayerPop 的「我的状态」段）。
+   故取面板内容的位置从 side-body 改为 p-pop，打开方式从 clickTab 改为 openPlayerPop。
+   断言语义不变：仍是「渲染出来的 HTML 里，死囚不得出现经典外星人资产行」。 */
+const panelOf = () => (cache['p-pop'] || {}).innerHTML || '';
+const openMyPanel = () => {
+  const g = Game.g;
+  UI.openPlayerPop(Engine.P(g, g.humanId).id);
+};
 const rowLabels = html => [...html.matchAll(/<span>([^<]{1,24})<\/span>/g)].map(m => m[1]);
 let panelChecked = 0, panelFails = [];
 {
@@ -153,7 +161,7 @@ let panelChecked = 0, panelFails = [];
   const me = Engine.P(g, g.humanId);
   if (!me || !me.convict) { panelFails.push('未能构造出人类为死囚的对局'); }
   else {
-    UI.render(); clickTab('camp');
+    UI.render(); openMyPanel();
     let labels = rowLabels(panelOf());
     panelChecked++;
     const leaked = XENO_PANEL_ROWS.filter(k => labels.indexOf(k) >= 0);
@@ -179,7 +187,7 @@ let panelChecked = 0, panelFails = [];
     }
     if (!morphed || me.role !== 'rescue') panelFails.push('死囚未能变形为救援医生（role=' + me.role + '）');
     else {
-      UI.render(); clickTab('camp');
+      UI.render(); openMyPanel();
       labels = rowLabels(panelOf()); panelChecked++;
       const leaked2 = XENO_PANEL_ROWS.filter(k => labels.indexOf(k) >= 0);
       if (leaked2.length) panelFails.push('变形为救援后面板仍出现外星人资产行：' + leaked2.join(','));
