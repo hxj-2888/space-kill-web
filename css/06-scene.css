@@ -54,6 +54,217 @@
   max-height: none;
 }
 
+/* =============================================================
+ * 〔R3〕房间近景：点房间 → 场景放大到该房间，整笔行动在房间里完成
+ * -------------------------------------------------------------
+ * 用户原话：「把行动提交移到对应房间」。所以房间不是"弹一个卡"，而是**场景本身放大**：
+ *   · .sk-room-stage 铺满场景区，背景 = 该房间的像素场景图（Cozy Space Interiors, CC-BY）
+ *   · #region-dec（表单本体）被 JS 搬进房间内部，提交按钮也在房间里
+ *   · 圆桌与房间卡在房间打开时淡出（避免两层场景打架）
+ * ============================================================= */
+.sk-room-stage {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  display: none;
+  overflow: hidden;
+  background: #070b12;
+}
+.sk-room-stage.open {
+  display: flex;
+  flex-direction: column;
+  animation: sk-rs-in .26s ease-out;
+}
+@keyframes sk-rs-in {
+  from { opacity: 0; transform: scale(1.04); }
+  to { opacity: 1; transform: none; }
+}
+/* 房间背景：像素图铺满，image-rendering 保持锐利 */
+.sk-rs-bg {
+  position: absolute;
+  inset: 0;
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+  filter: brightness(.92) saturate(1.05);
+}
+.sk-rs-bg::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(4, 8, 14, .30) 0%, rgba(4, 8, 14, .18) 40%, rgba(4, 8, 14, .72) 100%);
+}
+.sk-rs-head {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  flex: 0 0 auto;
+}
+.sk-rs-head b {
+  font-size: 16px;
+  letter-spacing: 3px;
+  color: #e8f1ff;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, .8);
+}
+.sk-rs-close {
+  background: rgba(10, 16, 26, .82);
+  border: 1px solid #3a5272;
+  color: #cfe0f7;
+  font-size: 12px;
+  padding: 5px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.sk-rs-close:hover { border-color: #4dabf7; color: #fff; }
+.sk-rs-body {
+  position: relative;
+  z-index: 2;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 0 14px 14px;
+}
+/* 搬进房间的行动面板：去掉"浮卡"观感，成为房间的操作台 */
+#region-dec.in-room {
+  position: relative !important;
+  width: 100% !important;
+  max-width: none !important;
+  max-height: 62vh !important;
+  margin: 0 !important;
+  left: auto !important;
+  bottom: auto !important;
+  transform: none !important;
+  background: rgba(6, 11, 19, .90);
+  border: 1px solid rgba(90, 140, 200, .32);
+  box-shadow: 0 -6px 30px rgba(0, 0, 0, .55);
+}
+/* 房间打开时圆桌/房间卡淡出 */
+#screen-game .scene-mount.room-open .sk-scene,
+#screen-game .scene-mount.room-open .sk-rooms { opacity: .18; pointer-events: none; transition: opacity .22s; }
+
+/* 房间卡面：用该房间的场景图做缩略（取代原来的三件道具拼装）。
+   ⚠ 特异性坑：`.sk-room-art img`（0-1-1）会把缩略图也钉成 64×64 绝对定位，
+   于是只露出图的一角（实测看起来像"左半边空白"）。缩略图必须用更高特异性覆盖。 */
+.sk-room-art img.sk-room-thumb {
+  position: absolute;
+  inset: 0;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center center;
+  image-rendering: pixelated;
+  opacity: .95;
+  transform: none;
+}
+.sk-room:hover .sk-room-art img.sk-room-thumb { opacity: 1; }
+
+/* =============================================================
+ * 〔R3〕目标选择 = 点角色头像（取代一列方框）
+ * -------------------------------------------------------------
+ * 底层仍是 <input type=radio/checkbox>（name / onchange / formState 全不变），
+ * 只是把 label 做成头像卡：圆形头像 + 编号徽章 + 昵称 + 已知身份。
+ * 与场景席位点击是同一套语义（点头像 = 选这个人）。
+ * ============================================================= */
+.tgt-avatars {
+  /* ⚠ 三个规则在打架，必须逐一压过（首版只压了 display，头像仍是单列）：
+     · 01-base `.opts{display:flex;flex-direction:column}` ← 罪魁：列方向
+     · 01-base `.opts.grid3{display:grid;grid-template-columns:repeat(3,1fr)}`
+     · 06 层 `#region-dec .opts{display:flex}` / `.opts.grid3{grid-template-columns:...}`
+     故这里 display / flex-direction / flex-wrap / grid-template-columns 四项都要 !important。 */
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: wrap !important;
+  grid-template-columns: none !important;
+  gap: 6px;
+  align-items: flex-start;
+  margin: 6px 0 2px;
+}
+#screen-game .opt.tgt-avatar {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  width: 84px;
+  padding: 6px 4px 5px;
+  border-radius: 10px;
+  background: rgba(18, 26, 40, .92);
+  border: 1px solid #2a3d57;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color .15s, background .15s, transform .15s;
+}
+#screen-game .opt.tgt-avatar:hover { border-color: #4dabf7; transform: translateY(-1px); }
+/* 隐藏原生 input，但保留可访问性与表单语义 */
+#screen-game .opt.tgt-avatar input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  pointer-events: none;
+}
+.ta-face {
+  position: relative;
+  display: block;
+  width: 44px;
+  height: 44px;
+}
+.ta-face img {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 2px solid #3a5272;
+  background: #0a0f18;
+  display: block;
+  object-fit: cover;
+}
+.ta-face b {
+  position: absolute;
+  right: -4px;
+  bottom: -4px;
+  min-width: 17px;
+  height: 17px;
+  line-height: 17px;
+  border-radius: 9px;
+  background: #0d1524;
+  border: 1.5px solid #3a5272;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  text-align: center;
+}
+.ta-name {
+  font-size: 11.5px;
+  color: #cfdcef;
+  max-width: 76px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#screen-game .opt.tgt-avatar .d { font-size: 9.5px; color: #8a97b0; line-height: 1.2; }
+#screen-game .opt.tgt-avatar .d.warn { color: #ffa94d; }
+/* 选中态：金环 + 头像提亮（与场景席位的 sk-sel 同色系） */
+#screen-game .opt.tgt-avatar:has(input:checked) {
+  border-color: #ffd43b;
+  background: rgba(52, 42, 14, .62);
+  box-shadow: 0 0 12px rgba(255, 212, 59, .35);
+}
+#screen-game .opt.tgt-avatar:has(input:checked) .ta-face img {
+  border-color: #ffd43b;
+  filter: brightness(1.15);
+}
+#screen-game .opt.tgt-avatar:has(input:checked) .ta-face b { border-color: #ffd43b; color: #ffe58a; }
+
 /* ---- 桌面摆件（Kenney CC0 原尺寸，不放大）---- */
 .sk-deck { pointer-events: none; }
 
@@ -397,4 +608,14 @@
   #screen-game .sk-room-cap b { font-size: 10px; letter-spacing: 0; }
   #screen-game #region-dec,
   #screen-game .input-dock { width: calc(100% - 16px); }
+}
+
+/* 〔R3〕素材署名（CC-BY 4.0 硬性要求，不可删） */
+.rg-credit {
+  margin: 12px 0 4px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(74, 110, 160, .25);
+  font-size: 11.5px;
+  color: #7e8ca3;
+  letter-spacing: .3px;
 }

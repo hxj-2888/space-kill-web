@@ -25,6 +25,7 @@
   const MINE = '#ffd43b';
   const ASSET = 'assets/scene/characters/a-crew/seat-XX.svg';
   const PROP = 'assets/scene/station/';
+  const ROOM_ART = 'assets/scene/rooms/';   /* 〔R3〕每间房的像素场景图（Cozy Space Interiors, CC-BY） */
 
   /* ---- 场景几何（viewBox 坐标，横版 1600×900）----
      ⚠ 这组数不是随手填的。用户点名两个问题：「桌子太小，15 个角色围在桌子旁边显得非常挤」。
@@ -103,12 +104,12 @@
       props: ['container-flat', 'structure', 'wall-detail'] },
   ];
 
+  /* 〔R3〕房间卡 = 一扇通往该房间的舱门：
+     卡面直接用该房间的场景图（裁成横幅），下方房名。不再是"三件道具 + 文字"的方框。 */
   function roomCard(r) {
-    const imgs = r.props.map((p, i) =>
-      '<img class="sk-prop p' + i + '" src="' + PROP + p + '.png" alt="" draggable="false" />').join('');
     return '<div class="sk-room sk-room-' + r.corner + ' sk-slot-' + r.slot
       + '" data-room="' + r.id + '" title="' + escAttr(r.tip) + '">'
-      + '<div class="sk-room-art">' + imgs + '</div>'
+      + '<div class="sk-room-art"><img class="sk-room-thumb" src="' + ROOM_ART + r.id + '.png" alt="" draggable="false" /></div>'
       + '<div class="sk-room-cap"><b>' + escAttr(r.name) + '</b></div>'
       + '</div>';
   }
@@ -250,7 +251,8 @@
       const svg = svgFor(g, V, myTurn);
       if (!svg) return;
       /* 气泡容器由 popBubble 按需注入到 <svg> 内部（见其注释） */
-      mount.innerHTML = roomsHtml() + svg;
+      mount.innerHTML = roomsHtml() + svg
+        + '<div id="sk-room-stage" class="sk-room-stage" aria-label="房间"></div>';
       mount.__skBuilt = true;
       bindEvents(mount);
       lastMode = '';
@@ -398,36 +400,141 @@
     });
   }
 
+  /* =============================================================
+   * 〔R3〕点角色头像 = 直接发起指向该角色的行动
+   * -------------------------------------------------------------
+   * 判据与分流（全部基于既有表单结构，不新增协议）：
+   *   ① 目标集合里含该席位（#f-targets / #f-pool 有对应 input）→ 勾选它；
+   *   ② 若该行动「只需选一个目标」且没有额外参数（无 num / num2 / text 输入），
+   *      勾选后**自动提交** —— 投票、击杀、感染、查验这类选人即完成的行动；
+   *   ③ 若还需补参数（破坏量、乔装身份、维修对象数等）→ 只勾选，并提示去房间补完；
+   *   ④ 不在目标集合里 → 打开玩家详情弹窗（查看/讯问），而不是报错。
+   * 这样"点头像"在投票时是投票、在出刀时是出刀、在平时是看人，一套手势覆盖三类意图。
+   * ============================================================= */
+  /* 需要补参数的行动（勾选目标后不能立即提交）：num=数量、text=正文、opts=选项组 */
+  const NEEDS_MORE = ['branch', 'disguise', 'craft', 'doctor', 'repair', 'crewRepair',
+    'crewAction', 'morph', 'transfer', 'evolve', 'convert', 'awaken', 'suppress',
+    'talk', 'chat', 'will', 'speech', 'xenoCheck', 'clean', 'meeting', 'inviteAccept'];
+
   function onSeatClick(pid, mount) {
     const g = global.Game && global.Game.g;
     if (!g) return;
-    if (g.pending && !g.pending.stream) {
-      const body = document.getElementById('stage-body');
-      const inp = body && body.querySelector('#f-targets input[value="' + pid + '"]:not([disabled])');
-      const inpPool = body && body.querySelector('#f-pool input[value="' + pid + '"]:not([disabled])');
-      const pick = inp || inpPool;
-      if (pick) {
-        pick.click();
-        refresh();
-        if (body) body.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        return;
-      }
-      toast(mount, '本次行动不需要选择 ' + pid + ' 号');
+    if (!(g.pending && !g.pending.stream)) {
+      /* 非决策态：点头像 = 看人（详情弹窗，内含自动讯问） */
+      if (global.UI && global.UI.openPlayerPop) global.UI.openPlayerPop(pid);
       return;
     }
-    if (global.UI && global.UI.openPlayerPop) global.UI.openPlayerPop(pid);
+    const f = g.pending;
+    const body = document.getElementById('stage-body');
+    const inp = body && body.querySelector('#f-targets input[value="' + pid + '"]:not([disabled])');
+    const inpPool = body && body.querySelector('#f-pool input[value="' + pid + '"]:not([disabled])');
+    const pick = inp || inpPool;
+    if (!pick) {
+      /* 不在本次目标集合里：说明为什么，并给"看人"的出口 */
+      toast(mount, '本次行动不能指向 ' + pid + ' 号 · 点头像可查看他的公开信息');
+      if (global.UI && global.UI.openPlayerPop) global.UI.openPlayerPop(pid);
+      return;
+    }
+    pick.click();
+    refresh();
+
+    /* 判定能否「点一下即完成」：单选目标 + 无附加参数 */
+    const max = (f.targets && f.targets.max) || 1;
+    const needsMore = NEEDS_MORE.indexOf(f.kind) >= 0 || f.num || f.num2 || f.text;
+    if (max === 1 && !needsMore) {
+      const btn = document.getElementById('btn-submit');
+      if (btn && !btn.disabled) {
+        /* 让玩家看到"已选中该席位"再提交（一帧），避免瞬间跳转像误触 */
+        setTimeout(() => {
+          try { btn.click(); } catch (_) {}
+        }, 160);
+        toast(mount, '已对 ' + pid + ' 号发动：' + (f.title || f.kind));
+        return;
+      }
+    }
+    toast(mount, '已选中 ' + pid + ' 号' + (needsMore ? ' · 在房间里补完剩余选项再提交' : ''));
+  }
+
+  /* =============================================================
+   * 〔R3〕房间近景：点房间 → 场景放大到该房间，整笔行动在房间里完成
+   * -------------------------------------------------------------
+   * 实现要点（不改引擎协议）：
+   *   · 进入时把 #region-dec（内含 renderForm 渲染的表单）**搬进** #sk-room-stage；
+   *     退出时搬回原处。DOM 搬移不重建节点 ⇒ 控件状态、onchange 绑定、formState 全部保留。
+   *   · 提交仍走表单自带的「提交」按钮（Game.submit），房间层不新增任何提交路径。
+   *   · 只有「待决策 kind 与该房间匹配」才允许进入；否则给明确说明（避免空房间）。
+   *   · 退出：ESC / 点房间外空白 / 点「离开房间」按钮。
+   * ============================================================= */
+  let roomOpen = null;
+
+  function roomMatches(roomId) {
+    const g = global.Game && global.Game.g;
+    const kind = g && g.pending && !g.pending.stream ? (g.pending.kind || '') : '';
+    return !!(kind && ROOM_KINDS[roomId] && ROOM_KINDS[roomId].indexOf(kind) >= 0);
+  }
+
+  function openRoom(roomId, mount) {
+    const room = ROOMS.find(r => r.id === roomId);
+    if (!room) return;
+    if (!roomMatches(roomId)) {
+      /* 不匹配时给出「这里现在没有你要办的事」的具体说明，而不是空白房间 */
+      toast(mount, room.name + '：现在没有待办的相关行动');
+      return;
+    }
+    if (roomOpen) closeRoom(mount);
+    const stage = mount.querySelector('#sk-room-stage');
+    const dec = document.getElementById('region-dec');
+    if (!stage || !dec) return;
+
+    stage.innerHTML =
+      '<div class="sk-rs-bg" style="background-image:url(' + ROOM_ART + roomId + '.png)"></div>'
+      + '<div class="sk-rs-head"><b>' + escAttr(room.name) + '</b>'
+      + '<button class="sk-rs-close" data-room-close="1">离开房间</button></div>'
+      + '<div class="sk-rs-body"></div>';
+    const body = stage.querySelector('.sk-rs-body');
+    /* 把行动面板整体搬进房间（DOM 搬移，不重建） */
+    body.appendChild(dec);
+    dec.classList.add('in-room');
+    stage.classList.add('open');
+    mount.classList.add('room-open');
+    roomOpen = roomId;
+    bindRoomEvents(stage, mount);
+    refresh();
+  }
+
+  function closeRoom(mount) {
+    const stage = mount.querySelector('#sk-room-stage');
+    const dec = document.getElementById('region-dec');
+    const dock = document.querySelector('#screen-game .ops-dock');
+    /* 搬回底部操作区（原位置：ops-dock 的第一个子节点） */
+    if (dec && dock) {
+      dec.classList.remove('in-room');
+      dock.insertBefore(dec, dock.firstChild);
+    }
+    if (stage) {
+      stage.classList.remove('open');
+      stage.innerHTML = '';
+    }
+    mount.classList.remove('room-open');
+    roomOpen = null;
+  }
+
+  function bindRoomEvents(stage, mount) {
+    if (stage.__bound) return;
+    stage.__bound = true;
+    stage.addEventListener('click', e => {
+      const t = e.target;
+      if (!t || !t.closest) return;
+      if (t.closest('[data-room-close]')) { closeRoom(mount); return; }
+      /* 点房间背景（不在表单内）= 离开 */
+      if (t.classList && (t.classList.contains('sk-rs-bg') || t.classList.contains('sk-rs-body'))) {
+        closeRoom(mount);
+      }
+    });
   }
 
   function onRoomClick(roomId, mount) {
-    const g = global.Game && global.Game.g;
-    const kind = g && g.pending && !g.pending.stream ? (g.pending.kind || '') : '';
-    const room = ROOMS.find(r => r.id === roomId);
-    if (kind && ROOM_KINDS[roomId] && ROOM_KINDS[roomId].indexOf(kind) >= 0) {
-      flashForm();
-      toast(mount, room.name + ' · 在下方行动面板完成本次行动');
-    } else {
-      toast(mount, (room ? room.name : roomId) + '：现在没有待办的相关行动');
-    }
+    openRoom(roomId, mount);
   }
 
   function onCoreClick(mount) {
@@ -468,5 +575,13 @@
     } catch (_) { /* 桩环境静默 */ }
   }
 
-  global.SKScene = { render, refresh, _ang: ANG, _palette: PALETTE, _geo: GEO };
+  /* ESC 退出房间近景（与规则速览同款手势） */
+  try {
+    global.addEventListener('keydown', e => {
+      if (e && e.key === 'Escape' && roomOpen && lastMount) closeRoom(lastMount);
+    });
+  } catch (_) {}
+
+  global.SKScene = { render, refresh, _ang: ANG, _palette: PALETTE, _geo: GEO,
+    _openRoom: openRoom, _closeRoom: closeRoom, _roomOpen: () => roomOpen };
 })(typeof window !== 'undefined' ? window : globalThis);

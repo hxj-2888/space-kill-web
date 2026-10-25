@@ -437,13 +437,20 @@ const SKD = global.SKDerivation;               // 〔43〕阵营成员 ≠ 能�
       const isAtk = ['shoot', 'alienAct', 'xenoKill'].indexOf(f.kind) >= 0;   // §3.2：濒死者仅可加不影响可选性的标注
       const exNote = f.kind === 'guard' ? '昨夜已保护，今夜不可重复'
                    : f.kind === 'invite' ? '不可连续两晚邀请同一人' : '';
-      const mk = (list, name, id) => `<div class="opts grid3" id="${id}" style="${name === 'ftgtPool' ? 'display:none' : ''}">` +
+      /* 〔R3〕目标选择改为「点角色头像」：不再是一列方框 + 名字，
+         而是与场景席位同款的头像按钮（圆形头像 + 编号 + 已知身份小字）。
+         底层仍是 <input type=radio/checkbox>（name 不变、onchange 不变），
+         所以 formState / 提交协议 / 门禁断言全部不受影响。 */
+      const mk = (list, name, id) => `<div class="opts grid3 tgt-avatars" id="${id}" style="${name === 'ftgtPool' ? 'display:none' : ''}">` +
         list.map(p => {
           const k = knownLabel(g, me, p);
-          const dy = isAtk && p.dying ? `<br/><span class="d">已濒死，攻击将无效（伤害判 0、额度照扣）</span>` : '';
-          return `<label class="opt" data-v="${p.id}">
+          const dy = isAtk && p.dying ? `<span class="d warn">濒死·攻击无效</span>` : '';
+          const img = 'assets/scene/characters/a-crew/seat-' + String(p.id).padStart(2, '0') + '.svg';
+          return `<label class="opt tgt-avatar" data-v="${p.id}" title="${p.id} 号 ${esc(p.name)}${k ? ' · ' + esc(k) : ''}">
             <input type="${max > 1 ? 'checkbox' : 'radio'}" name="${name}" value="${p.id}"/>
-            <span><span class="t">${p.id} 号 ${esc(p.name)}</span>${k ? `<br/><span class="d">${esc(k)}</span>` : ''}${dy}</span>
+            <span class="ta-face"><img src="${img}" alt="" draggable="false"/><b>${p.id}</b></span>
+            <span class="ta-name">${esc(p.name)}</span>
+            ${k ? `<span class="d">${esc(k)}</span>` : ''}${dy}
           </label>`;
         }).join('') + `</div>`;
       const mkDis = list => `<div class="opts grid3">` + list.map(p =>

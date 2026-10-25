@@ -1,0 +1,40 @@
+# assets/scene/rooms · 房间场景图（批 R3）
+
+## 素材出处与许可（**CC-BY 4.0，必须署名**）
+
+| 素材 | 出处 | 许可 | 署名 |
+|---|---|---|---|
+| 8 个技能室场景图（`*.png`） | **Cozy Space Interiors** — [Bramble & Byte](https://aquumgifts.itch.io) · [OpenGameArt](https://opengameart.org/content/cozy-space-interiors-16-px-top-down-sci-fi-tileset) | **CC-BY 4.0** | `"Cozy Space Interiors" by Bramble & Byte — https://aquumgifts.itch.io` |
+
+> ⚠ CC-BY 与 CC0 不同：**必须保留署名**。产品内已在「规则速览」页脚与本文件登记；
+> 若将来移除本素材，可一并移除署名。
+
+## 生成方式
+
+```powershell
+node tools/gen-room-scenes.cjs --force
+```
+
+- 瓦片源：`.tmp_shots/kenney/cozy/cozy-space-interiors/tiles/2x/`（**未入库**，仅生成时使用）
+- 生成器：`tools/gen-room-scenes.cjs`（房间模板 + 主题参数，改一间只改一处配置）
+- PNG 编解码：`tools/_png.cjs`（零依赖，仅用内置 zlib；支持 8 位 RGB/RGBA/灰度）
+- 产物：14×10 格 = **448×320**，每间一张
+
+## 已生成的 8 间
+
+| 文件 | 房间 | 主题地板 |
+|---|---|---|
+| `verify.png` | 查证室 | floor-steel + 灯板 |
+| `patrol.png` | 巡逻岗 | floor-grate + 舷窗 |
+| `medical.png` | 医疗室 | floor-lab + 蓝毯 |
+| `pharma.png` | 制药室 | floor-lab + 舱口 |
+| `repair.png` | 维修室 | floor-steel-vent + 格栅 |
+| `safe.png` | 安全室 | floor-steel-bolts + 舷窗 |
+| `meeting.png` | 议事厅 | floor-carpet-beige |
+| `armory.png` | 军械库 | floor-steel + 舱口 |
+
+## 重新生成前请注意
+
+1. 瓦片尺寸**不统一**：地板/框件 32×32，墙面/门 32×64（占两行）。首版把行高统一当 64，
+   地板之间会出现横向接缝 —— 用 `tools/_png.cjs` 的 `decode` 量过才发现。
+2. `--force` 会覆盖现有产物；不带 force 时已存在的会跳过。
