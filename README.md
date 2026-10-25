@@ -1,6 +1,6 @@
 # 返航录 · 三阵营对抗（网页版）
 
-> 当前版本：**返航录 V1preview**（规则口径 **v1preview1.0**，2026-10-17 换版；原 v6.6 修订版停用）· 安卓版 `SpaceKill.apk` 同版本号（versionCode 9）
+> 当前版本：**返航录 V2preview**（规则口径 **v1preview1.0**，2026-10-17 换版；2026-10-25 起发布号升 V2，场景层重做为房间制）· 安卓版 `SpaceKill.apk` 同版本号（versionCode 11）
 >
 > **v1preview1.0 换版（2026-10-17）**：规则正文自 v6.6 修订版升到 v1preview1.0（游戏名随正文第十批由「太空杀」改为「返航录」）。本版落地 —— 强力乔装与染血指认、发起者记账与有效输出定档、**外星人逃亡（次胜）**、新增两个席位变体职业（摆渡人 4.13／疫苗研究员 4.14）；另改数值口径：驱逐门槛 3 票、票数公开只报得票、感染抑制 2 次、工匠速成护甲自佩戴当夜起 3 夜有效（库存上限 3）。详见文末与 [`docs/返航录v1preview1.0_改动面清单_20261017.md`](docs/返航录v1preview1.0_改动面清单_20261017.md)。
 
@@ -8,9 +8,9 @@
 真实计时窗口、实时公开讨论、私聊双向确认与聊天、六分区记事本、上帝视角复盘、合成 BGM 与音效、
 零依赖 WebSocket 联机（空席位 / 断线者由 AI 托管）。
 
-## V1preview（可玩测试版）
+## V2preview（可玩测试版）
 
-> **本作为可玩测试版（V1preview）。** 后续将**全力优化 AI 判断逻辑与 AI 语言** —— 包括证据链推理、
+> **本作为可玩测试版（V2preview）。** 后续将**全力优化 AI 判断逻辑与 AI 语言** —— 包括证据链推理、
 > 指控与辩护的措辞、公开发言的博弈深度。当前 AI 行为可完整跑通对局，但语言与判断质量
 > 仍在迭代中，请以「可玩测试版」而非「完成品」预期体验。
 
@@ -235,7 +235,8 @@ android\build.cmd           # 需要 JDK 17 + Android SDK 34 + 7-Zip；产物自
 
 - 签名口令从**根目录 `.env`** 读（`KEYSTORE_PASS` / `KEY_PASS`，已被 `.gitignore` 排除）；签名密钥 `android/release.keystore` 同样不入库。**请与 `.env`、`release.keystore` 一起离线备份**——丢失后无法给已安装用户推送升级版本。
 - 版本号取自 `package.json`：`version` → APK `versionName`，`androidVersionCode` → `versionCode`（**每次发布必须递增**，否则无法覆盖安装）。
-- **当前产物（V1preview）**：`SpaceKill.apk` 4,547,991 字节（4.34MB），`versionName=V1preview` / `versionCode=9`，APK SHA-256 `FCE7C5AE…25D05`；证书 SHA-256 `29ad3df4…`（与 2.2preview 同签名 ⇒ 可覆盖安装）。
+- **上一个产物（V1preview，历史记录）**：`SpaceKill.apk` 4,547,991 字节（4.34MB），`versionName=V1preview` / `versionCode=9`，APK SHA-256 `FCE7C5AE…25D05`；证书 SHA-256 `29ad3df4…`（与 2.2preview 同签名 ⇒ 可覆盖安装）。
+- **当前版本（V2preview）**：`package.json` 已升 `version=V2preview` / `androidVersionCode=11`；**APK 尚未重打**——重打前必须先跑 `node android/sync-www.cjs` 同步 `assets/scene/cozy/` 与 `js/space.js`，否则装出来的包会缺素材（见交接文档待办）。
 
 ## v1preview1.0 平衡性复测（2026-10-21）
 

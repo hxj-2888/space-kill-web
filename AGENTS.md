@@ -1,6 +1,6 @@
 # AGENTS.md — 返航录（太空杀游戏-完整版）
 
-> **当前版本**：V1preview（规则口径 **v1preview1.0**，2026-10-17 换版）· `androidVersionCode` 9
+> **当前版本**：V2preview（规则口径 **v1preview1.0**，2026-10-17 换版；2026-10-25 起发布号升 V2）· `androidVersionCode` 11
 > **一句话**：15 人三阵营身份博弈的可玩网页版规则引擎（零依赖前端 + AI 托管 + 蒙特卡洛推演）。
 > **接手入口**：[`docs/交接文档_20261025_R2R5.md`](docs/交接文档_20261025_R2R5.md)（**最新**：场景交互深化 R2~R5——像素房间 / 行动搬进房间 / 点头像直接行动 / 账本笔记本 / 主页重构；含 5 条踩坑与 13 项待办）→ [`docs/交接文档_20261025.md`](docs/交接文档_20261025.md)（同日早批：AI 7 批 + S0~S5 + 批 A/B/S4）→ [`docs/交接文档_20261021.md`](docs/交接文档_20261021.md) → [`docs/v7_交接文档_20261008.md`](docs/v7_交接文档_20261008.md)（完整结构）→ [`docs/README.md`](docs/README.md) → 本文。
 
@@ -61,7 +61,7 @@
    裁定结果写进记录。游戏名已改「返航录」，**但 URL 与包名不动**。
 6. **加载顺序只改一处。** 新增/删减 js 文件时改 `tools/load-order.cjs`，再 `node tools/sync-html.cjs`
    重生成 `index.html` 的 `<script>` 标签；**不要手改 index.html 的标签顺序**。
-7. **版本口径单一。** `package.json` 的 `version`（`V1preview`）+ `androidVersionCode`（9）是真源；
+7. **版本口径单一。** `package.json` 的 `version`（`V2preview`）+ `androidVersionCode`（11）是真源；
    APK 经 `SpaceKill.apk.zip` 302 分发（`.apk` 不进 CDN 缓存，Pages 免费版不支持 Range）。
 8. **改完 docs 必跑死链检查。** 删除任何文档时，同一次提交内修掉所有指向它的链接。
 
