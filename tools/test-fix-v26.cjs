@@ -4644,31 +4644,60 @@ const RULE_FILES = ['js/ai/belief.js', 'js/ai/perceive.js', 'js/ai/decide.js',
     html39.indexOf(pkg.version) >= 0 && rdme.indexOf(pkg.version) >= 0);
 }
 
-/* ---------- 42.6 主区按阶段自适应（文件级断言；行为由 mobile-layout-check 的相位扫描承担） ----------
-   这一批改的是 UI 布局，Node 侧跑不了 DOM，故此处只钉「结构与接线」，
-   真正的量测（夜间发言区是否收起 / 流程区是否占满 / 发言区是否被压扁）在
-   tools/mobile-layout-check.cjs 的「主区相位扫描」里，6 态 × 5 档视口。 */
+/* ---------- 42.6 主区布局裁决（文件级断言；行为由 mobile-layout-check 的相位扫描承担） ----------
+   这一组改的是 UI 布局，Node 侧跑不了 DOM，故此处只钉「结构与接线」，
+   真正的量测（场景是否吃满 / 面板是否挤没 dock / 极矮屏是否被压穿）在
+   tools/mobile-layout-check.cjs 的「场景主区扫描」里，6 相位 × 5 档视口。
+
+   〔S5 2026-10-25 布局收敛后重写，2026-10-25 补齐〕
+   旧断言钉的是 v43 的三栏结构（#seg-stage / #region-chat / #t-chat / #chatlog），
+   S5 已把表单式三栏退役：主区 = 圆桌场景 + #region-dec + 输入 dock，发言走场景气泡、
+   全文归右栏书记官档案。S5 提交时**只改了工具没改断言**，HEAD 上这 5 条因此变红
+   （交接文档写「全绿」与实跑不符——本批按实跑修，不按文档修）。
+
+   重写原则：**不为让断言变绿而把退役节点加回来**（那是回退）。改钉新结构的不变量，
+   且每条都必须能被证伪——不许出现 `X === false || true` 这种恒真式。 */
 {
   const html43 = fs.readFileSync(path.join(base, '..', 'index.html'), 'utf8');
   const css43 = readCss();
   const ui43 = fs.readFileSync(path.join(base, 'ui.js'), 'utf8');
   const uiCode43 = ui43.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/^\s*\/\/.*$/gm, ' ');
+  const htmlCode43 = html43.replace(/<!--[\s\S]*?-->/g, ' ');
+  const cssCode43 = css43.replace(/\/\*[\s\S]*?\*\//g, ' ');
+  const mobileSrc = fs.readFileSync(path.join(base, '..', 'tools', 'mobile-layout-check.cjs'), 'utf8');
 
-  ok('主区A：两个区域已包成可整体显隐的 #region-chat / #region-dec',
-    /id="region-chat"/.test(html43) && /id="region-dec"/.test(html43));
-  ok('主区B：区域标题有独立节点（可随布局改文案）',
-    /id="t-chat"/.test(html43) && /id="t-dec"/.test(html43));
-  ok('主区C：#seg-stage 预置 data-layout（首帧即有正确布局，不靠 JS 补）',
-    /id="seg-stage"[^>]*data-layout="/.test(html43));
+  /* ---- 结构：主区三件套同属 .seg-main，且旧发言流水节点确已退役 ---- */
+  ok('主区A：主区 = 场景 + #region-dec + 输入 dock（三者同属 .seg-main），旧发言流水已退役',
+    /class="seg seg-main"/.test(htmlCode43) && /id="region-dec"/.test(htmlCode43) &&
+    /id="scene-mount"/.test(htmlCode43) && /class="input-dock"/.test(htmlCode43) &&
+    /* 旧的发言流水节点必须已退役（否则又回到三栏，场景被挤回一列） */
+    !/id="chatlog"/.test(htmlCode43) && !/id="seg-stage"/.test(htmlCode43) &&
+    !/id="region-chat"/.test(htmlCode43) &&
+    /* 右栏三入口必须在（发言全文的唯一归宿——退役 #chatlog 的前提） */
+    /data-tab="pub"/.test(htmlCode43) && /data-tab="priv"/.test(htmlCode43));
 
-  ok('主区D：stageLayout / applyStageLayout 均已导出（门禁要能直接调，不能复述判定逻辑）',
-    /stageLayout/.test(uiCode43) && /applyStageLayout/.test(uiCode43));
+  /* ---- 布局裁决：单点写入 data-layout，宿主是仍在 DOM 里的 .seg-main ---- */
+  ok('主区B：applyStageLayout 把布局键写进 .seg-main 的 data-layout（宿主不再是被删的 #seg-stage）',
+    /const seg = document\.querySelector\('#screen-game \.seg-main'\)/.test(uiCode43) &&
+    /seg\.dataset\.layout = L\.key/.test(uiCode43) &&
+    !/el\('seg-stage'\)/.test(uiCode43));
+
+  ok('主区C：行动面板仍是可整体显隐的区域（applyStageLayout 对 #region-dec 加 .hidden）',
+    /const rd = el\('region-dec'\)/.test(uiCode43) &&
+    /rd\.classList\.toggle\('hidden', !L\.dec\)/.test(uiCode43));
+
+  /* ---- 已退役的渲染函数必须真删（留注释不算退役，grep 仍会命中） ---- */
+  ok('主区D：renderChat / renderRoster 已真删除（退役不是一句注释）',
+    !/function renderChat\s*\(/.test(uiCode43) && !/function renderRoster\s*\(/.test(uiCode43) &&
+    !/renderChat\(g\)/.test(uiCode43) && !/renderRoster\(g, V\)/.test(uiCode43));
+
+  /* ---- 布局键语义（与 v43 一致，一条都没删——只换了消费宿主） ---- */
   ok('主区E：四个布局键 talk / day-form / day / night 齐备',
     /'talk'/.test(uiCode43) && /'day-form'/.test(uiCode43) &&
     /'day'/.test(uiCode43) && /'night'/.test(uiCode43));
-  ok('主区F：夜间按 phase 判定且**不看 pending**（有无表单都收起发言区）',
+  ok('主区F：夜间按 phase 判定且**不看 pending**（有无表单都按夜间口径）',
     /phase === 'night'\)\s*return\s*\{\s*key:\s*'night',\s*chat:\s*false/.test(uiCode43));
-  ok('主区G：讨论窗口优先于 phase（步骤 10 紧急会议在夜间相内仍须显示发言区）',
+  ok('主区G：讨论窗口优先于 phase（步骤 10 紧急会议在夜间相内仍须按讨论处理）',
     /if \(stream\) return \{ key: 'talk', chat: true/.test(uiCode43) &&
     /night-talk|紧急会议/.test(ui43));
   ok('主区H：applyStageLayout 先于 renderStage 调用（布局决定哪块区域存在）',
@@ -4677,27 +4706,25 @@ const RULE_FILES = ['js/ai/belief.js', 'js/ai/perceive.js', 'js/ai/decide.js',
     /function nightChatHtml/.test(ui43) && /L\.key === 'night' \? nightChatHtml\(g\)/.test(uiCode43));
   ok('主区J：私聊小结只取本人参与的配对组（私聊正文不公开，2.2）',
     /if \(c\.a !== me\.id && c\.b !== me\.id\) continue;/.test(uiCode43));
-  ok('主区K：发言区收起时 renderChat 不碰 DOM 但仍推进 _total（否则回白天时淡入与滚动全跑偏）',
-    /rc\.classList\.contains\('hidden'\)\) \{ renderChat\._total = total; return; \}/.test(uiCode43));
-  ok('主区L：发言记录改由右栏页签承接（夜间收起主区后白天讨论仍可回看）',
-    /data-tab="speak"/.test(html43));
 
-  const cssCode43 = css43.replace(/\/\*[\s\S]*?\*\//g, ' ');
-  ok('主区M：夜间布局真隐藏发言区（display:none，非 height:0）',
-    /\[data-layout="night"\] #region-chat\{display:none\}/.test(cssCode43));
-  /* 三个「发言区在场」的布局键各有发言区高度权重；night 的发言区是 display:none
-     （无 flex 权重是**正确**的，收起的东西不该参与分配），故不在此列。
-     四个布局键都必须给流程区高度权重 —— 否则主区会因内容长短而忽高忽低。 */
-  ok('主区N：三个发言区在场的布局键都有高度权重，四键都有流程区高度权重',
-    ['talk', 'day', 'day-form'].every(k =>
-      new RegExp('\\[data-layout="' + k + '"\\] #region-chat\\{flex:').test(cssCode43)) &&
-    ['talk', 'day', 'day-form', 'night'].every(k =>
-      new RegExp('\\[data-layout="' + k + '"\\] #region-dec\\{flex:').test(cssCode43)));
-  ok('主区O：极矮屏给发言区保底 118px（地板加在区域上，只加 .chatlog 会被 flex-shrink 压穿）',
-    /\[data-layout="day-form"\] #region-chat\{flex:3 1 0;min-height:118px\}/.test(cssCode43) &&
-    /\[data-layout="talk"\] #region-chat\{min-height:118px\}/.test(cssCode43));
-  ok('主区P：移动端门禁已覆盖 6 态相位扫描（行为层验收在此，不在 Node 断言里）',
-    /主区相位扫描/.test(fs.readFileSync(path.join(base, '..', 'tools', 'mobile-layout-check.cjs'), 'utf8')));
+  /* ---- 〔S5 新增不变量〕场景是主视觉：CSS 必须让它吃余量、面板限高 ---- */
+  ok('主区K：场景吃满主区余量，行动面板限高（面板不得把场景压成一条缝）',
+    /#screen-game \.scene-mount \{[^}]*flex: 1 1 0/.test(cssCode43) &&
+    /#screen-game #region-dec \{[^}]*max-height: 44vh/.test(cssCode43));
+
+  /* ---- 〔S5 新增不变量〕矮横屏必须逐项压回 05 层的旧 roster 预算 ---- */
+  ok('主区L：矮横屏逐项压回旧 roster 预算（rows 显式覆盖 + 面板限高 20vh）',
+    /@media \(orientation: landscape\) and \(max-height: 560px\) \{[^}]*#screen-game \.board \{[^}]*grid-template-rows: minmax\(0, 1fr\)/.test(cssCode43) &&
+    /#screen-game #region-dec \{ max-height: 20vh; \}/.test(cssCode43));
+
+  /* ---- 〔S5 新增不变量〕data-layout 必须有消费方（写进 DOM 却没人读 = 死属性） ---- */
+  ok('主区M：data-layout 在 CSS 侧有消费方（相位档确实按布局键调面板高度）',
+    /\[data-layout="night"\]/.test(cssCode43) && /\[data-layout="talk"\]/.test(cssCode43));
+
+  /* ---- 行为层验收的落点：门禁必须真的覆盖 6 相位扫描 ---- */
+  ok('主区N：移动端门禁已覆盖 6 相位场景主区扫描（行为层验收在此，不在 Node 断言里）',
+    /场景主区扫描/.test(mobileSrc) && /PHASES/.test(mobileSrc) &&
+    (mobileSrc.match(/\{ label: '/g) || []).length >= 6);
 }
 
 /* ---------- 42.7 首页与入口（UI 文本口径，文件级断言） ----------

@@ -130,96 +130,10 @@ const SKD = global.SKDerivation;               // 〔43〕阵营成员 ≠ 能�
     return '';
   }
 
-  /* ---------- 玩家名单：全员常驻（出局者带 💀 标记），点击任意玩家框查看详情 ---------- */
-  let popPid = null;   // 当前详情弹窗的玩家 id
-
-  function renderRoster(g, V) {
-    const me = E.P(g, g.humanId);
-    /* v34 C3：决策态卡片状态数据——
-       发言中 = 当天最新一条公开发言的编号；已投票 = 票源仅对验票官/异形/DEV 可见（规则内合法）；
-       被提名 = 验票官指控目标；自己角标与出局纹理为纯样式叠加 */
-    /* 〔42〕票源可见性改由 View 裁决（V.votes 已在 sanitize 内按 inspector/alien/dev 门控），
-       UI 不再自行判定 —— 避免「UI 一份判断、视图一份判断」两处口径漂移。 */
-    const votes = (V && V.votes) || null;
-    const logArr = g.chatLog || [];
-    const lastChat = logArr.length ? logArr[logArr.length - 1] : null;
-    const talkingId = lastChat && lastChat.night === g.night ? lastChat.id : null;
-    /* 存活在前、出局在后（各自按编号排序）；出局者不再移出名单 */
-    const rows = othersOf(g, V).slice().sort((a, b) =>
-      (a.out ? 1 : 0) - (b.out ? 1 : 0) || a.id - b.id);
-    el('roster').innerHTML = rows.map(p => {
-      const tags = [];
-      if (p.out) {
-        tags.push(`<span class="tag hot">💀 ${p.outType === 'vote' ? '驱逐' : (D.CAUSE_NAME[p.cause] || '死亡')}</span>`);
-      } else {
-        /* 〔42〕濒死 / 感染标记（含真伪）/ 蛰伏沉默 三类标签此前直读 g.players，对全场可见。
-           现在 p 来自 View.sanitize：这三个字段只有「本人 / 医生系 / 救援族 / 异形队友」才被下发，
-           故「看不见」自动表现为标签不出现 —— 无需在此再写一遍权限判断（避免两处口径漂移）。
-           医生看到的感染只有 {exists:true}（真伪不可辨，4.5），异形队友可见真伪（3.3④）。 */
-        if (p.dying) tags.push('<span class="tag hot">濒死</span>');
-        if (p.infection) tags.push(p.infection.real === false ? '<span class="tag ok">假标记</span>' : '<span class="tag warn">带标记</span>');
-        if (p.repairExposed) tags.push('<span class="tag ok">维修暴露</span>');
-        if (p.destroyedExposed) tags.push('<span class="tag hot">破坏暴露</span>');
-        if (p.silenceNight === g.night) tags.push('<span class="tag warn">沉默</span>');
-        /* v34：验票官指控改由「◎ 被提名」标签 + 橙色描边承担（见下方 nom 分支），此处不再重复 */
-      }
-      const heat = (g.threat && g.threat[p.id]) || 0;
-      /* v31 批 0（文案口径修正）：g.threat 是【怀疑度共识】快照（先验 28.6 + 各 AI 私有增量均值）。
-         v32（用户拍板「不开 DEV 不得显示怀疑度」）：怀疑度共识只在开发者视角显示——
-         玩家默认 UI 一律不出现任何怀疑度/威胁度数值（它是 DEV 快照口径，AI 决策也禁读）。 */
-      if (g.dev && !p.out && heat > 0) tags.push(`<span class="tag ${heat >= 60 ? 'hot' : 'warn'}">怀疑 ${heat}</span>`);
-      const k = knownLabel(g, me, p);
-      /* v32（用户拍板「去网上找素材」）：身份标识改用 emoji 图标，直接跟在名字后——
-         异形 👾 · 外星人 👽 · 人类 🧑‍🚀（宇航员）。来源仍只限观察者自己的合法已知（knownLabel）。 */
-      /* v34 H2/H4/H6：emoji 移出文本流（绝对定位右上角），仅留缩略文本用于 title 兜底 */
-      const symText = k ? (k.indexOf('异形') >= 0 ? '异形'
-        : k.indexOf('外星人') >= 0 ? '外星人'
-          : k.indexOf('人类') >= 0 ? '人类' : '') : '';
-      const sym = symText ? `<span class="fs" title="${symText}">${symText === '异形' ? '👾' : symText === '外星人' ? '👽' : '🧑‍🚀'}</span>` : '';
-      /* 非阵营类的已知文本（排除信息「非XX」等）以小标签进 tags 行，不占独立行 */
-      if (k && !sym) tags.push(`<span class="tag">${esc(k)}</span>`);
-      /* v32（用户拍板）：玩家自己的职业备注（在玩家卡片内标注，纯个人笔记，AI 不读） */
-      const note = me && me.noteMarks ? me.noteMarks[p.id] : null;
-      if (note) tags.push(`<span class="tag">📌 ${esc(roleNameOf(note))}</span>`);
-      /* v32（用户拍板）：卡片身份行（.did，高度恒定 12px 不膨胀），三分支——
-         ① 自己：阵营 emoji + 阵营 · 职业（只有我能看到自己的卡上有，规则内合法）；
-         ② 异形队友：阵营互认（state.js 创建时双向写入 known，规则 3.3④ 合法获知）——
-            UI 按观察者阵营显式渲染（读真实 faction 仅限 me.faction==='alien' 时，
-            信息上与 known 互认等价；人类/外星人观察者无此分支，无任何额外透视）；
-         ③ DEV：上帝视角全员透视。 */
-      const FEMOJI = { alien: '👾', xeno: '👽', human: '🧑‍🚀' };
-      /* 身份行纯文字且名词只出现一次：阵营 == 职业名时只显示一个（如异形只写「异形」，不写「队友」） */
-      const idLabel = p => {
-        const f = facName(p.faction), r = p.roleName || roleNameOf(p.role);
-        return f === r ? f : `${f}·${r}`;
-      };
-      let did = '';
-      if (g.dev) did = esc(idLabel(p));
-      else if (me && p.id === me.id) did = esc(idLabel(p));
-      else if (me && me.faction === 'alien' && p.faction === 'alien') did = esc(facName(p.faction));
-      /* v34 C3/C4：已投票（灰勾）/ 被提名（橙框+◎）/ 发言中（呼吸）/ 聊天联动高亮 */
-      const voted = !p.out && votes && votes[p.id] != null;
-      const nom = !p.out && g.accuseMark && g.accuseMark.target === p.id;
-      if (voted) tags.push('<span class="tag voted">✓ 已投</span>');
-      if (nom) tags.push('<span class="tag nom-t">◎ 被提名</span>');
-      /* v34 H1/H2/H3/H6：两行结构——
-         行①：28×28 编号徽章（定宽） + 昵称容器（弹性收缩、13px/500、省略号、title 兜底）
-         行②：职业小字（.did，可截断） + 状态徽章（.tags，定宽不压缩文字）
-         emoji 不再进昵称行，改由 CSS 绝对定位到卡片右上角 */
-      return `<div class="pl ${me && p.id === me.id ? 'me' : ''} ${p.out ? 'out' : ''} ${popPid === p.id ? 'sel' : ''} ${nom ? 'nom' : ''} ${!p.out && p.id === talkingId ? 'talking' : ''} ${chatFilterPid === p.id ? 'hl' : ''} ${sym ? 'has-emo' : ''}" data-pid="${p.id}">
-        <div class="top"><span class="no">${p.out ? '💀' : p.id}</span><span class="nm" title="${esc(p.name)}${symText ? ' ' + symText : ''}">${esc(p.name)}</span></div>
-        <div class="idrow">${did ? `<span class="did">${did}</span>` : ''}<span class="tags">${tags.join('')}</span></div>
-        ${sym}
-      </div>`;
-    }).join('');
-
-    /* v32：出局记录容器已从名单列移除（出局信息在名单卡 💀 标签 + 右侧记录），容器缺省时跳过 */
-    const deadBox = el('dead');
-    if (deadBox) deadBox.innerHTML = g.players.filter(p => p.out).map(p =>
-      `<div>${p.id} 号 ${esc(p.name)} · <b class="${facCls(p.faction)}">${facName(p.faction)}</b>（${esc(p.roleName)}）· ` +
-      `${p.outType === 'vote' ? '被驱逐' : '死于' + (D.CAUSE_NAME[p.cause] || '—')} · 第 ${p.outNight} 夜</div>`
-    ).join('') || '<div class="empty">暂无</div>';
-  }
+  /* 〔S5 2026-10-25 退役〕renderRoster（左栏名单卡片）已删除：主区改由圆桌场景承担名单，
+     席位点击走 UI.openPlayerPop（S3a 起）。原函数里的「发言中/已投票/被提名/已知身份」角标
+     全部由 SKScene 的席位状态件承担（sk-lit / sk-sel / 出局叠加件），不再有第二份名单渲染。 */
+  let popPid = null;   // 当前详情弹窗的玩家 id（openPlayerPop 与弹窗关闭共用）
 
   /* 玩家详情弹窗：开发者模式下展示完整信息（身份/技能/各 AI 视角威胁度/指控记录） */
   function renderPlayerPop(g, V) {
@@ -376,19 +290,21 @@ const SKD = global.SKDerivation;               // 〔43〕阵营成员 ≠ 能�
     return `<div class="sec">今夜私聊（仅你参与的一场 · 正文不公开）</div>` + body;
   }
 
-  /* 把布局写进 DOM：区域显隐 + 标题 + 供 CSS 消费的 data-layout。
+  /* 把布局写进 DOM：供 CSS 消费的 data-layout + 区域显隐。
      区域用 display:none 整体收起（不是 height:0）——空盒子仍然吃边距，且
-     移动端手势/焦点可能落进不可见区域。 */
+     移动端手势/焦点可能落进不可见区域。
+
+     〔S5 2026-10-25〕宿主改挂 `.seg-main`：旧 `#seg-stage` / `#region-chat` / `#t-chat`
+     已随表单式三栏退役（发言流水改由场景气泡 + 右栏书记官档案承载）。此处只保留
+     **仍在 DOM 里的**那两件：主区宿主（data-layout）与行动面板（#region-dec 显隐）。
+     ⚠ 不要为了「让断言过」把退役节点加回来——那是回退，不是修复。
+     data-layout 的消费方见 css/06-scene.css「相位档面板高度」（night/talk 两档）。 */
   function applyStageLayout(g) {
     const L = stageLayout(g);
-    const seg = el('seg-stage');
+    const seg = document.querySelector('#screen-game .seg-main');
     if (seg) seg.dataset.layout = L.key;
-    const rc = el('region-chat'), rd = el('region-dec');
-    if (rc) rc.classList.toggle('hidden', !L.chat);
+    const rd = el('region-dec');
     if (rd) rd.classList.toggle('hidden', !L.dec);
-    const tc = el('t-chat'), td = el('t-dec');
-    if (tc) tc.textContent = L.tChat;
-    if (td) td.textContent = L.tDec;
     return L;
   }
 
@@ -430,43 +346,11 @@ const SKD = global.SKDerivation;               // 〔43〕阵营成员 ≠ 能�
     /* 〔S5〕renderChat 退役：公开发言以场景气泡呈现，全文归书记官档案（右栏） */
   }
 
-  /* v34 C4：发言流过滤态——点击发言中的编号 = 只看该玩家；点角标清除 */
-  let chatFilterPid = null;
-
-  function renderChat(g) {
-    const box = el('chatlog');
-    const total = (g.chatLog || []).length;
-    /* 〔43〕区域被收起时不碰 DOM，但仍推进 _total —— 否则回到白天时会把
-       「整夜累积的新发言」误判成一条新增，淡入动画与滚动定位都会跑偏。 */
-    const rc = el('region-chat');
-    if (rc && rc.classList.contains('hidden')) { renderChat._total = total; return; }
-    const streaming = !!(g.pending && g.pending.stream);
-    box.classList.toggle('streaming', streaming);
-    /* v33：新消息进入时只给最后一条加 200ms 淡入上移动画（整列表重渲染不闪烁） */
-    const grew = total > (renderChat._total || 0);
-    renderChat._total = total;
-    /* v32（用户拍板）：公开发言记录只显示【当天】——非当前昼夜循环的历史发言不进列表 */
-    const today = (g.chatLog || []).filter(t => t.night === g.night);
-    let rows = today.slice(streaming ? -40 : -14);
-    let filtered = false;
-    if (chatFilterPid != null) {
-      const ever = today.some(t => t.id === chatFilterPid) || (g.chatLog || []).some(t => t.id === chatFilterPid);
-      if (ever) { rows = today.filter(t => t.id === chatFilterPid); filtered = true; }
-      else chatFilterPid = null;   // 该编号今天不存在（换夜/非法）→ 自动清除过滤
-    }
-    const me = E.P(g, g.humanId);
-    box.innerHTML = (filtered ? `<button class="chat-filter-chip" data-cf="1">只看 ${chatFilterPid} 号 ✕</button>` : '') +
-      (rows.length ? rows.map((t, i) => {
-      /* 「原意」小字：NLP 对这句话的结构化理解（指控/声称/质询/汇报/意向），玩家可随时核对 */
-      const note = t.sig ? (global.NLP ? global.NLP.summarize(t.sig) : '') : '';
-      const mine = me && t.id === me.id;   // 己方消息右对齐 + 独立气泡色
-      return `<div class="say${mine ? ' mine' : ''}${grew && !filtered && i === rows.length - 1 ? ' msg-in' : ''}" data-pid="${t.id}" title="点击只看该编号的发言">` +
-        `<span class="ava">${t.id}</span>` +
-        `<div class="say-main"><span class="who">${t.id} 号</span>${t.kind && t.kind !== '讨论' ? `<i class="kind">${esc(t.kind)}</i>` : ''}：${esc(t.text)}${note ? `<div class="sig-note">原意：${esc(note)}</div>` : ''}</div>` +
-      `</div>`;
-    }).join('') : `<div class="empty">${filtered ? '该编号今天暂无公开发言' : '暂无公开发言'}</div>`);
-    box.scrollTop = box.scrollHeight;
-  }
+  /* 〔S5 2026-10-25 退役〕renderChat（主区发言流水）与其配套的「只看某编号」过滤态
+     一并删除：S5 起公开发言走场景气泡（SKScene.updateBubbles），全文归右栏书记官档案
+     （renderSide 的 pub 页签），主区已无 #chatlog 节点。
+     ⚠ 函数体保留在原处会让「已退役」变成一句注释——死代码仍会被 grep 到、
+     仍会有人以为它在跑。真删，并把原职责写进交接记录。 */
 
   /* 实时讨论：输入框是常驻节点（#talkbar），AI 发言重渲染时不会清空你正在输入的文字 */
   /* ---------- 本步公告：推送到决策栏顶部，按批次着色（①~⑫） ---------- */
@@ -1538,16 +1422,8 @@ const SKD = global.SKDerivation;               // 〔43〕阵营成员 ≠ 能�
         catch (err) { showFatal('讯问生成出错：' + (err && err.message ? err.message : err)); }
         return;
       }
-      /* v34 C4：发言流 ↔ 名单联动——点击发言 = 只看该编号（再点取消）；点角标清除 */
-      const chip = e.target && e.target.closest ? e.target.closest('#chatlog .chat-filter-chip') : null;
-      if (chip) { chatFilterPid = null; render(global.Game.g); return; }
-      const sayEl = e.target && e.target.closest ? e.target.closest('#chatlog .say') : null;
-      if (sayEl && sayEl.dataset.pid) {
-        const pid = +sayEl.dataset.pid;
-        chatFilterPid = chatFilterPid === pid ? null : pid;
-        render(global.Game.g);
-        return;
-      }
+      /* 〔S5〕发言流 ↔ 名单联动退役：主区已无 #chatlog（发言走场景气泡 + 书记官档案），
+         对应的「只看某编号」过滤态与 .chat-filter-chip 一并删除。 */
       /* v34 C4：@ 自动补全项点击 → 补全为「N 号 」 */
       const ati = e.target && e.target.closest ? e.target.closest('.at-item') : null;
       if (ati) {
