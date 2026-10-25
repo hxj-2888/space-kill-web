@@ -24,7 +24,8 @@
     "probe:chan": "node tools/channel-ab.cjs 200 501",
     "trace": "node tools/trace-game.cjs",
     "narrate": "node tools/replay-narrate.cjs",
-    "probe:attend": "node tools/attend-ab.cjs"
+    "probe:attend": "node tools/attend-ab.cjs",
+    "probe:chatlog": "node tools/probe-chatlog-visibility.cjs 60 1 && node tools/probe-chatlog-human.cjs 60 1"
   },
   "dependencies": {
     "docx": "^9.7.1"
