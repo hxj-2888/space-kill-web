@@ -3,7 +3,7 @@
  * -------------------------------------------------------------
  * 职责：把对局状态画成「圆桌 + 15 席」场景（玩家名单的视觉替身）。
  *   · 数据只读：g.phase / g.pending（仅用于判断「轮到自己」）+ V = View.viewFor
- *     裁剪视图（V.players[].out/outType、V.id）。不读任何真相字段——
+ *     裁剪视图（V.players[].out/outType、V.humanId）。不读任何真相字段——
  *     视图里没有的（他人身份/濒死/私有）这里就看不见。
  *   · 可见性纪律（7.1 最小信息）：
  *       - 夜眼只表达【观察者视角】：夜间除「自己（且轮到自己提交）」外全部闭眼；
@@ -127,7 +127,7 @@
       const p = V.players[i - 1];
       if (!p || p.id !== i) return '';               /* 防御：视图席位必须按 1..15 顺序 */
       const out = !!p.out;
-      const mine = p.id === V.id;
+      const mine = p.id === V.humanId;
       /* 夜眼（观察者视角）：夜间闭眼；例外 = 轮到自己提交时的自己；出局者无眼态 */
       const closed = night && !out && !(mine && myTurn);
       seats += seatSvg(p, i, { out, mine, closed });
@@ -213,7 +213,7 @@
     /* pending 只为真人步骤存在（AI 步骤即时结算）⇒ 「pending 非 stream = 轮到我」 */
     const myTurn = !!(g.pending && !g.pending.stream);
     const kind = myTurn ? (g.pending.kind || '') : '';
-    const key = [V.id, g.phase === 'night' ? 1 : 0, myTurn ? 1 : 0,
+    const key = [V.humanId, g.phase === 'night' ? 1 : 0, myTurn ? 1 : 0,
       V.players.map(p => (p.out ? 1 : 0)).join('')].join('|');
     if (key !== sig || !mount.__skBuilt) {
       const svg = svgFor(g, V, myTurn);
@@ -275,34 +275,30 @@
           const t = talks[talks.length - 1];
           if (t && t.text) {
             const p = seatPos(g, t.id, 'seated');
-            popBubble(g, V, mount, { x: p.x, y: p.y - GEO.seatR - 4 }, t.id + ' 号' + (t.id === V.id ? '（我）' : ''), t.text, t.id === V.id);
+            popBubble(g, V, mount, { x: p.x, y: p.y - GEO.seatR - 4 }, t.id + ' 号' + (t.id === V.humanId ? '（我）' : ''), t.text, t.id === V.humanId);
           }
         }
       }
-      /* 0c 私聊：只冒【己方配对组】的中性气泡（定位组中心上方）；
-         nightChats.lines 无作者标记 ⇒ 不标谁说的（与 nightChatHtml「N 号 ↔ 我」口径一致）；
-         他人组、异形队内频道 —— 零气泡（2.2 / 3.3④，队内内容归阵营日记本） */
-      if (g.step === '0c') {
-        const me = g.players[V.id - 1];
+      /* 〔S3b-2〕私聊小结气泡：nightChats 在 0c **结算时**落库（0c 窗口内为空——实测），
+         故窗口为「当夜 nightChats 己方组有内容」而非 step==='0c'；结算瞬间在己方组两人
+         之间弹一次（0c 时散桌、之后 seated——seatPos 跟随当前布局）。只读【己方组】
+         （2.2：正文仅配对双方可见）；异形队内频道零气泡（3.3④，内容归阵营日记本）。
+         lines 无作者标记 ⇒ 不标谁说的（与 nightChatHtml「N 号 ↔ 我」口径一致）。 */
+      if ((g.nightChats || []).length) {
         let tail = null, myGroup = null;
-        for (const c of (g.nightChats || [])) {
-          if (c.a !== V.id && c.b !== V.id) continue;
+        for (const c of g.nightChats) {
+          if (c.a !== V.humanId && c.b !== V.humanId) continue;
           myGroup = [c.a, c.b];
           const ls = c.lines || [];
           if (ls.length) tail = ls[ls.length - 1];
         }
-        for (const e of (me.inbox || [])) {
-          if (e.night !== g.night) continue;
-          if (/（队内）：/.test(e.text || '')) continue;          /* 队内零气泡 */
-          const m = /^(\d+) 号（私聊）：(.*)$/.exec(e.text || '');
-          if (m) { tail = m[2]; if (!myGroup) myGroup = [V.id, +m[1]]; }
-        }
-        const pk = g.night + '|' + (tail != null ? tail : '');
+        const pk = g.night + '|' + (myGroup ? myGroup.join('-') : '') + '|' + (tail != null ? tail : '');
         if (pk !== lastPmKey && tail != null && myGroup) {
           lastPmKey = pk;
-          const p1 = seatPos(g, myGroup[0], 'scattered');
-          const p2 = seatPos(g, myGroup[1], 'scattered');
-          const mid = { x: (p1.x + p2.x) / 2, y: Math.min(p1.y, p2.y) - 6 };
+          const mode = g.step === '0c' ? 'scattered' : 'seated';
+          const p1 = seatPos(g, myGroup[0], mode);
+          const p2 = seatPos(g, myGroup[1], mode);
+          const mid = { x: (p1.x + p2.x) / 2, y: Math.min(p1.y, p2.y) - GEO.seatR - 6 };
           popBubble(g, V, mount, mid, '私聊', tail, false);
         }
       } else if (lastPmKey) {
