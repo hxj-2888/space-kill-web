@@ -4816,10 +4816,15 @@ const RULE_FILES = ['js/ai/belief.js', 'js/ai/perceive.js', 'js/ai/decide.js',
     /#screen-start \.start-box \{ position: relative; \}/.test(cssS4));
 
   /* ---- ④ 加载序：新分片必须挂在 style.css 最末（否则压不过 03/05 层） ---- */
-  ok('S4F：07-start-scene.css 已注册且排在 @import 列表最末',
+  ok('S4F：07-start-scene.css 已注册，且排在 06-scene 之后（级联顺序：场景层在前，开始页皮在后）',
     (function () {
       const imports = [...styleEntry.matchAll(/@import url\("\.\/([^"]+)"\)/g)].map(m => m[1]);
-      return imports[imports.length - 1] === '07-start-scene.css';
+      const i6 = imports.indexOf('06-scene.css');
+      const i7 = imports.indexOf('07-start-scene.css');
+      /* 原断言写死「07 必须是最后一个」——R5 加了 08-home.css 之后它变红。
+         真正要守的是**相对顺序**（07 必须晚于 06），而不是「谁是最后一个」：
+         写死末位会让每个新增分片都要改一次断言，是典型的"断言绑死实现"。 */
+      return i6 >= 0 && i7 > i6;
     })());
 
   /* ---- ⑤ 生成器的两条硬约束（都付过时间） ---- */

@@ -958,9 +958,40 @@ const SKD = global.SKDerivation;               // 〔43〕阵营成员 ≠ 能�
       /* 〔v1preview1.0 6.9/1.2.5〕外星人逃亡＝次胜：不终结对局，对局继续后的结果不回溯改判 */
       (g.xenoSubWin ? `<p class="evt good">外星人已执行逃亡，取得【次胜】（对局继续进行至终局，其次胜不因后续结果改判）。</p>` : '') +
       `<p class="hint">共 ${g.night} 夜，倒计时剩余 ${(g.countdown || 0).toFixed(1)}，净破坏量 ${((g.net10 || 0) / 10).toFixed(1)}。</p>` +
-      `<div class="sec">全部身份（上帝视角已解锁）</div>` +
-      roster.map(p => `<div class="kv"><span>${p.id} 号 ${esc(p.name)}</span>
-        <span class="${facCls(p.faction)}">${facName(p.faction)} · ${esc(p.roleName)}${p.out ? '（第' + p.outNight + '夜' + (p.outType === 'vote' ? '被驱逐' : p.outType === 'escape' ? '逃亡（次胜）' : '死于' + (D.CAUSE_NAME[p.cause] || '—')) + '）' : ''}</span></div>`).join('');
+      /* 〔R5〕终局名册：按阵营分组（不再是一张 15 行两列表格）。
+         阵营归属是终局公开信息（上帝视角解锁），分组呈现比逐行罗列更符合复盘直觉。
+         数据口径不变：仍读 end.roster / g.players 的 id/name/faction/roleName/out*。 */
+      (function () {
+        const order = ['human', 'alien', 'xeno'];
+        const byFac = {};
+        roster.forEach(x => { (byFac[x.faction] = byFac[x.faction] || []).push(x); });
+        const facOrder = order.filter(f => byFac[f] && byFac[f].length)
+          .concat(Object.keys(byFac).filter(f => order.indexOf(f) < 0));
+        return '<div class="sec">终局名册 · 上帝视角已解锁</div>'
+          + '<div class="over-roster">'
+          + facOrder.map(f => {
+            const list = byFac[f];
+            return '<div class="or-group ' + facCls(f) + '">'
+              + '<div class="or-head"><b>' + facName(f) + '</b><i>' + list.length + ' 人</i></div>'
+              + '<div class="or-members">'
+              + list.map(x => {
+                const img = 'assets/scene/characters/a-crew/seat-' + String(x.id).padStart(2, '0') + '.svg';
+                const outTxt = x.out
+                  ? '第' + x.outNight + '夜' + (x.outType === 'vote' ? '被驱逐'
+                    : x.outType === 'escape' ? '逃亡' : '死于' + (D.CAUSE_NAME[x.cause] || '—'))
+                  : '存活';
+                return '<span class="or-m' + (x.out ? ' out' : '') + '" title="' + esc(x.name) + ' · ' + esc(x.roleName) + ' · ' + outTxt + '">'
+                  + '<img src="' + img + '" alt="" draggable="false"/>'
+                  + '<b>' + x.id + '</b>'
+                  + '<span class="or-n">' + esc(x.name) + '</span>'
+                  + '<span class="or-r">' + esc(x.roleName) + '</span>'
+                  + '<span class="or-s">' + outTxt + '</span>'
+                  + '</span>';
+              }).join('')
+              + '</div></div>';
+          }).join('')
+          + '</div>';
+      })();
 
     rpNight = 0;
     el('rp-nights').innerHTML = nights(g).map(n =>
@@ -1318,6 +1349,30 @@ const SKD = global.SKDerivation;               // 〔43〕阵营成员 ≠ 能�
     if (m) m.classList.add('hidden');
   }
 
+  /* =============================================================
+   * 〔R5〕登船名册：开始页的 15 个席位（取代原来的「15 / 24」数字方框）
+   * -------------------------------------------------------------
+   * 为什么用席位头像而不是数字：
+   *   用户要求主页「不要又成方框点击式的」。数字方块表达的是"参数"，
+   *   而玩家真正关心的是"我要坐进这艘船的哪个位置"——用与对局页同源的席位头像，
+   *   开始页与对局页就变成同一个世界的两个时刻，而不是两张不同的表单。
+   * 数据：15 是结构常量（2.8.14 组位表），这里不读声明层也不读对局状态——
+   *   开局前没有任何对局状态，画死 15 个席位是**正确**的（与 departure-ring 同口径）。
+   * ============================================================= */
+  function mountRosterBoard() {
+    const box = el('rb-seats');
+    if (!box) return;
+    let html = '';
+    for (let i = 1; i <= 15; i++) {
+      const img = 'assets/scene/characters/a-crew/seat-' + String(i).padStart(2, '0') + '.svg';
+      /* 阵营着色：与对局页 PALETTE 同序（人类蓝 / 异形红 / 外星人绿），只做视觉暗示 */
+      const cls = i === 10 ? 'rb-xeno' : ([4, 8, 14].indexOf(i) >= 0 ? 'rb-alien' : 'rb-human');
+      html += '<span class="rb-seat ' + cls + '" title="' + i + ' 号席位">'
+        + '<img src="' + img + '" alt="" draggable="false" /><b>' + i + '</b></span>';
+    }
+    box.innerHTML = html;
+  }
+
   function mountRolePicker() {
     renderRoleGrid();
     rpSyncRow();
@@ -1635,7 +1690,7 @@ const SKD = global.SKDerivation;               // 〔43〕阵营成员 ≠ 能�
   }
 
   global.UI = { render, init, updateTimer, renderRoom, renderReplayBody, stageLayout, applyStageLayout,
-    mountRolePicker, preferredRole, rpPick, renderRoleGrid, openPlayerPop,
+    mountRolePicker, preferredRole, rpPick, renderRoleGrid, openPlayerPop, mountRosterBoard,
     openLedger, closeLedger, ledgerLines };
 })(typeof window !== 'undefined' ? window : globalThis);
 

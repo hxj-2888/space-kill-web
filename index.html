@@ -40,29 +40,28 @@
         <span><b>返航录 V1preview</b>（原名返航录；规则口径 v1preview1.0）· 可玩测试版 —— 本版落地<b>强力乔装与染血指认</b>、<b>外星人逃亡（次胜）</b>、<b>摆渡人 · 疫苗研究员</b>两个新席位职业，后续将全力优化 <b>AI 判断逻辑</b> 与 <b>AI 语言</b>。</span>
       </div>
 
-      <!-- 本局配置预览条：这是即将开局的预设，不是实时战况；总数与分项呈包含关系 -->
-      <div class="config-strip" data-fac="random">
-        <span class="cfg-cap">本局配置</span>
-        <div class="cfg-unit">
-          <b>15</b><i>名船员被困星舰</i>
-          <div class="cfg-subs">
-            <span class="cs-item f-human"><em></em>人类 <b>11</b></span>
-            <span class="cs-item f-alien"><em></em>异形 <b>3</b></span>
-            <span class="cs-item f-xeno"><em></em>外星人 <b>1</b></span>
-          </div>
+      <!-- 〔R5〕登船名册：不再是一条数字方框，而是**开局会坐的 15 个席位**。
+           席位头像与对局页同源（assets/scene/characters/a-crew），玩家一眼看到"我要上的是这艘船"。
+           人数与倒计时写在名册上方的题注里，不再用大方块数字。 -->
+      <div class="roster-board" data-fac="random">
+        <div class="rb-head">
+          <span class="rb-title">登船名册</span>
+          <span class="rb-note"><b>15</b> 名船员被困星舰 · 昼夜倒计时 <b>24</b> · 人类 <b>11</b> / 异形 <b>3</b> / 外星人 <b>1</b></span>
         </div>
-        <div class="cfg-unit"><b>24</b><i>昼夜倒计时</i></div>
+        <div class="rb-seats" id="rb-seats" aria-label="登船席位"></div>
       </div>
 
       <div class="panel-grid">
         <!-- 单机（主路径，视觉权重高） -->
         <div class="mode-card main">
           <h2>单机对局</h2>
-          <div class="faction-pick">
-            <label class="fp fp-random active"><input type="radio" name="fac" value="random" checked /><span class="fp-nm">随机</span><span class="fp-ds">系统随机分配阵营</span></label>
-            <label class="fp fp-human"><input type="radio" name="fac" value="human" /><span class="fp-nm">人类</span><span class="fp-ds">修船 · 查验 · 撑到倒计时归零</span></label>
-            <label class="fp fp-alien"><input type="radio" name="fac" value="alien" /><span class="fp-nm">异形</span><span class="fp-ds">潜伏 · 击杀 · 感染，三人小队共享情报</span></label>
-            <label class="fp fp-xeno"><input type="radio" name="fac" value="xeno" /><span class="fp-nm">外星人</span><span class="fp-ds">独狼搅局 · 夜行免疫 · 觉醒双刀</span></label>
+          <!-- 〔R5〕四条登船通道：选中时舱门亮起（而不是方框变金边）。
+               input 的 name/value 与顺序一律未动，ui.js 的阵营联动照旧。 -->
+          <div class="faction-pick gate-row">
+            <label class="fp fp-random active"><input type="radio" name="fac" value="random" checked /><span class="gate-line"></span><span class="fp-nm">随机</span><span class="fp-ds">系统随机分配阵营</span></label>
+            <label class="fp fp-human"><input type="radio" name="fac" value="human" /><span class="gate-line"></span><span class="fp-nm">人类</span><span class="fp-ds">修船 · 查验 · 撑到倒计时归零</span></label>
+            <label class="fp fp-alien"><input type="radio" name="fac" value="alien" /><span class="gate-line"></span><span class="fp-nm">异形</span><span class="fp-ds">潜伏 · 击杀 · 感染，三人小队共享情报</span></label>
+            <label class="fp fp-xeno"><input type="radio" name="fac" value="xeno" /><span class="gate-line"></span><span class="fp-nm">外星人</span><span class="fp-ds">独狼搅局 · 夜行免疫 · 觉醒双刀</span></label>
           </div>
           <!-- 〔44〕自选身份：软偏好。不选 = 系统随机分配原样不变；选了则尽量给到。
                双向联动规则见 js/ui.js 的 mountRolePicker：选身份会带上阵营，改阵营会清掉冲突的身份。 -->

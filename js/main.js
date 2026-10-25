@@ -305,6 +305,7 @@
   document.addEventListener('DOMContentLoaded', () => {
     global.UI.init();
     global.UI.mountRolePicker();          // 〔44〕自选身份面板（角色清单由声明层派生）
+    global.UI.mountRosterBoard();         // 〔R5〕登船名册（15 席头像，替代原数字配置条）
 
     document.querySelectorAll('.fp').forEach(fp => fp.onclick = () => {
       document.querySelectorAll('.fp').forEach(x => x.classList.remove('active'));

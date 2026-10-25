@@ -1,0 +1,280 @@
+/* =============================================================
+ * 〔R5〕主页 UI 重构：登船名册 + 登船通道
+ * -------------------------------------------------------------
+ * 用户要求：主页「不要又成方框点击式的」，「要融入场景之中」。
+ *
+ * 旧版：一条 "15 / 24" 的数字方框 + 4 个阵营方卡 + 胶囊按钮。
+ * 新版：
+ *   · 登船名册 —— 15 个席位头像排成一条弧线（与对局页圆桌同源素材），
+ *     阵营用头像外环颜色暗示（人类蓝 / 异形红 / 外星人绿），没有数字方块。
+ *   · 登船通道 —— 阵营选择改成四条横向"舱门"，左侧一条竖线是舱门指示灯：
+ *     未选中是暗线，选中时整条亮起并把名字提到最亮。
+ *
+ * ⚠ 必须排在 07-start-scene.css 之后（级联最末），否则被 03/05 层的
+ *   #screen-start .config-strip / .fp 规则压掉（同特异性靠后取胜，本仓老坑）。
+ * ============================================================= */
+
+/* ---------- 一、登船名册 ---------- */
+#screen-start .roster-board {
+  position: relative;
+  margin: 0 0 16px;
+  padding: 12px 16px 10px;
+  border-radius: 14px;
+  background:
+    radial-gradient(ellipse at 50% 120%, rgba(40, 90, 140, .22), transparent 70%),
+    linear-gradient(180deg, rgba(10, 16, 28, .82), rgba(7, 12, 21, .9));
+  border: 1px solid rgba(74, 110, 160, .28);
+  overflow: hidden;
+}
+#screen-start .rb-head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+#screen-start .rb-title {
+  font-size: 13px;
+  letter-spacing: 4px;
+  color: #7fd6ff;
+  font-weight: 700;
+}
+#screen-start .rb-note {
+  font-size: 11.5px;
+  color: #8a97b0;
+  letter-spacing: .3px;
+}
+#screen-start .rb-note b { color: #cfdcef; font-weight: 700; }
+#screen-start .rb-seats {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 2px;
+  /* 弧线：用每个席位的 translateY 做出圆桌的透视（见下方 nth-child 规则） */
+  padding: 0 2px;
+}
+#screen-start .rb-seat {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 0 0 auto;
+  transition: transform .2s;
+}
+#screen-start .rb-seat img {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: #0a0f18;
+  border: 2px solid #3a5272;
+  display: block;
+}
+#screen-start .rb-seat b {
+  position: absolute;
+  bottom: -5px;
+  min-width: 15px;
+  height: 15px;
+  line-height: 15px;
+  border-radius: 8px;
+  background: #0d1524;
+  border: 1px solid #3a5272;
+  color: #fff;
+  font-size: 9.5px;
+  font-weight: 800;
+  text-align: center;
+  padding: 0 2px;
+}
+#screen-start .rb-seat.rb-human img { border-color: #4aa8ff; }
+#screen-start .rb-seat.rb-alien img { border-color: #ff5a7a; }
+#screen-start .rb-seat.rb-xeno  img { border-color: #5ce6a8; }
+#screen-start .rb-seat.rb-alien b { border-color: #ff5a7a; }
+#screen-start .rb-seat.rb-xeno  b { border-color: #5ce6a8; }
+#screen-start .rb-seat:hover { transform: translateY(-3px); }
+
+/* 弧线：15 个席位按位置做纵向偏移，模拟"围坐圆桌"的透视 */
+#screen-start .rb-seat:nth-child(1)  { transform: translateY(2px); }
+#screen-start .rb-seat:nth-child(2)  { transform: translateY(-3px); }
+#screen-start .rb-seat:nth-child(3)  { transform: translateY(-7px); }
+#screen-start .rb-seat:nth-child(4)  { transform: translateY(-9px); }
+#screen-start .rb-seat:nth-child(5)  { transform: translateY(-9px); }
+#screen-start .rb-seat:nth-child(6)  { transform: translateY(-7px); }
+#screen-start .rb-seat:nth-child(7)  { transform: translateY(-4px); }
+#screen-start .rb-seat:nth-child(8)  { transform: translateY(0); }
+#screen-start .rb-seat:nth-child(9)  { transform: translateY(-4px); }
+#screen-start .rb-seat:nth-child(10) { transform: translateY(-7px); }
+#screen-start .rb-seat:nth-child(11) { transform: translateY(-9px); }
+#screen-start .rb-seat:nth-child(12) { transform: translateY(-9px); }
+#screen-start .rb-seat:nth-child(13) { transform: translateY(-7px); }
+#screen-start .rb-seat:nth-child(14) { transform: translateY(-3px); }
+#screen-start .rb-seat:nth-child(15) { transform: translateY(2px); }
+
+/* ---------- 二、登船通道（阵营选择） ---------- */
+#screen-start .faction-pick.gate-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0 0 14px;
+  grid-template-columns: none;
+}
+#screen-start .faction-pick.gate-row .fp {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 12px 8px 0;
+  border: 0;
+  border-radius: 0 10px 10px 0;
+  background: linear-gradient(90deg, rgba(16, 25, 40, .9), rgba(12, 19, 32, .55));
+  text-align: left;
+  cursor: pointer;
+  transition: background .18s;
+}
+#screen-start .faction-pick.gate-row .fp:hover {
+  background: linear-gradient(90deg, rgba(24, 38, 60, .95), rgba(16, 26, 44, .6));
+  transform: none;
+}
+/* 舱门指示灯：一条竖线，未选中是暗线，选中时亮起并向右发光 */
+#screen-start .faction-pick.gate-row .gate-line {
+  flex: 0 0 auto;
+  width: 4px;
+  height: 34px;
+  border-radius: 0 3px 3px 0;
+  background: #2a3d57;
+  transition: background .18s, box-shadow .18s;
+}
+#screen-start .faction-pick.gate-row .fp-nm {
+  font-size: 14px;
+  font-weight: 700;
+  color: #b9c6da;
+  letter-spacing: 1px;
+  min-width: 52px;
+}
+#screen-start .faction-pick.gate-row .fp-ds {
+  font-size: 11.5px;
+  color: #7e8ca3;
+  line-height: 1.4;
+}
+#screen-start .faction-pick.gate-row .fp.active {
+  background: linear-gradient(90deg, rgba(0, 229, 176, .14), rgba(12, 19, 32, .35));
+  box-shadow: none;
+}
+#screen-start .faction-pick.gate-row .fp.active .gate-line {
+  background: var(--accent);
+  box-shadow: 0 0 12px rgba(0, 229, 176, .8), 2px 0 18px rgba(0, 229, 176, .35);
+}
+#screen-start .faction-pick.gate-row .fp.active .fp-nm { color: #fff; }
+#screen-start .faction-pick.gate-row .fp.active .fp-ds { color: #a9b8cc; }
+/* 各阵营选中时的灯色 */
+#screen-start .faction-pick.gate-row .fp-human.active .gate-line { background: #4aa8ff; box-shadow: 0 0 12px rgba(74, 168, 255, .85), 2px 0 18px rgba(74, 168, 255, .35); }
+#screen-start .faction-pick.gate-row .fp-alien.active .gate-line { background: #ff5a7a; box-shadow: 0 0 12px rgba(255, 90, 122, .85), 2px 0 18px rgba(255, 90, 122, .35); }
+#screen-start .faction-pick.gate-row .fp-xeno.active  .gate-line { background: #5ce6a8; box-shadow: 0 0 12px rgba(92, 230, 168, .85), 2px 0 18px rgba(92, 230, 168, .35); }
+
+/* ---------- 三、矮横屏：名册压缩成一行小头像 ---------- */
+@media (orientation: landscape) and (max-height: 560px) {
+  /* ⚠ 矮屏最容易坏在这里：预览说明 + 名册 + 4 条通道 + 自选身份 + CTA 要塞进 390px。
+     实测 844×390 上名册被压成一条 3px 的细线 —— 根因不是我的 padding，而是
+     05 层 `#screen-start .panel-grid{max-height:none;flex:0 0 auto}` 把剩余高度全给了对局区，
+     名册作为 flex 子项被 `flex-shrink` 压穿。故这里必须给名册**显式的最小高度**，
+     并让它 flex:0 0 auto（不参与收缩）。 */
+  #screen-start .roster-board {
+    margin: 0 0 6px;
+    padding: 5px 8px 4px;
+    flex: 0 0 auto;
+    min-height: 44px;
+  }
+  #screen-start .rb-head { margin-bottom: 3px; gap: 6px; flex-wrap: nowrap; overflow: hidden; }
+  #screen-start .rb-title { font-size: 10.5px; letter-spacing: 2px; flex: 0 0 auto; }
+  #screen-start .rb-note {
+    font-size: 9.5px; flex: 1 1 auto; min-width: 0;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  #screen-start .rb-seats { gap: 1px; }
+  #screen-start .rb-seat img { width: 20px; height: 20px; border-width: 1.5px; }
+  #screen-start .rb-seat b { font-size: 7px; min-width: 10px; height: 10px; line-height: 10px; bottom: -3px; }
+  /* 矮屏不摆弧线（高度不够，弧线会压到下一行） */
+  #screen-start .rb-seat:nth-child(n) { transform: none; }
+  #screen-start .faction-pick.gate-row { flex-direction: row; flex-wrap: wrap; gap: 3px; margin-bottom: 6px; }
+  #screen-start .faction-pick.gate-row .fp { width: calc(50% - 2px); padding: 3px 6px 3px 0; gap: 6px; }
+  #screen-start .faction-pick.gate-row .gate-line { height: 18px; width: 3px; }
+  #screen-start .faction-pick.gate-row .fp-nm { font-size: 11px; min-width: 34px; }
+  #screen-start .faction-pick.gate-row .fp-ds { font-size: 9px; line-height: 1.25; }
+  /* 预览说明在矮屏压到两行内，给名册让出高度 */
+  #screen-start .preview-note { margin-bottom: 6px; }
+}
+
+/* ---------- 四、竖屏：名册两行、通道单列 ---------- */
+@media (orientation: portrait) {
+  #screen-start .rb-seats { flex-wrap: wrap; justify-content: center; gap: 4px; }
+  #screen-start .rb-seat:nth-child(n) { transform: none; }
+  #screen-start .rb-seat img { width: 30px; height: 30px; }
+}
+
+/* ---------- 五、结算页终局名册（按阵营分组，取代 15 行 kv 表格） ---------- */
+#screen-over .over-roster {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 6px 0 10px;
+}
+#screen-over .or-group {
+  border-radius: 10px;
+  padding: 8px 10px 10px;
+  background: rgba(10, 16, 26, .62);
+  border: 1px solid rgba(74, 110, 160, .22);
+  border-left-width: 4px;
+}
+#screen-over .or-group.f-human { border-left-color: #4aa8ff; }
+#screen-over .or-group.f-alien { border-left-color: #ff5a7a; }
+#screen-over .or-group.f-xeno  { border-left-color: #5ce6a8; }
+#screen-over .or-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+#screen-over .or-head b { font-size: 13px; letter-spacing: 2px; color: #cfdcef; }
+#screen-over .or-head i { font-style: normal; font-size: 11px; color: #7e8ca3; }
+#screen-over .or-members {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+#screen-over .or-m {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 66px;
+  padding: 5px 3px 4px;
+  border-radius: 8px;
+  background: rgba(18, 26, 40, .8);
+  border: 1px solid #253a54;
+}
+#screen-over .or-m img {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #0a0f18;
+  border: 2px solid #3a5272;
+  display: block;
+}
+#screen-over .or-m b {
+  position: absolute;
+  top: 33px;
+  right: 9px;
+  min-width: 14px;
+  height: 14px;
+  line-height: 14px;
+  border-radius: 7px;
+  background: #0d1524;
+  border: 1px solid #3a5272;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 800;
+  text-align: center;
+}
+#screen-over .or-n { font-size: 10.5px; color: #cfdcef; max-width: 60px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#screen-over .or-r { font-size: 9.5px; color: #7fd6ff; max-width: 60px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#screen-over .or-s { font-size: 9px; color: #7e8ca3; max-width: 62px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#screen-over .or-m.out { opacity: .55; }
+#screen-over .or-m.out img { filter: grayscale(1) brightness(.7); }

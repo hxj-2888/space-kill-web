@@ -13,4 +13,5 @@
 @import url("./04-site-deepen.css");     /* v34 全站深化：dvh / 设计令牌落地 / 对局决策态 */
 @import url("./05-late-overrides.css");  /* v35~v45 移动端适配与收尾覆盖（必须最后） */
 @import url("./06-scene.css");           /* 〔S1〕场景化 UI：圆桌场景层（接在收尾覆盖之后） */
-@import url("./07-start-scene.css");     /* 〔S4〕开始页船桥主题 + 结算页轻皮（必须最末） */
+@import url("./07-start-scene.css");     /* 〔S4〕开始页船桥主题 + 结算页轻皮 */
+@import url("./08-home.css");            /* 〔R5〕主页重构：登船名册 + 登船通道（必须最末） */
