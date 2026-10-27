@@ -124,7 +124,7 @@ AI 只使用它按规则应当掌握的信息：异形仅知队友；神探只�
 
 `tools/sim.cjs` 是无头模拟器（纯 AI 对局 / 带真人席位两种模式），`tools/uismoke.cjs` 为 UI 冒烟，
 `tools/verify-heat.js` 验证指控热度确实影响投票，`tools/test-fix-v26.cjs` 是缺陷回归断言集
-（当前 **168 条**；条数随批次增长，**以运行输出为准**，勿据文档旧数字判断环境是否正常）：
+（当前 **614 条**（另 31 条停跑）；条数随批次增长，**以运行输出为准**，勿据文档旧数字判断环境是否正常）：
 
 ```bash
 npm run test:all                # 回归断言 + round-trip + UI 冒烟 + 60 局模拟（推荐）
@@ -142,12 +142,13 @@ node tools/test-lang.cjs        # 语言库 round-trip：render → parse → IR
 `test-lang.cjs` 是「语言库 ⇄ 推理链」联动的地基：AI 说得出的每句话都必须能被自家解析器读回同一个意图，
 否则推理链接收到的就是噪声。它已反向校出 renderer 的措辞缺陷与 `nlp.js` 里中文编号（`五号`）解析失效的问题。
 
-## 当前基线（v31 批 3）
+## 当前基线（2026-10-26，批 UI-6）
 
 | 项 | 数值 |
 |---|---|
-| 行为指纹（200 局） | `8847870ffafe4502d9fed9bbb281946636bbae9436e7996df8e21a64737f1ceb`（2026-10-21 续二：修复「AI 制药永不完成」后更新；旧值 `2c06acc4…`） |
-| 门禁 | 回归 **588/588**（另 30 条停跑，被测对象已随 v7 B0 归档） · round-trip 102/0 · 加角色 9/0 · 加机制 9/0 · 步位×批次不一致 0 · UI 冒烟 30 局 + 阵营页资产隔离 · 移动端布局 6 档（含**主区相位扫描 6 态**与**首页自选身份段**）· 旋转专项 4 组 |
+| 行为指纹（200 局） | `f987ee9971b21a2d6fef45ac943ec0c230e304c965f2fc127fbadd86580a43fb`（五批均为 UI/素材改动，逐位不变；旧值 `8847870f…` 是 v31 批 3 时代） |
+| 门禁 | 回归 **614 通过 / 0 失败 / 31 停跑**（合计 645） · round-trip 102/0 · 加角色 9/0 · 加机制 9/0 · 房间布局 10/0 · **决策→物件映射 18/0** · **站点白名单 8/0** · UI 冒烟 30 局 · 移动端布局 4 档视口 × 6 相位全过 · sim 60 异常 0 |
+| 站点资源清单 | `tools/site-entries.cjs`（**唯一真源**：deploy / server / android 三处共用）；`npm run test:site` 守「代码引用的 assets 必须落在白名单内」 |
 | 500 局（种子 1~500，**v1preview1.0 换版前**） | **0 异常** · 人类 27.2% / 异形 59.6% / 外星人 13.2%（**经典局**基线；席位变体局未纳入，见交接文档 §六） |
 | 500 局（种子 1~500，**v1preview1.0**，`SK_MEASURE_SEATS=classic`，2026-10-21 续二复测） | **0 异常** · 人类 **76.6%** / 异形 19.6% / 外星人 3.8% / 平局 0.0% —— 较换版前**人类 +45.4pp**，主因是新增机制（疫苗抗体/摆渡人/抑制 2 次/3 票门槛），**属规则变更导致的必然漂移，不是 bug**；详见 docs/返航录v1preview1.0_改动面清单_20261017.md |
 | 500 局（种子 1~500，**v1preview1.0**，`variants` 缺省口径＝本地/UI 真实开局，2026-10-21 首次接入） | **0 异常** · 人类 **68.6%** / 异形 **28.4%** / 外星人 **3.0%** / 平局 0.0% —— `mc` 自本版起缺省跑变体局（以前恒为经典局而不自知）；**两套口径不可混算** |
@@ -178,9 +179,10 @@ node tools/test-lang.cjs        # 语言库 round-trip：render → parse → IR
 
 | 文件 | 内容 |
 |---|---|
-| [`docs/v7_交接文档_20261008.md`](docs/v7_交接文档_20261008.md) | **接手入口**：最新一份交接文档（项目地图 / 红线 / 上手 SOP / 基线 / 回滚点 / 下一批） |
+| [`docs/交接文档_20261026.md`](docs/交接文档_20261026.md) | **接手入口**：最新一份交接文档（站点白名单收口 / 弹层归位 / 15 套角色重做 / 去绿色方框；五条踩坑 · 十条遗留 · 提交拆分建议） |
+| [`docs/v7_交接文档_20261008.md`](docs/v7_交接文档_20261008.md) | 完整结构版（项目地图 / 红线 / 上手 SOP / 基线 / 回滚点 / 下一批） |
 | [`docs/返航录v1preview1.0_改动面清单_20261017.md`](docs/返航录v1preview1.0_改动面清单_20261017.md) | 本版逐条改动面（正文 v1preview1.0） |
-| [`docs/README.md`](docs/README.md) | **全部专题文档索引**（30 篇，按性质分组） |
+| [`docs/README.md`](docs/README.md) | **全部专题文档索引**（36 篇，按性质分组） |
 | [`docs/v31执行台账.md`](docs/v31执行台账.md) | 逐批改动台账（批 0~3，含每批读数与待裁定项） |
 | [`改动说明.md`](改动说明.md) | 当前版本改动说明 |
 | [`AGENTS.md`](AGENTS.md) | AI 作业契约（命令 / 门禁 / 红线 / 文件地图） |
@@ -236,7 +238,7 @@ android\build.cmd           # 需要 JDK 17 + Android SDK 34 + 7-Zip；产物自
 - 签名口令从**根目录 `.env`** 读（`KEYSTORE_PASS` / `KEY_PASS`，已被 `.gitignore` 排除）；签名密钥 `android/release.keystore` 同样不入库。**请与 `.env`、`release.keystore` 一起离线备份**——丢失后无法给已安装用户推送升级版本。
 - 版本号取自 `package.json`：`version` → APK `versionName`，`androidVersionCode` → `versionCode`（**每次发布必须递增**，否则无法覆盖安装）。
 - **上一个产物（V1preview，历史记录）**：`SpaceKill.apk` 4,547,991 字节（4.34MB），`versionName=V1preview` / `versionCode=9`，APK SHA-256 `FCE7C5AE…25D05`；证书 SHA-256 `29ad3df4…`（与 2.2preview 同签名 ⇒ 可覆盖安装）。
-- **当前版本（V2preview）**：`package.json` 已升 `version=V2preview` / `androidVersionCode=11`；**APK 尚未重打**——重打前必须先跑 `node android/sync-www.cjs` 同步 `assets/scene/cozy/` 与 `js/space.js`，否则装出来的包会缺素材（见交接文档待办）。
+- **当前版本（V2preview）**：`package.json` 已升 `version=V2preview` / `androidVersionCode=11`；**APK 尚未重打**——重打前必须先跑 `node android/sync-www.cjs`（清单已收敛到 `tools/site-entries.cjs`，含 `assets/` 与新增的 `assets/scene/crew/`），否则装出来的包会缺素材（见 [`docs/交接文档_20261026.md`](docs/交接文档_20261026.md) §五）。
 
 ## v1preview1.0 平衡性复测（2026-10-21）
 
