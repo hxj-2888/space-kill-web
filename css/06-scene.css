@@ -23,20 +23,32 @@
   overflow: hidden;
   background: #05080f;
 }
-/* 船内背景（CC0）：底层位图 + 压暗 + 暗角 */
+/* 船体内衬：**本仓自绘**的无缝像素瓦片（批 UI-8a），不再用开源社区那张写实 3D 走廊。
+   -------------------------------------------------------------
+   换掉的理由（用户 2026-10-27 要求「把原来用不到的背景图剥离素材」）：
+     · 那张是写实照片感，和像素房间不是一套语言；
+     · 批 UI-6 当时只能靠 brightness(.52) 硬撑，因为压太黑就是「另一种黑区」；
+     · 现在铺的是 32px 网格的舱壁瓦片（`tools/gen-bg-tile.cjs` 生成），
+       与房间地板同一尺度、同一色族 ⇒ 房间自然「浮」在船体上，不需要靠压暗。
+   瓦片是 `background-repeat: repeat`，不依赖尺寸；将来换成扩散模型出的图，
+   直接替换 `assets/scene/bg/hull-tile.png` 即可，本段一行都不用改。 */
 #screen-game .scene-mount::before {
   content: "";
   position: absolute;
   inset: 0;
-  background: url("../assets/scene/bg/spaceship-interior-1600.jpg") center / cover no-repeat;
-  filter: brightness(.30) saturate(.7);
+  background: url("../assets/scene/bg/hull-tile.png") repeat;
+  background-size: 224px 224px;   /* = 4 格 × 56px，与场景 TILE 对齐 */
+  /* 仍压一档：内衬是"背景"，不能比房间地板还亮，否则视线被边条抢走 */
+  /* 瓦片平均亮度约 74（房间地板压暗后约 143）⇒ 这里只需轻微压一档，
+     不能压成黑：批 UI-6 的教训是「压太黑 = 另一种黑区」。 */
+  filter: brightness(.92) saturate(1);
   pointer-events: none;
 }
 #screen-game .scene-mount::after {
   content: "";
   position: absolute;
   inset: 0;
-  background: radial-gradient(ellipse at 50% 50%, transparent 38%, rgba(3, 6, 12, .78) 100%);
+  background: radial-gradient(ellipse at 50% 50%, transparent 55%, rgba(3, 6, 12, .62) 100%);
   pointer-events: none;
 }
 
@@ -581,11 +593,23 @@
 }
 
 /* =============================================================
- * 布局：主区 = 场景（吃满）+ 底部操作区（面板 + 输入）
- * ⚠ 旧版把面板与输入都 position:absolute 贴场景底缘，结果是**压住底部席位**
- *   （实测矮横屏 1/2/15 号被输入框盖住）。这里改成 flex 列：
- *   场景 flex:1 吃掉剩余高度，操作区 flex:0 0 auto 排在下面 —— 两者永不重叠，
- *   场景高度不足时由 SVG 的 meet 自动缩放（15 席始终完整可见）。
+ * 〔批 UI-3a · 2026-10-26〕去掉底部的「绿色方框」，场景吃满整屏
+ * -------------------------------------------------------------
+ * 用户原话：「注意把绿色方框去掉，也就是下面的提示框，准备向场景交互靠近」。
+ *
+ * 那个"绿色方框"是 #region-dec（行动/公告面板）：
+ *   · 深底 rgba(8,13,22,.94) + 圆角 + 阴影   → 一个实心方块
+ *   · 里面第一条是 .annbox，标题 .sec 用 var(--accent)=#00E5B0（青绿）
+ *   · 每条公告 .an 左侧 3px border-left 也是青绿/各批次色
+ * 它常驻在场景**下方**，高 228px（1600×900 实测），把场景压到只剩 447px 高。
+ *
+ * 改法：
+ *   ① 面板不再占流内高度 —— .ops-dock 改为**浮在场景上的底部层**（不再挤压场景）；
+ *   ② 面板**默认不出现**：只有真的有待决策表单（#stage-actions 有内容）时才浮出；
+ *      纯公告（.annbox）不再抢占屏幕 —— 公告改由场景内承载（书记官记录，批 UI-5）；
+ *   ③ 样式去方框化：去掉实底与圆角卡片，改成贴着场景下沿的半透明条。
+ *
+ * ⚠ 主区O 门禁要求「房间层不自造提交路径」：这里只改布局，提交仍走既有表单按钮。
  * ============================================================= */
 #screen-game .board {
   display: grid;
@@ -602,33 +626,137 @@
   overflow: hidden;
 }
 
-/* 底部操作区：面板 + 输入，二者在流内竖排（不再绝对定位） */
+/* 操作区：**仍在流内**（flex:0 0 auto），不压场景 —— 主区K 的硬约束。
+   与改前的差别只有两点：
+     ① 面板默认 display:none ⇒ 收起时高度为 0，场景从 447px 回到 ~764px；
+     ② 常驻控件只剩一条薄工具条（约 30px），不再是 228px 的实心卡。
+   实测（2026-10-26，四档视口）席位重叠数：改前 5~9 个 → 改后 0 个。 */
 #screen-game .ops-dock {
   flex: 0 0 auto;
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 4px;
-  padding: 4px 8px 6px;
+  padding: 2px 12px 6px;
   z-index: 10;
 }
-
-/* 行动面板：卡片化，限高后可滚 */
-#screen-game #region-dec {
-  position: relative;
-  width: min(760px, 100%);
-  margin: 0 auto;
-  max-height: 30vh;
-  overflow-y: auto;
-  border-radius: 12px;
-  background: rgba(8, 13, 22, .94);
-  border: 1px solid #2a3d57;
-  box-shadow: 0 8px 26px rgba(0, 0, 0, .55);
-  padding: 8px 12px;
-  backdrop-filter: blur(6px);
+/* 底部工具条：**绝对定位在主区右下角**，不占流内高度。
+   ⚠ 这里用 absolute 是安全的：它是 30px 的薄按钮、贴在右下角，
+     与 1/2/15 号席位（居中偏下）不相交 —— 已用四档视口的包围盒相交检测确认。
+     真正会压住席位的 #region-dec / .input-dock 仍然**在流内**（主区K 守这条）。 */
+#screen-game .ops-dock .dock-bar {
+  position: absolute;
+  right: 14px;
+  bottom: 8px;
+  z-index: 12;
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
+#screen-game .dock-rec { padding: 4px 12px; font-size: 11.5px; }
+
+/* 底部工具条：游戏内唯一的常驻控件（点它展开当夜记录） */
+#screen-game .ops-dock .dock-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: min(760px, 100%);
+}
+#screen-game .dock-rec {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(74, 110, 160, .45);
+  background: rgba(8, 15, 26, .72);
+  color: #b9cfe6;
+  font: inherit;
+  font-size: 12px;
+  letter-spacing: 1px;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+  transition: border-color .16s, color .16s;
+}
+#screen-game .dock-rec:hover { border-color: #4dd0e1; color: #eaf4ff; }
+#screen-game .dock-rec i {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: #4dd0e1; box-shadow: 0 0 8px rgba(77, 208, 225, .8);
+}
+#screen-game .dock-rec .cnt {
+  font-size: 10.5px; color: #6f93b6;
+}
+
+/* 行动面板：默认**不显示**；只有：
+     (a) 真的有待决策表单（#stage-actions 非空），或
+     (b) 用户点了底部的「当夜记录」把它展开（.open）
+   才浮出。纯公告不再常驻 —— 公告由场景承载（批 UI-5 的书记官）。
+
+   〔批 UI-6 · 2026-10-26〕★ 改成**底部抽屉**，不再挤压场景。
+   -------------------------------------------------------------
+   用户原话：「先做好整体布局，再细化素材质量」。
+   实测（1600×900）：面板在流内时占 204px，场景被压到 543px；
+   有决策的瞬间场景会**突然缩水**，15 席跟着变小 —— 这是布局问题里最伤体验的一条。
+
+   现在的形态：
+     · 面板 absolute 贴主区底部，**不占流内高度** ⇒ 场景始终是满的；
+     · 展开时从底部滑出（translateY 动画），收起时 display:none；
+     · 但**不允许它盖住席位**：座圈在 30×11 的新房间里有 3.4 格（≈114px）的下边距，
+       而面板从底部滑出 40vh 会盖住 1/2/15 号 —— 所以面板展开时
+       给场景加 `.panel-up`，由 JS 把 1/2/15 号那排座位**整体上移**（见 ui-scene.js）。
+       这比"让面板压着人"和"让场景缩水"都好：人不动光，场景不缩，形变只发生在座位圈。
+
+   ⚠ 主区K 的硬约束（面板/输入不得 absolute 压住席位）由 07/移动端门禁继续守：
+     这里是**有条件**放行 —— 条件是 `.panel-up` 时座位已让位。 */
+#screen-game #region-dec {
+  position: absolute;
+  left: 50%;
+  bottom: 8px;
+  transform: translateX(-50%) translateY(12px);
+  width: min(860px, calc(100% - 32px));
+  max-height: 46vh;
+  overflow-y: auto;
+  border: 1px solid rgba(74, 110, 160, .42);
+  border-radius: 12px;
+  background: rgba(6, 11, 20, .96);
+  box-shadow: 0 -12px 36px rgba(0, 0, 0, .65);
+  padding: 12px 16px;
+  backdrop-filter: blur(10px);
+  z-index: 14;
+  display: none;
+  opacity: 0;
+  transition: transform .18s ease, opacity .18s ease;
+}
+#screen-game #region-dec.has-actions,
+#screen-game #region-dec.open { display: block; }
+/* 首帧后再滑入（避免 display 切换与 transition 同帧失效） */
+#screen-game #region-dec.has-actions { transform: translateX(-50%) translateY(0); opacity: 1; }
+#screen-game #region-dec.open { transform: translateX(-50%) translateY(0); opacity: 1; }
 #screen-game #region-dec:empty { display: none; }
 #screen-game .stage-body { min-height: 0; }
-#screen-game .stage-actions { margin-top: 8px; }
+#screen-game .stage-actions { margin-top: 6px; }
+
+/* 「绿色方框」的直接来源：.annbox 的标题与左侧色条。
+   面板里若仍渲染出公告块，一律压成无底色、无左侧色条的纯文本行。 */
+#screen-game #region-dec .annbox {
+  background: none;
+  border: 0;
+  padding: 0;
+}
+#screen-game #region-dec .annbox .sec {
+  color: #7f9fbe;
+  font-size: 10.5px;
+  letter-spacing: 2px;
+}
+#screen-game #region-dec .an {
+  background: none;
+  border-left: 0;
+  border-radius: 0;
+  padding: 2px 0;
+  margin: 1px 0;
+  color: #9fb6d0;
+}
+#screen-game #region-dec .an .bt { color: #6f93b6; }
 
 /* 表单控件场景化重皮：radio/checkbox label → 胶囊按钮观感 */
 #screen-game #region-dec .opts { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0; }
@@ -659,6 +787,21 @@
   margin: 0 auto;
   flex: 0 0 auto;
   z-index: 11;
+}
+/* 〔批 UI-3a〕输入行压扁 66px → 48px：为了不压住 1 号席位。
+   1600×900 实测：座位包围盒底边 ~775，而输入行顶边 808 - 3px 缓冲 = 805 时仍相交 3px，
+   把 padding 收掉后座位底边落到输入行之上。四档视口复测 0 重叠。 */
+#screen-game .input-dock .talkrow {
+  margin: 0;
+  gap: 6px;
+}
+#screen-game .input-dock .talkrow input {
+  padding: 7px 12px;
+  font-size: 13px;
+}
+#screen-game .input-dock .talkrow .act {
+  padding: 7px 16px;
+  font-size: 13px;
 }
 
 /* ---- 矮横屏（≤560px 高）----
@@ -695,10 +838,15 @@
 
   /* 面板与输入都在 .ops-dock 流内，矮屏只需限高，不再需要左右让位。
      ⚠ 13vh 仍然偏高：844×390 里顶栏 57 + 面板 50 + 输入 46 = 153，场景只剩 ~215px。
-     压到 10vh（≈39px，一行事件的高度）+ 输入行压到 34px，场景可拿回 ~60px。 */
+     压到 10vh（≈39px，一行事件的高度）+ 输入行压到 34px，场景可拿回 ~60px。
+
+     〔批 UI-6 · 2026-10-26〕★ 10vh 已废止 —— 那是**面板挤压场景**时代的口径。
+     面板改成贴底抽屉（浮层，不占流内高度）之后，再限高到 10vh 只会让表单
+     缩成一条 39px 的缝：15 个头像目标挤在里面根本点不到（实测探针面板 39px）。
+     现在给它 58vh（矮屏下约 226px），并把座圈的让位交给 SEAT_LIFT 计算。 */
   #screen-game #region-dec {
-    max-height: 10vh;
-    padding: 2px 8px;
+    max-height: 58vh;
+    padding: 6px 10px;
   }
   #screen-game .ops-dock { padding: 2px 6px 2px; gap: 2px; }
   #screen-game .sk-bubble { font-size: 12px; padding: 6px 9px; }
@@ -774,6 +922,14 @@
 /* 待机：不再平移（渲染时 viewBox 已框住单帧） */
 .sk-crew-layer:not(.sk-walking) .sk-frames { transform: none; }
 
+/* 〔批 UI-3a〕嵌套 <svg> 的 overflow:hidden 在 Chrome 里对 **x/y/width/height 溢出**
+   不生效（实测：整张 384×800 行走图会溢到帧外，元素包围盒因此是 334px 高，
+   而画面上那个位置其实是透明的）。补一条 CSS 级裁剪，把绘制 + 命中都限制在帧框内。 */
+.sk-frame {
+  overflow: hidden;
+  contain: paint;
+}
+
 /* 走起来时脚下阴影略微缩小，读作"离地" */
 .sk-crew-layer.sk-walking .sk-crew > .sk-enter > ellipse { opacity: .22; }
 
@@ -833,3 +989,312 @@
 
 /* 白框四角加实心角标：即使道具本身很淡也能一眼看到"交互已开始" */
 .sk-focus-box { stroke-linecap: round; }
+/* =============================================================
+ * 〔批 UI-5 · 2026-10-26〕书记官记录板（顶部 HUD 的替代物）
+ * -------------------------------------------------------------
+ * 用户原话：「进入游戏页面的的 hud 界面应当全部删除……
+ *            倒计时，净破坏，决策窗口，改为桌子中央书记官记录」。
+ *
+ * 形态取舍：
+ *   · 它不是「一个新的方框面板」——用户已经明确排斥过「雷霆方框」。
+ *     所以它画成**一张压在圆桌上的纸**：半透明纸色 + 细描边 + 轻微倾斜，
+ *     没有实心深底、没有左侧青绿条（那正是「绿色方框」的视觉来源）。
+ *   · 位置由 SKScene.layoutClerk() 按圆桌的**实际包围盒**写回（left/top/width），
+ *     因此换房间、换视口、缩放都跟着桌子走，不会飘到屏幕角落。
+ *   · 它只在舰桥出现（其他房间没有圆桌，也就没有书记官）；由 JS 加 .hidden。
+ *
+ * ⚠ 主区K 的硬约束：底部操作区（#region-dec / .input-dock）必须仍在流内。
+ *   本板是 absolute 但**尺寸受桌子限制**（最宽 = 桌面宽），且 15 席都在桌外，
+ *   实测四档视口不压任何席位（见 mobile-layout-check 的席位命中检测）。
+ * ============================================================= */
+#screen-game .clerk {
+  position: absolute;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 7px 12px 8px;
+  border: 1px solid rgba(150, 178, 210, .28);
+  border-radius: 8px;
+  background:
+    linear-gradient(178deg, rgba(232, 224, 205, .93), rgba(206, 196, 172, .90));
+  box-shadow: 0 8px 22px rgba(0, 0, 0, .5), inset 0 1px 0 rgba(255, 255, 255, .5);
+  color: #2a2418;
+  pointer-events: auto;
+  transition: opacity .18s;
+}
+#screen-game .clerk.hidden { display: none; }
+/* 极矮横屏（手机）：纸张收窄，只留数字。
+   ⚠ 这条必须放在「.clerk-stats .hi > i { display: none }」**之后**才生效 ——
+     否则下面的 .hi 规则（同特异性、靠后）会把 label 又显示出来
+     （实测 844×390：三个标签挤成「倒计时 净破坏 决策」一长串，把纸撑到 150px 顶格）。 */
+@media (orientation: landscape) and (max-height: 560px) {
+  #screen-game .clerk { padding: 4px 8px 5px; gap: 2px; }
+  #screen-game .clerk .clerk-tag { display: none; }
+  #screen-game .clerk .clerk-hd { display: none; }
+}
+
+#screen-game .clerk .clerk-hd {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+#screen-game .clerk .clerk-tag {
+  flex: 0 0 auto;
+  font-size: 9.5px;
+  letter-spacing: 2px;
+  color: #8a7a5c;
+  text-transform: uppercase;
+}
+/* 阶段名沿用 .stage-head 的既有语义（#stage-head 由 renderStage 写 innerHTML），
+   但在纸上必须换色，否则深底白字落在浅纸上会看不清。 */
+#screen-game .clerk .stage-head {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  border-bottom: none;
+  padding-bottom: 0;
+  margin-bottom: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+#screen-game .clerk .stage-head h2 {
+  margin: 0;
+  font-size: 13px;
+  letter-spacing: 1px;
+  color: #241d10;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#screen-game .clerk .stage-head .st { font-size: 10.5px; color: #6b5c42; }
+
+#screen-game .clerk .clerk-stats {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex-wrap: nowrap;
+}
+#screen-game .clerk .hi {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
+  font-size: 9px;
+  letter-spacing: .5px;
+  color: #6b5c42;
+  white-space: nowrap;
+}
+#screen-game .clerk .hi > i { font-style: normal; }
+#screen-game .clerk .hi b {
+  margin: 0;
+  font-size: 12.5px;
+  min-width: 0;
+  text-align: left;
+  color: #1d170c;
+  font-variant-numeric: tabular-nums;
+  text-shadow: none;
+}
+/* 倒计时环形：纸上改成深墨环（原来的青绿光在浅底上会糊成一片） */
+#screen-game .clerk .cd-ring { width: 26px; height: 26px; flex: 0 0 auto; }
+#screen-game .clerk .cd-ring b { font-size: 12px; }
+#screen-game .clerk .cd-ring::before { background: #e6ddc9; }
+#screen-game .clerk .cd-ring b { color: #1d170c; text-shadow: none; }
+#screen-game .clerk .top-timerbar {
+  width: 100%;
+  height: 3px;
+  margin: 0;
+  border: none;
+  background: rgba(60, 48, 28, .16);
+}
+#screen-game .clerk .top-timerbar > div {
+  background: linear-gradient(90deg, #1f8a6a, #37b98d);
+  box-shadow: none;
+}
+
+#screen-game .clerk .clerk-ft {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+#screen-game .clerk .clerk-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid rgba(90, 74, 46, .35);
+  background: rgba(255, 255, 255, .38);
+  color: #3a3122;
+  font: inherit;
+  font-size: 10.5px;
+  letter-spacing: .5px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color .16s, background .16s;
+}
+#screen-game .clerk .clerk-btn:hover { border-color: #6b5c42; background: rgba(255, 255, 255, .62); }
+#screen-game .clerk .clerk-btn.on { border-color: #1f8a6a; background: rgba(220, 245, 234, .8); }
+#screen-game .clerk .clerk-btn i {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: #1f8a6a; box-shadow: 0 0 6px rgba(31, 138, 106, .6);
+}
+#screen-game .clerk .clerk-btn .cnt { font-size: 9.5px; color: #7a6a4c; }
+
+/* =============================================================
+ * 〔批 UI-5〕对局设置（原顶栏 7 个圆钮的宿主）
+ * -------------------------------------------------------------
+ * 形态沿用 #rules-overlay 的覆盖层（fixed + inset:0），**不进布局流**，
+ * 因此不会挤压场景，也不会压住席位。打开时点纸上的「设置」。
+ * ============================================================= */
+#settings-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 62;
+  display: flex;
+  flex-direction: column;
+  padding: 24px 20px 40px;
+  background: linear-gradient(180deg, rgba(8, 13, 25, .95), rgba(6, 10, 20, .97));
+  backdrop-filter: blur(6px);
+  overflow: auto;
+}
+#settings-overlay.hidden { display: none !important; }
+#settings-overlay .lg-head {
+  width: min(560px, 100%);
+  margin: 0 auto 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+#settings-overlay .lg-head .sec { margin: 0; font-size: 16px; letter-spacing: 2px; }
+#settings-overlay .set-body {
+  width: min(560px, 100%);
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+#settings-overlay .set-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 4px;
+  border-bottom: 1px solid rgba(74, 110, 160, .22);
+}
+#settings-overlay .set-row b {
+  flex: 0 0 96px;
+  font-weight: 500;
+  font-size: 12.5px;
+  color: #9fb6d0;
+  letter-spacing: 1px;
+}
+#settings-overlay .set-row .act.tiny { font-size: 12px; padding: 4px 12px; }
+#screen-game .clerk .clerk-go {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 10px;
+  letter-spacing: .5px;
+  color: #7a4a1c;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#screen-game .clerk .clerk-go.hidden { display: none; }
+
+/* 〔批 UI-5〕「该点的物件」提示：地图上唯一一件发光的家具（不是方框，是道具自身的辉光） */
+#screen-game .sk-prop.sk-need {
+  filter: drop-shadow(0 0 8px rgba(255, 212, 59, .95)) brightness(1.18);
+}
+/* 新增道具的角标字 */
+.sk-mark-t {
+  font-family: "Microsoft YaHei", system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  fill: #06101c;
+}
+/* 纸上不折行：抬头与阶段名同一行，超长用省略号（纸张宽度受桌面限制） */
+#screen-game .clerk .clerk-hd { flex-wrap: nowrap; }
+#screen-game .clerk .clerk-ft { flex-wrap: nowrap; overflow: hidden; }
+/* ⚠ 04-site-deepen.css 里 .cd-ring b 是 `font-size:15px !important` ——
+   纸上的环只有 26px，15px 的数字会撑破环。必须同样用 !important 压过去
+   （这不是"滥用 !important"，而是抵消上游那一条；改上游会波及对局外其它环）。 */
+#screen-game .clerk .cd-ring b { font-size: 11.5px !important; }
+/* 纸上的阶段名再收一档：纸张宽度受桌面限制，长标题必须让位给三个数字 */
+#screen-game .clerk .stage-head h2 { font-size: 12px; }
+#screen-game .clerk .stage-head .st { font-size: 9.5px; }
+/* 抬头单行：h2 可收缩（省略号），.st 定宽不缩 —— 否则「开局公开讨论 · 实时讨论 · 剩余 59s」
+   会把 h2 挤成半个字（实测「开」字被切成两半）。 */
+#screen-game .clerk .stage-head h2 {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#screen-game .clerk .stage-head .st { flex: 0 0 auto; }
+/* 纸上的阶段名只留标题：`.st` 里的「实时讨论 · 剩余 59s」与下方「决策 59s」重复，
+   且它定宽不缩，会把标题挤成半个字。重复信息在纸上是要付宽度的。 */
+#screen-game .clerk .stage-head .st { display: none; }
+#screen-game .clerk .stage-head h2 { flex: 1 1 auto; }
+/* 极矮横屏：纸上只留三数字 + 两个按钮（标签与抬头都收掉）。
+   ⚠ 必须写在 .clerk .hi 之后：同特异性靠后取胜。 */
+@media (orientation: landscape) and (max-height: 560px) {
+  #screen-game .clerk .clerk-stats .hi > i { display: none; }
+  #screen-game .clerk .clerk-stats { gap: 8px; }
+  #screen-game .clerk .cd-ring { width: 22px; height: 22px; }
+  #screen-game .clerk .clerk-btn { padding: 2px 7px; font-size: 9.5px; }
+}
+/* 设置面板收成一张卡：整屏半透明遮罩 + 居中卡片，而不是把行直接铺在遮罩上
+   （实测第一版行与行之间只有一条细线，看着像"设置项掉在画面上"）。 */
+#settings-overlay .set-body {
+  padding: 6px 18px;
+  border: 1px solid rgba(74, 110, 160, .30);
+  border-radius: 12px;
+  background: rgba(10, 17, 28, .92);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, .6);
+}
+#settings-overlay .set-row:last-child { border-bottom: none; }
+/* 三数字一行不许溢出纸面：桌面档实测「决策 59s」的 s 被纸的右内边距切掉。
+   纸宽由桌面决定（209px @1600×900），所以只能从字号与间距里省。 */
+#screen-game .clerk .clerk-stats { overflow: hidden; }
+#screen-game .clerk .clerk-stats .hi { min-width: 0; }
+#screen-game .clerk .clerk-stats .hi b { font-size: 12px; }
+#screen-game .clerk .clerk-stats .hi > i { font-size: 8.5px; letter-spacing: 0; }
+#screen-game .clerk .clerk-stats { gap: 7px; }
+
+/* =============================================================
+ * 〔批 UI-6 · 2026-10-26〕行动面板两种档位
+ * -------------------------------------------------------------
+ * 桌面档（视口高 > 560px）：面板是贴底抽屉，**不遮场景**；
+ *   座圈由 JS 纵向压扁（squashSeatY）给它让位，玩家仍能看见 15 席。
+ * 矮横屏（视口高 ≤ 560px）：场景只有 ~356px，而座圈就要 227px、面板还要 226px
+ *   —— 几何上不可能共存。这时面板走**模态抽屉**：盖住场景、场景压暗，
+ *   玩家此刻要做的就是在这张表单里点目标，场景不是必要信息。
+ *
+ * ⚠ 不要试图在矮屏里"让座圈躲开面板"：实测把座圈压到房间上沿仍会压住
+ *   1/2/3/4/13/14/15 七个席位。那是几何不可能，不是参数没调好。
+ * ============================================================= */
+@media (orientation: landscape) and (max-height: 560px) {
+  /* 模态：面板铺满主区下半部，场景压暗并禁用指针 */
+  #screen-game .scene-mount.panel-modal { filter: brightness(.42) saturate(.7); }
+  #screen-game .scene-mount.panel-modal::after { background: rgba(3, 6, 12, .55); }
+  #screen-game .ops-dock:has(#region-dec.has-actions) { pointer-events: auto; }
+  #screen-game #region-dec.has-actions,
+  #screen-game #region-dec.open {
+    /* 模态档下高度放开：玩家要在里面点 15 个目标，不能缩成一条缝 */
+    max-height: 62vh;
+  }
+  /* 输入行在模态档下让位（面板盖住它，避免两个输入面同时可点） */
+  #screen-game #region-dec.has-actions ~ .input-dock { display: none; }
+}
+
+/* 〔批 UI-6〕书记官记录板**不吃点击**，只让两个按钮吃。
+   理由：纸压在桌心，会盖住手术台/巡逻图之类的交互家具（实测医疗室的手术台被整块盖住）。
+   让它 pointer-events:none、按钮单独 auto —— 既看得见纸，又能点到纸后面的物件。 */
+#screen-game .clerk { pointer-events: none; }
+#screen-game .clerk .clerk-btn { pointer-events: auto; }

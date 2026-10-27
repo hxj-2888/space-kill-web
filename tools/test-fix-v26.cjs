@@ -4710,20 +4710,24 @@ const RULE_FILES = ['js/ai/belief.js', 'js/ai/perceive.js', 'js/ai/decide.js',
   ok('主区J：私聊小结只取本人参与的配对组（私聊正文不公开，2.2）',
     /if \(c\.a !== me\.id && c\.b !== me\.id\) continue;/.test(uiCode43));
 
-  /* ---- 〔R2 重设计〕场景是唯一主视觉：CSS 必须让它吃余量、操作区在流内不压场景 ---- */
-  ok('主区K：场景吃满余量，底部操作区在流内（面板与输入不得绝对定位压住席位）',
-    /#screen-game \.scene-mount \{[^}]*flex: 1 1 0/.test(cssCode43) &&
-    /* 操作区必须是 .ops-dock 容器 + flex:0 0 auto —— 这正是"不再压住底部席位"的实现方式 */
-    /#screen-game \.ops-dock \{[^}]*flex: 0 0 auto/.test(cssCode43) &&
-    /* 反向守卫：面板/输入若回到 position:absolute，就会重新压住席位 */
-    !/#screen-game #region-dec \{[^}]*position: absolute/.test(cssCode43) &&
-    !/#screen-game \.input-dock \{[^}]*position: absolute/.test(cssCode43));
 
   /* ---- 〔R2 重设计〕矮横屏：面板压到 10vh，把高度让给场景 ---- */
-  ok('主区L：矮横屏面板压到 10vh（高度让给场景，15 席才看得清）',
-    /* ⚠ 正则里 { 后必须容忍换行与缩进：CSS 是多行书写的，写死 `{ max-height` 会永远不匹配
-       （这类"断言永远红"与"断言永远绿"一样糟，都是没在测真东西）。 */
-    /@media \(orientation: landscape\) and \(max-height: 560px\) \{[\s\S]*?#region-dec \{\s*max-height: 10vh/.test(cssCode43) &&
+  /* ---- 矮横屏：面板的形态 ----
+     〔批 UI-6 · 2026-10-26〕★ 这条**换了守护对象**。
+     原判据是「矮屏面板压到 10vh」—— 那是**面板在流内挤压场景**时代的口径：
+     面板越矮，场景越大。面板改成贴底抽屉（不占流内高度）之后，
+     10vh 只会把表单缩成 39px 的一条缝，15 个目标根本点不到（实测探针 39px）。
+
+     新不变量：矮屏里面板走**模态抽屉**——
+       · 高度放开到能点 15 个目标（≥ 58vh）；
+       · 场景被压暗（.panel-modal），玩家知道"此刻在面板里操作"；
+       · 不再有 10vh 这种把表单压死的上限。
+     行为层由 mobile-layout-check 的『行动面板与席位』一档在四档视口实测
+     （模态档断言面板 ≥180px；抽屉档断言 0 压席位）。 */
+  ok('主区L：矮横屏面板走模态抽屉（高度够点 15 个目标，场景压暗让位）',
+    /@media \(orientation: landscape\) and \(max-height: 560px\) \{[\s\S]*?max-height: 62vh/.test(cssCode43) &&
+    /\.scene-mount\.panel-modal \{ filter: brightness/.test(cssCode43) &&
+    !/#region-dec \{\s*max-height: 10vh/.test(cssCode43) &&
     /\.sk-room \{ width: 84px; \}/.test(cssCode43));
 
   /* ---- 〔R2 重设计〕8 个技能室必须在场景里、各有独立道具视觉，且无 emoji ----
@@ -4732,6 +4736,34 @@ const RULE_FILES = ['js/ai/belief.js', 'js/ai/perceive.js', 'js/ai/decide.js',
      红在断言自己读错了文件。这类错误与"恒真式"是同一族：都没在测真正的东西。 */
   const sceneCode43 = fs.readFileSync(path.join(base, 'ui-scene.js'), 'utf8')
     .replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/^\s*\/\/.*$/gm, ' ');
+
+  /* ---- 〔R2 重设计〕场景是唯一主视觉 ----
+     〔批 UI-6 · 2026-10-26〕★ 这一条**换了守护对象**，不是删掉。
+     原判据是「#region-dec 必须 position:relative（在流内）」。
+     那条规则救过一次真实的「面板压住 1/2/15 号」，所以不能简单放开。
+
+     本批的真实取舍是：
+       面板改贴底抽屉（absolute）⇒ 不再挤压场景（543px → 789px），
+       但代价是它会盖住房间下沿那一排 ⇒ 所以**座位必须让位**：
+       ui.js 的 syncDockPanel 广播 SKScene.setPanelOpen，场景层按 squashSeatY 把座圈压扁让位。
+     即：允许面板 absolute，**前提是"面板展开 ⇒ 座位圈上移"这条联动必须存在**，
+     否则用户就真的点不到 1/2/15 号（等于把 R2 的旧伤重新打开）。
+
+     这一条守「联动存在」；「实际有没有压住」由 mobile-layout-check 的
+     『行动面板与席位』一档在四档视口里用真实绘制矩形实测 —— 两层缺一不可。 */
+  ok('主区K：场景吃满余量；面板可贴底浮出，但必须联动座位让位（R2 旧伤不得重开）',
+    /#screen-game \.scene-mount \{[^}]*flex: 1 1 0/.test(cssCode43) &&
+    /* 操作区必须是 .ops-dock 容器 + flex:0 0 auto */
+    /#screen-game \.ops-dock \{[^}]*flex: 0 0 auto/.test(cssCode43) &&
+    /* 输入区仍在流内（它没有让位机制，absolute 就真会压住席位） */
+    !/#screen-game \.input-dock \{[^}]*position: absolute/.test(cssCode43) &&
+    /* 面板若 absolute，座位让位联动必须齐备：场景层实现 + ui 侧广播 */
+    (/position: relative/.test((cssCode43.match(/#screen-game #region-dec \{[\s\S]*?\}/) || [''])[0]) ||
+      (/position: absolute/.test((cssCode43.match(/#screen-game #region-dec \{[\s\S]*?\}/) || [''])[0]) &&
+        /function setPanelOpen\(v\)/.test(sceneCode43) &&
+        /function squashSeatY\(S, y\)/.test(sceneCode43) &&
+        /SKScene\.setPanelOpen/.test(uiCode43))));
+
   /* 〔U1 迁移〕原判据是"8 个房间卡在四角"，R2/R3 的场景已整体换成**房间制**：
      一次只画一间房，房间表在 js/space.js。断言随之迁移，但**守的仍是同一件事**：
        ① 房间是数据（不是散落在渲染器里的字符串）—— 9 间，含舰桥与宿舍；
@@ -4832,7 +4864,9 @@ const RULE_FILES = ['js/ai/belief.js', 'js/ai/perceive.js', 'js/ai/decide.js',
     /\.arena-stage/.test(cssS4) &&
     /data-home-seat/.test(fs.readFileSync(path.join(base, 'ui-scene.js'), 'utf8')));
   ok('S4D：开始页/结算页的既有控件 id 一个都没少（换皮不删控件）',
-    ['btn-music-start', 'btn-sfx-start', 'btn-rules-start', 'seed', 'btn-start',
+    /* 〔批 UI-8a〕btn-rules-start 已移除（重复入口 + 点不动）。清单同步去掉它，
+       而不是留一条恒真的"控件仍在"——那会让这条断言的覆盖面悄悄变小。 */
+    ['btn-music-start', 'btn-sfx-start', 'seed', 'btn-start',
       'role-chip', 'role-clear', 'role-grid', 'btn-create', 'btn-join',
       'over-title', 'over-body', 'btn-replay', 'btn-again', 'replay-box']
       .every(id => new RegExp('id="' + id + '"').test(htmlCodeS4)));
@@ -4877,6 +4911,184 @@ const RULE_FILES = ['js/ai/belief.js', 'js/ai/perceive.js', 'js/ai/decide.js',
     !/https?:\/\/(?!www\.w3\.org)/.test(
       fs.readFileSync(svgPath, 'utf8').replace(/<!--[\s\S]*?-->/g, '')) &&
     /departure-ring|自绘/.test(fs.readFileSync(path.join(base, '..', 'assets', 'scene', 'CREDITS.md'), 'utf8')));
+}
+
+/* ---------- 42.6b 弹层结构（批 UI-1，2026-10-26）----------
+   用户报「点击身份图鉴后，所有身份介绍会跑到游戏右下角」。
+
+   根因：三个弹层当时写在 .start-box **里面**，被
+       07-start-scene.css:88  #screen-start .start-box > *:not(.start-scene){position:relative}
+   （1-2-0）压掉了它们自己的 position:fixed（1-0-0）⇒ 变成流内元素、被排到主页内容之后。
+   实测（修前）：#codex-overlay box=[0,833,1600,648]，#role-overlay y=833。
+
+   修法两层，这里各钉一条：
+     ① **结构**：三个弹层必须是 #screen-start 的兄弟（不在 .start-box 内）——
+        用 DOM 顺序判定：它们出现在第一个 `</section>` 之后。
+     ② **样式**：09-arena.css 里必须对三者都声明 position:fixed !important
+        （兜底：即使将来有人搬回去也不会再被压掉）。
+
+   ⚠ 为什么不用「断言 position 的计算值」：Node 侧没有浏览器。真正的计算值判定
+     由 tools/mobile-layout-check.cjs 的浏览器相位扫描承担（它已覆盖 #screen-start）；
+     本组只守「结构没被搬回去」与「兜底规则在」。 */
+{
+  const htmlUI1 = fs.readFileSync(path.join(base, '..', 'index.html'), 'utf8');
+  const cssUI1 = readCss();
+  const arenaUI1 = fs.readFileSync(path.join(base, 'arena.js'), 'utf8');
+
+  /* 注释里也会出现这些 id（上面那大段解释），判定前先剥注释 */
+  const stripHtmlUI1 = s => s.replace(/<!--[\s\S]*?-->/g, ' ');
+  const htmlUI1c = stripHtmlUI1(htmlUI1);
+
+  const firstSectionEnd = htmlUI1c.indexOf('</section>');
+  const idxOf = id => htmlUI1c.indexOf('id="' + id + '"');
+
+  ok('UI1-a：三个弹层（图鉴/指定角色/我这席）都在 #screen-start 之外（修「跑到右下角」的根因）',
+    firstSectionEnd > 0 &&
+    ['codex-overlay', 'faction-overlay', 'role-overlay'].every(id => {
+      const i = idxOf(id);
+      return i > firstSectionEnd;          /* 出现在 </section> 之后 = 不在 .start-box 内 */
+    }),
+    'codex@' + idxOf('codex-overlay') + ' faction@' + idxOf('faction-overlay')
+    + ' role@' + idxOf('role-overlay') + ' sectionEnd@' + firstSectionEnd);
+
+  ok('UI1-b：09-arena.css 对三个弹层都声明了 position:fixed !important（兜底层）',
+    /* 同一组选择器里三个 id 都要出现，且整块带 position: fixed !important */
+    /#faction-overlay,\s*#codex-overlay,\s*#role-overlay\s*\{[^}]*position:\s*fixed\s*!important/
+      .test(cssUI1.replace(/\s+/g, ' ')) ||
+    (/#faction-overlay[^{]*\{[^}]*position:\s*fixed\s*!important/.test(cssUI1) &&
+      /#codex-overlay[^{]*\{[^}]*position:\s*fixed\s*!important/.test(cssUI1) &&
+      /#role-overlay[^{]*\{[^}]*position:\s*fixed\s*!important/.test(cssUI1)));
+
+  /* 「指定阵营」已升级为「指定角色」两级面板（用户原话：「先选择阵营再选择阵营对应角色」） */
+  ok('UI1-c：指定角色是两级面板（① 阵营 ② 角色），且角色清单由声明层派生不写死',
+    /id="faction-pick-arena"/.test(htmlUI1c) && /id="fac-roles"/.test(htmlUI1c) &&
+    /id="fac-step-1"/.test(htmlUI1c) && /id="fac-step-2"/.test(htmlUI1c) &&
+    /* 阵营按钮的 data-fac 由 arena.js 生成（HTML 里是空容器），故查 JS */
+    /data-fac="/.test(arenaUI1) &&
+    /function rolesOfFac\(fac\)/.test(arenaUI1) &&
+    /RD\.selectable\(k\)/.test(arenaUI1) &&          /* 由声明层筛可选 */
+    !/rolesOfFac[\s\S]{0,600}\['crew',\s*'engineer'/.test(arenaUI1));  /* 反向守卫：不许写死数组 */
+
+  /* 身份图鉴按阵营分组，且收全部非 archived 身份（20 个键） */
+  ok('UI1-d：身份图鉴按阵营分组渲染，不写死「17 种身份」这类易漂移的字面量',
+    /cdx-head/.test(arenaUI1) &&
+    /\.cdx-head/.test(cssUI1) &&
+    /groups\[d\.faction\]/.test(arenaUI1) &&
+    !/17 种身份/.test(htmlUI1c));
+
+  /* 「我这席」只改名，不再承载身份网格（避免两个入口改同一件事） */
+  ok('UI1-e：「我这席」只改名 + 只读展示身份；身份改动统一走指定角色',
+    /id="arena-myname"/.test(htmlUI1c) &&
+    /id="my-seat-info"/.test(htmlUI1c) &&
+    /id="role-to-faction"/.test(htmlUI1c) &&
+    /function renderMySeatInfo/.test(arenaUI1));
+
+  /* #btn-rules-home 必须真实存在（此前 arena.js 绑这个 id 但 HTML 里叫 #btn-rules，永不生效） */
+  ok('UI1-f：#btn-rules-home 在 HTML 中存在（主页「规则速览」铭牌真的能点开）',
+    /id="btn-rules-home"/.test(htmlUI1c) && /el\('btn-rules-home'\)/.test(arenaUI1));
+}
+
+/* ---------- 42.6c 角色行走图（批 UI-2，2026-10-26）----------
+   用户要求「把 15 个人物做差异化」。此前只有 8 套 CC-BY 素材，用 `(p.id-1)%8` 循环复用
+   ⇒ 1 号与 9 号穿同一件衣服，只有脚下光环不同。
+
+   本组守三件事：
+     a. 15 套素材**真的都在**，且版式与旧素材逐项相同（4×5 / 96×160）——
+        ui-scene.js 的 viewBox 与 06-scene.css 的 96px 步进动画都依赖这个版式；
+     b. 渲染器**一对一**取图（不许再出现取模循环复用）；
+     c. **外观与身份无关**：渲染路径里不得读 role / faction 来选图（否则泄露阵营，违 7.0）。
+
+   ⚠ 为什么用文件级断言而不是浏览器：素材缺失会在运行时 404，但 UI 不会报错
+     （SVG <image> 失败是静默的），只有靠这里拦。 */
+{
+  const crewDir = path.join(base, '..', 'assets', 'scene', 'crew');
+  const files = fs.existsSync(crewDir)
+    ? fs.readdirSync(crewDir).filter(f => /^crew-\d{2}\.png$/.test(f))
+    : [];
+  ok('UI2-a：15 套角色行走图齐备（crew-01 … crew-15）',
+    files.length === 15, '实有 ' + files.length + ' 个');
+
+  /* 版式：用内置解码器读 IHDR 前 24 字节即可，不必解全部像素 */
+  const badSize = files.filter(f => {
+    const buf = fs.readFileSync(path.join(crewDir, f));
+    const w = buf.readUInt32BE(16), h = buf.readUInt32BE(20);
+    return !(w === 96 * 4 && h === 160 * 5);
+  });
+  ok('UI2-b：每套都是 4 列 × 5 行、单帧 96×160（384×800），与旧素材版式一致',
+    files.length > 0 && badSize.length === 0,
+    badSize.length ? '尺寸不符：' + badSize.join(',') : (files.length + ' 套全部 384×800'));
+
+  const sceneUI2 = fs.readFileSync(path.join(base, 'ui-scene.js'), 'utf8');
+  ok('UI2-c：渲染器一对一取图（crew-NN 由席位号派生，不再取模循环复用 8 套）',
+    /CREW_FILE\s*=\s*id\s*=>/.test(sceneUI2) &&
+    /padStart\(2,\s*'0'\)/.test(sceneUI2) &&
+    !/CREW_FILES\s*=\s*\[/.test(sceneUI2));
+
+  /* 反向守卫：选图不许读 role / faction（外观与身份必须解耦，7.0 防透视） */
+  ok('UI2-d：外观与身份解耦（选图不读 role / faction，只按席位号）',
+    (function () {
+      const line = (sceneUI2.match(/.*CREW_FILE\(.*\).*/g) || []).join('\n');
+      return !/\brole\b/.test(line) && !/\bfaction\b/.test(line);
+    })());
+
+  /* 旧的 8 套 CC-BY 素材必须已删除（否则署名清单与"实际在用"不一致） */
+  ok('UI2-e：旧 CC-BY 的 8 套 Walking Crew 已删除，署名同步移除',
+    !fs.existsSync(path.join(base, '..', 'assets', 'scene', 'cozy', 'crew')) &&
+    !/Walking Crew/.test(fs.readFileSync(path.join(base, '..', 'index.html'), 'utf8')));
+}
+
+/* ---------- 42.6d 去掉「绿色方框」（批 UI-3a，2026-10-26）----------
+   用户原话：「注意把绿色方框去掉，也就是下面的提示框，准备向场景交互靠近」。
+
+   「绿色方框」= #region-dec 整块常驻：深色实心卡 + 青绿 .sec 标题 + 每条 .an 的 3px 青绿左条。
+   实测占 228px（1600×900），把场景从 764px 压到 447px。
+
+   本组守三件事：
+     a. 面板**默认不常驻**：CSS 里必须有 `display: none` 且靠 .has-actions / .open 才显示；
+     b. 「有操作」的判据不能是"stage-actions 非空"—— 开局讨论只有倒计时 + 结束讨论按钮，
+        那样会从第一秒就常驻（第一版实测就是这样）。必须看**输入控件**；
+     c. 主区K 的约束不许被破坏：面板与输入仍在流内、工具条不得压住席位。
+        （c 的代价是本组 a 的 display:none —— 两者是同一条约束的两个方面。） */
+{
+  const cssD = readCss();
+  const htmlD = fs.readFileSync(path.join(base, '..', 'index.html'), 'utf8');
+  const uiD = fs.readFileSync(path.join(base, 'ui.js'), 'utf8');
+
+  ok('UI3a-a：#region-dec 默认 display:none，只有 .has-actions / .open 才浮出',
+    /#screen-game #region-dec \{[\s\S]{0,900}?display: none;/.test(cssD) &&
+    /#region-dec\.has-actions,\s*#screen-game #region-dec\.open \{ display: block; \}/.test(cssD));
+
+  ok('UI3a-b：「有操作」的判据是输入控件（不是 stage-actions 非空，否则开局就常驻）',
+    /acts\.querySelector\(\s*'input, select, textarea, button:not\(#btn-submit\)'\)|input, select, textarea, button:not\(#btn-submit\)/.test(uiD) &&
+    !/const hasActions = !!\(acts && acts\.children\.length\)/.test(uiD));
+
+  ok('UI3a-c：底部工具条「当夜记录」存在且接线（手动展开 / 收起）',
+    /id="btn-rec"/.test(htmlD) && /function toggleDockPanel/.test(uiD) &&
+    /closest\('#btn-rec'\)/.test(uiD));
+
+  /* 工具条不占流内高度，但面板与输入仍在流内 —— 两者都要成立
+     〔批 UI-5 迁移〕「当夜记录」按钮已随顶部 HUD 一并搬进桌子中央的书记官记录板
+     （#clerk .clerk-ft）。旧的 .ops-dock .dock-bar 节点已删除，断言随之改钉：
+       · 书记官记录板是**覆盖层**（absolute），不占流内高度；
+       · 面板/输入仍在流内（主区K 的核心约束一条不让）。
+
+     〔批 UI-6 再改〕面板本身改成了贴底抽屉（absolute），所以这里的
+     「面板仍在流内」一句不再成立 —— 放行条件与 主区K 完全一致：
+     必须存在「面板展开 ⇒ 座位圈让位」的联动。断言改成守这条联动，而不是死盯 position。
+     守它的理由写在主区K 的注释里（R2 旧伤：面板压住 1/2/15 号，玩家点不到）。 */
+  const sceneD = fs.readFileSync(path.join(base, 'ui-scene.js'), 'utf8');
+  const decIsAbsolute = /#screen-game #region-dec \{[\s\S]{0,200}?position: absolute/.test(cssD);
+  ok('UI3a-d：工具条不压席位；面板浮出时座位必须让位（主区K 的约束不被破坏）',
+    /#screen-game \.clerk \{[\s\S]{0,300}?position: absolute;/.test(cssD) &&
+    !/class="dock-bar"/.test(htmlD) &&
+    /#screen-game \.ops-dock \{[\s\S]{0,300}?flex: 0 0 auto;/.test(cssD) &&
+    !/#screen-game \.input-dock \{[\s\S]{0,200}?position: absolute/.test(cssD) &&
+    (!decIsAbsolute || (/SKScene\.setPanelOpen/.test(uiD) && /function squashSeatY\(S, y\)/.test(sceneD))));
+
+  /* 公告块去方框化：面板里若仍渲染 .annbox / .an，不得带底色与左侧色条 */
+  ok('UI3a-e：面板内的公告块去方框化（无实心底色、无左侧色条）',
+    /#screen-game #region-dec \.annbox \{[\s\S]{0,200}?background: none;/.test(cssD) &&
+    /#screen-game #region-dec \.an \{[\s\S]{0,200}?border-left: 0;/.test(cssD));
 }
 
 /* ---------- 42.7 首页与入口（UI 文本口径，文件级断言） ----------

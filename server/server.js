@@ -59,13 +59,28 @@ function decode(buf, cb) {
 /* ---------- 静态文件 ----------
    〔S1〕补 .svg/.jpg/.png 的 MIME：本地 server 此前只有 html/js/css/md 四类，
    素材以 application/octet-stream 下发时 <image> 出于安全策略拒绝渲染 SVG
-   （<image>/<img> 只认 image/svg+xml；CF Pages 线上默认 MIME 正确，仅本地服务缺表） */
-const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.md': 'text/plain; charset=utf-8', '.svg': 'image/svg+xml', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp' };
+   （<image>/<img> 只认 image/svg+xml；CF Pages 线上默认 MIME 正确，仅本地服务缺表）
+
+   〔2026-10-26 批 P0-b · 安全修复〕此前这里把**仓库根整棵树**当静态目录，
+   只挡「越出仓库根」，于是下面这些都 200：
+       /.env                    → KEYSTORE_PASS / KEY_PASS 明文（282 B）
+       /android/release.keystore→ 签名私钥本体（2704 B）
+       /.git/config 、/node_modules/** 、/tools/** 、/docs/** 、/backup/**
+   文档写明联机「建议本地局域网体验」⇒ 局域网内任何一台机器都能拿走签名私钥。
+   现改为与 **部署/打包共用同一份白名单**（tools/site-entries.cjs），
+   不在白名单内一律 404（用 404 而非 403：不确认路径是否存在，少一个探测面）。 */
+const SE = require(path.join(__dirname, '..', 'tools', 'site-entries.cjs'));
+const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.md': 'text/plain; charset=utf-8', '.svg': 'image/svg+xml', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp', '.m4a': 'audio/mp4', '.ogg': 'audio/ogg', '.ico': 'image/x-icon' };
+const ROOT_DIR = path.join(base, '..');
 const httpd = http.createServer((req, res) => {
-  let p = decodeURIComponent(req.url.split('?')[0]);
-  if (p === '/') p = '/index.html';
-  const fp = path.join(base, '..', p === '/index.html' ? 'index.html' : p);
-  if (!fp.startsWith(path.join(base, '..'))) { res.writeHead(403); res.end(); return; }
+  let p;
+  try { p = decodeURIComponent(req.url.split('?')[0]); } catch (_) { p = ''; }
+  /* 白名单解析：拒绝清单优先；越界（..）与敏感路径一律 null */
+  const rel = SE.resolve(p);
+  if (!rel) { res.writeHead(404); res.end('not found'); return; }
+  const fp = path.resolve(ROOT_DIR, rel);
+  /* 双保险：解析后的绝对路径必须仍在仓库根之内（防 %2e%2e 之类绕过白名单正则） */
+  if (fp !== ROOT_DIR && !fp.startsWith(ROOT_DIR + path.sep)) { res.writeHead(404); res.end(); return; }
   fs.readFile(fp, (e, d) => {
     if (e) { res.writeHead(404); res.end('not found'); return; }
     res.writeHead(200, { 'Content-Type': MIME[path.extname(fp)] || 'application/octet-stream' });

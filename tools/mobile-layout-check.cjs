@@ -273,10 +273,21 @@ function serve() {
           mainH: Math.round(mainH), scH: Math.round(scH), decH: Math.round(decH),
           sceneVis: sc && getComputedStyle(sc).display !== 'none',
           decVis: dec && getComputedStyle(dec).display !== 'none',
+          /* 〔批 UI-3a〕面板的两种可见性来源：有待决策表单（has-actions）或用户手动展开（open） */
+          decHasActions: dec ? dec.classList.contains('has-actions') : false,
+          decOpen: dec ? dec.classList.contains('open') : false,
         };
       }, ph.g);
       if (!m.sceneVis) phaseErrs.push(ph.label + '：圆桌场景不可见');
-      if (!m.decVis) phaseErrs.push(ph.label + '：行动面板不可见');
+      /* 〔批 UI-3a · 2026-10-26〕原来的断言是「行动面板必须可见」——
+         那是面板**常驻**时代的规则。现在面板默认收起（用户：「把绿色方框去掉」），
+         常驻可见反而成了缺陷。改守新的不变量：
+           ① 场景必须吃满主区（这是真正要保护的：玩家看得见 15 席）；
+           ② 面板若可见，不得挤压场景超过一半；
+           ③ 面板**不许无理由常驻**：可见时必须能说明来源（有表单 或 用户展开）。 */
+      if (m.decVis && !(m.decHasActions || m.decOpen)) {
+        phaseErrs.push(ph.label + '：行动面板在无表单、未展开时仍然常驻（应收起）');
+      }
       if (m.mainH < d.height * 0.6) phaseErrs.push(ph.label + '：主区仅 ' + m.mainH + 'px（未吃满）');
       if (m.scH < 100) phaseErrs.push(ph.label + '：场景仅 ' + m.scH + 'px（过小）');
       if (m.decH > d.height * 0.5) phaseErrs.push(ph.label + '：行动面板挤压场景（' + m.decH + 'px）');
@@ -350,7 +361,16 @@ function serve() {
       if (res.sceneVisible) {
         if (!res.sceneSvg) errs.push('圆桌场景未渲染（#scene-mount 无 SVG）');
         if (res.sceneOverflow) errs.push('场景横向溢出');
-        if (d.touch && res.sceneH > d.height * 0.6) errs.push('场景高度异常：' + Math.round(res.sceneH) + 'px');
+        /* 〔批 UI-3a · 2026-10-26〕原断言「触屏下场景不得高于视口 60%」——
+           它是为了给**常驻**的行动面板留位置（面板挤掉一半屏幕时场景若还超高，
+           说明整页在滚动）。面板已默认收起，场景吃满才是目标（用户要求）。
+           改守：触屏下场景可以吃满，但**页面本身不得纵向滚动**
+           （滚动 = 操作区被推出视口 = 手机上点不到输入框）。 */
+        if (d.touch) {
+          const over = await page.evaluate(() =>
+            (document.documentElement.scrollHeight - window.innerHeight));
+          if (over > 2) errs.push('触屏下页面纵向溢出 ' + Math.round(over) + 'px（操作区被推出视口）');
+        }
       } else if (d.touch && !res.rosterScrollable) {
         errs.push('名单未横向滚动（手机横屏必须是横条）');
       }
@@ -397,6 +417,182 @@ function serve() {
         res.roomCount = rooms.n;
       }
     }
+    /* ---------- 〔批 UI-5 · 2026-10-26〕书记官记录板不压席位 ----------
+       顶部 HUD 删除后，阶段名/倒计时/净破坏/决策窗口改成压在圆桌上的**一张纸**
+       （#clerk，位置由 SKScene.layoutClerk 按桌面包围盒写回）。
+       这是本批唯一一处"新增覆盖层"，因此必须实测：
+         ① 纸在视口内（矮屏上不能掉出去）；
+         ② 纸不压住任何角色的**绘制区域**（用角色帧框量，不用包围盒 ——
+            批 UI-3a 记过：内层 svg 的包围盒比实际绘制大一圈，会误报）；
+         ③ 纸不压住行动面板与输入框（它们仍是玩家唯一的提交路径）。
+       反向自检：把 layoutClerk 的"座位让位"循环删掉 → 桌面档应当报「压住 N 席」。 */
+    if (!d.portrait) {
+      const clerk = await page.evaluate((vp) => {
+        const out = [];
+        const p = document.getElementById('clerk');
+        if (!p) return { out: ['#clerk 不存在（书记官记录板未挂载）'], skip: true };
+        if (p.classList.contains('hidden')) return { out, skip: true };
+        const pr = p.getBoundingClientRect();
+        if (pr.width < 80) out.push('书记官记录板宽 ' + Math.round(pr.width) + 'px（过窄，数字读不出来）');
+        if (pr.left < -1 || pr.right > vp.w + 1 || pr.top < -1 || pr.bottom > vp.h + 1)
+          out.push('书记官记录板出视口 ' + JSON.stringify({ l: Math.round(pr.left), r: Math.round(pr.right), t: Math.round(pr.top), b: Math.round(pr.bottom) }));
+        const hit = (r) => r.width > 0 && r.left < pr.right && pr.left < r.right && r.top < pr.bottom && pr.top < r.bottom;
+        /* 纸不得跑出场景（实测「宿舍」那间房曾算到 top:-27，一半在场景外，
+           「当夜记录」按钮点不到）。视口检查拦不住这种情况 —— 场景本身就在视口内。 */
+        const sr = document.getElementById('scene-mount').getBoundingClientRect();
+        if (pr.left < sr.left - 1 || pr.right > sr.right + 1 || pr.top < sr.top - 1 || pr.bottom > sr.bottom + 1)
+          out.push('书记官记录板跑出场景 ' + JSON.stringify({ paper: [Math.round(pr.left), Math.round(pr.top), Math.round(pr.right), Math.round(pr.bottom)], scene: [Math.round(sr.left), Math.round(sr.top), Math.round(sr.right), Math.round(sr.bottom)] }));
+        /* 席位的**真实绘制矩形**由渲染器给出（SKScene.seatRects）：
+           直接用 <svg class="sk-frame"> 的 getBoundingClientRect 会拿到 124×258 的
+           包围盒（整张 384×800 行走图），而实际画出来只有 57×95 —— 用它判遮挡
+           会把"纸上其实什么都没有"的地方算成压住人（交接文档 §3.2 的坑）。 */
+        const rects = (window.SKScene && SKScene.seatRects) ? SKScene.seatRects() : [];
+        let nSeat = 0;
+        for (const r of rects) {
+          if (r.left < pr.right && pr.left < r.right && r.top < pr.bottom && pr.top < r.bottom) nSeat++;
+        }
+        if (nSeat) out.push('书记官记录板压住 ' + nSeat + ' 个席位（玩家点不到自己/别人）');
+        for (const sel of ['#region-dec', '#talkbar']) {
+          const e = document.querySelector(sel);
+          if (!e) continue;
+          const cs = getComputedStyle(e);
+          if (cs.display === 'none' || cs.visibility === 'hidden') continue;
+          if (hit(e.getBoundingClientRect())) out.push('书记官记录板压住 ' + sel + '（提交路径被挡）');
+        }
+        return { out, box: [Math.round(pr.width), Math.round(pr.height)], nSeat };
+      }, { w: d.width, h: d.height });
+      if (clerk.out.length) {
+        fail++;
+        console.log('✗ ' + d.name + ' ' + d.width + '×' + d.height + '（书记官记录板）');
+        clerk.out.forEach(e => console.log('    · ' + e));
+      } else if (!clerk.skip) {
+        console.log('✓ ' + d.name + ' ' + d.width + '×' + d.height +
+          '（书记官记录板 ' + clerk.box[0] + '×' + clerk.box[1] + '，不压席位）');
+      }
+    }
+
+    /* ---------- 〔批 UI-6 · 2026-10-26〕行动面板展开时不得压住席位 ----------
+       本批把 #region-dec 从「流内挤压场景」改成「贴底抽屉浮层」：
+         · 收益：场景恒 789px（改前有面板时只有 543px）；
+         · 代价：不处理就会盖住房间下沿那一排（30×11 新房里是 1/2/15 号）。
+       处理方式是 ui.js 广播 SKScene.setPanelOpen → 场景层把座圈上移 SEAT_LIFT 格。
+
+       ★ 探针必须复现**真实面板高度**，否则这条断言是假的。
+         第一版只注入了一个按钮 ⇒ 面板只有 82px 高 ⇒ 永远压不到人 ⇒
+         把 SEAT_LIFT 改成 0 也不会变红（反向自检两次都没红，才发现问题）。
+         真实决策表单是「15 个头像目标 + 公告 + 提示」，实测 1600×900 下约 400px。
+         这里按真实结构灌 15 个 tgt-avatar（与 ui.js 的 renderForm 同款 DOM）。
+
+       反向自检：把 SEAT_LIFT 改成 0 → 本档必须报「压住 3 个席位」。 */
+    if (!d.portrait) {
+      const panel = await page.evaluate(async (vp) => {
+        const out = [];
+        const rd = document.getElementById('region-dec');
+        if (!rd) return { out: ['#region-dec 不存在'], skip: true };
+        /* 按 renderForm 的真实结构造面板：公告块 + 说明 + 15 个头像目标 + 提交行。
+           只造 DOM 结构，不碰表单协议（这里验的是布局，不是提交）。 */
+        const body = document.getElementById('stage-body');
+        const acts = document.getElementById('stage-actions');
+        const avatars = Array.from({ length: 15 }, (_, k) =>
+          '<label class="opt tgt-avatar" data-v="' + (k + 1) + '">'
+          + '<input type="radio" name="ftgtAll" value="' + (k + 1) + '"/>'
+          + '<span class="ta-face"><b>' + (k + 1) + '</b></span>'
+          + '<span class="ta-name">' + (k + 1) + ' 号</span></label>').join('');
+        if (body) {
+          body.innerHTML = '<div class="annbox"><div class="sec">本步公告</div>'
+            + '<div class="an">布局探针：用真实结构量面板高度</div></div>'
+            + '<p class="hint">选择一个目标（最多 1 名）</p>'
+            + '<div class="sec">选择目标（最多 1 名）</div>'
+            + '<div class="opts grid3 tgt-avatars" id="f-targets">' + avatars + '</div>';
+        }
+        if (acts) acts.innerHTML = '<b id="timer-live" class="live"></b><span class="hint">提交后立即结算</span>'
+          + '<select id="f-num"><option>1</option></select>'
+          + '<button class="act primary" id="btn-submit">提交</button>';
+        if (window.UI && UI.applyStageLayout) UI.applyStageLayout(window.Game && Game.g ? Game.g : { phase: 'day', night: 1, pending: null });
+        await new Promise(r => setTimeout(r, 320));   /* 等 transition 与 ResizeObserver */
+        const cs = getComputedStyle(rd);
+        if (cs.display === 'none') return { out: ['面板未展开（探针没生效）'], skip: true };
+        const pr = rd.getBoundingClientRect();
+        if (pr.left < -1 || pr.right > vp.w + 1 || pr.top < -1 || pr.bottom > vp.h + 1)
+          out.push('行动面板出视口 ' + JSON.stringify({ l: Math.round(pr.left), t: Math.round(pr.top), r: Math.round(pr.right), b: Math.round(pr.bottom) }));
+        /* 探针自检：面板必须够高，否则这条断言又在空转 */
+        if (pr.height < 140) out.push('探针面板只有 ' + Math.round(pr.height) + 'px（没复现真实表单高度，断言会空转）');
+        const rects = (window.SKScene && SKScene.seatRects) ? SKScene.seatRects() : [];
+        const hit = [];
+        for (const r of rects) {
+          if (r.left < pr.right && pr.left < r.right && r.top < pr.bottom && pr.top < r.bottom) hit.push(r.seat);
+        }
+        /* 〔批 UI-6〕两档判定：
+           桌面档（>560px 高）面板是**非模态抽屉**，必须 0 压席位（座圈会压扁让位）；
+           矮横屏（≤560px）面板是**模态抽屉**，遮挡是设计的一部分 —— 那时改为断言
+             「场景确实被压暗（panel-modal 类在位）」+「面板够高能点 15 个目标」。
+           这样两档各有各的真实约束，而不是用一个阈值糊过去。 */
+        const modal = !!(document.getElementById('scene-mount') || {}).classList
+          && document.getElementById('scene-mount').classList.contains('panel-modal');
+        if (modal) {
+          if (vp.h > 560) out.push('桌面档不该走模态（视口 ' + vp.h + 'px 高于 560 断点）');
+          if (pr.height < 180) out.push('模态面板只有 ' + Math.round(pr.height) + 'px（点不到 15 个目标）');
+        } else {
+          if (vp.h <= 560) out.push('矮横屏未走模态档（panel-modal 类缺失，座圈躲不开面板）');
+          if (hit.length) out.push('行动面板压住 ' + hit.length + ' 个席位（' + hit.join('/') + ' 号点不到）');
+        }
+        const scene = document.getElementById('scene-mount');
+        const sceneH = scene ? Math.round(scene.getBoundingClientRect().height) : 0;
+        if (sceneH < vp.h * 0.5) out.push('面板展开时场景只剩 ' + sceneH + 'px（面板又在挤压场景了）');
+        return { out, hit: hit.length, sceneH, panelH: Math.round(pr.height), modal };
+      }, { w: d.width, h: d.height });
+      if (panel.out.length) {
+        fail++;
+        console.log('✗ ' + d.name + ' ' + d.width + '×' + d.height + '（行动面板与席位）');
+        panel.out.forEach(e => console.log('    · ' + e));
+      } else if (!panel.skip) {
+        console.log('✓ ' + d.name + ' ' + d.width + '×' + d.height +
+          (panel.modal
+            ? '（行动面板·模态档 高 ' + panel.panelH + 'px，场景压暗让位）'
+            : '（行动面板·抽屉档 0 压席位，场景仍 ' + panel.sceneH + 'px）'));
+      }
+    }
+
+    /* ---------- 〔批 UI-5 · 2026-10-26〕主页「我这席」名字牌必须真的在视口内、且可点 ----------
+       实测（1600×900）踩了两个坑，都只有截图能发现：
+         ① 名字牌被 07-start-scene.css 的 `.start-box > *` 压成**流内 relative flex 子项**，
+            拉成 1600px 宽，再叠加 JS 写的 left/top ⇒ 落到 (x=-209, y=1061) 视口外；
+         ② 就算位置对了，z-index:1 也会让场景 SVG（z-index:2）把它**盖住**，
+            elementFromPoint 命中的是 SVG 而不是名字牌。
+       断言：位置在视口内 + 顶层层级上真能点到它。 */
+    if (!d.portrait) {
+      await page.evaluate(() => {
+        document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
+        document.getElementById('screen-start').classList.remove('hidden');
+      });
+      await page.waitForTimeout(200);
+      const tag = await page.evaluate((vp) => {
+        const out = [];
+        const t = document.getElementById('seat-tag');
+        if (!t) return { out: ['#seat-tag 不存在'], skip: true };
+        if (t.classList.contains('hidden')) return { out: ['#seat-tag 仍是 hidden（场景未渲染？）'], skip: true };
+        const b = t.getBoundingClientRect();
+        if (b.left < -1 || b.right > vp.w + 1 || b.top < -1 || b.bottom > vp.h + 1)
+          out.push('名字牌在视口外 ' + JSON.stringify({ l: Math.round(b.left), t: Math.round(b.top), r: Math.round(b.right), b: Math.round(b.bottom) }));
+        if (b.width > vp.w * 0.6)
+          out.push('名字牌宽 ' + Math.round(b.width) + 'px（被拉成整行 = 定位被通用子元素规则压掉了）');
+        const cx = Math.min(vp.w - 2, Math.max(2, b.left + b.width / 2));
+        const cy = Math.min(vp.h - 2, Math.max(2, b.top + b.height / 2));
+        const hit = document.elementFromPoint(cx, cy);
+        if (!hit || !hit.closest || !hit.closest('#seat-tag'))
+          out.push('名字牌被盖住（命中 ' + (hit ? (hit.id || hit.tagName) : 'null') + '，点不到「我这席」）');
+        return { out, box: [Math.round(b.width), Math.round(b.height)] };
+      }, { w: d.width, h: d.height });
+      if (tag.out.length) {
+        fail++;
+        console.log('✗ ' + d.name + ' ' + d.width + '×' + d.height + '（我这席名字牌）');
+        tag.out.forEach(e => console.log('    · ' + e));
+      } else if (!tag.skip) {
+        console.log('✓ ' + d.name + ' ' + d.width + '×' + d.height +
+          '（我这席名字牌 ' + tag.box[0] + '×' + tag.box[1] + '，在视口内且可点）');
+      }
+    }
+
     if (errs.length) {
       fail++;
       console.log('✗ ' + d.name + ' ' + d.width + '×' + d.height);

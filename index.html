@@ -32,7 +32,8 @@
 
        ⚠ 控件 id/name/value/disabled 一个不动：fac / seed / btn-start / role-chip / role-grid /
          role-overlay / nick / addr / roomid / btn-create / btn-join / btn-music-start /
-         btn-sfx-start / btn-rules-start / bgm 全部保留（S4D 与 mobile-layout-check 依赖）。 -->
+         btn-sfx-start / bgm 全部保留（S4D 与 mobile-layout-check 依赖）。
+         〔批 UI-8a〕btn-rules-start 已移除：它是重复入口且点不动，S4D 清单同批去掉。 -->
   <section id="screen-start" class="screen">
     <div class="start-box">
 
@@ -54,9 +55,11 @@
               <div class="row"><b>音乐速度</b>
                 <input type="range" id="arena-tempo" min="0.5" max="2" step="0.05" value="1" aria-label="背景音乐速度" />
               </div>
-              <div class="row"><b>规则速览</b>
-                <button id="btn-rules-start" class="act tiny">打开</button>
-              </div>
+              <!-- 〔批 UI-8a〕删掉「规则速览 · 打开」这一行。
+                   两个原因：① 主页左侧已有独立铭牌 #btn-rules-home，这里是重复入口；
+                   ② 它**本来就点不动**（实测 elementFromPoint 命中的是 #arena-stage）——
+                      同层的「音效」「音乐速度」也一样坏，见 09-arena.css 的 z-index 修复。
+                   控件 id 移除后，test-fix 的 S4D 清单同批去掉它（换皮不删控件的豁免：本行是死控件）。 -->
             </div>
           </span>
         </div>
@@ -73,9 +76,9 @@
       <nav class="arena-nav left" aria-label="资料与记录">
         <button id="btn-codex" class="plate" type="button">
           <i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5a2 2 0 0 1 2-2h12v18H6a2 2 0 0 1-2-2z"/><path d="M8 7h8M8 11h8M8 15h5"/></svg></i>
-          <span><b>身份图鉴</b><small>17 种身份与技能</small></span>
+          <span><b>身份图鉴</b><small id="codex-count">20 个身份</small></span>
         </button>
-        <button id="btn-rules" class="plate" type="button">
+        <button id="btn-rules-home" class="plate" type="button">
           <i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg></i>
           <span><b>规则速览</b><small>正文 v1preview1.0</small></span>
         </button>
@@ -100,7 +103,7 @@
         </button>
         <button id="ch-faction" class="plate" type="button" data-mode="faction">
           <i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="9" r="3.2"/><path d="M5 20c0-3.6 3-6 7-6s7 2.4 7 6"/></svg></i>
-          <span><b>指定阵营</b><small>人类 / 异形 / 外星人</small></span>
+          <span><b>指定角色</b><small>先阵营，再角色</small></span>
         </button>
         <button id="ch-online" class="plate dim" type="button" data-mode="online">
           <i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4"/><path d="M10 12h11M17 8l4 4-4 4"/></svg></i>
@@ -158,36 +161,9 @@
         </div>
       </details>
 
-      <!-- 身份选择面板：沿用规则速览的覆盖层结构，不自造 modal 体系 -->
-      <div id="role-overlay" class="hidden" role="dialog" aria-modal="true" aria-labelledby="role-overlay-title">
-        <div class="lg-head">
-          <span class="sec" id="role-overlay-title">选择身份 <span class="rp-sub">软偏好 · 不选则由系统随机分配</span></span>
-          <button type="button" class="ov-close" id="role-close" title="关闭（Esc）">✕</button>
-        </div>
-        <p class="tiny rp-hint">15 人配置为结构常量（人类 11 / 异形 3 / 外星人 1）。本面板只决定<strong>你坐哪个席位</strong>，不增删席位。选到「变体」时，该席位本局就定为它。</p>
-        <label class="fld arena-namefld">我的名字 <input id="arena-myname" type="text" maxlength="8" placeholder="玄武岩" /></label>
-        <div class="rp-grid" id="role-grid"></div>
-        <div class="rp-foot"><button type="button" class="act" id="role-none">不指定身份（交给系统随机）</button></div>
-      </div>
-
-      <!-- 「指定阵营」弹层 -->
-      <div id="faction-overlay" class="hidden" role="dialog" aria-modal="true" aria-labelledby="faction-overlay-title">
-        <div class="lg-head">
-          <span class="sec" id="faction-overlay-title">指定阵营</span>
-          <button type="button" class="ov-close" id="faction-close" title="关闭（Esc）">✕</button>
-        </div>
-        <p class="tiny rp-hint">选择你本局所在的阵营。不想指定就选「随机」。</p>
-        <div class="faction-pick-arena" id="faction-pick-arena"></div>
-      </div>
-
-      <!-- 身份图鉴（新）：身份清单由声明层派生 -->
-      <div id="codex-overlay" class="hidden" role="dialog" aria-modal="true" aria-labelledby="codex-overlay-title">
-        <div class="lg-head">
-          <span class="sec" id="codex-overlay-title">身份图鉴 <span class="rp-sub">17 种身份 · 由声明层派生</span></span>
-          <button type="button" class="ov-close" id="codex-close" title="关闭（Esc）">✕</button>
-        </div>
-        <div class="codex-grid" id="codex-grid"></div>
-      </div>
+      <!-- ★ 三个弹层已搬出 .start-box（批 UI-1，2026-10-26）：
+           #role-overlay / #faction-overlay / #codex-overlay 移到文档顶层，
+           与 #rules-overlay 同级。原因见下方「弹层区」注释。 -->
 
       <!-- ★ 兼容锚点：以下两个 id 供既有 JS 与结算页复用，保持原样不删 -->
       <div id="start-actions" hidden></div>
@@ -232,28 +208,69 @@
 
     <!-- 〔42〕扫码下载浮层已移除（游戏内不做分发下载），对应 assets/qr/ 与 openApkQr 一并退役 -->
 
-    <!-- 顶部状态条：阶段名 + 主倒计时 + 净破坏 + 决策窗口进度，统一收拢全场计时信息 -->
-    <div class="topbar">
-      <div id="stage-head" class="stage-head"></div>
-      <div class="top-stats">
+    <!-- 〔批 UI-5 · 2026-10-26〕顶部 HUD 已整体删除。
+         用户原话：「进入游戏页面的的 hud 界面应当全部删除，所有交互改为和对应物品交互，
+                    倒计时、净破坏、决策窗口改为桌子中央书记官记录；
+                    音乐，倍速，暂停，dev，都放到设置里去」。
+
+         删掉的是**位置**，不是控件：
+           · .topbar 整条（阶段名 / 倒计时环形 / 净破坏 / 决策窗口 / 进度条 / 圆钮组）
+           · .orb-bar 的 7 个圆钮（规则 / DEV / 音乐 / 音效 / 倍速 / 暂停 / 退出）
+         它们全部搬到下面两处，id 一个不删（S4D / 移动端门禁 / 音频门禁都按 id 取值）：
+           · 阶段名 + 倒计时 + 净破坏 + 决策窗口 → #clerk（场景里压在圆桌上的书记官记录板）
+           · 7 个圆钮 → #settings-overlay（对局内设置，由书记官记录板右下角的「设置」打开） -->
+
+    <!-- 书记官记录板：场景层之上的唯一常驻信息面（圆桌中央，见 css/06-scene.css 的 .clerk）
+         ⚠ 它是 #scene-mount 的**兄弟**而不是子节点：场景每次换房间都会 innerHTML 重绘，
+           挂在里面会被一起冲掉。定位由 SKScene.layoutClerk() 按圆桌实际包围盒写回。 -->
+    <div id="clerk" class="clerk" role="group" aria-label="书记官记录">
+      <!-- 抬头：阶段名（#stage-head 由 renderStage 写 innerHTML，这里只给宿主） -->
+      <div class="clerk-hd">
+        <span class="clerk-tag">书记官记录</span>
+        <div id="stage-head" class="stage-head"></div>
+      </div>
+      <!-- 三数字：横向排开、字号压到 12px —— 纸张宽度受桌面限制（≈ 桌宽 62%），
+           两行布局在 1600×900 下会挤成"字压字"（实测）。 -->
+      <div class="clerk-stats">
         <span class="hi cd-hi"><i>倒计时</i><span class="cd-ring" id="cd-ring"><b id="hud-cd">24</b></span></span>
-        <span class="hi"><i>净破坏</i><b id="hud-net">0.0</b><i class="net-bar"><i id="hud-net-fill"></i></i></span>
-        <span class="hi dim"><i>决策窗口</i><b id="timer-num">—</b></span>
+        <span class="hi"><i>净破坏</i><b id="hud-net">0.0</b></span>
+        <span class="hi"><i>决策</i><b id="timer-num">—</b></span>
       </div>
       <div class="timerbar top-timerbar"><div id="timerbar-fill"></div></div>
-      <!-- 圆钮组并入状态条右端（定尺寸控件，不参与信息增减） -->
-      <div class="orb-bar">
-        <button id="btn-side-toggle" class="orb" title="公告 / 私人 / 阵营面板" style="display:none">☰</button>
-        <button id="btn-rules" class="orb" title="规则速览（v6.6 精简）"></button>
-        <button id="btn-dev" class="orb" title="开发者视角（含我的账本）">DEV</button>
-        <button id="btn-music" class="orb" title="背景音乐开关">♫</button>
-        <button id="btn-sfx" class="orb" title="音效开关"></button>
-        <span class="tempo-ctl" title="背景音乐播放速度（0.5× ~ 2×，拖动条调节）">
-          <input type="range" id="tempo-slider" min="0.5" max="2" step="0.05" value="1" aria-label="背景音乐速度" />
-          <b id="tempo-val">×1.00</b>
-        </span>
-        <button id="btn-pause" class="orb" title="暂停对局（单机）" style="display:none">⏸</button>
-        <button id="btn-exit" class="orb" title="退出对局（单机）" style="display:none">✕</button>
+      <div class="clerk-ft">
+        <button type="button" class="clerk-btn" id="btn-rec" title="展开 / 收起当夜记录">
+          <i></i>当夜记录<span class="cnt" id="rec-cnt"></span>
+        </button>
+        <button type="button" class="clerk-btn" id="btn-settings-game" title="对局设置：音乐 / 音效 / 倍速 / 暂停 / 规则 / DEV / 退出">设置</button>
+        <!-- 轮到我时该去哪间房（由 SKScene.updateInteractive 按 js/hud-map.js 写回） -->
+        <span class="clerk-go hidden" id="clerk-go"></span>
+      </div>
+    </div>
+
+    <!-- 对局设置（原顶栏 7 个圆钮的宿主）：fixed 覆盖层，不进布局流，不压席位 -->
+    <div id="settings-overlay" class="hidden" role="dialog" aria-modal="true" aria-labelledby="settings-overlay-title">
+      <div class="lg-head">
+        <span class="sec" id="settings-overlay-title">对局设置</span>
+        <button type="button" class="ov-close" id="settings-close" title="关闭（Esc）">✕</button>
+      </div>
+      <div class="set-body">
+        <div class="set-row"><b>背景音乐</b><button id="btn-music" class="orb" title="背景音乐开关">♫</button></div>
+        <div class="set-row"><b>音效</b><button id="btn-sfx" class="orb" title="音效开关"></button></div>
+        <div class="set-row"><b>音乐速度</b>
+          <span class="tempo-ctl" title="背景音乐播放速度（0.5× ~ 2×，拖动条调节）">
+            <input type="range" id="tempo-slider" min="0.5" max="2" step="0.05" value="1" aria-label="背景音乐速度" />
+            <b id="tempo-val">×1.00</b>
+          </span>
+        </div>
+        <div class="set-row"><b>对局</b>
+          <button id="btn-pause" class="orb" title="暂停对局（单机）" style="display:none">⏸</button>
+          <button id="btn-exit" class="orb" title="退出对局（单机）" style="display:none">✕</button>
+        </div>
+        <div class="set-row"><b>查看</b>
+          <button id="btn-rules" class="act tiny" title="规则速览（v1preview1.0 精简）">规则速览</button>
+          <button id="btn-dev" class="act tiny" title="开发者视角（含我的账本）">DEV</button>
+          <button id="btn-side-toggle" class="act tiny" title="公告 / 私人 / 阵营面板" style="display:none">☰ 侧栏</button>
+        </div>
       </div>
     </div>
 
@@ -269,6 +286,10 @@
         <!-- 〔R2〕底部操作区：行动面板 + 输入，二者在流内竖排（不再绝对定位贴场景底缘
              ——旧做法会压住底部三个席位，实测矮横屏 1/2/15 号被输入框盖住）。 -->
         <div class="ops-dock">
+          <!-- 〔批 UI-5〕原底部工具条（#btn-rec「当夜记录」）已并入桌子中央的书记官记录板
+                （见上方 #clerk 的 .clerk-ft）。这里只留行动面板本体。
+                #btn-rec 的唯一实例在 #clerk 里 —— 同一个 id 不得出现两次
+               （批 UI-1 就踩过 #btn-rules 重复导致点击落到错误的那个上）。 -->
           <div id="region-dec">
             <div id="stage-body" class="stage-body"></div>
             <div id="stage-actions" class="stage-actions"></div>
@@ -308,6 +329,8 @@
       <div id="over-body"></div>
       <div class="row" style="margin-top:14px">
         <button id="btn-replay" class="act">上帝视角复盘</button>
+        <!-- 〔批 UI-8c〕保存本局：**只有点它才存**（用户要求），最多 3 局，满了覆盖最旧 -->
+        <button id="btn-save-replay" class="act">保存本局</button>
         <button id="btn-again" class="primary">再来一局</button>
       </div>
       <div id="replay-box" class="replay hidden">
@@ -324,25 +347,112 @@
      2026-10-04 文本审查 T1–T5：整页由 v4.1 口径重写为 v6.6；
      2026-10-17 换版：口径升到 v1preview1.0（唯一权威源《返航录三阵营对抗规则·正文 v1preview1.0》），
      同步驱逐门槛 3 票、票数公开、感染抑制 2 次、乔装两型、染血指认与外星人逃亡。 -->
+    <!-- ============ 对局回放存档（批 UI-8c）============
+         用户要求：只有玩家点「保存本局」才存储、最多 3 局、可勾选删除。
+         这里只放容器，内容由 JS（SKReplayStore）填充。 -->
+    <div id="replay-overlay" class="hidden" role="dialog" aria-modal="true" aria-labelledby="replay-overlay-title">
+      <div class="lg-head">
+        <span class="sec" id="replay-overlay-title">对局回放 <span class="rp-sub">最多 3 局 · 满了自动覆盖最旧</span></span>
+        <button id="btn-replay-close" class="ov-close" title="关闭（Esc）">✕</button>
+      </div>
+      <div class="rp-archive-bar">
+        <button id="btn-replay-del" class="act tiny" disabled>删除选中</button>
+        <button id="btn-replay-clear" class="act tiny">全部清空</button>
+        <span id="replay-archive-hint" class="tiny"></span>
+      </div>
+      <div id="replay-archive-list" class="rp-archive-list"></div>
+      <div id="replay-archive-body" class="rp-body"></div>
+    </div>
+
     <div id="rules-overlay" class="hidden">
       <div class="lg-head">
         <span class="sec">规则速览 · 正文 v1preview1.0 精简</span>
         <button id="btn-rules-close" class="ov-close" title="关闭（Esc）">✕</button>
       </div>
-      <div class="rg-body">
-        <div class="evt info"><b>夜间步骤</b>：变形/觉醒（前置）→ 清洗（前置）→ 私聊 → 蛰伏（外星人，可附沉默）→ 窃听 → 感染抑制 → 感染致死 → 进化/转化/转职 → 乔装 → 查验/巡逻 → 保护/护甲 → 嗅探 → 维修 → 破坏/结茧 → 外星人击杀 → 开枪 → 异形行动（出刀/感染）→ 医生/毒师 → 死亡结算 → 紧急会议 → 倒计时。</div>
-        <div class="evt info"><b>伤害</b>：造成濒死；抵挡层序「全额减免（安全室/夜晚免疫）→ 保护 → 巡逻 → 护甲 → 护盾」，每层挡 1 点；濒死的生路有<b>三项</b>——步骤 8 救援额度、外星人夜晚免疫（6.4）、死囚复生（6.8.4），先到先得；步骤 8 未获救则步骤 9 死亡硬结算，不跨夜。</div>
-        <div class="evt info"><b>感染</b>：普通第 3 夜致死、感染进化第 2 夜；抑制延后 1 夜（终身 2 次，用掉当夜失去全部主动技能）；医生清除（真伪不可辨）；感染致死同样适用三项生路。</div>
-        <div class="evt info"><b>乔装</b>：异形与外星人可乔装（每只全局 2 次）：普通型耗 1 次、只骗船员查验；<b>强力型耗 2 次</b>、兼骗蛰伏与神探查验（每个体至多 1 次），唯一反制是神探重复查验。</div>
-        <div class="evt info"><b>染血指认</b>：同一凶手累计 3 次出刀致濒死后，其后的每一次出刀，被攻击者都会得知他的编号（不公开计数）。</div>
-        <div class="evt info"><b>停摆</b>：破坏量自选档（未进化 1.5~2.0 / 破坏进化与外星人 2.0~3.0），⑤只公布当夜总量；净破坏 3.0 / 6.0 使倒计时 +2.5 / +5.0，9.0 人类倒计时胜利永久失效；维修效力被破坏进化按比例削减（次夜 25%/50%）。第 99 夜未决出即全局判平。</div>
-        <div class="evt info"><b>白天</b>：（窃听报告 → 逃亡窗口 → 留言 → 摆渡人调查 →）自由讨论 → 投票 → 票数公开 → 驱逐（最高票、无平票、<b>≥3 票</b>）。</div>
-        <div class="evt info"><b>胜利</b>：人类撑到倒计时归零或清场；异形人类全灭且外星人已灭；外星人残局独存或决斗僵局；99 夜未决判平。<b>外星人另有次胜</b>：积分达 10 分后可主动逃亡脱离对局，判次胜且对局继续（不得使人类或异形立即获胜）。</div>
+      <div class="rg-body" id="rg-body">
+        <!-- 〔批 UI-8c〕内容由 JS 从 js/data/rules.js 渲染（三份 v1preview1.0 子文件抽取）。
+             这里不再硬编码那 8 条 evt 文本：它们是手抄的第二份规则，会与 PDF 漂移。 -->
+        <div class="hint">正在载入规则数据…</div>
       </div>
       <!-- 〔R3〕素材署名：房间场景图为 CC-BY 4.0，**必须保留署名**（与 CC0 不同）。
            详见 assets/scene/rooms/LICENSE.txt。 -->
-      <div class="rg-credit">场景素材：Cozy Space Interiors by Bramble &amp; Byte（CC-BY 4.0）· 太空站道具 Kenney（CC0）· 角色 DiceBear open-peeps（CC0）</div>
+      <div class="rg-credit">场景素材：Cozy Space Interiors by Bramble &amp; Byte（CC-BY 4.0）· 太空站道具 Kenney（CC0）· 角色 DiceBear open-peeps（CC0）· 角色行走图本仓自绘（批 UI-2）</div>
     </div>
+
+<!-- ============ 弹层区〔批 UI-1 · 2026-10-26〕============
+     为什么这三个弹层必须放在 .start-box **外面**（与 #rules-overlay 同级）：
+
+     07-start-scene.css:88 有这条规则（特异性 1-2-0）：
+         #screen-start .start-box > *:not(.start-scene) { position: relative; z-index: 1; }
+     它压掉了：
+         05-late-overrides.css:301  #role-overlay  { position: fixed }   ← 1-0-0
+         09-arena.css:316           #codex-overlay / #faction-overlay    ← 1-0-0
+     结果三个弹层全部变成**流内 relative**，被排到主页内容之后。
+
+     实测（2026-10-26，1600×900）：
+         #codex-overlay    position=relative  box=[0, 833, 1600, 648]   ← y=833 已在视口底缘外
+         #faction-overlay  position=relative  box=[0, 852, 1600,  48]
+         #role-overlay     position=relative  box=[0, 833, 1600, 1096]
+         #rules-overlay    position=fixed     box=[0,   0, 1600, 900]   ← 唯一正常的
+
+     这正是用户报的「点击身份图鉴后，所有身份介绍会跑到游戏右下角」的根因。
+     #rules-overlay 之所以一直正常，纯粹是因为它当初就写在 </section> 外面。
+
+     搬出来后不再依赖任何 !important 或特异性压制 —— 结构正确比堆 CSS 可靠。
+     同时 09-arena.css 里补了一条 (1-2-0) 的兜底，防止将来有人又搬回去。 -->
+
+  <!-- 指定角色（原「指定阵营」）：两级选择 —— 先阵营，再该阵营的角色 -->
+  <div id="faction-overlay" class="hidden" role="dialog" aria-modal="true" aria-labelledby="faction-overlay-title">
+    <div class="lg-head">
+      <span class="sec" id="faction-overlay-title">指定角色 <span class="rp-sub">先选阵营，再选该阵营的角色</span></span>
+      <button type="button" class="ov-close" id="faction-close" title="关闭（Esc）">✕</button>
+    </div>
+    <p class="tiny rp-hint">选中的角色决定你坐哪个席位（不增删席位，15 人配置不变）。选「随机」则由系统分配。</p>
+    <!-- 第一级：阵营 -->
+    <div class="fac-steps" id="fac-steps">
+      <button type="button" class="fac-step" data-step="1" id="fac-step-1">
+        <i>①</i><b>选阵营</b><small id="fac-step-1-v">未选</small>
+      </button>
+      <span class="fac-arrow">›</span>
+      <button type="button" class="fac-step" data-step="2" id="fac-step-2">
+        <i>②</i><b>选角色</b><small id="fac-step-2-v">先选阵营</small>
+      </button>
+    </div>
+    <!-- 第一级内容：阵营网格 -->
+    <div class="faction-pick-arena" id="faction-pick-arena"></div>
+    <!-- 第二级内容：该阵营的角色网格（由 arena.js 填充） -->
+    <div class="fac-roles" id="fac-roles"></div>
+    <div class="rp-foot">
+      <button type="button" class="act" id="fac-random">随机（交给系统）</button>
+    </div>
+  </div>
+
+  <!-- 身份图鉴：身份清单由声明层派生（20 个键：17 人类职业 + 异形 + 外星人 + 死囚外星人） -->
+  <div id="codex-overlay" class="hidden" role="dialog" aria-modal="true" aria-labelledby="codex-overlay-title">
+    <div class="lg-head">
+      <span class="sec" id="codex-overlay-title">身份图鉴 <span class="rp-sub">20 个身份 · 由声明层派生</span></span>
+      <button type="button" class="ov-close" id="codex-close" title="关闭（Esc）">✕</button>
+    </div>
+    <div class="codex-grid" id="codex-grid"></div>
+  </div>
+
+  <!-- 我这席：改名 + 当前身份（身份改动统一走上面的「指定角色」，此处只读展示） -->
+  <div id="role-overlay" class="hidden" role="dialog" aria-modal="true" aria-labelledby="role-overlay-title">
+    <div class="lg-head">
+      <span class="sec" id="role-overlay-title">我这席 <span class="rp-sub">改名 · 看当前身份</span></span>
+      <button type="button" class="ov-close" id="role-close" title="关闭（Esc）">✕</button>
+    </div>
+    <p class="tiny rp-hint">名字只影响显示，不改席位与规则。要改身份请用右侧铭牌「指定角色」。</p>
+    <label class="fld arena-namefld">我的名字 <input id="arena-myname" type="text" maxlength="8" placeholder="玄武岩" /></label>
+    <div class="my-seat-info" id="my-seat-info"></div>
+    <div class="rp-foot">
+      <button type="button" class="act" id="role-to-faction">去「指定角色」</button>
+    </div>
+    <!-- 保留：既有 JS 与门禁对 #role-grid / #role-none / #role-chip / #role-clear 的引用不删，
+         但本面板不再展示完整角色网格（已上移到 #faction-overlay 的第二级）。 -->
+    <div class="rp-grid" id="role-grid" hidden></div>
+    <button type="button" id="role-none" hidden></button>
+  </div>
 
 </div>
 
@@ -386,7 +496,10 @@
   <script src="js/engine.js"></script>
   <script src="js/view.js"></script>
   <script src="js/space.js"></script>
+  <script src="js/hud-map.js"></script>
   <script src="js/ui-scene.js"></script>
+  <script src="js/replay-store.js"></script>
+  <script src="js/data/rules.js"></script>
   <script src="js/audio.js"></script>
   <script src="js/ui.js"></script>
   <script src="js/arena.js"></script>

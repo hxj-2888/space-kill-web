@@ -2,20 +2,23 @@
 /* sync-www.cjs — 把站点资源同步进 Android 资产目录（APK 内置页面）
  *
  * 用法：node android/sync-www.cjs
- * 说明：只复制站点真正运行需要的四类资源（index.html / css / js / audio），
- *       与 tools/deploy-pages.cjs 的部署白名单同口径；docs、tools、node_modules、
- *       打包 zip 等一律不进 APK。同步是「先清空再复制」，保证不会残留旧文件。
+ * 说明：清单来自 tools/site-entries.cjs（**与 tools/deploy-pages.cjs / server 共用同一份**）。
+ *       此前本文件自带一份 ENTRIES，虽然当时含 assets 是对的，但三处各写各的
+ *       正是「部署漏了 assets、本地服务吐出 .env」这两个 P0 的温床（2026-10-26 审阅）。
+ *       docs、tools、node_modules、打包 zip 等一律不进 APK；同步是「先清空再复制」，
+ *       保证不会残留旧文件。
  */
 'use strict';
 const fs = require('fs');
 const path = require('path');
+const { SITE_ENTRIES } = require(path.join(__dirname, '..', 'tools', 'site-entries.cjs'));
 
 const ROOT = path.join(__dirname, '..');
 const DEST = path.join(__dirname, 'assets', 'www');
-// 与 tools/deploy-pages.cjs 的白名单同口径：页面 + 资源 + 图标（index.html 声明了图标，
-// 不带上会在 WebView/file:// 下报 404，虽然不影响运行但会污染控制台）
-const ENTRIES = ['index.html', 'css', 'js', 'audio', 'assets',
-  'favicon.ico', 'icon-32.png', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'];
+/* APK 内不需要 _headers / _redirects（那是 Cloudflare 的约定，WebView 不认），
+   但留着无害；这里剔除以免进包体积与困惑。 */
+const SKIP = new Set(['_headers', '_redirects']);
+const ENTRIES = SITE_ENTRIES.filter(e => !SKIP.has(e));
 
 const walk = (dir, base, out) => {
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {

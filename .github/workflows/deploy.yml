@@ -48,6 +48,19 @@ jobs:
           node tools/uismoke.cjs
           node tools/sim.cjs 60
 
+      # 〔2026-10-26 批 P0-a〕站点白名单门禁。
+      # 守的是「代码引用的 assets/ 必须落在上传白名单内」——
+      # 线上 /assets/** 曾经全 404（云端回退成 index.html），网页版所有场景图/头像/背景不显示，
+      # 而 smoke-test 只 curl / 与 /js/main.js，因此一直是绿的。这条断言在主库侧先拦。
+      - name: Site whitelist gate
+        run: node tools/test-site-entries.cjs
+
+      # 同一批：暂存内容必须真的含 assets（模拟 deploy 的复制步骤，不上传）
+      - name: Deploy staging includes assets (dry-run)
+        run: |
+          node tools/deploy-pages.cjs --dry-run | tee /tmp/stage.txt
+          grep -q '^  assets ' /tmp/stage.txt || { echo '✗ 暂存内容不含 assets，上线后场景图会全 404'; exit 1; }
+
   deploy-pages:
     name: Cloudflare Pages (production)
     needs: check
@@ -95,6 +108,37 @@ jobs:
 
       - name: 核心脚本可达
         run: curl -fsSL -o /dev/null --max-time 30 "https://space-kill-web.pages.dev/js/main.js"
+
+      # 〔2026-10-26 批 P0-a〕产物级冒烟：场景图必须是**真图片**。
+      # 这正是上一版漏掉的那一条：/assets/** 未上传时云端回退成 index.html(26201B, text/html)，
+      # 返回码是 200，只 curl 状态码永远发现不了。故这里同时校验 Content-Type 与首字节。
+      - name: 场景图必须是真 PNG（防 SPA 回退）
+        run: |
+          set -e
+          for p in \
+            "assets/scene/cozy/tiles/floor-lab.png" \
+            "assets/scene/cozy/furniture/table.png" \
+            "assets/scene/bg/spaceship-interior-1600.jpg"
+          do
+            url="https://space-kill-web.pages.dev/$p"
+            ct=$(curl -fsSL -o /tmp/x -w '%{content_type}' --max-time 60 "$url")
+            size=$(wc -c < /tmp/x)
+            head4=$(head -c 4 /tmp/x | od -An -tx1 | tr -d ' \n')
+            echo "$p : $ct  $size B  head=$head4"
+            case "$p" in
+              *.png) [ "$ct" = "image/png" ]              || { echo "✗ $p Content-Type 不是 image/png（疑似 SPA 回退成 HTML）"; exit 1; };;
+              *.jpg) [ "$ct" = "image/jpeg" ]             || { echo "✗ $p Content-Type 不是 image/jpeg"; exit 1; };;
+            esac
+            [ "$size" -gt 500 ] || { echo "✗ $p 体积异常小：$size B（多半是 HTML 回退）"; exit 1; }
+          done
+          echo "✓ 场景素材全部为真图片"
+
+      - name: 角色头像可达（SVG）
+        run: |
+          ct=$(curl -fsSL -o /tmp/y -w '%{content_type}' --max-time 60 \
+            "https://space-kill-web.pages.dev/assets/scene/characters/a-crew/seat-01.svg")
+          echo "seat-01.svg : $ct"
+          [ "$ct" = "image/svg+xml" ] || { echo "✗ 头像 Content-Type 不是 image/svg+xml"; exit 1; }
 
   # ===== 附件站（space-kill.pages.dev）=====
   # 为什么单列一个 job：附件站是**另一个** Pages 项目，产物在 attachment-site/site/，

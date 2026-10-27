@@ -6,7 +6,8 @@
 | 15 席角色 · 方案B | DiceBear voxel-bot | CC0 1.0 | 同上 |
 | 15 席角色 · 方案C | DiceBear critters | CC0 1.0 | 同上 |
 | 书记官 NPC | DiceBear notionists | CC0 1.0 | seed=scribe-official |
-| 太空船内景背景 | [Spaceship Interior — OpenGameArt / Parker West](https://opengameart.org/content/spaceship-interior)（源自 Pixabay） | CC0 1.0 | 原图直存 bg/spaceship-interior-v1.jpg（2.1MB；SHA256 a1b98506…） |
+| 船体内衬 · bg/hull-tile.png | **本仓自绘** | 随仓库 LICENSE | `node tools/gen-bg-tile.cjs [--force]`（512×512，4×4 格 32px 网格，四面无缝；对局页边条 / 开始页 / 结算页共用） |
+| ~~太空船内景背景~~（**已停用**，文件仍留仓） | [Spaceship Interior — OpenGameArt / Parker West](https://opengameart.org/content/spaceship-interior)（源自 Pixabay） | CC0 1.0 | 〔批 UI-8a〕**已从产品撤除全部引用**（写实 3D 走廊与像素房间不是一套语言）。CC0 无署名义务，故本行保留仅作来源留痕；文件 bg/spaceship-interior-v1.jpg / -1600.jpg 仍在仓库内，未删。 |
 | 其余（圆桌/椅子/气泡/房间门/叠加件） | 本仓自绘 | 随仓库 LICENSE | 场景 SVG 组合件，非角色素材 |
 | 开始页「返航环」bg/departure-ring.svg | 本仓自绘 | 随仓库 LICENSE | `node tools/gen-start-scene.cjs [--force]`（15 席等弧长座次，与对局页同算法；纯装饰，不含角色暗示） |
 | 太空站房间道具 · station/*.png（97 件） | [Kenney · Space Station Kit](https://kenney.nl/assets/space-station-kit) | **CC0 1.0**（见 `station/LICENSE-Kenney.txt`） | 官方 2D 预览图（64×64 等距小件）**原尺寸入库，不放大**；用于 8 个技能室的场景拼装 |

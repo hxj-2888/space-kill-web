@@ -368,6 +368,33 @@
     el('btn-back').onclick = () => { global.Net.close(); el('screen-room').classList.add('hidden'); el('screen-start').classList.remove('hidden'); };
     el('btn-launch').onclick = () => global.Net.startGame(Date.now() % 100000000);
 
+    /* 〔批 UI-8c〕保存本局：**只有点它才存**（用户要求）。最多 3 局，满了覆盖最旧。
+       ⚠ K3：回放只能经 View.replayOf() 取（仅终局后非 null），这里照该口径取一次再交给存档模块。 */
+    const btnSaveRp = el('btn-save-replay');
+    if (btnSaveRp) btnSaveRp.onclick = () => {
+      A().sfx('click');
+      const g = Game.g;
+      const S = global.SKReplayStore;
+      if (!g || !S) return;
+      let flow = null;
+      try { flow = global.View && global.View.replayOf ? global.View.replayOf(g) : null; } catch (_) {}
+      if (!flow || !flow.length) {
+        if (global.UI && global.UI.flashNote) global.UI.flashNote('这一局还没有可保存的回放');
+        return;
+      }
+      const res = S.save(g, flow);
+      if (!res.ok) {
+        if (global.UI && global.UI.flashNote) global.UI.flashNote('保存失败：' + (res.reason || '未知原因'));
+        return;
+      }
+      const n = (res.evicted || []).length;
+      if (global.UI && global.UI.flashNote) {
+        global.UI.flashNote(n ? '已保存 · 已有 3 局，最早的一局被覆盖' : '已保存本局回放');
+      }
+      btnSaveRp.disabled = true;                 /* 同一局不必重复存 */
+      btnSaveRp.textContent = '已保存';
+    };
+
     el('btn-replay').onclick = () => {
       A().sfx('click');
       el('replay-box').classList.toggle('hidden');

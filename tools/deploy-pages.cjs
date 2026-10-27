@@ -23,17 +23,14 @@ const BRANCH = 'main';
 const ROOT = path.join(__dirname, '..');
 // CI 注入的启动命令（如 "npx wrangler@4"）；本地默认用 PATH 里的 wrangler
 const WRANGLER = process.env.WRANGLER_CMD || 'wrangler';
-// 站点图标随页面一起部署（缺了会被 Cloudflare 回退成 404，浏览器退回默认空白图标）
-// _headers = APK 的附件下载响应头，缺了线上"能点但下不到"。
-// （assets/ 已随第四十二批扫码浮层退役删除，不再是站点资源——2026-10-07 CI 首跑时该
-//   死条目被 fail-loud 检查拦下，现移除。）
-const SITE_ENTRIES = ['index.html', 'css', 'js', 'audio', 'favicon.ico', 'icon-32.png', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png', '_headers', '_redirects'];
-// 可选资源：SpaceKill.apk 被 .gitignore 排除、不进 git——本地由 android/build.cmd 产出，
-// CI 部署前从 GitHub Release 拉回仓库根；两边都没有时警告跳过（下载走 Release 兜底链接）。
-// 〔2026-10-10〕站点上实际分发的是 SpaceKill.apk.zip（.apk 后缀不进 Cloudflare CDN 缓存，
-// 且 Pages 免费版不支持 Range → 4.5MB 一断就从头来，见 _headers 注释）——
-// 这里在暂存时把 apk **复制一份为 zip**，本地/CI 两条部署路都自动带上，无需各自多一步。
-const OPTIONAL_ENTRIES = ['SpaceKill.apk'];
+/* 〔2026-10-26 批 P0-a〕清单收敛到 tools/site-entries.cjs（唯一真源）。
+   此前本文件自带一份 SITE_ENTRIES，**漏了 assets**：
+   R3/U1 之后 js/ui.js、js/ui-scene.js、css/06-scene.css、css/07-start-scene.css
+   全都在引用 assets/scene/**，线上却根本没上传 ⇒ 云端回退成 index.html(26201B, text/html)
+   ⇒ 浏览器把 <image> 当 HTML 解 ⇒ **网页版所有场景图/头像/背景全不显示**，
+   而 CI 的 smoke-test 只 curl 了 / 与 /js/main.js，一直是绿的。
+   现由 tools/test-site-entries.cjs 守「代码引用的 assets 必须落在白名单内」。 */
+const { SITE_ENTRIES, OPTIONAL_ENTRIES, allowed } = require('./site-entries.cjs');
 
 const stage = path.join(os.tmpdir(), 'space-kill-pages-deploy');
 fs.rmSync(stage, { recursive: true, force: true });
@@ -69,9 +66,47 @@ const walk = (dir, base, out) => {
 };
 const files = walk(stage, '', []);
 console.log('暂存目录: ' + stage);
+
+/* 〔2026-10-26 批 P0-a〕上传前的最后一道闸：暂存目录里**不许出现**拒绝清单的路径。
+   白名单是「正面清单」，这里再做一次「负面校验」——即使哪天有人把 .env 塞进 assets/，
+   白名单会放行它，这一道会拦下整个部署（fail loud，宁可不发也不外泄）。 */
+{
+  /* 注意：可选资源（SpaceKill.apk 及其 .zip 副本）**不在** SITE_ENTRIES 里，
+     它们是单独一段逻辑加进来的，所以必须一并放行，否则这一道会误杀整个部署。
+     （2026-10-26 首次实跑就撞上了：✗ SpaceKill.apk / SpaceKill.apk.zip） */
+  const okOptional = f => OPTIONAL_ENTRIES.some(e => f === e || f === e + '.zip');
+  const leaked = files.filter(f => !allowed(f) && !okOptional(f));
+  if (leaked.length) {
+    console.error('✗ 暂存目录含拒绝清单文件，部署中止：');
+    for (const f of leaked.slice(0, 20)) console.error('   ' + f);
+    if (leaked.length > 20) console.error('   …（共 ' + leaked.length + ' 个）');
+    fs.rmSync(stage, { recursive: true, force: true });
+    process.exit(1);
+  }
+}
+
 console.log('待上传文件数: ' + files.length + '（仅站点资源，不含 node_modules/.git/打包 zip）');
 const total = files.reduce((s, f) => s + fs.statSync(path.join(stage, f)).size, 0);
 console.log('总体积: ' + (total / 1048576).toFixed(2) + ' MB');
+
+/* 〔2026-10-26 批 P0-a〕--dry-run：只做到「暂存 + 白名单校验 + 清单打印」就停，
+   不调用 wrangler。用途：本地复核「这次到底会上传哪些文件」，
+   也是 tools/test-site-entries.cjs 之外唯一能验证暂存内容的手段（CI 里真删不现实）。 */
+if (process.argv.includes('--dry-run')) {
+  const byTop = new Map();
+  for (const f of files) {
+    const top = f.indexOf('/') < 0 ? f : f.slice(0, f.indexOf('/'));
+    const cur = byTop.get(top) || { n: 0, b: 0 };
+    cur.n++; cur.b += fs.statSync(path.join(stage, f)).size;
+    byTop.set(top, cur);
+  }
+  console.log('\n[--dry-run] 按顶层分组的暂存内容：');
+  for (const [k, v] of [...byTop.entries()].sort((a, b) => b[1].b - a[1].b)) {
+    console.log('  ' + k.padEnd(22) + String(v.n).padStart(4) + ' 个  ' + (v.b / 1048576).toFixed(2) + ' MB');
+  }
+  console.log('\n[--dry-run] 未调用 wrangler，暂存目录保留在：' + stage);
+  process.exit(0);
+}
 
 console.log('\n创建 Pages 项目（已存在则忽略报错）...');
 spawnSync(WRANGLER, ['pages', 'project', 'create', PROJECT, '--production-branch', BRANCH],

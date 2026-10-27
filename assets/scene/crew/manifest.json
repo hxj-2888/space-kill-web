@@ -1,0 +1,119 @@
+{
+ "version": 1,
+ "frame": [
+  96,
+  160
+ ],
+ "grid": [
+  4,
+  5
+ ],
+ "scale": 4,
+ "seats": [
+  {
+   "seat": 1,
+   "file": "crew-01.png",
+   "head": "bare",
+   "pack": "flat",
+   "color": "#ff6b6b"
+  },
+  {
+   "seat": 2,
+   "file": "crew-02.png",
+   "head": "antenna",
+   "pack": "tall",
+   "color": "#ff922b"
+  },
+  {
+   "seat": 3,
+   "file": "crew-03.png",
+   "head": "cap",
+   "pack": "round",
+   "color": "#fcc419"
+  },
+  {
+   "seat": 4,
+   "file": "crew-04.png",
+   "head": "headset",
+   "pack": "twin",
+   "color": "#c0eb75"
+  },
+  {
+   "seat": 5,
+   "file": "crew-05.png",
+   "head": "crest",
+   "pack": "none",
+   "color": "#69db7c"
+  },
+  {
+   "seat": 6,
+   "file": "crew-06.png",
+   "head": "helmet",
+   "pack": "flat",
+   "color": "#38d9a9"
+  },
+  {
+   "seat": 7,
+   "file": "crew-07.png",
+   "head": "bun",
+   "pack": "tall",
+   "color": "#3bc9db"
+  },
+  {
+   "seat": 8,
+   "file": "crew-08.png",
+   "head": "spike",
+   "pack": "round",
+   "color": "#4dabf7"
+  },
+  {
+   "seat": 9,
+   "file": "crew-09.png",
+   "head": "halo",
+   "pack": "twin",
+   "color": "#748ffc"
+  },
+  {
+   "seat": 10,
+   "file": "crew-10.png",
+   "head": "visor-strip",
+   "pack": "none",
+   "color": "#9775fa"
+  },
+  {
+   "seat": 11,
+   "file": "crew-11.png",
+   "head": "horn",
+   "pack": "flat",
+   "color": "#da77f2"
+  },
+  {
+   "seat": 12,
+   "file": "crew-12.png",
+   "head": "topknot",
+   "pack": "tall",
+   "color": "#e64980"
+  },
+  {
+   "seat": 13,
+   "file": "crew-13.png",
+   "head": "sidegear",
+   "pack": "round",
+   "color": "#f783ac"
+  },
+  {
+   "seat": 14,
+   "file": "crew-14.png",
+   "head": "wing",
+   "pack": "twin",
+   "color": "#ffe066"
+  },
+  {
+   "seat": 15,
+   "file": "crew-15.png",
+   "head": "dome",
+   "pack": "none",
+   "color": "#94d82d"
+  }
+ ]
+}

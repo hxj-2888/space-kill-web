@@ -95,10 +95,14 @@ const ENGINE_STACK = ['v66/reveal/revealService', 'v66/execution/ledger', 'lang/
    必须后于 view（运行时读 global.View 的产物）先于 ui（ui.render 调 SKScene.render）） */
 /* 〔U1〕space：房间布局数据层（纯数据 + validate，零 DOM）。
    必须在 ui-scene 之前——场景渲染器读 global.SKSpace 的道具表与座位坐标。 */
+/* 〔批 UI-5〕hud-map：决策 kind → 物件 的唯一映射表（纯数据）。
+   必须在 ui-scene 之前（场景渲染器按它给道具点灯）与 ui 之前（书记官记录按它写"去哪做"）。 */
 /* 〔H1〕arena：主页「游戏预览页」交互层（铭牌 / 设置 / 我这席）。
    必须后于 ui-scene（调 SKScene.renderHomeScene）与 ui（读 role-overlay 等既有控件），
    先于 main（main.js 的 DOMContentLoaded 里调 SKArena.init）。 */
-const ORDER_UI = ['view', 'space', 'ui-scene', 'audio', 'ui', 'arena', 'net', 'main'];
+/* 〔批 UI-8c〕'replay-store' 排在 'ui' 之前：ui.js 的 renderReplayBody / 主页回放列表都要读它。
+   它是纯数据 + 纯函数（只管 localStorage 读写），不依赖任何渲染层。 */
+const ORDER_UI = ['view', 'space', 'hud-map', 'ui-scene', 'replay-store', 'data/rules', 'audio', 'ui', 'arena', 'net', 'main'];
 
 /* —— 常用剖面 —— */
 const profiles = {

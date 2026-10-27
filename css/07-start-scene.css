@@ -27,10 +27,14 @@
   position: fixed;
   inset: 0;
   z-index: -2;
+  /* 〔批 UI-8a〕换成**本仓自绘**的舱壁瓦片（与对局页同一张，同一个生成器）。
+     开始页信息密度低，背景只做氛围，所以仍压暗 + 轻模糊；
+     但语言与对局页统一了 —— 不再是一张写实 3D 走廊。 */
   background:
-    url("../assets/scene/bg/spaceship-interior-1600.jpg") center / cover no-repeat,
+    url("../assets/scene/bg/hull-tile.png") repeat,
     radial-gradient(ellipse at 50% 0%, #16233a 0%, #070b14 70%);
-  filter: brightness(.34) saturate(.72) blur(1px);
+  background-size: 224px 224px, auto;
+  filter: brightness(.62) saturate(.95);
   pointer-events: none;
 }
 /* 舷窗冷光 + 底部暖光：让卡片从背景里"浮"出来，而不是贴在一张图上 */
@@ -151,16 +155,18 @@
   isolation: isolate;
   overflow: hidden;
 }
-/* 结局页背景用同一张内景但更冷更暗：与开始页（暖 CTA）区分"出发 / 归航"两种情绪 */
+/* 结局页背景用同一张自绘舱壁但更冷更暗：与开始页（暖 CTA）区分"出发 / 归航"两种情绪
+   〔批 UI-8a〕与开始页/对局页统一到 hull-tile.png（本仓自绘）。 */
 #screen-over::before {
   content: "";
   position: fixed;
   inset: 0;
   z-index: -2;
   background:
-    url("../assets/scene/bg/spaceship-interior-1600.jpg") center 30% / cover no-repeat,
+    url("../assets/scene/bg/hull-tile.png") repeat,
     radial-gradient(ellipse at 50% 0%, #101b2c 0%, #060a12 70%);
-  filter: brightness(.26) saturate(.6) blur(2px);
+  background-size: 224px 224px, auto;
+  filter: brightness(.50) saturate(.85);
   pointer-events: none;
 }
 #screen-over::after {

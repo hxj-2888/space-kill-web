@@ -417,7 +417,91 @@ const SKD = global.SKDerivation;               // 〔43〕阵营成员 ≠ 能�
     if (seg) seg.dataset.layout = L.key;
     const rd = el('region-dec');
     if (rd) rd.classList.toggle('hidden', !L.dec);
+    syncDockPanel(g);
     return L;
+  }
+
+  /* 〔批 UI-3a · 2026-10-26〕行动面板的「何时浮出」
+     -------------------------------------------------------------
+     用户原话：「注意把绿色方框去掉，也就是下面的提示框，准备向场景交互靠近」。
+     那个「绿色方框」就是 #region-dec 整块常驻：深色实心卡 + 青绿标题 + 每条公告左侧青绿条，
+     实测占 228px（1600×900），把场景从 764px 压到 447px。
+
+     现在的规则（三条，顺序即优先级）：
+       ① 有待决策表单（#stage-actions 有内容）→ **强制展开**。这是玩家必须操作的东西，
+          不能藏起来；且 css 里 .has-actions 优先于手动收起。
+       ② 否则 → 只有当玩家点了底部「当夜记录」时才展开（.open）。
+       ③ 纯公告不再常驻。公告的内容改由场景承载（批 UI-5 书记官记录）。
+
+     ⚠ 只改"显示时机"，不改任何控件：表单的 id / name / onchange / 提交按钮一律不动
+       （门禁 主区O / S4D 依赖）。 */
+  function syncDockPanel(g) {
+    const rd = el('region-dec'), acts = el('stage-actions'), body = el('stage-body');
+    if (!rd || !acts) return;
+    /* 「有操作」= 面板里除了 #timer-live（倒计时文本）与 #btn-submit（提交）之外，
+       还有真正的输入控件（radio/checkbox/select/textarea/其他 button）。
+       开局讨论窗口只有「结束讨论」一个按钮 + 倒计时，这不算"需要操作" ——
+       否则面板会从第一秒就常驻，等于没改。
+       ⚠ 这里用"是否含输入控件"而不是"是否非空"：后者把倒计时/提示也算进去，
+         实测开局讨论就会被判成 has-actions（第一版就这样，面板照样常驻）。 */
+    const hasActions = !!acts.querySelector(
+      'input, select, textarea, button:not(#btn-submit)');
+    rd.classList.toggle('has-actions', hasActions);
+    /* 底部工具条上的公告计数：让玩家知道"有东西可看"而不必展开 */
+    const cnt = el('rec-cnt');
+    if (cnt) {
+      const n = (body && body.querySelectorAll('.an').length) || 0;
+      cnt.textContent = n ? n + ' 条' : '';
+    }
+    const btn = el('btn-rec');
+    if (btn) {
+      const on = rd.classList.contains('open') && !hasActions;
+      btn.classList.toggle('on', on);
+      btn.title = hasActions ? '有待处理的操作（面板已展开）'
+        : (on ? '收起当夜记录' : '展开当夜记录');
+    }
+    /* 〔批 UI-6 · 2026-10-26〕面板展开时通知场景层**把座位圈上移**。
+       面板已改成贴底抽屉（不再挤压场景），代价是会盖住房间下沿那一排 ——
+       所以真正要做的让位交给场景层（SKScene.setPanelOpen → SEAT_LIFT），
+       而不是再让面板缩水。这里只做"状态广播"，不碰任何控件。 */
+    const open = hasActions || rd.classList.contains('open');
+    if (global.SKScene && global.SKScene.setPanelOpen) global.SKScene.setPanelOpen(open);
+  }
+
+  /* 底部「当夜记录」按钮：手动展开 / 收起（一旦有表单，表单优先，按钮不生效） */
+  function toggleDockPanel() {
+    const rd = el('region-dec');
+    if (!rd) return;
+    if (rd.classList.contains('has-actions')) return;   /* 有表单时不许收起 */
+    rd.classList.toggle('open');
+    syncDockPanel(global.Game && global.Game.g);
+  }
+
+  /* 〔批 UI-5 · 2026-10-26〕点物件 → 展开行动面板。
+     顶栏 HUD 删除后，场景道具成为唯一入口，点对了物件必须能立刻看到表单。
+     与 toggleDockPanel 的区别：这里是**幂等展开**，不来回切（点物件不该把面板关掉）。 */
+  function openDockPanel() {
+    const rd = el('region-dec');
+    if (!rd) return;
+    rd.classList.add('open');
+    syncDockPanel(global.Game && global.Game.g);
+  }
+
+  /* 〔批 UI-5〕对局设置覆盖层：原顶栏 7 个圆钮的宿主。
+     打开/关闭只改 #settings-overlay 的 .hidden —— 圆钮本身与它们的 onclick 全部不动，
+     所以音频 / 暂停 / 退出 / 规则 / DEV 的行为与改前逐字节一致。 */
+  function toggleSettings(force) {
+    const ov = el('settings-overlay');
+    if (!ov) return;
+    const show = force == null ? ov.classList.contains('hidden') : !!force;
+    ov.classList.toggle('hidden', !show);
+    const b = el('btn-settings-game');
+    if (b) b.classList.toggle('on', show);
+    if (show) {
+      /* 暂停按钮的文案要跟当前状态一致（它由 renderHud 维护，这里补一次） */
+      const bp = el('btn-pause');
+      if (bp && global.Game) bp.textContent = global.Game.paused ? '▶' : '⏸';
+    }
   }
 
   function renderStage(g) {
@@ -1480,9 +1564,20 @@ const SKD = global.SKDerivation;               // 〔43〕阵营成员 ≠ 能�
       /* v32：开始页顶部两键——音效开关 / 规则速览（黑话术语表已删，〔批次 36〕） */
       if (e.target && e.target.closest && e.target.closest('#btn-rules')) { openRules(); return; }
       /* 〔R2〕右栏底部规则入口已随右栏删除；规则速览仍在顶栏 orb（#btn-rules）。 */
-      if (e.target && e.target.closest && e.target.closest('#btn-rules-start')) { openRules(); return; }
+      /* 〔批 UI-8a〕#btn-rules-start 已从设置面板移除（重复入口 + 点不动），
+       这里的分支同批删掉 —— 留着就是"绑到一个不存在的控件"的死代码。 */
       if (e.target && e.target.closest && e.target.closest('#btn-side-toggle')) { toggleSideDrawer(); return; }
       if (e.target && e.target.closest && e.target.closest('#btn-rules-close')) { closeRules(); return; }
+      /* 〔批 UI-3a〕底部工具条「当夜记录」：手动展开 / 收起行动面板
+         〔批 UI-5〕按钮搬到书记官记录板（#clerk 的 .clerk-ft），id 不变 */
+      if (e.target && e.target.closest && e.target.closest('#btn-rec')) { toggleDockPanel(); return; }
+      /* 〔批 UI-5〕对局设置：原顶栏圆钮的宿主（打开 / 关闭 / 点背景关） */
+      if (e.target && e.target.closest && e.target.closest('#btn-settings-game')) { toggleSettings(); return; }
+      if (e.target && e.target.closest && e.target.closest('#settings-close')) { toggleSettings(false); return; }
+      if (e.target && e.target.closest && e.target.closest('#settings-overlay')) {
+        /* 点覆盖层自身（不是里面的控件）= 关；点 .set-body 内的控件不关 */
+        if (e.target === e.target.closest('#settings-overlay')) { toggleSettings(false); return; }
+      }
       /* v32：单机暂停 / 退出（仅单机模式显示按钮）；〔批次 38b〕orb 只留图标，汉字说明在 title */
       if (e.target && e.target.closest && e.target.closest('#btn-pause')) {
         global.Game.togglePause();
@@ -1522,7 +1617,7 @@ const SKD = global.SKDerivation;               // 〔43〕阵营成员 ≠ 能�
       if (e.target && e.target.closest && e.target.closest('[data-ld-close]')) { closeLedger(); return; }
     });
     document.addEventListener('keydown', e => {
-      if (e && e.key === 'Escape') { closeRules(); closeDevView(); popPid = null; render(global.Game.g); }
+      if (e && e.key === 'Escape') { closeRules(); closeDevView(); toggleSettings(false); popPid = null; render(global.Game.g); }
     });
     /* v32：职业备注 select（change 不经 click 委托，单独监听；个人笔记不进 AI 账本） */
     document.addEventListener('change', e => {
@@ -1691,6 +1786,6 @@ const SKD = global.SKDerivation;               // 〔43〕阵营成员 ≠ 能�
 
   global.UI = { render, init, updateTimer, renderRoom, renderReplayBody, stageLayout, applyStageLayout,
     mountRolePicker, preferredRole, rpPick, renderRoleGrid, openPlayerPop, mountRosterBoard,
-    openLedger, closeLedger, ledgerLines };
+    openLedger, closeLedger, ledgerLines, openDockPanel, toggleSettings };
 })(typeof window !== 'undefined' ? window : globalThis);
 

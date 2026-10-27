@@ -6,10 +6,21 @@
 |---|---|---|---|
 | 地板 / 墙 / 门窗（`tiles/`，22 件） | **Cozy Space Interiors** — Bramble & Byte | CC-BY 4.0 | `"Cozy Space Interiors" by Bramble & Byte — https://aquumgifts.itch.io` |
 | 家具（`furniture/`，23 件） | **Cozy Space Furniture** — Bramble & Byte | CC-BY 4.0 | `"Cozy Space Furniture" by Bramble & Byte — https://aquumgifts.itch.io` |
-| 角色行走图（`crew/`，8 套） | **Cozy Space Station: Walking Crew** — Bramble & Byte | CC-BY 4.0 | `"Cozy Space Station" by Bramble & Byte — https://aquumgifts.itch.io` |
+| ~~角色行走图（`crew/`，8 套）~~ | ~~**Cozy Space Station: Walking Crew** — Bramble & Byte~~ | ~~CC-BY 4.0~~ | **〔批 UI-2 · 2026-10-26 起不再使用〕** |
 
 > ⚠ CC-BY 与 CC0 不同：**漏掉署名整个素材就不能用**。
 > 产品内已在「规则速览」页脚登记；若将来移除本素材，可一并移除署名。
+
+### 〔批 UI-2〕角色行走图已换掉，署名已同步移除
+
+`crew/` 下的 8 套 Walking Crew **已删除**，改为本仓程序生成的 15 套
+（`node tools/gen-crew-sprites.cjs`，见 `assets/scene/crew/LICENSE.txt`）。
+
+按 CC-BY 的规则：素材不用了，就不该继续给**未使用的素材**署名（那会让署名清单失真，
+读者无法判断到底哪一项还在用）。故：
+- 上表第三行划掉并标注「不再使用」；
+- **产品内的「规则速览」页脚也已移除 Walking Crew 的署名**（仍在用的 Interiors / Furniture
+  署名必须保留，一个字都不能少）。
 
 ## 为什么换这一套
 
