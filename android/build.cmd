@@ -88,12 +88,12 @@ echo [6/7] zipalign...
 "%BT%\zipalign.exe" -f 4 "%OUT%\unsigned.apk" "%OUT%\aligned.apk" || goto :err
 
 echo [7/7] sign...
-if "%KEYSTORE_PASS%"=="" for /f "usebackq tokens=1,* delims==" %%a in ("%~dp0..\.env") do (
-  if /i "%%a"=="KEYSTORE_PASS" set "KEYSTORE_PASS=%%b"
-)
-if "%KEY_PASS%"=="" for /f "usebackq tokens=1,* delims==" %%a in ("%~dp0..\.env") do (
-  if /i "%%a"=="KEY_PASS" set "KEY_PASS=%%b"
-)
+rem .env is UTF-8 with Chinese comments. Under codepage 936, `for /f` over the whole
+rem file lets a trailing multi-byte char swallow the CRLF, merging KEYSTORE_PASS with
+rem the comment line above it. Use findstr to take only the ASCII key lines (/b anchor
+rem keeps KEY_PASS from matching KEYSTORE_PASS).
+if "%KEYSTORE_PASS%"=="" for /f "tokens=1,* delims==" %%a in ('findstr /b /i "KEYSTORE_PASS=" "%~dp0..\.env"') do set "KEYSTORE_PASS=%%b"
+if "%KEY_PASS%"=="" for /f "tokens=1,* delims==" %%a in ('findstr /b /i "KEY_PASS=" "%~dp0..\.env"') do set "KEY_PASS=%%b"
 if "%KEYSTORE_PASS%"=="" ( echo [ERR] KEYSTORE_PASS missing - add it to ..\.env & exit /b 1 )
 if "%KEY_PASS%"=="" ( echo [ERR] KEY_PASS missing - add it to ..\.env & exit /b 1 )
 if not exist "%~dp0release.keystore" (

@@ -112,6 +112,9 @@ jobs:
       # 〔2026-10-26 批 P0-a〕产物级冒烟：场景图必须是**真图片**。
       # 这正是上一版漏掉的那一条：/assets/** 未上传时云端回退成 index.html(26201B, text/html)，
       # 返回码是 200，只 curl 状态码永远发现不了。故这里同时校验 Content-Type 与首字节。
+      # 〔2026-10-28〕体积阈值不再当判据：cozy 瓦片是 32×32 纯色图，压缩后最小 135 B
+      # （floor-lab.png 192 B、table.png 198 B），旧的 `>500 B` 会把真图判成 HTML 回退，
+      # 2026-10-27 两次部署因此假红。改为校验文件签名（PNG 89504e47 / JPEG ffd8ffe0）。
       - name: 场景图必须是真 PNG（防 SPA 回退）
         run: |
           set -e
@@ -126,10 +129,12 @@ jobs:
             head4=$(head -c 4 /tmp/x | od -An -tx1 | tr -d ' \n')
             echo "$p : $ct  $size B  head=$head4"
             case "$p" in
-              *.png) [ "$ct" = "image/png" ]              || { echo "✗ $p Content-Type 不是 image/png（疑似 SPA 回退成 HTML）"; exit 1; };;
-              *.jpg) [ "$ct" = "image/jpeg" ]             || { echo "✗ $p Content-Type 不是 image/jpeg"; exit 1; };;
+              *.png) [ "$ct" = "image/png" ]  || { echo "✗ $p Content-Type 不是 image/png（疑似 SPA 回退成 HTML）"; exit 1; }
+                     [ "$head4" = "89504e47" ] || { echo "✗ $p 首字节不是 PNG 签名（疑似 SPA 回退）"; exit 1; };;
+              *.jpg) [ "$ct" = "image/jpeg" ] || { echo "✗ $p Content-Type 不是 image/jpeg"; exit 1; }
+                     [ "$head4" = "ffd8ffe0" ] || { echo "✗ $p 首字节不是 JPEG 签名"; exit 1; };;
             esac
-            [ "$size" -gt 500 ] || { echo "✗ $p 体积异常小：$size B（多半是 HTML 回退）"; exit 1; }
+            [ "$size" -gt 100 ] || { echo "✗ $p 体积异常小：$size B（多半是 HTML 回退）"; exit 1; }
           done
           echo "✓ 场景素材全部为真图片"
 

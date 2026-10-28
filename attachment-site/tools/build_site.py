@@ -122,7 +122,7 @@ PAGE_TMPL = """<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>{title} · 返航录</title>
+<title>{title} · 新返航录</title>
 <meta name="description" content="{desc}">
 <style>
 :root {{ --bg:#0a0a0f; --card:#141420; --line:#252535; --text:#e0e0ea; --muted:#8888a0; --accent:#818cf8; }}
@@ -158,7 +158,7 @@ pre {{ background:#12121e; border:1px solid var(--line); border-radius:10px; pad
 </head>
 <body>
 <nav>
-  <a class="brand" href="index.html">🚀 返航录 · 星途归航</a>
+  <a class="brand" href="index.html">🚀 新返航录 · 星途归航</a>
   <a class="tab{on_story}" href="story-human.html">剧情</a>
   <a class="tab{on_rules}" href="rules.html">规则</a>
   <a class="tab{on_sim}" href="sim31-matrix.html">平衡性</a>
@@ -167,7 +167,7 @@ pre {{ background:#12121e; border:1px solid var(--line); border-radius:10px; pad
 </nav>
 <div class="wrap">
 {body}
-<div class="foot"><span>返航录 · 三阵营身份博弈 · 规则正文 v1preview1.0</span><span><a href="https://github.com/hxj-2888/space-kill-web/tree/main/attachment-site" rel="noopener" target="_blank">GitHub 源码</a></span></div>
+<div class="foot"><span>新返航录 · 三阵营身份博弈 · 规则正文 v1preview1.0</span><span><a href="https://github.com/hxj-2888/space-kill-web/tree/main/attachment-site" rel="noopener" target="_blank">GitHub 源码</a></span></div>
 </div>
 </body>
 </html>
@@ -179,8 +179,8 @@ INDEX_TMPL = """
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>返航录 · 星途归航 — 任务档案终端</title>
-<meta name="description" content="返航录：15 人三阵营身份博弈的剧情、规则 v1preview1.0 与平衡性模拟档案终端。">
+<title>新返航录 · 星途归航 — 任务档案终端</title>
+<meta name="description" content="新返航录：15 人三阵营身份博弈的剧情、规则 v1preview1.0 与平衡性模拟档案终端。">
 <style>
 :root{
   --bg:#070C18;

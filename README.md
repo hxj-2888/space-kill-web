@@ -1,6 +1,6 @@
-# 返航录 · 三阵营对抗（网页版）
+# 新返航录 · 三阵营对抗（网页版）
 
-> 当前版本：**返航录 V2preview**（规则口径 **v1preview1.0**，2026-10-17 换版；2026-10-25 起发布号升 V2，场景层重做为房间制）· 安卓版 `SpaceKill.apk` 同版本号（versionCode 11）
+> 当前版本：**新返航录 V2preview**（规则口径 **v1preview1.0**，2026-10-17 换版；2026-10-25 起发布号升 V2，场景层重做为房间制；2026-10-28 游戏名由「返航录」改为「新返航录」，URL 与包名不动）· 安卓版 `SpaceKill.apk` 同版本号（versionCode 11）
 >
 > **v1preview1.0 换版（2026-10-17）**：规则正文自 v6.6 修订版升到 v1preview1.0（游戏名随正文第十批由「太空杀」改为「返航录」）。本版落地 —— 强力乔装与染血指认、发起者记账与有效输出定档、**外星人逃亡（次胜）**、新增两个席位变体职业（摆渡人 4.13／疫苗研究员 4.14）；另改数值口径：驱逐门槛 3 票、票数公开只报得票、感染抑制 2 次、工匠速成护甲自佩戴当夜起 3 夜有效（库存上限 3）。详见文末与 [`docs/返航录v1preview1.0_改动面清单_20261017.md`](docs/返航录v1preview1.0_改动面清单_20261017.md)。
 
@@ -237,8 +237,8 @@ android\build.cmd           # 需要 JDK 17 + Android SDK 34 + 7-Zip；产物自
 
 - 签名口令从**根目录 `.env`** 读（`KEYSTORE_PASS` / `KEY_PASS`，已被 `.gitignore` 排除）；签名密钥 `android/release.keystore` 同样不入库。**请与 `.env`、`release.keystore` 一起离线备份**——丢失后无法给已安装用户推送升级版本。
 - 版本号取自 `package.json`：`version` → APK `versionName`，`androidVersionCode` → `versionCode`（**每次发布必须递增**，否则无法覆盖安装）。
-- **上一个产物（V1preview，历史记录）**：`SpaceKill.apk` 4,547,991 字节（4.34MB），`versionName=V1preview` / `versionCode=9`，APK SHA-256 `FCE7C5AE…25D05`；证书 SHA-256 `29ad3df4…`（与 2.2preview 同签名 ⇒ 可覆盖安装）。
-- **当前版本（V2preview）**：`package.json` 已升 `version=V2preview` / `androidVersionCode=11`；**APK 尚未重打**——重打前必须先跑 `node android/sync-www.cjs`（清单已收敛到 `tools/site-entries.cjs`，含 `assets/` 与新增的 `assets/scene/crew/`），否则装出来的包会缺素材（见 [`docs/交接文档_20261026.md`](docs/交接文档_20261026.md) §五）。
+- **上一个产物（V1preview，历史记录）**：初版 `versionCode=9` / 4,547,991 字节 / SHA-256 `FCE7C5AE…25D05`；Release 上后被 `versionCode=10` 的同名 V1preview 包替换（4,576,782 字节 / SHA-256 `d9ee2e20…f38`）。证书 SHA-256 均为 `29ad3df4…`（与 2.2preview 同签名 ⇒ 可覆盖安装）。
+- **当前版本（V2preview）**：2026-10-28 由当前前端重打（先跑 `node android/sync-www.cjs`，清单来自 `tools/site-entries.cjs`，含 `assets/` 与 `assets/scene/crew/`）：`versionName=V2preview` / `versionCode=11`，应用名「新返航录」，9,665,624 字节（9.22MB），SHA-256 `597770fe…2d4e`，签名证书不变（可覆盖安装）。
 
 ## v1preview1.0 平衡性复测（2026-10-21）
 
