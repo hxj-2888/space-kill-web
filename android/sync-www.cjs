@@ -11,7 +11,7 @@
 'use strict';
 const fs = require('fs');
 const path = require('path');
-const { SITE_ENTRIES } = require(path.join(__dirname, '..', 'tools', 'site-entries.cjs'));
+const { SITE_ENTRIES, allowed } = require(path.join(__dirname, '..', 'tools', 'site-entries.cjs'));
 
 const ROOT = path.join(__dirname, '..');
 const DEST = path.join(__dirname, 'assets', 'www');
@@ -32,18 +32,31 @@ const walk = (dir, base, out) => {
 fs.rmSync(DEST, { recursive: true, force: true });
 fs.mkdirSync(DEST, { recursive: true });
 
-let files = 0, bytes = 0;
+let files = 0, bytes = 0, skipped = 0;
 for (const entry of ENTRIES) {
   const src = path.join(ROOT, entry);
   if (!fs.existsSync(src)) {
     console.error('缺少站点资源: ' + entry);
     process.exit(1);
   }
-  fs.cpSync(src, path.join(DEST, entry), { recursive: true });
+  /* 〔批 ART-0 · 2026-10-28〕按**拒绝清单**过滤，而不是整目录照抄。
+     此前 `assets` 是整目录复制的，于是 `assets/refs/`（设计参考图，不可再分发）
+     会跟着进 APK —— 拒绝清单在 deploy/server 生效，在这一处被绕过。
+     filter 的入参是绝对路径，换算成仓库相对路径后问 allowed()（唯一判据）。 */
+  fs.cpSync(src, path.join(DEST, entry), {
+    recursive: true,
+    filter: function (p) {
+      const rel = path.relative(ROOT, p).replace(/\\/g, '/');
+      if (!rel) return true;
+      if (!allowed(rel)) { skipped++; return false; }
+      return true;
+    },
+  });
 }
 for (const f of walk(DEST, '', [])) {
   files++;
   bytes += fs.statSync(path.join(DEST, f)).size;
 }
 
-console.log('已同步 ' + files + ' 个文件 / ' + (bytes / 1048576).toFixed(2) + ' MB → android/assets/www/');
+console.log('已同步 ' + files + ' 个文件 / ' + (bytes / 1048576).toFixed(2) + ' MB → android/assets/www/'
+  + (skipped ? '（按拒绝清单跳过 ' + skipped + ' 项）' : ''));

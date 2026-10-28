@@ -16,3 +16,6 @@
 - 生成脚本：`node tools/gen-scene-assets.cjs [--force]`；产物为静态文件，**产品运行时不访问任何外部服务**。
 - 生产接入（S2 批）前将把背景压至 Web 尺寸（~1600px/JPEG q82），原图保留作母版。
 - 〔S4〕开始页与结算页只**复用**上面已登记的素材（同一张内景 + 自绘返航环），未新增第三方资源。
+- 〔批 ART-0 · 2026-10-28〕**设计参考图不在这里登记**：它们放在 `assets/refs/`（见该目录 `README.md`），
+  属于"不发布、不被代码引用"的一类。本台账只登记**产品素材**。
+  机器台账：`node tools/asset-catalog.cjs --write` → `assets/MANIFEST.json`，`npm run test:assets` 校验一致性。

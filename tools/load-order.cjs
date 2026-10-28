@@ -32,7 +32,12 @@ const ORDER = [
   'rng',
   ...DECL_STACK,
   'data',
+  /* 〔批 RTA-0/R0〕动作映射表：纯数据，引擎/UI/AI 三方共用，必须早于 state 与 engine。
+     它从 ORDER_UI 提到这里，是因为 AI 栈（noBridge/minimal/aiOnly）也要读它。 */
+  'action-map',
   'state',
+  /* 〔批 RTA-0/R2〕相位时钟 + 个人技能槽 + 动作请求队列（纯逻辑，时间由调用方注入） */
+  'engine/clock',
   'nlp',
   'lang/ir',
   'lang/renderer',
@@ -102,7 +107,18 @@ const ENGINE_STACK = ['v66/reveal/revealService', 'v66/execution/ledger', 'lang/
    先于 main（main.js 的 DOMContentLoaded 里调 SKArena.init）。 */
 /* 〔批 UI-8c〕'replay-store' 排在 'ui' 之前：ui.js 的 renderReplayBody / 主页回放列表都要读它。
    它是纯数据 + 纯函数（只管 localStorage 读写），不依赖任何渲染层。 */
-const ORDER_UI = ['view', 'space', 'hud-map', 'ui-scene', 'replay-store', 'data/rules', 'audio', 'ui', 'arena', 'net', 'main'];
+/* 〔批 SHIP〕'ship-map' 必须排在 'space' 之后、'ui-scene' 之前：
+   船体几何要拿 space.js 的房间 id / 门声明做双向自检（validate(S)），
+   而场景渲染器要读 SKShip 的房位、通道、寻路与相机。 */
+/* 〔批 ART-0/B1a+B1b〕'scene/const' 与 'scene/crew' 必须排在 'ui-scene' 之前：
+   场景渲染器在 IIFE 顶部就解构 SKSceneConst、取 SKSceneCrew.CREW_FILE（缺了会 fail loud）。
+   两者都是**零业务状态**的（常量表 / 帧切换），所以先拆它们、风险最低。
+   模块化从这里开始的原因与后续批次见 docs/工程规范_模块化_20261028.md §七。 */
+/* 〔批 RTA-0/R0〕'action-map' = 动作映射表（纯数据 + 纯函数，零依赖），必须最靠前：
+   引擎、UI、AI 将来都按它决定"谁能做什么、在哪做、多久、冷却多少"。 */
+/* 注意：'action-map' 不在这里 —— 它已提到 ORDER（AI 栈也要读它）。
+   在 browserTags 里 profiles.ui = ORDER.concat(ORDER_UI)，写两处会导致脚本被加载两次。 */
+const ORDER_UI = ['view', 'space', 'ship-map', 'hud-map', 'scene/const', 'scene/crew', 'scene/shell', 'ui-scene', 'replay-store', 'data/rules', 'audio', 'ui', 'arena', 'net', 'main', 'v3'];
 
 /* —— 常用剖面 —— */
 const profiles = {

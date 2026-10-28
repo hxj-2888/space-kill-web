@@ -88,7 +88,7 @@ for (let k = 0; k < 6; k++) {
    不报错、不警告（首版就是这么写的，靠调试脚本量 naturalWidth 才抓到）。
    故这里用「·」代替破折号，且生成后自检（见文件末尾 assertNoDoubleHyphen）。 */
 const svg = '<?xml version="1.0" encoding="UTF-8"?>\n'
-  + '<!-- 返航录 · 开始页「返航环」装饰件（CC0 / 本仓自绘）\n'
+  + '<!-- 新返航录 · 开始页「返航环」装饰件（CC0 / 本仓自绘）\n'
   + '     生成器：tools/gen-start-scene.cjs · 勿手改，改几何请改生成器后重跑（加 force 参数覆盖）。\n'
   + '     纪律：本件是纯装饰（开始页尚无对局状态），不含任何玩家数据、不含任何角色暗示。 -->\n'
   + '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + VB.w + ' ' + VB.h + '" role="presentation" aria-hidden="true">\n'

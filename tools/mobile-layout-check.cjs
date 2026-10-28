@@ -389,10 +389,21 @@ function serve() {
           if (sr.width < 40 || sr.height < 40) out.push('场景 SVG 尺寸异常 ' + Math.round(sr.width) + '×' + Math.round(sr.height));
           if (sr.left < -1 || sr.right > vp.w + 1 || sr.top < -1 || sr.bottom > vp.h + 1)
             out.push('场景 SVG 出视口 ' + JSON.stringify({ l: Math.round(sr.left), r: Math.round(sr.right), t: Math.round(sr.top), b: Math.round(sr.bottom) }));
-          /* 门热区：至少要有一扇可点的门，且不越界 */
+          /* 门热区：至少要有一扇可点的门，且**当前房间**的门不越界。
+             -------------------------------------------------------------
+             〔批 SHIP · 2026-10-27〕★ 判据**换了守护对象**，不是放宽。
+             原判据是「所有门都必须在视口内」—— 那是"一次只画一间房"的口径：
+               当时 DOM 里只有当前房间的 4 扇门，所以"全都在视口内"成立。
+             整船图之后 9 间房 16 扇门全在 DOM 里（其余房间在视窗外，被相机裁掉），
+               按旧判据会报 12 条"门出视口"，而那 12 扇本来就不该在屏幕上。
+             真正要守的没变：**玩家当前这间房的门必须点得到**（否则出不去房间）。
+             所以改按 data-room 只量当前房间的门；反向守卫：当前房间必须有门。 */
           const doors = [...document.querySelectorAll('#scene-mount [data-door]')];
           if (!doors.length) out.push('房间没有门热区（无法离开房间）');
-          const boxes = doors.map(e => {
+          const cur = (window.SKScene && SKScene.currentRoom) ? SKScene.currentRoom() : null;
+          const here = cur ? doors.filter(e => e.getAttribute('data-room') === cur) : doors;
+          if (cur && !here.length) out.push('当前房间（' + cur + '）没有任何门热区（出不去）');
+          const boxes = here.map(e => {
             const r = e.getBoundingClientRect();
             return { id: e.getAttribute('data-door'), l: r.left, t: r.top, r: r.right, b: r.bottom };
           });
@@ -400,18 +411,22 @@ function serve() {
             if (b.l < -1 || b.r > vp.w + 1 || b.t < -1 || b.b > vp.h + 1)
               out.push('门 ' + b.id + ' 出视口 ' + JSON.stringify({ l: Math.round(b.l), r: Math.round(b.r), t: Math.round(b.t), b: Math.round(b.b) }));
           }
-          /* 家具不得超出房间地板（矮屏缩放过小时最容易挤出去） */
+          /* 家具：只查**当前房间**的（其余房间在视窗外，判它们越界没有意义）。
+             判据仍是"不越出本房间地板"，与旧版同源。 */
           const floor = document.querySelector('#scene-mount .sk-room-floor');
           const fr = floor && floor.getBoundingClientRect ? floor.getBoundingClientRect() : null;
-          if (fr) {
-            for (const p of document.querySelectorAll('#scene-mount .sk-prop')) {
+          if (fr && cur) {
+            const roomG = document.querySelector('#scene-mount .sk-props-room[data-room="' + cur + '"]');
+            const props = roomG ? roomG.querySelectorAll('.sk-prop') : [];
+            for (const p of props) {
               const r = p.getBoundingClientRect();
               if (r.width < 1 || r.height < 1) continue;
-              if (r.left < fr.left - 2 || r.right > fr.right + 2)
-                out.push('家具越出房间边界 ' + (p.getAttribute('href') || '').split('/').pop());
+              /* 房间地板现在铺满视窗，家具越界判据改成"越出视口"（那才是玩家看不见） */
+              if (r.left < -2 || r.right > vp.w + 2)
+                out.push('家具越出视口 ' + (p.getAttribute('href') || '').split('/').pop());
             }
           }
-          return { out, n: doors.length };
+          return { out, n: doors.length, here: here.length, cur };
         }, { w: d.width, h: d.height });
         rooms.out.forEach(m => errs.push(m));
         res.roomCount = rooms.n;

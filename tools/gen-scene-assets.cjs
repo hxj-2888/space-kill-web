@@ -130,7 +130,7 @@ function buildPreview() {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>返航录 · 场景化 UI 预览（S0 拍板稿）</title>
+<title>新返航录 · 场景化 UI 预览（S0 拍板稿）</title>
 <style>
   :root{
     --panel:#0e1420; --panel2:#151d2e; --line:#2a3550; --txt:#dbe4f3; --dim:#8a97b0;
@@ -232,7 +232,7 @@ function buildPreview() {
 </style>
 </head>
 <body>
-<h1>返航录 · 场景化 UI 预览 <span class="hint">S0 拍板稿（素材全部 CC0 开源，非最终产品）</span></h1>
+<h1>新返航录 · 场景化 UI 预览 <span class="hint">S0 拍板稿（素材全部 CC0 开源，非最终产品）</span></h1>
 <div class="sub">切换下方按钮体验各相位 · 点击场上人物 / 房间 / 船核心 / 书记官查看交互示意 · 编号即座位号（正式版由 View 视角数据驱动）</div>
 
 <div class="bar">

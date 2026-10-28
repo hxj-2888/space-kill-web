@@ -888,28 +888,24 @@
 }
 
 /* =============================================================
-   〔U2〕房间制：入场行走 + 点道具白框
+   〔U2〕行走 + 点道具白框（〔批 SHIP · 2026-10-27〕已改口径）
    -------------------------------------------------------------
-   ① 行走 = 素材「向下走」那一行的 4 帧（96px 一帧），靠平移内部 <g> 逐列切换，
-      节奏 1-2-3-2（素材 README 给的建议），8fps ⇒ 一步 125ms。
-   ② 入场位移：从门到落点，用 CSS 变量 --dx/--dy 驱动，逐人不同。
+   ① 行走 = 行走图对应方向那一行的 4 帧（96px 一帧），靠平移内部 <g> 逐列切换，
+      节奏 1-2-3-2（素材 README 给的建议）。
+   ② **入场位移动画已整体删除**：那段动画是"房间制"的产物 —— 一次只画一间房，
+      人从门口**直线**滑到座位。整船图之后走动是沿通道的折线
+      （js/ship-map.js 的 path()），拐点有 5~9 个，CSS 的 translate 只能走直线；
+      而且相机要跟着人走，位移必须与相机同源。
+      所以位移改由 SKScene 每帧写 transform（见 paintWalk），CSS 只保留帧动画。
    ③ 白框：落在道具矩形上的描边，2.6s 后自清；不是对话框。
    ============================================================= */
 
-/* ---- 入场行走 ---- */
-.sk-crew-layer.sk-walking .sk-enter {
-  animation: sk-walk-in var(--walk-ms, 900ms) cubic-bezier(.33,0,.2,1) both;
-  animation-delay: var(--delay, 0ms);
-}
-@keyframes sk-walk-in {
-  from { transform: translate(var(--dx, 0), var(--dy, 0)); }
-  to   { transform: translate(0, 0); }
-}
-
-/* 行走帧循环：4 列 × 96px 平移（1-2-3-2 = 0 → -96 → -192 → -96） */
+/* 行走帧循环：4 列 × 96px 平移（1-2-3-2 = 0 → -96 → -192 → -96）
+   --step-ms = 一个 4 帧循环的时长，由渲染器按**实际移动速度**写出
+   （WALK_SPEED 格/秒 ⇒ 一格 4 帧）。这样"腿摆动的频率"与"人前进的速度"永远同步，
+   不会出现"人走得很慢但腿抖得飞快"。 */
 .sk-crew-layer.sk-walking .sk-frames {
-  animation: sk-walk-frames 500ms steps(1, end) infinite;
-  animation-delay: var(--delay, 0ms);
+  animation: sk-walk-frames var(--step-ms, 500ms) steps(1, end) infinite;
 }
 @keyframes sk-walk-frames {
   0%   { transform: translateX(0); }
@@ -956,7 +952,7 @@
   stroke-linejoin: round;
 }
 
-/* 房间名：压在左上角，不挡家具 */
+/* 房间名：钉在房间**右上角**（左上角让给书记官记录板），不挡家具 */
 .sk-room-name {
   font-family: "Microsoft YaHei", system-ui, sans-serif;
   font-size: 17px;
@@ -966,15 +962,25 @@
   stroke: #04080f;
   stroke-width: 3px;
   stroke-linejoin: round;
+  pointer-events: none;
 }
 /* 门：默认低调，轮到我用这间房时高亮 */
 .sk-door { transition: stroke .15s, fill .15s; cursor: pointer; }
 .sk-door:hover { stroke: #8fd0ff; fill: #16283f; }
 .sk-door.sk-lit { stroke: #ffd43b; fill: #3a2f10; }
+/* 门标签：读得出"这扇门通向哪间房"是它唯一的作用。
+   〔批 SHIP-2 · 2026-10-27〕原来只有 fill（无描边），落在浅色地板上几乎看不见 ——
+   实测放大截图里「查证室」只有中间一个字勉强可辨。
+   现在加一层深色描边（paint-order:stroke 让描边落在字底下），
+   无论压在浅灰地板、深色家具还是舱壁上都能读出来。 */
 .sk-door-t {
   font-family: "Microsoft YaHei", system-ui, sans-serif;
   font-size: 12px;
-  fill: #7fa3c4;
+  fill: #cfe3f5;
+  paint-order: stroke;
+  stroke: #04080f;
+  stroke-width: 3.5px;
+  stroke-linejoin: round;
   pointer-events: none;
 }
 .sk-seat-n { font-family: Consolas, monospace; font-size: 12px; fill: #8fb4d4; }
@@ -1298,3 +1304,100 @@
    让它 pointer-events:none、按钮单独 auto —— 既看得见纸，又能点到纸后面的物件。 */
 #screen-game .clerk { pointer-events: none; }
 #screen-game .clerk .clerk-btn { pointer-events: auto; }
+
+/* =============================================================
+ * 〔批 SHIP · 2026-10-27〕整船图：通道 + 小地图 + 相机近景
+ * -------------------------------------------------------------
+ * 用户原话：
+ *   「主视图是整船图，小地图上会显示整张地图的布局，但是玩家屏幕里面并不会显示整张船，
+ *     相当于一个视野范围会覆盖一小部分，玩家会看到近景」
+ *   「相机只跟我，走动是甲（点目标自动寻路）」「通道连接房间」「只看到自己」
+ *
+ * 结构上分三层，各自只负责一件事：
+ *   ① .sk-scene（主视图）= 相机视窗内的一小块近景（viewBox 由 SKScene 每帧改写）；
+ *   ② .sk-minimap（左上角）= 唯一能看到全船的地方（9 间房 + 8 条通道 + 我在哪 + 视野框）；
+ *   ③ .sk-corridor（主视图里的廊）= 玩家点目标之后真正走的那条路。
+ * ============================================================= */
+
+/* ---- 通道：廊面 + 两侧壁线 ---- */
+.sk-corridor { opacity: .92; }
+.sk-corridor-wall { pointer-events: none; }
+
+/* ---- 小地图 ----
+   为什么钉在左上角而不是右下角：右下角是行动面板展开的方向（贴底抽屉），
+   面板一开就会盖住它；左上角在整个对局里始终是空的（旧顶栏已删）。 */
+#screen-game .sk-minimap {
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  z-index: 6;
+  width: 148px;      /* 〔批 M2〕船体 126:108 ⇒ 112×96 的 svg + 内边距；旧 216 是横长条时代 */
+  padding: 5px 6px 3px;
+  border-radius: 8px;
+  background: rgba(6, 12, 22, .72);
+  border: 1px solid rgba(77, 171, 247, .28);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .45);
+  pointer-events: none;   /* 纯信息层：不得抢走场景与物件的点击 */
+  backdrop-filter: blur(2px);
+}
+#screen-game .sk-minimap svg { display: block; width: 100%; height: 100px; }   /* 〔批 M2〕64 → 100：近方形地图需要高度 */
+/* 房间：底片 + 描边；当前房间加亮 —— 这是"我在哪"的第一层答案 */
+#screen-game .sk-mm-room {
+  fill: rgba(77, 171, 247, .16);
+  stroke: rgba(143, 208, 255, .55);
+  stroke-width: .8;
+  transition: fill .2s, stroke .2s;
+}
+#screen-game .sk-mm-room.sk-mm-here {
+  fill: rgba(255, 212, 59, .30);
+  stroke: #ffd43b;
+  stroke-width: 1.2;
+}
+/* 通道：细线，不能比房间更抢眼 */
+#screen-game .sk-mm-link { stroke: rgba(143, 208, 255, .40); stroke-width: 1.2; }
+/* 视野框：让玩家看懂"屏幕上只显示这一小块"（这是近景的度量，不是装饰） */
+#screen-game .sk-mm-view {
+  fill: rgba(255, 255, 255, .06);
+  stroke: rgba(255, 255, 255, .55);
+  stroke-width: .8;
+  stroke-dasharray: 3 2;
+}
+/* 我：一个亮点 */
+#screen-game .sk-mm-me { fill: #ffd43b; stroke: #04080f; stroke-width: .8; }
+#screen-game .sk-mm-name {
+  display: block;
+  margin-top: 2px;
+  font-family: "Microsoft YaHei", system-ui, sans-serif;
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: #a8cdea;
+  text-align: right;
+}
+
+/* ---- 矮横屏：小地图缩到不挡路 ----
+   844×390 下场景只有 ~356px 高，216×74 的小地图会吃掉左上角一整块。
+   缩到 132px 宽、房间描边压细 —— 仍看得清"我在船体哪一段"。 */
+@media (orientation: landscape) and (max-height: 560px) {
+  #screen-game .sk-minimap { width: 104px; left: 6px; top: 6px; padding: 3px 4px 2px; }
+  #screen-game .sk-minimap svg { height: 72px; }
+  #screen-game .sk-mm-name { font-size: 9px; letter-spacing: 1px; }
+  #screen-game .sk-mm-room { stroke-width: .6; }
+}
+
+/* =============================================================
+ * 〔批 RTA-0 / R4-lite〕相位倒计时（夜 90s / 昼 60s）
+ * 位置：右上角（小地图在左上，书记官记录板在房间内，互不遮挡）
+ * ============================================================= */
+.sk-clock {
+  position: absolute; right: 14px; top: 12px; z-index: 6;
+  display: flex; align-items: baseline; gap: 6px;
+  padding: 5px 12px; border-radius: 999px;
+  background: rgba(8, 18, 30, .62); border: 1px solid rgba(120, 200, 255, .28);
+  color: #d8ecff; font-variant-numeric: tabular-nums;
+  font-size: 17px; letter-spacing: 1px; pointer-events: none;
+}
+.sk-clock b { font-size: 12px; font-weight: 700; color: #7fd1ff; letter-spacing: 2px; }
+@media (orientation: landscape) and (max-height: 560px) {
+  .sk-clock { right: 8px; top: 6px; padding: 3px 8px; font-size: 13px; }
+  .sk-clock b { font-size: 10px; }
+}

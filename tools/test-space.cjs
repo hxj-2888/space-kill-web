@@ -18,6 +18,7 @@
 const fs = require('fs');
 const path = require('path');
 const { loadInto, makeCtx } = require('./load-order.cjs');
+const { rawOf, srcOf } = require('./gate-src.cjs');
 
 const ROOT = path.join(__dirname, '..');
 const ASSET = path.join(ROOT, 'assets', 'scene', 'cozy');
@@ -77,10 +78,12 @@ ok('U1E2：旧的 8 套 CC-BY 行走图已删除（assets/scene/cozy/crew/ 不�
   !fs.existsSync(path.join(ASSET, 'crew')));
 
 /* ⑤ 反向守卫：房间表里不得有 emoji（用户拍板过三次） */
-const spaceSrc = fs.readFileSync(path.join(ROOT, 'js', 'space.js'), 'utf8');
-const sceneSrc = fs.readFileSync(path.join(ROOT, 'js', 'ui-scene.js'), 'utf8');
-/* 剥注释再判：注释里出现 "Game.submit" 是在**声明不变量**，不是在调用它 */
-const sceneCode = sceneSrc.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/^\s*\/\/.*$/gm, ' ');
+const spaceSrc = rawOf('space');
+/* 〔批 ART-0 · 2026-10-28〕按**逻辑模块名**取场景源码（tools/gate-src.cjs）：
+   拆文件时只改那张表，本文件不动。sceneSrc 含注释（整文件判据用），
+   sceneCode 剥注释（函数体判据用 —— 注释里出现 "Game.submit" 是在声明不变量）。 */
+const sceneSrc = rawOf('scene');
+const sceneCode = srcOf('scene');
 const EMOJI = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u;
 ok('U1F：房间表与场景渲染器里没有 emoji',
   !EMOJI.test(spaceSrc) && !EMOJI.test(sceneSrc));
@@ -90,10 +93,26 @@ ok('U1G：场景渲染器不自造提交路径（无 Game.submit / form.submit�
   !/Game\.submit/.test(sceneCode) && !/form\.submit\(/.test(sceneCode));
 
 
-/* ---- 〔U2〕入场行走 + 点道具白框（源码判据；动画本身由 verify-u2 在真实浏览器里量） ---- */
+/* ---- 〔U2〕行走 + 点道具白框（源码判据；动画本身由真实浏览器量） ----
+   〔批 SHIP · 2026-10-27〕★ 这条**换了守护对象**，不是删掉。
+   -------------------------------------------------------------
+   原判据是「4 帧循环 + CSS 入场位移(--dx/--dy) + 错峰(--delay)」——
+   那是"房间制"的口径：一次只画一间房，人从门口**直线**滑到座位。
+   整船图之后走动是沿通道的折线（ship-map.path()，5~9 个拐点），
+   CSS translate 只能走直线，而且相机要跟着人走 —— 位移必须与相机同源。
+   所以 --dx/--dy/--delay 与 @keyframes sk-walk-in **已整体删除**，
+   位移改由渲染器每帧写 transform（paintWalk）。
+
+   真正要守的不变量没变：**走起来要看得见腿在动**。所以改守三件事：
+     U2A1 帧动画仍在（4 个关键帧 + translateX），且时长由 --step-ms 驱动；
+     U2A2 行走方向选对了行（4 向，不再只有"向下走"）；
+     U2A3 位移由渲染器逐帧写（不再靠 CSS 一次性动画）。
+   反向自检：把 @keyframes sk-walk-frames 删空 ⇒ U2A1 红；
+             把 ROW_OF 的 left/right 改回 0 ⇒ U2A2 红；
+             把 paintWalk 的 setAttribute('transform') 删掉 ⇒ U2A3 红。 */
 const cssU2 = fs.readdirSync(path.join(ROOT, 'css')).filter(function (f) { return /\.css$/.test(f); })
   .map(function (f) { return fs.readFileSync(path.join(ROOT, 'css', f), 'utf8'); }).join('\n');
-ok('U2A：角色入场行走 = 4 帧循环 + 位移 + 错峰（帧动画与入场动画都在）',
+ok('U2A1：行走帧循环仍在（4 关键帧 + translateX），时长由 --step-ms 驱动',
   /* ⚠ 只查"类名在不在"抓不到"@keyframes 被删空"——必须查帧内容本身：
      4 帧循环要求出现 0% / 25% / 50% / 75% 四个关键帧，且带 translateX 位移。 */
   (function () {
@@ -103,15 +122,22 @@ ok('U2A：角色入场行走 = 4 帧循环 + 位移 + 错峰（帧动画与入�
     const pcts = (body.match(/\d+%\s*\{/g) || []).length;
     return pcts >= 4 && /translateX\(/.test(body);
   })() &&
-  (function () {
-    const m = cssU2.match(/@keyframes sk-walk-in\s*\{([\s\S]*?)\n\}/);
-    if (!m) return false;
-    return /translate\(var\(--dx/.test(m[1]) && /translate\(0, 0\)/.test(m[1]);
-  })() &&
-  /animation-delay:\s*var\(--delay/.test(cssU2) &&
-  /sk-crew-layer\.sk-walking/.test(cssU2) &&
-  /* 行走时用「向下走」那一行：viewBox 的 y 必须是 0（待机行是 CREW_H*ROW_IDLE） */
-  /walking\s*\?\s*\('0 0 ' \+ CREW_W/.test(sceneCode));
+  /animation:\s*sk-walk-frames\s*var\(--step-ms/.test(cssU2) &&
+  /sk-crew-layer\.sk-walking/.test(cssU2));
+ok('U2A2：行走按方向选行（下/上/左/右四向，不再只有"向下走"一行）',
+  /const ROW_OF = \{ down: 0, up: 1, left: 3, right: 4 \}/.test(sceneCode) &&
+  /function dirOnPath\(pts, t\)/.test(sceneCode) &&
+  /'0 ' \+ \(CREW_H \* row\)/.test(sceneCode) &&
+  /* 反向守卫：旧写法（恒用第 0 行）不得残留 */
+  !/walking\s*\?\s*\('0 0 ' \+ CREW_W/.test(sceneCode));
+ok('U2A3：位移由渲染器逐帧写 transform（折线走动，不再靠 CSS 一次性动画）',
+  /function pointOnPath\(pts, t\)/.test(sceneCode) &&
+  /setAttribute\('transform', 'translate\('/.test(sceneCode) &&
+  /function paintWalk\(pos\)/.test(sceneCode) &&
+  /* 反向守卫：整段入场位移机制（@keyframes sk-walk-in / --dx / --dy）不得复活 ——
+     它一旦回来，就会和逐帧 transform 抢同一个属性，画面会抖。 */
+  !/@keyframes sk-walk-in/.test(cssU2) &&
+  !/var\(--dx/.test(cssU2) && !/var\(--dy/.test(cssU2));
 ok('U2B：点道具出白框（白色描边 + 落在道具矩形上 + 自动清除）',
   /function focusProp\(key, label, mount\)/.test(sceneCode) &&
   /data-hit=/.test(sceneCode) &&
@@ -191,9 +217,11 @@ ok('S3a：渲染器真的消费 wall 声明（取 wallTiles 并逐张落到 <ima
   /'tiles\/' \+ tiles\[k\] \+ '\.png"/.test(sceneCode) &&
   /* 底座必须是空墙 —— 否则装饰又被无限平铺成"胶片带"（第一版就踩了这个） */
   /tiles\/wall\.png/.test(sceneCode) &&
-  /* 装饰必须落在循环里、按 col 定位（不是固定一个位置） */
+  /* 装饰必须落在循环里、按 col 定位（不是固定一个位置）。
+     〔批 SHIP〕坐标变量从 `o.x`（房间偏移=画布偏移）改成 `ox`（船体格×TILE）——
+       判据跟着改，但守的仍是"逐张按列落位"，不是"某段字符串还在不在"。 */
   /for \(let k = 0; k < tiles\.length; k\+\+\)/.test(sceneCode) &&
-  /o\.x \+ col \* TILE/.test(sceneCode));
+  /\(ox \+ col \* TILE\)/.test(sceneCode));
 
 /* S3b：主页与对局页必须共用**同一个**外壳函数（批 UI-6 之后两处参数已漂移） */
 ok('S3b：主页与对局页共用同一份地板/四壁实现（不再各写一份）',
@@ -313,22 +341,29 @@ ok('T1b：设置面板里不再有重复的「规则速览」控件（#btn-rules
 
 /* T2：CSS 在消费的每个 var(--x)，渲染器必须真的写出来。
    -------------------------------------------------------------
-   实测事故：crewHtml 里 `const delay = ...` 算出来了，但 style 只写了 --dx/--dy，
+   实测事故（批 UI-8a）：crewHtml 里 `const delay = ...` 算出来了，但 style 只写了 --dx/--dy，
    CSS 的 `animation-delay: var(--delay, 0ms)` 于是一直取默认 0 —— 错峰完全失效。
-   更麻烦的是 CSS 变量**可继承**：重建 DOM 后新元素会继承上一次的值，行为不可预测。 */
+   更麻烦的是 CSS 变量**可继承**：重建 DOM 后新元素会继承上一次的值，行为不可预测。
+
+   〔批 SHIP · 2026-10-27〕★ 这条**换了守护对象**：--dx/--dy/--delay 已随入场位移一起删除，
+   现在场景层自己写的变量是 --step-ms（行走帧循环时长）。
+   守的东西没变 —— **CSS 在消费的变量，必须有人在写**。
+   这条现在是"自动发现"式的：谁在 CSS 里被 var() 消费、又是场景层的接口，
+   就必须在 sceneSrc 里找得到写入点。所以以后再加变量，漏写会直接红，不用改本断言。 */
 /* 复用文件上方已读入的 sceneSrc / sceneCode（不要重复声明） */
 const cssOf = (n) => fs.readFileSync(path.join(ROOT, 'css', n), 'utf8');
 const cssAll = fs.readdirSync(path.join(ROOT, 'css')).filter(f => /\.css$/.test(f))
   .map(f => cssOf(f)).join('\n');
-const varsConsumed = [...new Set([...cssAll.matchAll(/var\(\s*(--[a-z0-9-]+)/g)].map(m => m[1]))];
-/* 渲染器把变量拼进 style 属性，形式是 @'" style="--dx:' + v + 'px;--dy:' + w + 'px;--delay:'@
-   —— 变量名后面跟的是冒号但不是字面量结尾，所以不能要求引号紧邻冒号。 */
-const sceneVarsWritten = new Set([...sceneSrc.matchAll(/(--[a-z0-9-]+):/g)].map(m => m[1]));
-/* 只查**场景层**自己该写的变量：--dx / --dy / --delay 是 crewHtml 的接口 */
-const sceneOwned = ['--dx', '--dy', '--delay'];
-const notWritten = sceneOwned.filter(v => varsConsumed.indexOf(v) >= 0 && !sceneVarsWritten.has(v));
-ok('T2：CSS 消费的场景变量（--dx / --dy / --delay）都由渲染器真的写出（不许"算了不写"）',
-  notWritten.length === 0, '未写出: ' + notWritten.join(','));
+/* 场景层自己拥有、且 CSS 真的在消费的变量名（前缀白名单，避免把设计令牌算进来） */
+const SCENE_VAR_PREFIX = ['--step-ms', '--dx', '--dy', '--delay', '--walk-ms'];
+const varsConsumed = [...new Set([...cssAll.matchAll(/var\(\s*(--[a-z0-9-]+)/g)].map(m => m[1]))]
+  .filter(v => SCENE_VAR_PREFIX.indexOf(v) >= 0);
+/* 渲染器把变量写进 style 属性 / setProperty，两种写法都算写出来 */
+const sceneVarsWritten = new Set([...sceneSrc.matchAll(/(--[a-z0-9-]+)\s*['"]?\s*[,:]/g)].map(m => m[1]));
+const notWritten = varsConsumed.filter(v => !sceneVarsWritten.has(v));
+ok('T2：CSS 消费的场景变量（' + varsConsumed.join(' / ') + '）都由渲染器真的写出（不许"算了不写"）',
+  varsConsumed.length > 0 && notWritten.length === 0,
+  '未写出: ' + notWritten.join(',') + (varsConsumed.length ? '' : '（CSS 里没有任何场景变量被消费，断言会空转）'));
 
 /* T3：背景图引用必须指向本仓自绘素材，且三个伪元素层都要带上它。
    -------------------------------------------------------------

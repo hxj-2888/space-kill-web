@@ -1,0 +1,1358 @@
+{
+ "generated": "tools/asset-catalog.cjs --write",
+ "count": 169,
+ "items": [
+  {
+   "path": "assets/refs/skeld-map-reference.jpg",
+   "kind": "ref",
+   "bytes": 295493,
+   "dim": "1106x640",
+   "sha1": "e0429490e2ee6b4a",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/bg/hull-tile.png",
+   "kind": "scene",
+   "bytes": 6673,
+   "dim": "512x512",
+   "sha1": "5749722db3269547",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/bg/spaceship-interior-1600.jpg",
+   "kind": "scene",
+   "bytes": 240225,
+   "dim": "1600x1098",
+   "sha1": "fafca12d04e610fd",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/bg/spaceship-interior-v1.jpg",
+   "kind": "scene",
+   "bytes": 2144424,
+   "dim": "6000x4116",
+   "sha1": "34b501bc344c103e",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/cozy/furniture/barrel.png",
+   "kind": "scene",
+   "bytes": 163,
+   "dim": "32x32",
+   "sha1": "b96679c44589174e",
+   "refs": 17
+  },
+  {
+   "path": "assets/scene/cozy/furniture/bed.png",
+   "kind": "scene",
+   "bytes": 198,
+   "dim": "32x64",
+   "sha1": "b63b48b7483218fa",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/cozy/furniture/bin.png",
+   "kind": "scene",
+   "bytes": 153,
+   "dim": "32x32",
+   "sha1": "d862afac0781cd1d",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/cozy/furniture/bookshelf.png",
+   "kind": "scene",
+   "bytes": 224,
+   "dim": "32x64",
+   "sha1": "0969d28c90437a4e",
+   "refs": 10
+  },
+  {
+   "path": "assets/scene/cozy/furniture/chair.png",
+   "kind": "scene",
+   "bytes": 179,
+   "dim": "32x32",
+   "sha1": "f2193e8d5fa6eacb",
+   "refs": 27
+  },
+  {
+   "path": "assets/scene/cozy/furniture/console.png",
+   "kind": "scene",
+   "bytes": 247,
+   "dim": "64x32",
+   "sha1": "a64380add552e24e",
+   "refs": 14
+  },
+  {
+   "path": "assets/scene/cozy/furniture/cooler.png",
+   "kind": "scene",
+   "bytes": 184,
+   "dim": "32x32",
+   "sha1": "9b76e4f66769ebf4",
+   "refs": 8
+  },
+  {
+   "path": "assets/scene/cozy/furniture/crate.png",
+   "kind": "scene",
+   "bytes": 168,
+   "dim": "32x32",
+   "sha1": "9a41efe93ec512bd",
+   "refs": 13
+  },
+  {
+   "path": "assets/scene/cozy/furniture/cryopod.png",
+   "kind": "scene",
+   "bytes": 220,
+   "dim": "32x64",
+   "sha1": "17f40ca708f4662b",
+   "refs": 4
+  },
+  {
+   "path": "assets/scene/cozy/furniture/desk.png",
+   "kind": "scene",
+   "bytes": 241,
+   "dim": "96x32",
+   "sha1": "1fe2dcd292f6342c",
+   "refs": 8
+  },
+  {
+   "path": "assets/scene/cozy/furniture/fridge.png",
+   "kind": "scene",
+   "bytes": 177,
+   "dim": "32x64",
+   "sha1": "5c3887f467fd05b5",
+   "refs": 4
+  },
+  {
+   "path": "assets/scene/cozy/furniture/lamp.png",
+   "kind": "scene",
+   "bytes": 182,
+   "dim": "32x32",
+   "sha1": "2a81fe19f5e4a830",
+   "refs": 64
+  },
+  {
+   "path": "assets/scene/cozy/furniture/locker.png",
+   "kind": "scene",
+   "bytes": 179,
+   "dim": "32x64",
+   "sha1": "a654f080b5507b64",
+   "refs": 20
+  },
+  {
+   "path": "assets/scene/cozy/furniture/plant.png",
+   "kind": "scene",
+   "bytes": 218,
+   "dim": "32x32",
+   "sha1": "fb60a457885ce8cc",
+   "refs": 24
+  },
+  {
+   "path": "assets/scene/cozy/furniture/rack.png",
+   "kind": "scene",
+   "bytes": 229,
+   "dim": "32x64",
+   "sha1": "ffd9f2b2295e6007",
+   "refs": 39
+  },
+  {
+   "path": "assets/scene/cozy/furniture/rug.png",
+   "kind": "scene",
+   "bytes": 193,
+   "dim": "64x32",
+   "sha1": "17ddedf26ff3cdfb",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/cozy/furniture/screen.png",
+   "kind": "scene",
+   "bytes": 227,
+   "dim": "64x32",
+   "sha1": "8a609aaadb5bd3dd",
+   "refs": 57
+  },
+  {
+   "path": "assets/scene/cozy/furniture/sink.png",
+   "kind": "scene",
+   "bytes": 168,
+   "dim": "32x32",
+   "sha1": "7864239be6871d8c",
+   "refs": 6
+  },
+  {
+   "path": "assets/scene/cozy/furniture/sofa.png",
+   "kind": "scene",
+   "bytes": 209,
+   "dim": "64x32",
+   "sha1": "d8db6e3e1dbf452e",
+   "refs": 3
+  },
+  {
+   "path": "assets/scene/cozy/furniture/table.png",
+   "kind": "scene",
+   "bytes": 198,
+   "dim": "64x32",
+   "sha1": "8e867b3bda673f0a",
+   "refs": 38
+  },
+  {
+   "path": "assets/scene/cozy/furniture/tallplant.png",
+   "kind": "scene",
+   "bytes": 292,
+   "dim": "32x64",
+   "sha1": "ec6936b5d7c61b1e",
+   "refs": 3
+  },
+  {
+   "path": "assets/scene/cozy/furniture/terminal.png",
+   "kind": "scene",
+   "bytes": 219,
+   "dim": "32x64",
+   "sha1": "22c7395bc5b714ab",
+   "refs": 14
+  },
+  {
+   "path": "assets/scene/cozy/furniture/vending.png",
+   "kind": "scene",
+   "bytes": 237,
+   "dim": "32x64",
+   "sha1": "8725cd70275a93af",
+   "refs": 1
+  },
+  {
+   "path": "assets/scene/cozy/tiles/door-closed.png",
+   "kind": "scene",
+   "bytes": 302,
+   "dim": "32x64",
+   "sha1": "182d47abc9788855",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/cozy/tiles/door-open.png",
+   "kind": "scene",
+   "bytes": 291,
+   "dim": "32x64",
+   "sha1": "48a14c9450fa1874",
+   "refs": 3
+  },
+  {
+   "path": "assets/scene/cozy/tiles/floor-carpet-beige.png",
+   "kind": "scene",
+   "bytes": 329,
+   "dim": "32x32",
+   "sha1": "4f1268cf5560154d",
+   "refs": 1
+  },
+  {
+   "path": "assets/scene/cozy/tiles/floor-carpet-blue.png",
+   "kind": "scene",
+   "bytes": 329,
+   "dim": "32x32",
+   "sha1": "8fd4f5b7cd6ebab3",
+   "refs": 1
+  },
+  {
+   "path": "assets/scene/cozy/tiles/floor-grate.png",
+   "kind": "scene",
+   "bytes": 278,
+   "dim": "32x32",
+   "sha1": "54017be9e886e6c3",
+   "refs": 3
+  },
+  {
+   "path": "assets/scene/cozy/tiles/floor-hatch.png",
+   "kind": "scene",
+   "bytes": 561,
+   "dim": "32x32",
+   "sha1": "160e8833d41f6ca1",
+   "refs": 1
+  },
+  {
+   "path": "assets/scene/cozy/tiles/floor-hazard.png",
+   "kind": "scene",
+   "bytes": 415,
+   "dim": "32x32",
+   "sha1": "f2a2f10df20ea5fe",
+   "refs": 4
+  },
+  {
+   "path": "assets/scene/cozy/tiles/floor-lab.png",
+   "kind": "scene",
+   "bytes": 192,
+   "dim": "32x32",
+   "sha1": "0baa6dcd4f91941d",
+   "refs": 1
+  },
+  {
+   "path": "assets/scene/cozy/tiles/floor-light-panel.png",
+   "kind": "scene",
+   "bytes": 269,
+   "dim": "32x32",
+   "sha1": "0a78207082b29524",
+   "refs": 2
+  },
+  {
+   "path": "assets/scene/cozy/tiles/floor-space.png",
+   "kind": "scene",
+   "bytes": 135,
+   "dim": "32x32",
+   "sha1": "46e216c6b36e92b5",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/cozy/tiles/floor-steel-bolts.png",
+   "kind": "scene",
+   "bytes": 288,
+   "dim": "32x32",
+   "sha1": "6055e44799a237f9",
+   "refs": 1
+  },
+  {
+   "path": "assets/scene/cozy/tiles/floor-steel-plain.png",
+   "kind": "scene",
+   "bytes": 135,
+   "dim": "32x32",
+   "sha1": "527a5c493db5e313",
+   "refs": 1
+  },
+  {
+   "path": "assets/scene/cozy/tiles/floor-steel-vent.png",
+   "kind": "scene",
+   "bytes": 296,
+   "dim": "32x32",
+   "sha1": "ae0205f6f3ac4f80",
+   "refs": 1
+  },
+  {
+   "path": "assets/scene/cozy/tiles/floor-steel.png",
+   "kind": "scene",
+   "bytes": 176,
+   "dim": "32x32",
+   "sha1": "df4dd83e70c9f522",
+   "refs": 4
+  },
+  {
+   "path": "assets/scene/cozy/tiles/wall-light.png",
+   "kind": "scene",
+   "bytes": 253,
+   "dim": "32x64",
+   "sha1": "5cf2d43d579d32df",
+   "refs": 10
+  },
+  {
+   "path": "assets/scene/cozy/tiles/wall-pipes.png",
+   "kind": "scene",
+   "bytes": 317,
+   "dim": "32x64",
+   "sha1": "a941f2d51c183ed5",
+   "refs": 4
+  },
+  {
+   "path": "assets/scene/cozy/tiles/wall-screen.png",
+   "kind": "scene",
+   "bytes": 361,
+   "dim": "32x64",
+   "sha1": "877849282fe24a49",
+   "refs": 8
+  },
+  {
+   "path": "assets/scene/cozy/tiles/wall-sign.png",
+   "kind": "scene",
+   "bytes": 286,
+   "dim": "32x64",
+   "sha1": "e77d356e58b8f606",
+   "refs": 2
+  },
+  {
+   "path": "assets/scene/cozy/tiles/wall-vent.png",
+   "kind": "scene",
+   "bytes": 314,
+   "dim": "32x64",
+   "sha1": "e6694c977f76c3a7",
+   "refs": 6
+  },
+  {
+   "path": "assets/scene/cozy/tiles/wall-window-planet.png",
+   "kind": "scene",
+   "bytes": 500,
+   "dim": "32x64",
+   "sha1": "7913ef1db768a681",
+   "refs": 4
+  },
+  {
+   "path": "assets/scene/cozy/tiles/wall-window.png",
+   "kind": "scene",
+   "bytes": 382,
+   "dim": "32x64",
+   "sha1": "b0ad732a4670b978",
+   "refs": 7
+  },
+  {
+   "path": "assets/scene/cozy/tiles/wall.png",
+   "kind": "scene",
+   "bytes": 188,
+   "dim": "32x64",
+   "sha1": "85e2f376acbb3655",
+   "refs": 79
+  },
+  {
+   "path": "assets/scene/crew/crew-01.png",
+   "kind": "scene",
+   "bytes": 6216,
+   "dim": "384x800",
+   "sha1": "ca3daa50a21be631",
+   "refs": 1
+  },
+  {
+   "path": "assets/scene/crew/crew-02.png",
+   "kind": "scene",
+   "bytes": 6775,
+   "dim": "384x800",
+   "sha1": "6ebd595a9c82e979",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/crew/crew-03.png",
+   "kind": "scene",
+   "bytes": 6830,
+   "dim": "384x800",
+   "sha1": "7127c268f7fcf3c5",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/crew/crew-04.png",
+   "kind": "scene",
+   "bytes": 6859,
+   "dim": "384x800",
+   "sha1": "5716ed191bd117c6",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/crew/crew-05.png",
+   "kind": "scene",
+   "bytes": 6871,
+   "dim": "384x800",
+   "sha1": "d69bf8fcde0ef1d4",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/crew/crew-06.png",
+   "kind": "scene",
+   "bytes": 6712,
+   "dim": "384x800",
+   "sha1": "fb462f754f549c7f",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/crew/crew-07.png",
+   "kind": "scene",
+   "bytes": 6997,
+   "dim": "384x800",
+   "sha1": "a2ea3da11c4dbebc",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/crew/crew-08.png",
+   "kind": "scene",
+   "bytes": 6972,
+   "dim": "384x800",
+   "sha1": "dfbd8a4cea93a205",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/crew/crew-09.png",
+   "kind": "scene",
+   "bytes": 6802,
+   "dim": "384x800",
+   "sha1": "d38a227760b2080c",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/crew/crew-10.png",
+   "kind": "scene",
+   "bytes": 6448,
+   "dim": "384x800",
+   "sha1": "5ad86750e483375f",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/crew/crew-11.png",
+   "kind": "scene",
+   "bytes": 7019,
+   "dim": "384x800",
+   "sha1": "dde3c836b99f8793",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/crew/crew-12.png",
+   "kind": "scene",
+   "bytes": 6956,
+   "dim": "384x800",
+   "sha1": "4e52635be31078dc",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/crew/crew-13.png",
+   "kind": "scene",
+   "bytes": 6502,
+   "dim": "384x800",
+   "sha1": "be26e22967034f1a",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/crew/crew-14.png",
+   "kind": "scene",
+   "bytes": 6596,
+   "dim": "384x800",
+   "sha1": "33e89c7af7536afc",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/crew/crew-15.png",
+   "kind": "scene",
+   "bytes": 6724,
+   "dim": "384x800",
+   "sha1": "8cb49273f9031298",
+   "refs": 2
+  },
+  {
+   "path": "assets/scene/rooms/armory.png",
+   "kind": "scene",
+   "bytes": 2934,
+   "dim": "448x320",
+   "sha1": "0516226f168ef375",
+   "refs": 7
+  },
+  {
+   "path": "assets/scene/rooms/medical.png",
+   "kind": "scene",
+   "bytes": 2644,
+   "dim": "448x320",
+   "sha1": "97743d5e268d996e",
+   "refs": 14
+  },
+  {
+   "path": "assets/scene/rooms/meeting.png",
+   "kind": "scene",
+   "bytes": 2166,
+   "dim": "448x320",
+   "sha1": "09c2a295c10dc057",
+   "refs": 37
+  },
+  {
+   "path": "assets/scene/rooms/patrol.png",
+   "kind": "scene",
+   "bytes": 2920,
+   "dim": "448x320",
+   "sha1": "197fa4c80544c812",
+   "refs": 63
+  },
+  {
+   "path": "assets/scene/rooms/pharma.png",
+   "kind": "scene",
+   "bytes": 2836,
+   "dim": "448x320",
+   "sha1": "0ab621c62e8b4f39",
+   "refs": 7
+  },
+  {
+   "path": "assets/scene/rooms/repair.png",
+   "kind": "scene",
+   "bytes": 3242,
+   "dim": "448x320",
+   "sha1": "441cedbea1697674",
+   "refs": 162
+  },
+  {
+   "path": "assets/scene/rooms/safe.png",
+   "kind": "scene",
+   "bytes": 2983,
+   "dim": "448x320",
+   "sha1": "d84a637d81c8f814",
+   "refs": 37
+  },
+  {
+   "path": "assets/scene/rooms/verify.png",
+   "kind": "scene",
+   "bytes": 2938,
+   "dim": "448x320",
+   "sha1": "4bce6b623699b1a2",
+   "refs": 67
+  },
+  {
+   "path": "assets/scene/station/balcony-floor-center.png",
+   "kind": "scene",
+   "bytes": 1541,
+   "dim": "64x64",
+   "sha1": "ecc76b5c41627f2a",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/balcony-floor-corner.png",
+   "kind": "scene",
+   "bytes": 1960,
+   "dim": "64x64",
+   "sha1": "4fcae0d5269eb83a",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/balcony-floor.png",
+   "kind": "scene",
+   "bytes": 1903,
+   "dim": "64x64",
+   "sha1": "f27d367a2a55a6c4",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/balcony-rail-center.png",
+   "kind": "scene",
+   "bytes": 1844,
+   "dim": "64x64",
+   "sha1": "05cc4394e3ffb2f5",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/balcony-rail-corner.png",
+   "kind": "scene",
+   "bytes": 1689,
+   "dim": "64x64",
+   "sha1": "5e0cd37e777945d4",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/balcony-rail.png",
+   "kind": "scene",
+   "bytes": 1928,
+   "dim": "64x64",
+   "sha1": "7030a7d4cdd6ace7",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/bed-double-cover.png",
+   "kind": "scene",
+   "bytes": 1524,
+   "dim": "64x64",
+   "sha1": "7a3d93fc453f88e2",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/bed-double.png",
+   "kind": "scene",
+   "bytes": 1945,
+   "dim": "64x64",
+   "sha1": "2ea1e3bc86315ea9",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/bed-single-cover.png",
+   "kind": "scene",
+   "bytes": 1819,
+   "dim": "64x64",
+   "sha1": "6c8f4ce3d0bea080",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/bed-single.png",
+   "kind": "scene",
+   "bytes": 1957,
+   "dim": "64x64",
+   "sha1": "adf8be5a479dfff9",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/chair-armrest-headrest.png",
+   "kind": "scene",
+   "bytes": 1613,
+   "dim": "64x64",
+   "sha1": "e5f715bd21596304",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/chair-armrest.png",
+   "kind": "scene",
+   "bytes": 1720,
+   "dim": "64x64",
+   "sha1": "ca9303a4e63c7dcc",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/chair-cushion-headrest.png",
+   "kind": "scene",
+   "bytes": 1578,
+   "dim": "64x64",
+   "sha1": "0280bd5fd9ed397f",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/chair-cushion.png",
+   "kind": "scene",
+   "bytes": 1668,
+   "dim": "64x64",
+   "sha1": "90639d410848abf0",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/chair-headrest.png",
+   "kind": "scene",
+   "bytes": 1571,
+   "dim": "64x64",
+   "sha1": "b545018c5f759f02",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/chair.png",
+   "kind": "scene",
+   "bytes": 1652,
+   "dim": "64x64",
+   "sha1": "8421c6cbbce0236c",
+   "refs": 27
+  },
+  {
+   "path": "assets/scene/station/computer-screen.png",
+   "kind": "scene",
+   "bytes": 1835,
+   "dim": "64x64",
+   "sha1": "37df378499528c02",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/computer-system.png",
+   "kind": "scene",
+   "bytes": 1988,
+   "dim": "64x64",
+   "sha1": "2ddcf84d3270aaed",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/computer-wide.png",
+   "kind": "scene",
+   "bytes": 2065,
+   "dim": "64x64",
+   "sha1": "5ff3e2b92f17b104",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/computer.png",
+   "kind": "scene",
+   "bytes": 1700,
+   "dim": "64x64",
+   "sha1": "959841620f6b0051",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/container-flat-open.png",
+   "kind": "scene",
+   "bytes": 1934,
+   "dim": "64x64",
+   "sha1": "22a5c29693b18826",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/container-flat.png",
+   "kind": "scene",
+   "bytes": 2003,
+   "dim": "64x64",
+   "sha1": "ffe415e7a5f683c2",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/container-tall.png",
+   "kind": "scene",
+   "bytes": 1679,
+   "dim": "64x64",
+   "sha1": "aec08ebbb36a07fc",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/container-wide.png",
+   "kind": "scene",
+   "bytes": 1895,
+   "dim": "64x64",
+   "sha1": "522e2851e197acd7",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/container.png",
+   "kind": "scene",
+   "bytes": 1834,
+   "dim": "64x64",
+   "sha1": "0ec87fd7676d2a4c",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/display-wall-wide.png",
+   "kind": "scene",
+   "bytes": 1970,
+   "dim": "64x64",
+   "sha1": "4ab7aa7594deaf71",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/display-wall.png",
+   "kind": "scene",
+   "bytes": 1874,
+   "dim": "64x64",
+   "sha1": "1d224a0374eab39d",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/door-double-closed.png",
+   "kind": "scene",
+   "bytes": 1703,
+   "dim": "64x64",
+   "sha1": "49c8cc9a592c0e65",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/door-double-half.png",
+   "kind": "scene",
+   "bytes": 1682,
+   "dim": "64x64",
+   "sha1": "27d848918ac36657",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/door-double.png",
+   "kind": "scene",
+   "bytes": 1717,
+   "dim": "64x64",
+   "sha1": "dc55bb3b15754f4f",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/door-single-closed.png",
+   "kind": "scene",
+   "bytes": 1640,
+   "dim": "64x64",
+   "sha1": "7bfee3c99b05e0ec",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/door-single-half.png",
+   "kind": "scene",
+   "bytes": 1641,
+   "dim": "64x64",
+   "sha1": "36e13c21e0ca251d",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/door-single.png",
+   "kind": "scene",
+   "bytes": 1667,
+   "dim": "64x64",
+   "sha1": "edfe5190a87a3abd",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/floor-corner.png",
+   "kind": "scene",
+   "bytes": 1641,
+   "dim": "64x64",
+   "sha1": "7ce13c087ee2d982",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/floor-detail.png",
+   "kind": "scene",
+   "bytes": 1979,
+   "dim": "64x64",
+   "sha1": "080d59ede6503b89",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/floor-panel-corner.png",
+   "kind": "scene",
+   "bytes": 2030,
+   "dim": "64x64",
+   "sha1": "f5bed6566bb424e1",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/floor-panel-end.png",
+   "kind": "scene",
+   "bytes": 2013,
+   "dim": "64x64",
+   "sha1": "f95997db3ee0ef42",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/floor-panel-straight.png",
+   "kind": "scene",
+   "bytes": 1987,
+   "dim": "64x64",
+   "sha1": "94dbc5c75e6f4944",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/floor-panel.png",
+   "kind": "scene",
+   "bytes": 2074,
+   "dim": "64x64",
+   "sha1": "d5ca5395ebbdefff",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/floor.png",
+   "kind": "scene",
+   "bytes": 1658,
+   "dim": "64x64",
+   "sha1": "7f9e1dcb6577e8f8",
+   "refs": 78
+  },
+  {
+   "path": "assets/scene/station/pipe-bend-diagonal.png",
+   "kind": "scene",
+   "bytes": 1654,
+   "dim": "64x64",
+   "sha1": "5f6d4e5f7041df49",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/pipe-bend.png",
+   "kind": "scene",
+   "bytes": 2005,
+   "dim": "64x64",
+   "sha1": "0d8c111b3dd34c49",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/pipe-end-colored.png",
+   "kind": "scene",
+   "bytes": 1641,
+   "dim": "64x64",
+   "sha1": "74636d7047a1abed",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/pipe-end.png",
+   "kind": "scene",
+   "bytes": 1664,
+   "dim": "64x64",
+   "sha1": "07c7229470ae9c2d",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/pipe-ring-colored.png",
+   "kind": "scene",
+   "bytes": 1695,
+   "dim": "64x64",
+   "sha1": "f72dd21283c5ab8b",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/pipe-ring.png",
+   "kind": "scene",
+   "bytes": 1719,
+   "dim": "64x64",
+   "sha1": "1adecb78683df9bc",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/pipe.png",
+   "kind": "scene",
+   "bytes": 1648,
+   "dim": "64x64",
+   "sha1": "893db450ce65f8dc",
+   "refs": 15
+  },
+  {
+   "path": "assets/scene/station/rail-narrow.png",
+   "kind": "scene",
+   "bytes": 1518,
+   "dim": "64x64",
+   "sha1": "c4732a682a4f7492",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/rail.png",
+   "kind": "scene",
+   "bytes": 1490,
+   "dim": "64x64",
+   "sha1": "77d8f655f6da000c",
+   "refs": 3
+  },
+  {
+   "path": "assets/scene/station/rocks.png",
+   "kind": "scene",
+   "bytes": 1910,
+   "dim": "64x64",
+   "sha1": "20f6301154ea6f2b",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/skip-rocks.png",
+   "kind": "scene",
+   "bytes": 1898,
+   "dim": "64x64",
+   "sha1": "ad81fa49187c13a6",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/skip.png",
+   "kind": "scene",
+   "bytes": 2098,
+   "dim": "64x64",
+   "sha1": "f8567ab7850a95c2",
+   "refs": 22
+  },
+  {
+   "path": "assets/scene/station/stairs-corner-inner.png",
+   "kind": "scene",
+   "bytes": 2018,
+   "dim": "64x64",
+   "sha1": "05387e50b027ccc7",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/stairs-corner.png",
+   "kind": "scene",
+   "bytes": 1878,
+   "dim": "64x64",
+   "sha1": "3275763d4bfd096b",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/stairs-handrail-single.png",
+   "kind": "scene",
+   "bytes": 1308,
+   "dim": "64x64",
+   "sha1": "02b59627503f1abe",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/stairs-handrail.png",
+   "kind": "scene",
+   "bytes": 1492,
+   "dim": "64x64",
+   "sha1": "e8fff6814cadc060",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/stairs-ramp.png",
+   "kind": "scene",
+   "bytes": 1992,
+   "dim": "64x64",
+   "sha1": "1adbe15c321e1999",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/stairs-small-center.png",
+   "kind": "scene",
+   "bytes": 1958,
+   "dim": "64x64",
+   "sha1": "fb45d67ff727afd9",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/stairs-small-corner-inner.png",
+   "kind": "scene",
+   "bytes": 1738,
+   "dim": "64x64",
+   "sha1": "06ec19b0aac4f786",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/stairs-small-corner.png",
+   "kind": "scene",
+   "bytes": 1560,
+   "dim": "64x64",
+   "sha1": "b36c4f917642b5af",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/stairs-small-edge-handrail.png",
+   "kind": "scene",
+   "bytes": 1717,
+   "dim": "64x64",
+   "sha1": "056ae2e32fbe5e99",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/stairs-small-edge.png",
+   "kind": "scene",
+   "bytes": 1968,
+   "dim": "64x64",
+   "sha1": "1abde0690d3971e6",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/stairs-small-edges-handrail.png",
+   "kind": "scene",
+   "bytes": 1773,
+   "dim": "64x64",
+   "sha1": "75a663c6d5a8f4ee",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/stairs-small-edges.png",
+   "kind": "scene",
+   "bytes": 1870,
+   "dim": "64x64",
+   "sha1": "fe03d61e26131257",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/stairs.png",
+   "kind": "scene",
+   "bytes": 1952,
+   "dim": "64x64",
+   "sha1": "84f267f2f45351d2",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/structure-barrier-high.png",
+   "kind": "scene",
+   "bytes": 1697,
+   "dim": "64x64",
+   "sha1": "d81a3366b3103c15",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/structure-barrier.png",
+   "kind": "scene",
+   "bytes": 1694,
+   "dim": "64x64",
+   "sha1": "0b3516826a4bcfcd",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/structure-panel.png",
+   "kind": "scene",
+   "bytes": 1976,
+   "dim": "64x64",
+   "sha1": "109c7cbeb9217669",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/structure.png",
+   "kind": "scene",
+   "bytes": 1686,
+   "dim": "64x64",
+   "sha1": "f9ae2b41a5163662",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/table-display-planet.png",
+   "kind": "scene",
+   "bytes": 1629,
+   "dim": "64x64",
+   "sha1": "879d152806f45537",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/table-display-small.png",
+   "kind": "scene",
+   "bytes": 1760,
+   "dim": "64x64",
+   "sha1": "235b5c1faf57cc89",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/table-display.png",
+   "kind": "scene",
+   "bytes": 1876,
+   "dim": "64x64",
+   "sha1": "a4de68ab30b65985",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/table-inset-small.png",
+   "kind": "scene",
+   "bytes": 1926,
+   "dim": "64x64",
+   "sha1": "9c164be40a47de23",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/table-inset.png",
+   "kind": "scene",
+   "bytes": 1969,
+   "dim": "64x64",
+   "sha1": "666c1a4298693001",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/table-large.png",
+   "kind": "scene",
+   "bytes": 2048,
+   "dim": "64x64",
+   "sha1": "98257a67c3743162",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/table.png",
+   "kind": "scene",
+   "bytes": 2198,
+   "dim": "64x64",
+   "sha1": "6f27af91c790cfc2",
+   "refs": 38
+  },
+  {
+   "path": "assets/scene/station/wall-banner.png",
+   "kind": "scene",
+   "bytes": 1734,
+   "dim": "64x64",
+   "sha1": "888f4d0a8128074b",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/wall-corner-banner.png",
+   "kind": "scene",
+   "bytes": 1625,
+   "dim": "64x64",
+   "sha1": "a253bd6b25e9ea77",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/wall-corner-round-banner.png",
+   "kind": "scene",
+   "bytes": 1470,
+   "dim": "64x64",
+   "sha1": "8b1d686b631d1975",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/wall-corner-round.png",
+   "kind": "scene",
+   "bytes": 1473,
+   "dim": "64x64",
+   "sha1": "bc7329845935c2ea",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/wall-corner.png",
+   "kind": "scene",
+   "bytes": 1632,
+   "dim": "64x64",
+   "sha1": "12f09ba542155fa9",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/wall-detail.png",
+   "kind": "scene",
+   "bytes": 1596,
+   "dim": "64x64",
+   "sha1": "85c79c38de884c08",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/wall-door-banner.png",
+   "kind": "scene",
+   "bytes": 1751,
+   "dim": "64x64",
+   "sha1": "0a6f86e0dca6d3fa",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/wall-door-center.png",
+   "kind": "scene",
+   "bytes": 1960,
+   "dim": "64x64",
+   "sha1": "2b2c8b76c820674f",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/wall-door-edge-banner.png",
+   "kind": "scene",
+   "bytes": 2075,
+   "dim": "64x64",
+   "sha1": "be5c6b15eb591ac5",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/wall-door-edge.png",
+   "kind": "scene",
+   "bytes": 2078,
+   "dim": "64x64",
+   "sha1": "f24f726b1ca01ce5",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/wall-door-wide-banner.png",
+   "kind": "scene",
+   "bytes": 1692,
+   "dim": "64x64",
+   "sha1": "84323ffeb284aad7",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/wall-door-wide.png",
+   "kind": "scene",
+   "bytes": 1699,
+   "dim": "64x64",
+   "sha1": "07384fc4e56a7418",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/wall-door.png",
+   "kind": "scene",
+   "bytes": 1761,
+   "dim": "64x64",
+   "sha1": "8913243bfdf856da",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/wall-pillar-banner.png",
+   "kind": "scene",
+   "bytes": 1858,
+   "dim": "64x64",
+   "sha1": "8df080ec589a67b2",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/wall-pillar.png",
+   "kind": "scene",
+   "bytes": 1842,
+   "dim": "64x64",
+   "sha1": "66beeaf294dba2f7",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/wall-switch.png",
+   "kind": "scene",
+   "bytes": 1558,
+   "dim": "64x64",
+   "sha1": "9e31e9938f8e8207",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/wall-window-banner.png",
+   "kind": "scene",
+   "bytes": 1767,
+   "dim": "64x64",
+   "sha1": "c8059f7e9b3fa402",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/wall-window-frame.png",
+   "kind": "scene",
+   "bytes": 1777,
+   "dim": "64x64",
+   "sha1": "c0e0ff4953b4598c",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/wall-window-shutters.png",
+   "kind": "scene",
+   "bytes": 1862,
+   "dim": "64x64",
+   "sha1": "cef0e9585871dd34",
+   "refs": 0
+  },
+  {
+   "path": "assets/scene/station/wall-window.png",
+   "kind": "scene",
+   "bytes": 1776,
+   "dim": "64x64",
+   "sha1": "92ee1f37165675e7",
+   "refs": 7
+  },
+  {
+   "path": "assets/scene/station/wall.png",
+   "kind": "scene",
+   "bytes": 1757,
+   "dim": "64x64",
+   "sha1": "639b1e74a8856074",
+   "refs": 79
+  }
+ ]
+}

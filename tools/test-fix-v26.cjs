@@ -5018,7 +5018,11 @@ const RULE_FILES = ['js/ai/belief.js', 'js/ai/perceive.js', 'js/ai/decide.js',
     files.length > 0 && badSize.length === 0,
     badSize.length ? '尺寸不符：' + badSize.join(',') : (files.length + ' 套全部 384×800'));
 
-  const sceneUI2 = fs.readFileSync(path.join(base, 'ui-scene.js'), 'utf8');
+  /* 〔批 ART-0/B1b〕取图名（crew-NN）与帧切换已搬到 js/scene/crew.js。
+     这里按"逻辑模块 = 多个物理文件"拼起来判，与 tools/gate-src.cjs 的 MODULES.scene 同口径 ——
+     拆文件不该让断言失去对象（那是本仓模块化的第一道卡口）。 */
+  const sceneUI2 = [path.join(base, 'ui-scene.js'), path.join(base, 'scene', 'crew.js')]
+    .filter(f => fs.existsSync(f)).map(f => fs.readFileSync(f, 'utf8')).join('\n');
   ok('UI2-c：渲染器一对一取图（crew-NN 由席位号派生，不再取模循环复用 8 套）',
     /CREW_FILE\s*=\s*id\s*=>/.test(sceneUI2) &&
     /padStart\(2,\s*'0'\)/.test(sceneUI2) &&

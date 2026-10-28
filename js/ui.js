@@ -1676,10 +1676,30 @@ const SKD = global.SKDerivation;               // 〔43〕阵营成员 ≠ 能�
      DOM 节点、assets/qr/space-kill-apk.png 一并移除。APK 对外分发改由 GitHub Releases
      承担（见 README），站内不再有下载入口，故也不需要任何打开/关闭逻辑。 */
 
-  /* ---------- 规则速览（全屏覆盖页，v32：开始页顶部按钮打开） ---------- */
+  /* ---------- 规则速览（全屏覆盖页，v32：开始页顶部按钮打开） ----------
+     〔批 SHIP-2 · 2026-10-27〕★ 渲染必须在这里，不能只靠调用方记得调。
+     -------------------------------------------------------------
+     旧写法只有 `classList.remove('hidden')`。能渲染的那条路是 arena.js 里
+     `#btn-rules-home` 的 onclick（它自带 renderRules()），而**首局自动弹出**
+     走的是 `render()` 里这一条 —— 于是浮层打开了、正文永远是 index.html 的占位句
+     「正在载入规则数据…」。实测：首次进对局后 3 页签 / 0 张卡。
+     现在打开 = 渲染，唯一入口；arena 那条 onclick 直接调本函数。 */
   function openRules() {
     const ov = el('rules-overlay');
-    if (ov) { ov.classList.remove('hidden'); ov.scrollTop = 0; }
+    if (!ov) return;
+    /* 渲染器住在 arena.js（SKUI 只做覆盖层开关）。没加载时不能静默留占位句：
+       那正是本批要修的缺陷形态 —— 让它在屏幕上说出来，而不是"看起来在载入"。 */
+    if (global.SKArena && global.SKArena.renderRules) {
+      try { global.SKArena.renderRules(); } catch (e) {
+        const body = el('rg-body');
+        if (body) body.innerHTML = '<div class="hint">规则速览渲染失败：' + String(e && e.message ? e.message : e) + '</div>';
+      }
+    } else {
+      const body = el('rg-body');
+      if (body) body.innerHTML = '<div class="hint">规则速览渲染器未加载（js/arena.js）</div>';
+    }
+    ov.classList.remove('hidden');
+    ov.scrollTop = 0;
   }
   function closeRules() {
     const ov = el('rules-overlay');
@@ -1786,6 +1806,9 @@ const SKD = global.SKDerivation;               // 〔43〕阵营成员 ≠ 能�
 
   global.UI = { render, init, updateTimer, renderRoom, renderReplayBody, stageLayout, applyStageLayout,
     mountRolePicker, preferredRole, rpPick, renderRoleGrid, openPlayerPop, mountRosterBoard,
-    openLedger, closeLedger, ledgerLines, openDockPanel, toggleSettings };
+    openLedger, closeLedger, ledgerLines, openDockPanel, toggleSettings,
+    /* 〔批 SHIP-2〕规则速览的唯一入口（打开即渲染）。arena.js 的铭牌 onclick 复用它，
+       避免"两份打开逻辑、一份忘了渲染"再次发生。 */
+    openRules, closeRules };
 })(typeof window !== 'undefined' ? window : globalThis);
 

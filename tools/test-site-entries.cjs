@@ -67,13 +67,34 @@ function ok(name, cond, detail) {
   /* 目录级兜底：assets/ 下每个顶层子目录都要 allowed
      （模板拼接的路径（如 'assets/scene/cozy/' + 'tiles/' + x）只能这样覆盖） */
   const assetsAbs = path.join(ROOT, 'assets');
+  /* 〔批 ART-0〕`assets/refs/` 是**设计参考**，按规范必须拒绝下发（见 site-entries 的 DENY）。
+     所以 E3 的口径改为"除 refs 外的每个顶层子目录都被放行"，并新增 E9 守 refs 被拒。 */
   const subs = fs.existsSync(assetsAbs)
-    ? fs.readdirSync(assetsAbs, { withFileTypes: true }).filter(d => d.isDirectory()).map(d => 'assets/' + d.name)
+    ? fs.readdirSync(assetsAbs, { withFileTypes: true }).filter(d => d.isDirectory())
+      .map(d => 'assets/' + d.name).filter(p => p !== 'assets/refs')
     : [];
   const badSubs = subs.filter(p => !SE.allowed(p));
-  ok('E3：assets/ 每个顶层子目录都被放行（覆盖模板拼接路径）',
+  ok('E3：assets/ 每个顶层子目录都被放行（除设计参考 refs/，覆盖模板拼接路径）',
     subs.length > 0 && badSubs.length === 0,
     badSubs.length ? '未放行：' + badSubs.join(' , ') : ('子目录 ' + subs.length + ' 个'));
+
+  /* E9：设计参考图不得进站点/APK（红线的另一半：允许清单放行 assets 整体，必须靠拒绝清单挡） */
+  ok('E9：assets/refs/ 下的设计参考一律拒绝下发（不发布，仅本地对照）',
+    !SE.allowed('assets/refs/README.md')
+    && !SE.allowed('assets/refs/skeld-map-reference.jpg')
+    && SE.resolve('assets/refs/skeld-map-reference.jpg') === null
+    && SE.allowed('assets/scene/crew/crew-01.png'));
+
+  /* E10：三处消费方里，**APK 同步**也要走拒绝清单。
+     -------------------------------------------------------------
+     实测坑（批 ART-0）：deploy 与 server 是按文件问 allowed()，而 android/sync-www.cjs
+     是"整目录 fs.cpSync"，于是 assets/refs/ 会绕开拒绝清单直接进 APK。
+     判据落在 cpSync 那一行附近，不落在整个文件上（否则 import 里的 allowed 就能骗过它）。 */
+  const syncSrc = fs.readFileSync(path.join(ROOT, 'android', 'sync-www.cjs'), 'utf8');
+  const cpLine = (syncSrc.split('\n').findIndex(l => /cpSync\(/.test(l)));
+  const aroundSync = cpLine >= 0 ? syncSrc.split('\n').slice(cpLine, cpLine + 10).join('\n') : '';
+  ok('E10：APK 资产同步按拒绝清单过滤（cpSync 带 filter + allowed），参考图不进安装包',
+    cpLine >= 0 && /filter\s*:/.test(aroundSync) && /allowed\(/.test(aroundSync));
 }
 
 /* ---------- B. 拒绝清单：敏感路径一律不许下发 ---------- */

@@ -1,5 +1,5 @@
 /* =============================================================
- * 返航录 · 房间布局数据（批 U1 / 批 UI-7 增补）
+ * 新返航录 · 房间布局数据（批 U1 / 批 UI-7 增补）
  * -------------------------------------------------------------
  * 纯数据 + 纯函数，**零 DOM、零规则**。渲染器（ui-scene.js）只是消费者。
  *
@@ -80,8 +80,11 @@
       name: '舰桥', floor: 'floor-steel',
       wall: ['wall-screen', 'wall-light', 'wall-screen', 'wall-window-planet'],
       size: [ROOM_W, ROOM_H],
-      doors: [{ to: 'dorms', side: 'b' }, { to: 'safe', side: 't' },
-              { to: 'verify', side: 'l' }, { to: 'patrol', side: 'r' }],
+      /* 〔批 M2〕米字+环：舰桥接 8 条辐条 ⇒ 顶/底各 3 扇（at = 8/15/22），左右各 1 扇。
+              at 与 ship-map 的 LINKS.aAt 必须逐位一致（门禁 SH3 双向核对）。 */
+      doors: [{ to: 'medical', side: 't', at: 8 }, { to: 'verify', side: 't', at: 15 }, { to: 'patrol', side: 't', at: 22 },
+              { to: 'repair', side: 'r' }, { to: 'pharma', side: 'l' },
+              { to: 'armory', side: 'b', at: 22 }, { to: 'dorms', side: 'b', at: 15 }, { to: 'safe', side: 'b', at: 8 }],
       /* 圆桌居中；15 座由渲染器按角度算（见 SEATS） */
       props: [
         /* 这张地毯就是玩家眼里的「大桌子」：15 席围着它坐。
@@ -114,7 +117,7 @@
       name: '查证室', floor: 'floor-steel-plain',
       wall: ['wall-screen', 'wall-light', 'wall-screen', 'wall-light'],
       size: [ROOM_W, ROOM_H],
-      doors: [{ to: 'bridge', side: 'r' }, { to: 'medical', side: 'l' }],
+      doors: [{ to: 'bridge', side: 'b' }, { to: 'patrol', side: 'r' }, { to: 'medical', side: 'l' }],
       /* 〔批 UI-7〕全部按 x=15 镜像重排：证据板/审讯桌守中线，左右各成一组。 */
       props: [
         { t: 'rug', x: 5, y: 2, w: 20, h: 7, tint: 'deck' },
@@ -145,7 +148,7 @@
       name: '医疗室', floor: 'floor-lab',
       wall: ['wall-light', 'wall-screen', 'wall-light', 'wall-vent'],
       size: [ROOM_W, ROOM_H],
-      doors: [{ to: 'verify', side: 'r' }, { to: 'pharma', side: 'l' }],
+      doors: [{ to: 'bridge', side: 'r' }, { to: 'verify', side: 't' }, { to: 'pharma', side: 'l' }],
       /* 〔批 UI-7〕三张病床成组左墙，右侧镜像成"药柜/抑制器/冷柜"一列；
          中部手术台守中线。旧版中部家具散在 4~12 列，读作"地上随手丢的"。 */
       props: [
@@ -178,7 +181,7 @@
       name: '制药室', floor: 'floor-steel-bolts',
       wall: ['wall-pipes', 'wall-vent', 'wall-pipes', 'wall-light'],
       size: [ROOM_W, ROOM_H],
-      doors: [{ to: 'medical', side: 'r' }],
+      doors: [{ to: 'bridge', side: 'r' }, { to: 'safe', side: 'b' }, { to: 'medical', side: 't' }],
       props: [
         { t: 'rug', x: 6, y: 2, w: 18, h: 7, tint: 'deck' },
         { t: 'desk', x: 5, y: 2, k: 'bench1', label: '实验台一' },
@@ -204,7 +207,7 @@
       name: '巡逻岗', floor: 'floor-grate',
       wall: ['wall-window-planet', 'wall-screen', 'wall-window-planet', 'wall-light'],
       size: [ROOM_W, ROOM_H],
-      doors: [{ to: 'bridge', side: 'l' }, { to: 'repair', side: 'r' }],
+      doors: [{ to: 'bridge', side: 'l' }, { to: 'verify', side: 't' }, { to: 'repair', side: 'b' }],
       props: [
         /* 监控墙：三块屏 2 格宽连排（12/14/16 ⇒ 合起来 12~18，中线 15） */
         { t: 'screen', x: 12, y: 1, k: 'monitor_wall', label: '监控墙' },
@@ -230,7 +233,7 @@
       name: '船舱', floor: 'floor-steel-vent',
       wall: ['wall-pipes', 'wall-vent', 'wall-pipes', 'wall-vent'],
       size: [ROOM_W, ROOM_H],
-      doors: [{ to: 'patrol', side: 'l' }, { to: 'armory', side: 'r' }],
+      doors: [{ to: 'bridge', side: 'l' }, { to: 'patrol', side: 't' }, { to: 'armory', side: 'b' }],
       props: [
         { t: 'rug', x: 6, y: 2, w: 18, h: 7, tint: 'deck' },
         /* 升降台：4×2 的警示地毯，中线 15（x13） */
@@ -263,7 +266,7 @@
       name: '军械库', floor: 'floor-hatch',
       wall: ['wall-vent', 'wall-screen', 'wall-vent', 'wall-sign'],
       size: [ROOM_W, ROOM_H],
-      doors: [{ to: 'repair', side: 'l' }],
+      doors: [{ to: 'bridge', side: 'l' }, { to: 'repair', side: 'r' }, { to: 'dorms', side: 'b' }],
       props: [
         { t: 'rack', x: 2, y: 1, k: 'weapon_rack', label: '枪架' },
         { t: 'rack', x: 3, y: 1 }, { t: 'rack', x: 4, y: 1 },
@@ -289,7 +292,7 @@
       name: '安全室', floor: 'floor-carpet-blue',
       wall: ['wall-window', 'wall-light', 'wall-window', 'wall-sign'],
       size: [ROOM_W, ROOM_H],
-      doors: [{ to: 'bridge', side: 'b' }],
+      doors: [{ to: 'bridge', side: 'r' }, { to: 'dorms', side: 'b' }, { to: 'pharma', side: 'l' }],
       props: [
         { t: 'screen', x: 14, y: 1, k: 'oxygen', label: '氧气监测' },
         { t: 'barrel', x: 1, y: 1 }, { t: 'barrel', x: 1, y: 3 },
@@ -316,7 +319,7 @@
       name: '宿舍', floor: 'floor-carpet-beige', dim: 0.46,
       wall: ['wall-light', 'wall-window-planet', 'wall-light', 'wall-window'],
       size: [ROOM_W, ROOM_H],
-      doors: [{ to: 'bridge', side: 't' }],
+      doors: [{ to: 'bridge', side: 't' }, { to: 'armory', side: 'r' }, { to: 'safe', side: 'l' }],
       /* 15 个睡眠舱：5 列 × 3 排，**整块居中**（批 UI-7）。
          旧版 x0=3 起步 ⇒ 舱块占 x3~14.4，中线 8.7，画面整块压在左边、右边空一半。
          现在 x0=9.3：5 列间距 2.6 ⇒ 最后一列 19.7，舱块 9.3~20.7，中线正好 15。
@@ -353,14 +356,18 @@
   }
 
   /* ---- 门在房间边界上的锚点（格坐标） ---- */
+  /* 〔批 M1 · 2026-10-28〕door.at = **沿墙偏移**（格，从该墙起点算；缺省居中）。
+     米字+环布局里舰桥要接 8 条辐条（四侧各两扇），"每侧一扇"装不下；
+     与 ship-map.js 的 doorPoint(room, side, at) 同一口径（改一处必须改另一处）。 */
   function doorAnchor(room, door) {
     const r = ROOMS[room]; if (!r) return null;
     const [w, h] = r.size;
+    const at = (door.at == null) ? null : door.at;
     switch (door.side) {
-      case 't': return { x: w / 2, y: 0 };
-      case 'b': return { x: w / 2, y: h };
-      case 'l': return { x: 0, y: h / 2 };
-      case 'r': return { x: w, y: h / 2 };
+      case 't': return { x: at == null ? w / 2 : at, y: 0 };
+      case 'b': return { x: at == null ? w / 2 : at, y: h };
+      case 'l': return { x: 0, y: at == null ? h / 2 : at };
+      case 'r': return { x: w, y: at == null ? h / 2 : at };
       default: return null;
     }
   }

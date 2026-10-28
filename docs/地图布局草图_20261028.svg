@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-30 -30 470 430" font-family="monospace">
+  <!-- ============================================================
+    地图布局草图（批 M2 落地版 · 2026-10-28）
+    米字 + 环形：中心会议室，8 条辐条 + 8 条环边，船体 126×108 格。
+    本图按 1 格 = 3px 绘制；房间 30×11；走廊宽 3.2。
+    暗房（常态灯坏）用深色底 + 虚线描边；亮房用浅色底 + 实线描边。
+    ============================================================ -->
+  <rect x="-30" y="-30" width="470" height="430" fill="#0b1522"/>
+
+  <!-- 走廊（16 条：8 辐 + 8 环） -->
+  <g stroke="#3a4a63" stroke-width="9" stroke-linecap="round">
+    <!-- 8 条辐条 -->
+    <line x1="168" y1="145.5" x2="132.2" y2="162"/>   <!-- bridge.t@8 → medical.r（斜） -->
+    <line x1="189" y1="145.5" x2="189" y2="34.5"/>    <!-- bridge.t@15 → verify.b（竖） -->
+    <line x1="210" y1="145.5" x2="245.8" y2="60.2"/>  <!-- bridge.t@22 → patrol.l（斜） -->
+    <line x1="234" y1="162" x2="288" y2="162"/>       <!-- bridge.r → repair.l（横） -->
+    <line x1="210" y1="178.5" x2="245.8" y2="263.8"/> <!-- bridge.b@22 → armory.l（斜） -->
+    <line x1="189" y1="178.5" x2="189" y2="289.5"/>   <!-- bridge.b@15 → dorms.t（竖） -->
+    <line x1="168" y1="178.5" x2="132.2" y2="263.8"/> <!-- bridge.b@8 → safe.r（斜） -->
+    <line x1="144" y1="162" x2="90" y2="162"/>        <!-- bridge.l → pharma.r（横） -->
+    <!-- 8 条环边 -->
+    <line x1="234" y1="18" x2="290.8" y2="43.7"/>     <!-- verify.r → patrol.t（斜） -->
+    <line x1="290.8" y1="76.7" x2="333" y2="145.5"/>  <!-- patrol.b → repair.t（斜） -->
+    <line x1="333" y1="178.5" x2="335.8" y2="263.8"/> <!-- repair.b → armory.r（近竖） -->
+    <line x1="290.8" y1="280.3" x2="234" y2="306"/>   <!-- armory.b → dorms.r（斜） -->
+    <line x1="144" y1="306" x2="87.2" y2="280.3"/>    <!-- dorms.l → safe.b（斜） -->
+    <line x1="42.2" y1="263.8" x2="45" y2="178.5"/>   <!-- safe.l → pharma.b（近竖） -->
+    <line x1="45" y1="145.5" x2="42.2" y2="76.7"/>    <!-- pharma.t → medical.l（近竖） -->
+    <line x1="87.2" y1="43.7" x2="144" y2="18"/>      <!-- medical.t → verify.l（斜） -->
+  </g>
+
+  <!-- 房间（浅 = 常态亮 / 深 = 常态暗） -->
+  <g font-size="11" fill="#dce7f5" text-anchor="middle">
+    <!-- 舰桥：会议室（亮） -->
+    <rect x="144" y="145.5" width="90" height="33" fill="#22364f" stroke="#7fd1ff" stroke-width="2"/>
+    <text x="189" y="140">★ 会议室（讨论/投票）</text>
+    <!-- 正四向：亮 -->
+    <rect x="144" y="1.5" width="90" height="33" fill="#1b2b40" stroke="#5f7ea6" stroke-width="1.5"/>
+    <text x="189" y="22">查证室</text>
+    <rect x="288" y="145.5" width="90" height="33" fill="#1b2b40" stroke="#5f7ea6" stroke-width="1.5"/>
+    <text x="333" y="166">维修站</text>
+    <rect x="144" y="289.5" width="90" height="33" fill="#1b2b40" stroke="#5f7ea6" stroke-width="1.5"/>
+    <text x="189" y="310">宿舍</text>
+    <rect x="0" y="145.5" width="90" height="33" fill="#1b2b40" stroke="#5f7ea6" stroke-width="1.5"/>
+    <text x="45" y="166">制药室</text>
+    <!-- 斜四向：暗（常态灯坏，只有手电能照亮） -->
+    <g stroke-dasharray="6 4">
+      <rect x="245.8" y="43.7" width="90" height="33" fill="#101b2b" stroke="#43597a" stroke-width="1.5"/>
+      <rect x="245.8" y="247.3" width="90" height="33" fill="#101b2b" stroke="#43597a" stroke-width="1.5"/>
+      <rect x="42.2" y="247.3" width="90" height="33" fill="#101b2b" stroke="#43597a" stroke-width="1.5"/>
+      <rect x="42.2" y="43.7" width="90" height="33" fill="#101b2b" stroke="#43597a" stroke-width="1.5"/>
+    </g>
+    <text x="290.8" y="64">巡逻岗（暗）</text>
+    <text x="290.8" y="268">军械库（暗）</text>
+    <text x="87.2" y="268">安全室（暗）</text>
+    <text x="87.2" y="64">医疗室（暗）</text>
+  </g>
+
+  <!-- 舰桥的门（8 扇：顶 3 / 右 1 / 底 3 / 左 1） -->
+  <g fill="#ffd43b">
+    <rect x="166.4" y="143" width="7.2" height="5"/>
+    <rect x="186"   y="143" width="7.2" height="5"/>
+    <rect x="205.6" y="143" width="7.2" height="5"/>
+    <rect x="316"   y="158" width="5" height="8"/>
+    <rect x="166.4" y="176" width="7.2" height="5"/>
+    <rect x="186"   y="176" width="7.2" height="5"/>
+    <rect x="205.6" y="176" width="7.2" height="5"/>
+    <rect x="141"   y="158" width="5" height="8"/>
+  </g>
+
+  <!-- 图例 -->
+  <g font-size="10" fill="#8fa8c7">
+    <text x="-25" y="-12">船体 126×108 格 · 9 房 / 16 通道（轮图 W8 + 外环，任意两房最多中转一次）</text>
+    <text x="-25" y="392">亮房：走廊灯正常，进屋即见全屋　｜　暗房：常态灯坏，只有手电锥形光里才看得见（含屋里的人）</text>
+    <text x="-25" y="406">黄块 = 舰桥 8 扇门（顶 3 / 右 1 / 底 3 / 左 1，at = 8/15/22）　｜　走廊宽 3.2 格，移速 5 格/秒</text>
+  </g>
+</svg>

@@ -1,5 +1,5 @@
 /* =============================================================
- * 返航录 · 房间场景渲染器（批 U1 · 重写）
+ * 新返航录 · 房间场景渲染器（批 U1 · 重写）
  * -------------------------------------------------------------
  * 与旧版（备份在 backup/ui-scene-R2.js）的差别：
  *   ① **房间制**：一次只画一个房间，不再是"圆桌 + 8 张房间卡"的拼盘；
@@ -21,56 +21,53 @@
 (function (global) {
   'use strict';
   const N = 15;
-  /* 〔批 UI-6 · 2026-10-26〕一格 56，画布 = 房间本身（1680×616）。
+  /* 〔批 SHIP · 2026-10-27〕一格 56；画布 = **相机视窗**，不是房间。
      -------------------------------------------------------------
-     房间改成 30×11 之后，宽高比 2.727 与主区（1568×581 = 2.699）几乎一致 ——
-     所以这次画布**直接取房间尺寸**，meet 缩放时高度和宽度同时吃满，
-     不再有任何"画布比房间大"的余量，也就不再有黑边。
+     整船图之后，屏幕里显示的是「船的一小部分」（用户原话：「相当于一个视野范围
+     会覆盖一小部分，玩家会看到近景」）。所以 viewBox 不再等于房间尺寸，
+     而是 = 相机视窗（格）× TILE。
 
-     旧值（58 / 2400×1000）是给 26×17 的竖长房间用的，那时画布必须比房间宽很多，
-     否则房间会被裁；现在房间本身已经是横的，那层补偿不再需要。 */
-  const TILE = 56;
-  const ASSET = 'assets/scene/cozy/';
-  /* 画布 = 30×11 格 = 1680×616。
-     【注意】画布可以略大于房间（例如留 1 格边距给门热区），但不能小于房间 ——
-       小于房间时 SVG 会把房间裁掉（批 UI-5 就因此丢过「宿舍」门，玩家点不到）。
-     这里四周各留 0 格：门热区是**压在墙上的矩形**（见 roomHtml），不越出房间边界。 */
-  const VB = { w: 1680, h: 616 };
+     相机视窗的**大小**（几格）决定了"近景有多近"：
+       30 × 12 —— 正好一间房（房间是 30×11，多出的 1 格给上下墙沿）。
+       在房间里时相机夹进房间 ⇒ 一间房铺满屏幕；走通道时视窗跟着人。
 
-  /* 席位 15 色（与 space.js 的座位顺序对齐；仅用于底座光环） */
-  const PALETTE = ['#ff6b6b', '#ff922b', '#fcc419', '#c0eb75', '#69db7c', '#38d9a9', '#3bc9db',
-    '#4dabf7', '#748ffc', '#9775fa', '#da77f2', '#e64980', '#f783ac', '#ffe066', '#94d82d'];
-  const MINE = '#ffd43b';
+     【为什么是 30×12 而不是 30×11】
+       画布宽高比 = 30/12 = 2.5，而主区（1600×900 下）约 1568×581 = 2.70。
+       SVG 用 meet 等比缩放 ⇒ 画布比主区"更方"时，宽度吃满、上下各留黑边。
+       30×11 = 2.73 与主区几乎相等，但那样视窗高度恰好等于房间高度，
+       相机一点点夹紧抖动就会把房间的顶墙/踢脚切掉（实测截图：上壁被削平）。
+       取 12 让视窗比房间高 1 格，房间始终完整，而黑边由 CSS 的船体内衬吃掉
+       （.scene-mount::before 本来就是无缝舱壁瓦片，黑边读作"舱外结构"）。
 
-  /* 角色行走图：4 列 × 5 行，单帧 96×160（4x）
-     〔批 UI-2 · 2026-10-26〕15 席各有独立行走图（`assets/scene/crew/crew-NN.png`），
-     由 `tools/gen-crew-sprites.cjs` 生成。此前只有 8 套（CC-BY 的 Walking Crew），
-     用 `(p.id-1) % 8` 循环复用 ⇒ 1 号与 9 号穿同一件衣服、只有脚下光环不同。
-     现在一对一，且**外观与本局身份完全无关**（只按席位号取，不读 role/faction ——
-     否则等于泄露阵营，违 7.0 防透视）。版式与旧素材逐项相同，故渲染与 CSS 帧动画零改动。 */
-  const CREW_W = 96, CREW_H = 160;
-  const CREW_COUNT = 15;
-  const CREW_FILE = id => 'crew-' + String(((id - 1) % CREW_COUNT) + 1).padStart(2, '0');
+     【为什么不再更大】船体 234×45 格，若视窗给到 60×22，同屏就是四间房，
+       角色只有 1.15 格宽 ⇒ 在 1600px 宽的画布上只剩 30px，读作"点"。
+       批 UI-7 花了整整一批把角色从 32px 修到 64px，不能在这里退回去。 */
+  /* 〔批 ART-0/B1a · 2026-10-28〕常量表已搬到 `js/scene/const.js`（零状态，先拆它打通链路：
+     const 文件 → tools/load-order.cjs → tools/sync-html.cjs → index.html → 门禁源码解析）。
+     下面整体解构，**调用点一个字不改**；新增常量请加到那个文件，不要在这里再写一份。 */
+  if (!global.SKSceneConst) {
+    throw new Error('ui-scene：缺少 js/scene/const.js —— 加载顺序见 tools/load-order.cjs 的 ORDER_UI');
+  }
+  const {
+    TILE, ASSET, VIEW_TILES, VB, PALETTE, MINE,
+    CREW_W, CREW_H, CREW_COUNT,
+    CREW_VIS_W, CREW_VIS_H, CREW_VIS_TILES, CREW_BOX, ROW_IDLE, VISION_R,
+  } = global.SKSceneConst;
 
-  /* 〔批 UI-7 · 2026-10-27〕行走图的**可见内容**占比（实测，不是估计）
-     -------------------------------------------------------------
-     15 套行走图都是 4 列 × 5 行、单帧 96×160，但每帧里的角色只占：
-       待机帧 y 48..159（高 112 / 160 = 0.70）、x 20..79（宽 60 / 96 = 0.625）
-     旧代码按**帧框**定尺寸（w = TILE*0.92），于是画出来的角色只有 32×60，
-     比座圈还窄 —— 15 席看着像"点"。本批改成按**可见宽**定尺寸：
-     可见宽度固定 = 1.15 格（TILE×1.15 = 64.4px），再把帧框反推回去。
-     这样换图（只要版式还是 4×5 / 96×160）不用重调这三个常数。 */
-  const CREW_VIS_W = 60 / CREW_W;   /* 可见宽 / 帧宽 */
-  const CREW_VIS_H = 112 / CREW_H;  /* 可见高 / 帧高（待机行） */
-  const CREW_VIS_TILES = 1.15;      /* 可见宽 = 多少格 */
-  const CREW_BOX = {
-    w: function () { return (TILE * CREW_VIS_TILES) / CREW_VIS_W; },
-    h: function () { return ((TILE * CREW_VIS_TILES) / CREW_VIS_W) * (CREW_H / CREW_W); },
-    visW: function () { return TILE * CREW_VIS_TILES; },
-    visH: function () { return ((TILE * CREW_VIS_TILES) / CREW_VIS_W) * (CREW_H / CREW_W) * CREW_VIS_H; },
-  };
-  /* 行序：0 下走 / 1 上走 / 2 待机 / 3 左走 / 4 右走 */
-  const ROW_IDLE = 2;
+  /* 〔批 ART-0/B1b · 2026-10-28〕取图名（席位号 → crew-NN）与帧切换都已搬到
+     `js/scene/crew.js`：**外观与身份解耦**那条不变量在那边守（不读 role / faction）。
+     这里只引用，不再留第二份实现 —— 两处各写一份取模逻辑正是"1 号与 9 号撞衣服"的老病根。 */
+  if (!global.SKSceneCrew) {
+    throw new Error('ui-scene：缺少 js/scene/crew.js —— 加载顺序见 tools/load-order.cjs 的 ORDER_UI');
+  }
+  const CREW_FILE = global.SKSceneCrew.CREW_FILE;
+
+  /* 〔批 ART-0/B2a · 2026-10-28〕房间外壳（地板/四壁/墙饰）与走廊带在 js/scene/shell.js：
+     那是零交互、零状态的纯 HTML 构建，对局页与主页共用同一份（批 UI-7 的唯一一份约定继续有效）。 */
+  if (!global.SKSceneShell) {
+    throw new Error('ui-scene：缺少 js/scene/shell.js —— 加载顺序见 tools/load-order.cjs 的 ORDER_UI');
+  }
+  const SHELL = global.SKSceneShell;
 
   function escAttr(s) {
     return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
@@ -80,202 +77,703 @@
   function now() { return (global.performance && global.performance.now) ? global.performance.now() : Date.now(); }
 
   /* =============================================================
-   * 房间几何：把 space.js 的格坐标换算成场景坐标
+   * 〔批 SHIP · 2026-10-27〕船体坐标：房间不再是"整块画布"，而是船体上的一块
+   * -------------------------------------------------------------
+   * 旧版 roomOrigin() 把当前房间**居中铺满**画布 —— 因为那时一次只画一间房。
+   * 整船图之后，9 间房各有固定的船体位置（js/ship-map.js 的 ROOMS），
+   * 相机决定看哪一块，房间位置**不再随当前房间变化**。
+   *
+   * 所以这里只保留一个换算：房间本地格 → 船体格。
+   *   ship = roomRect.x + localX ,  roomRect.y + localY
+   * 渲染器里所有几何都先落到船体格，最后统一减去相机偏移。
    * ============================================================= */
   const ROOM_ID_DEFAULT = 'bridge';
   let curRoom = ROOM_ID_DEFAULT;
-  /* 〔U2〕入场行走：切换房间/阶段时，角色从门快步走到落点。
-     用时间戳而不是 setTimeout —— 重绘是幂等的，重绘时按剩余时长决定是否还在走。 */
-  const WALK_MS = 900;
-  let walkUntil = 0;
 
-  function roomOrigin(S) {
-    const r = S.room(curRoom) || S.room(ROOM_ID_DEFAULT);
-    const [w, h] = r.size;
-    return { x: (VB.w - w * TILE) / 2, y: (VB.h - h * TILE) / 2, w: w * TILE, h: h * TILE, r };
+  function shipOf() { return global.SKShip || null; }
+
+  /* 房间矩形（船体格）。ship-map 缺席时退化成一个居中矩形 ——
+     门禁会在那种情况下判红（test-ship 的 SH0），这里只保证不崩。 */
+  function roomOrigin(S, roomId) {
+    const M = shipOf();
+    const id = roomId || curRoom;
+    const r = (S && S.room(id)) || (S && S.room(ROOM_ID_DEFAULT));
+    const rect = M ? M.roomRect(id) : null;
+    const x = rect ? rect.x : 0, y = rect ? rect.y : 0;
+    const w = r ? r.size[0] : 30, h = r ? r.size[1] : 11;
+    return { x: x, y: y, w: w, h: h, r: r, id: id };
+  }
+
+  /* 相机：由「我在哪」推出视窗（船体格）。渲染与门禁共用这一份。
+     -------------------------------------------------------------
+     〔批 SHIP〕两条规则叠在一起，缺一不可：
+       ① **在房间里**（静止时总是如此）：视窗夹进**那间房** ⇒ 一间房铺满屏幕。
+          这是"近景"的定义：房间 30×11 = 视窗 30×11，一格不多一格不少。
+          若只按"我居中"算，人站房间下半部时视窗会越出房间，屏幕下半截是空船体。
+       ② **在走廊里**（走动途中）：不夹，视窗跟着人 —— 这样两头房间各露一半，
+          玩家能看见"我正在从舰桥走向查证室"，而不是盯着一堵墙。
+
+     〔批 SHIP-2 · 2026-10-27〕面板展开时的让位：**按面板实测位置算，不写死 0.34**
+     -------------------------------------------------------------
+     上一版注释写"面板展开时把我抬到 0.34"，但 camera() 里 clampRect 的
+     "房间比视窗小 ⇒ 居中"分支把 anchorY 整个覆盖掉了（见 ship-map.js 的注释），
+     实测「我」被面板盖住 65%~100% —— 轮到自己做决策时看不见自己。
+     修好 anchorY 之后又发现固定 0.34 是**过量**的：夜里「我」本来站在房间底部
+     （anchorInRoom 的兜底落点），抬到 34% 会把房间上半截（桌子与整圈座位）推出屏幕，
+     等于为了"不被人挡住"牺牲掉"看不见桌子"。
+     所以这里改成**按需**：只抬到"脚底刚好让开面板顶边 + 14px"为止，上限是居中（0.5）。
+     面板越高 ⇒ 需要的 ay 越小（相机越高）；面板够低时 ay 就是 0.5，一像素都不多抬。 */
+  let panelTopPx = 0;   /* 面板顶边（视口坐标 px）；0 = 没量到 / 没展开 */
+
+  function measurePanelTop() {
+    panelTopPx = 0;
+    if (!panelOpen || panelIsModal()) return;
+    const p = el('region-dec');
+    if (!p || !p.getBoundingClientRect) return;
+    try {
+      const cs = global.getComputedStyle ? global.getComputedStyle(p) : null;
+      if (cs && (cs.display === 'none' || cs.visibility === 'hidden')) return;
+      const r = p.getBoundingClientRect();
+      if (r.height > 4) panelTopPx = r.top;
+    } catch (_) { /* 量不到就退回常量 */ }
+  }
+
+  /* 面板展开时的 anchorY：把「我」的下沿抬到面板顶边之上，且**不多抬**。
+     -------------------------------------------------------------
+     全部在屏幕像素里推，且**只读当前帧已有的量**（viewBox / getScreenCTM / seatRects），
+     不回头调 cameraNow() —— 否则就是"算相机时又要相机"，会递归。
+
+     为什么用二分而不是解析式：
+       相机 y 对 ay 是**分段**函数（船体夹紧 / 房间夹紧 / 房间居中三支），
+       房间 11 格 < 视窗 12 格时，ay=0.5 那一支走的是"房间居中"，
+       解析式 `camY = me.y - vh·ay` 在那里**根本不成立**。
+       第一版就是按解析式写的，实测算出来"人本来就露着"，于是永远返回 0.5 ——
+       症状与没改一模一样（712 仍在面板 639 之下）。
+       二分只依赖"ay 越大 ⇒ 人越靠下"这一条单调性，对任何夹紧分支都成立。
+
+     单调性：ay↑ ⇒ camY↓ ⇒ 内容↓ ⇒ 屏幕 y↑。所以要找的是
+     「人仍完整露在面板之上」的**最大** ay（最大 ay = 抬得最少）。 */
+  function panelAnchorY(me) {
+    if (!panelTopPx) return 0.34;                    /* 量不到面板：退回旧常量 */
+    const M = shipOf();
+    if (!M) return 0.34;
+    const mount = el('scene-mount');
+    const svg = mount && mount.querySelector ? mount.querySelector('svg.sk-scene') : null;
+    if (!svg || !svg.getScreenCTM) return 0.34;
+    let ctm = null;
+    try { ctm = svg.getScreenCTM(); } catch (_) { ctm = null; }
+    if (!ctm || !(ctm.d > 0.01)) return 0.34;
+    const vb = (svg.getAttribute('viewBox') || '').split(/\s+/).map(Number);
+    if (vb.length < 4 || !isFinite(vb[1])) return 0.34;
+    const camYNow = vb[1] / TILE;
+    let footNow = 0;
+    try {
+      const rects = seatRects();
+      if (rects && rects.length) footNow = rects[0].bottom;
+    } catch (_) { footNow = 0; }
+    if (!footNow) return 0.34;
+
+    const here = M.roomAt(me.x, me.y);
+    const clamp = here ? M.roomRect(here) : null;
+    const pxPerTile = TILE * ctm.d;
+    const target = panelTopPx - 14;                  /* 脚底最多到面板顶边之上 14px */
+    const footAt = (ay) => {
+      const cam = M.camera(me.x, me.y, VIEW_TILES.w, VIEW_TILES.h, ay, clamp);
+      return footNow + (camYNow - cam.y) * pxPerTile;
+    };
+    /* 已经露着 ⇒ 一像素都不抬 */
+    if (footAt(0.5) <= target) return 0.5;
+    /* 抬到下限还压着 ⇒ 就给下限（再低房间上半截全出屏，反而更糟） */
+    const LO = 0.20;
+    if (footAt(LO) > target) return LO;
+    let lo = LO, hi = 0.5;
+    for (let i = 0; i < 22; i++) {
+      const mid = (lo + hi) / 2;
+      if (footAt(mid) <= target) lo = mid; else hi = mid;
+    }
+    return lo;
+  }
+
+  function cameraNow() {
+    const M = shipOf();
+    if (!M) return { x: 0, y: 0, w: VIEW_TILES.w, h: VIEW_TILES.h };
+    const me = myPos();
+    const ay = (panelOpen && !panelIsModal()) ? panelAnchorY(me) : 0.5;
+    const here = M.roomAt(me.x, me.y);
+    const clamp = here ? M.roomRect(here) : null;
+    return M.camera(me.x, me.y, VIEW_TILES.w, VIEW_TILES.h, ay, clamp);
+  }
+
+  /* 「我」在船体上的位置（格）。相机、小地图、角色落点都读它。 */
+  function myPos() {
+    const M = shipOf();
+    const S = global.SKSpace;
+    const r = roomOrigin(S, curRoom);
+    if (!M || !S) return { x: r.x + r.w / 2, y: r.y + r.h / 2, room: curRoom };
+    /* 走到一半时用插值位置（见 walkState），否则就是房间里的锚点 */
+    const ws = walkState;
+    if (ws && ws.pts && ws.pts.length) {
+      const p = pointOnPath(ws.pts, ws.t);
+      return { x: p.x, y: p.y, room: M.roomAt(p.x, p.y) || curRoom };
+    }
+    /* 〔批 WALK · 2026-10-28〕自由行走之后的落点优先于锚点。
+       -------------------------------------------------------------
+       旧版没有任何"人站在哪"的状态：位置永远由 anchorInRoom 按房间推出来
+       （舰桥=我的席位 / 宿舍=我的睡眠舱 / 其他=房间中央偏下）。
+       所以只要一停，人就弹回座位 —— 玩家在房间里走两步再停下会立刻被弹回去。
+       freePos 就是补上这个状态：玩家自己走过之后，站位由玩家决定；
+       只有它为空（还没走过 / 换了昼夜）时才退回锚点，既有语义一字不改。 */
+    if (freePos) return { x: freePos.x, y: freePos.y, room: M.roomAt(freePos.x, freePos.y) || curRoom };
+    const a = anchorInRoom(S, curRoom);
+    return { x: r.x + a.x, y: r.y + a.y, room: curRoom };
+  }
+
+  /* 房间内的站位锚点（房间本地格）：
+       舰桥白天 = 我那一席；宿舍 = 我的睡眠舱；其他房间 = 房间中央偏下。
+     与旧版 crewHtml 的落点规则**逐条一致**，只是不再乘 TILE 也不再加房间偏移。 */
+  function anchorInRoom(S, roomId) {
+    const me = (lastV && lastV.humanId) || 1;
+    if (roomId === 'bridge' && lastG && lastG.phase !== 'night') {
+      const seats = S.seatPositions('bridge');
+      const s = seats[(me - 1) % seats.length];
+      if (s) return { x: s.x, y: s.y };
+    }
+    if (roomId === 'dorms') {
+      const pods = S.podPositions('dorms');
+      const q = pods[(me - 1) % pods.length];
+      if (q) return { x: q.x + 0.5, y: q.y + 1 };
+    }
+    const r = S.room(roomId) || { size: [30, 11] };
+    return { x: r.size[0] / 2, y: r.size[1] - 1.6 };
   }
 
   /* =============================================================
-   * 〔批 UI-7 · 2026-10-27〕房间外壳（地板 + 四壁 + 门）——**唯一一份**
+   * 〔批 SHIP · 2026-10-27〕走动：沿通道逐帧插值（替换 walkUntil 时间戳）
    * -------------------------------------------------------------
-   * 为什么重写：批 UI-6 之前，对局页 roomHtml() 与主页 renderHomeScene()
-   * 各写了一份"地板 pattern + 四壁 + 踢脚线"，两处参数已经开始漂移
-   * （主页 opacity .42 / 对局 .34）。
+   * 用户拍板「点目标房间 → 沿通道自动寻路」。所以走动不再是"从门口滑到座位"的
+   * 一次性入场动画，而是**一条由 ship-map 算出来的折线**，角色沿线走。
    *
-   * 更关键的是**素材没接线**：9 间房共用同一张 wall.png（空白灰墙），
-   * 而 cozy 包里 7 种墙面变体与 12 种地板一直躺在 assets/ 里零引用。
-   * 截图后果：走遍 9 间房，墙都是同一面白灰，房间读起来像"同一间房换家具"；
-   * 而且上壁 1.35 格以下、踢脚线以上是一片死白（"黑区"的另一半）。
+   * 为什么用插值而不是 CSS 位移：
+   *   · 折线有 5~9 个拐点，CSS 的 translate 只能走直线；
+   *   · 相机要跟着人走 —— 相机位置必须和人的位置同源，否则人会被"甩"出画面。
    *
-   * 现在由 js/space.js 每间房声明 wall[]（上壁稀疏挂的墙饰），本函数只消费。
-   * wall 里名字的合法性由 test-space 的 S1~S3 守。
-   *
-   * 参数：
-   *   o     = { x, y, w, h } 房间矩形（场景坐标）
-   *   r     = space.js 的房间对象
-   *   id    = 房间 id（前缀 pattern / clipPath 用，避免同页多实例串号）
-   *   dim   = 地板压暗强度（对局页 0.34；主页更暗，让"预览"读作未入场）
+   * 时间模型：requestAnimationFrame 驱动，位置 = pointOnPath(pts, t)，t ∈ [0,1]。
+   *   t 按**路径长度**分配（不是按段数），所以长短段速度一致。
+   *   没有 rAF 的环境（vm 沙盒 / 门禁）里 walk 只更新状态，不启动动画 —— 渲染仍正确。
    * ============================================================= */
-  function floorWallShell(S, o, r, id, dim) {
-    const PT = TILE;   /* 一张素材在场景里的边长 = 1 格 */
-    const fpat = 'sk-floor-' + id, wpat = 'sk-wall-' + id, wclip = 'sk-wallclip-' + id;
-    let html = '';
+  /* 〔批 DEMO · 2026-10-28〕移速降到 5 格/秒：一间房 30 格要走 6 秒，
+     跨两间（经舰桥）约 12 秒 —— 追逐与"赶路被看见"才有张力（7.5 时走廊 2 秒就穿完了）。 */
+  const WALK_SPEED = 5;        /* 格/秒 */
+  let walkState = null;        /* { pts, t, len, room } */
+  let walkRaf = 0;
 
-    /* ---- 地板：整间平铺 ---- */
-    html += '<defs><pattern id="' + fpat + '" width="' + PT + '" height="' + PT
-      + '" patternUnits="userSpaceOnUse"><image href="' + ASSET + 'tiles/' + r.floor
-      + '.png" width="' + PT + '" height="' + PT
-      + '" image-rendering="pixelated"/></pattern></defs>';
-    html += '<rect x="' + o.x + '" y="' + o.y + '" width="' + o.w + '" height="' + o.h
-      + '" fill="url(#' + fpat + ')"/>';
-
-    /* 〔批 UI-7〕地板高光**不画**（试过两版，都撤了）。
-       试过两版：6 格间距 × 两行不透明 ⇒ floor-hazard 房间读作"泼了油漆"；
-       8 格间距 × 单行 45% ⇒ 每间房地上多出 4 块半透明方斑，像贴图没对齐。
-       根本原因：accent 素材是**整块地板瓦片**而不是叠加层，叠在另一张地板上
-       只会得到"两种地砖拼在一起"，不会得到"高光"。
-       所以房间之间的地面差异改由 floor 本身承担（9 间房 6 种地板），
-       将来真要做高光，得是**叠加层**（半透明亮斑），不能是整块地板瓦片。 */
-
-    /* ---- 地板压暗：地砖本身很亮，压一层让家具与角色浮出来（仍保留纹理） ---- */
-    html += '<rect x="' + o.x + '" y="' + o.y + '" width="' + o.w + '" height="' + o.h
-      + '" fill="#0a1524" opacity="' + dim + '"/>';
-
-    /* ---- 四壁 ----
-       素材是 32×64（墙顶 1 格 + 墙面 1 格）：
-         · 上壁 2 格高 = 完整一段墙（顶 + 面）；
-         · 左右壁各 0.55 格宽（只借"墙面"那条，不重复贴墙顶）。
-
-       〔批 UI-7〕墙面装饰**稀疏摆放**，不逐格循环。
-       第一版是"每列按 wall[] 轮换"，实测截图上变成一条 12 块屏的"胶片带"——
-       比原来的空白灰墙更糟：装饰一旦每格都有，就不再是装饰，而是噪声。
-       现在：底座整条贴 wall.png，wall[] 里的变体按**等距**撒上去
-       （4 张装饰 → 30 格上每 7~8 格一个），读作"舱壁上零星挂着东西"。 */
-    const tiles = S.wallTiles ? S.wallTiles(id) : ['wall'];
-    const nCols = Math.ceil(r.size[0]);
-    /* 侧壁 pattern：**永远是空白墙 wall.png**，不是墙饰表里的第一张。
-       注意：第一版这里写的是 tiles[0]，于是舰桥的"底座"本身就成了 wall-screen
-         的无限平铺 —— 装饰失去了稀疏性，整条上壁又变回"胶片带"。
-         底座负责"这面墙是什么颜色"，装饰负责"上面挂了什么"，两者不能混用。
-       放在这里而不是用到的地方 —— url(#…) 前向引用在部分浏览器下取不到。 */
-    html += '<defs><pattern id="' + wpat + '" width="' + TILE + '" height="' + (TILE * 2)
-      + '" patternUnits="userSpaceOnUse"><image href="' + ASSET + 'tiles/wall.png" width="'
-      + TILE + '" height="' + (TILE * 2) + '" image-rendering="pixelated"/></pattern></defs>';
-    html += '<defs><clipPath id="' + wclip + '"><rect x="' + o.x + '" y="' + o.y
-      + '" width="' + o.w + '" height="' + (TILE * 2) + '"/></clipPath></defs>';
-    html += '<g clip-path="url(#' + wclip + ')">';
-    /* 底座：整条空墙 */
-    html += '<rect x="' + o.x + '" y="' + o.y + '" width="' + o.w + '" height="' + (TILE * 2)
-      + '" fill="url(#' + wpat + ')"/>';
-    /* 装饰：等距落位（跳过左右壁那 0.55 格，免得压在边梁上） */
-    for (let k = 0; k < tiles.length; k++) {
-      const col = Math.round((k + 1) * nCols / (tiles.length + 1)) - 1;
-      if (col < 1 || col > nCols - 2) continue;
-      html += '<image href="' + ASSET + 'tiles/' + tiles[k] + '.png" x="' + (o.x + col * TILE)
-        + '" y="' + o.y + '" width="' + TILE + '" height="' + (TILE * 2)
-        + '" image-rendering="pixelated"/>';
+  /* 折线参数化：按**长度**均匀取点。pts 至少两点。 */
+  function segLens(pts) {
+    const seg = [];
+    let total = 0;
+    for (let i = 0; i + 1 < pts.length; i++) {
+      const d = Math.hypot(pts[i + 1].x - pts[i].x, pts[i + 1].y - pts[i].y);
+      seg.push(d); total += d;
     }
-    html += '</g>';
-
-    /* 墙面压暗：素材本身是接近纯白的（#E9EEF0），铺满 2 格高 × 30 格宽后
-       是画面里最亮的一块，眼睛会先被它吸住 —— 这是用户反复说的"白区"。
-       压一层 #0a1524 / 0.26 之后，它读作"舱壁在船内灯光下的样子"，
-       与深色地板接得上，装饰瓦片（屏/舷窗/管线）反而更跳得出来。 */
-    html += '<rect x="' + o.x + '" y="' + o.y + '" width="' + o.w + '" height="' + (TILE * 2)
-      + '" fill="#0a1524" opacity="0.26"/>';
-
-    /* 左右壁（0.55 格宽，只借"墙面"那条） */
-    html += '<rect x="' + o.x + '" y="' + o.y + '" width="' + (TILE * 0.55) + '" height="' + o.h
-      + '" fill="url(#' + wpat + ')"/>';
-    html += '<rect x="' + (o.x + o.w - TILE * 0.55) + '" y="' + o.y + '" width="' + (TILE * 0.55)
-      + '" height="' + o.h + '" fill="url(#' + wpat + ')"/>';
-
-    /* 下壁：只留一条暗色踢脚（否则会挡住房间底部的角色） */
-    html += '<rect x="' + o.x + '" y="' + (o.y + o.h - TILE * 0.28) + '" width="' + o.w
-      + '" height="' + (TILE * 0.28) + '" fill="#0a1220" opacity="0.9"/>';
-
-    /* 房间外圈光：把场景从背景里"托"起来 */
-    html += '<rect x="' + (o.x - 8) + '" y="' + (o.y - 8) + '" width="' + (o.w + 16)
-      + '" height="' + (o.h + 16) + '" fill="none" stroke="#2a4a6e" stroke-width="3" rx="8"/>';
-    return html;
+    return { seg: seg, total: total };
   }
-
-  /* 房间背景：地板平铺 + 四壁 + 门 */
-  function roomHtml(S) {
-    const o = roomOrigin(S);
-    const r = o.r;
-    let html = '<g class="sk-room-floor">';
-    /* 〔批 UI-5〕画布**不铺**整张地板：房间以外留给 CSS 的船体内衬 + 暗角。
-       〔批 UI-8a〕那层内衬已从"开源社区写实背景图"换成**本仓自绘**的无缝舱壁瓦片
-       （.scene-mount::before 的 hull-tile.png + .scene-mount::after 的暗角）。 */
-    /* 每间房可用 space.js 的 dim 覆盖地板压暗强度（暖色地板需要压得更深） */
-    html += floorWallShell(S, o, r, curRoom, r.dim != null ? r.dim : 0.34);
-
-    /* ---- 门：墙面上的开口 + 可点热区 ----
-       〔批 UI-7〕旧版门只是一块描边矩形（fill #0b1424），读作"墙上贴了张蓝框标签"。
-       现在先贴 cozy 的 door-open 素材做**开口**，再在上面盖热区。
-       上下两侧的门按 side 旋转 90°（素材是竖版 32×64）。
-       〔批 UI-6 的约束仍然有效〕热区必须整块落在房间内 —— 见下方按 side 收边。 */
-    for (const d of r.doors) {
-      const a = S.doorAnchor(curRoom, d);
-      if (!a) continue;
-      const px = o.x + a.x * TILE, py = o.y + a.y * TILE;
-      const horiz = (d.side === 't' || d.side === 'b');
-      const dw = horiz ? TILE * 2 : TILE * 0.7, dh = horiz ? TILE * 0.7 : TILE * 2;
-      /* 〔批 UI-6 · 2026-10-26〕门热区**必须整块落在房间内**。
-         画布现在等于房间尺寸（TILE 56 / 1680×616），而门锚点就在房间边界上
-         （side='l' 的锚点 x=0），以锚点为中心画 0.7×2 格的矩形 ⇒ 一半在画布外，
-         实测左右两侧的门各被裁掉一半、标签显示成「查室」「制药室」。
-         现在按 side 把矩形**收进边界内侧**：完整可见、完整可点。 */
-      let rx, ry;
-      if (d.side === 'l') { rx = o.x; ry = py - dh / 2; }
-      else if (d.side === 'r') { rx = o.x + o.w - dw; ry = py - dh / 2; }
-      else if (d.side === 't') { rx = px - dw / 2; ry = o.y; }
-      else { rx = px - dw / 2; ry = o.y + o.h - dh; }
-      /* 门洞素材：竖门直接贴；横门**旋转 90°**，不是把 32×64 拉成 2:0.7。
-         注意：第一版是"交换 width/height"——那是拉伸，门框与门板的像素比例会被拉歪，
-           截图上门变成一片浅色长方形。这里用 rotate 围绕矩形中心转，保持像素比例。 */
-      if (horiz) {
-        const cx = rx + dw / 2, cy = ry + dh / 2;
-        html += '<image class="sk-door-art" pointer-events="none" href="' + ASSET
-          + 'tiles/door-open.png" x="' + (cx - dh / 2) + '" y="' + (cy - dw / 2)
-          + '" width="' + dh + '" height="' + dw
-          + '" transform="rotate(90 ' + cx + ' ' + cy + ')"'
-          + ' image-rendering="pixelated" opacity="0.95"/>';
-      } else {
-        html += '<image class="sk-door-art" pointer-events="none" href="' + ASSET
-          + 'tiles/door-open.png" x="' + rx + '" y="' + ry + '" width="' + dw + '" height="' + dh
-          + '" image-rendering="pixelated" opacity="0.95"/>';
+  function pointOnPath(pts, t) {
+    if (!pts || !pts.length) return { x: 0, y: 0 };
+    if (pts.length === 1) return { x: pts[0].x, y: pts[0].y };
+    const L = segLens(pts);
+    if (L.total <= 0) return { x: pts[0].x, y: pts[0].y };
+    let want = Math.max(0, Math.min(1, t)) * L.total;
+    for (let i = 0; i < L.seg.length; i++) {
+      if (want <= L.seg[i] || i === L.seg.length - 1) {
+        const k = L.seg[i] > 0 ? Math.min(1, want / L.seg[i]) : 0;
+        return {
+          x: pts[i].x + (pts[i + 1].x - pts[i].x) * k,
+          y: pts[i].y + (pts[i + 1].y - pts[i].y) * k,
+        };
       }
-      html += '<rect class="sk-door" data-door="' + escAttr(d.to) + '" x="' + rx
-        + '" y="' + ry + '" width="' + dw + '" height="' + dh
-        + '" fill="none" stroke="#4dabf7" stroke-width="2" rx="4"/>';
-      /* 标签也收进矩形内侧（不再压在墙上被裁） */
-      const tx = rx + dw / 2, ty = ry + dh / 2 + 4;
-      html += '<text class="sk-door-t" x="' + tx + '" y="' + ty
-        + '" text-anchor="middle">' + escAttr((S.room(d.to) || {}).name || d.to) + '</text>';
+      want -= L.seg[i];
     }
+    const last = pts[pts.length - 1];
+    return { x: last.x, y: last.y };
+  }
 
-    /* 房名 */
-    html += '<text class="sk-room-name" x="' + (o.x + 14) + '" y="' + (o.y + 34) + '">'
-      + escAttr(r.name) + '</text>';
+  /* 朝哪个方向走（决定用行走图的哪一行）。
+     用户看不到别人（只渲染我），但**我自己**的朝向要跟得上，
+     否则"向左走却面朝下"会立刻被看出来。 */
+  function dirOnPath(pts, t) {
+    if (!pts || pts.length < 2) return 'down';
+    const L = segLens(pts);
+    let want = Math.max(0, Math.min(1, t)) * L.total;
+    for (let i = 0; i < L.seg.length; i++) {
+      if (want <= L.seg[i] || i === L.seg.length - 1) {
+        const dx = pts[i + 1].x - pts[i].x, dy = pts[i + 1].y - pts[i].y;
+        if (Math.abs(dx) >= Math.abs(dy)) return dx >= 0 ? 'right' : 'left';
+        return dy >= 0 ? 'down' : 'up';
+      }
+      want -= L.seg[i];
+    }
+    return 'down';
+  }
+
+  function stopWalk() {
+    walkState = null;
+    if (walkRaf && global.cancelAnimationFrame) { try { global.cancelAnimationFrame(walkRaf); } catch (_) {} }
+    walkRaf = 0;
+  }
+
+  /* 沿通道走到另一间房。target 可以是房间 id，也可以是船体格坐标 {x,y}。 */
+  function walkTo(target, opts) {
+    const M = shipOf();
+    if (!M) return null;
+    const from = myPos();
+    const fromRoom = from.room || curRoom;
+    const toRoom = typeof target === 'string' ? target : (M.roomAt(target.x, target.y) || curRoom);
+    const p = M.path(fromRoom, toRoom, { x: from.x, y: from.y });
+    if (!p) return null;
+    walkState = { pts: p.pts, t: 0, len: p.len, room: toRoom };
+    if (opts && opts.silent) return p;
+    startWalkAnim();
+    return p;
+  }
+
+  function startWalkAnim() {
+    if (!global.requestAnimationFrame) return;
+    /* 〔批 WALK〕已经有一条折线在跑（玩家又点了别处 / 键盘接管）时，换线必须**重置计时**：
+       否则新的折线沿用旧的 t0，第一帧算出来的 dt 已经是好几秒 ⇒ 人瞬间滑到终点。 */
+    if (walkRaf && global.cancelAnimationFrame) { try { global.cancelAnimationFrame(walkRaf); } catch (_) {} }
+    walkRaf = 0;
+    const t0 = now();
+    const step = function () {
+      if (!walkState) { walkRaf = 0; return; }
+      const dt = (now() - t0) / 1000;
+      const need = walkState.len / WALK_SPEED;
+      walkState.t = need > 0 ? Math.min(1, dt / need) : 1;
+      const pos = pointOnPath(walkState.pts, walkState.t);
+      paintWalk(pos);
+      if (walkState.t >= 1) {
+        const dest = walkState.room;
+        /* 〔批 WALK〕落点：点地面 → 停在点击点（end）；点门/自动导航 → end 为空 ⇒ 回锚点。
+           旧版一律回锚点，于是"点地面走过去"最后会弹回房间中央，看着像没走到。 */
+        const end = walkState.end || null;
+        walkState = null; walkRaf = 0;
+        curRoom = dest;
+        freePos = end;
+        sig = null;
+        if (lastG && lastV) render(lastG, lastV);
+        else { const m = el('scene-mount'); if (m) m.__skBuilt = false; }
+        return;
+      }
+      walkRaf = global.requestAnimationFrame(step);
+    };
+    walkRaf = global.requestAnimationFrame(step);
+  }
+
+  /* 每帧只动三样东西：角色 transform、相机 viewBox、小地图上的我。
+     不重建 DOM（整船重绘每帧会掉到个位数帧率）。 */
+  function paintWalk(pos) {
+    const mount = el('scene-mount');
+    if (!mount) return;
+    const svg = mount.querySelector('svg.sk-scene');
+    const M = shipOf();
+    if (!svg || !M) return;
+    const cam = cameraNow();
+    svg.setAttribute('viewBox', [cam.x * TILE, cam.y * TILE, cam.w * TILE, cam.h * TILE].join(' '));
+    const meId = (lastV && lastV.humanId) || 1;
+    const g = svg.querySelector('.sk-crew[data-seat="' + meId + '"]');
+    if (g) {
+      g.setAttribute('transform', 'translate(' + (pos.x * TILE).toFixed(1) + ','
+        + (pos.y * TILE + TILE * 0.34).toFixed(1) + ')');
+      const dir = walkState ? dirOnPath(walkState.pts, walkState.t) : (freeDir || 'down');
+      setCrewFrame(g, dir, true);
+    }
+    paintMinimap(mount, cam, pos);
+  }
+
+  /* 角色帧：viewBox 取行走图对应的那一行（下/上/左/右），列由 CSS 逐帧平移。
+     〔批 SHIP〕旧版只有"向下走"一行在用（ROW_IDLE 待机），因为入场动画是横向的。
+     整船图要 4 向，这里按 ship-map 的折线方向选行 —— 生成器的 5 行本来就是
+     下/上/待机/左/右（见 tools/gen-crew-sprites.cjs），W1 门禁已经在守每行都有真实差异。
+     同时写出 --step-ms：4 帧循环时长 = 1 格 / WALK_SPEED 秒 × 1000。
+     这是"腿的摆动频率"与"人的前进速度"唯一的同步点（见 css 的注释）。 */
+  /* 〔批 ART-0/B1b · 2026-10-28〕角色帧已搬到 js/scene/crew.js（零业务状态：
+     取图名 + 换行 + 行走类 + 步频）。这里只留一层包装，把 WALK_SPEED 换算成 --step-ms ——
+     "走多快"仍只有一个真源（本文件的 WALK_SPEED）。 */
+  function setCrewFrame(g, dir, walking) {
+    const C = global.SKSceneCrew;
+    if (!C) return;
+    C.setCrewFrame(g, dir, walking, Math.round((1 / WALK_SPEED) * 1000));
+  }
+
+  /* =============================================================
+   * 〔批 WALK · 2026-10-28〕自由行走：键盘连续走位 + 点地面走过去
+   * -------------------------------------------------------------
+   * 用户原话：「调整人物行走逻辑，现在可在地图中自由行走」。
+   *
+   * 上一版只有一个移动入口：点门（或等游戏把你带去决策房），人沿
+   * 「房间中心 → 门 → 廊 → 门 → 房间中心」那条折线走。玩家的坐标**不由玩家决定**，
+   * 停下来的位置也由 anchorInRoom 推（座位 / 睡眠舱 / 房间中央）。
+   *
+   * 这一版补两个入口，二者共用同一份碰撞、相机与落点状态：
+   *   ① 键盘：WASD / 方向键，速度 WALK_SPEED（与折线走动同速），
+   *      逐轴滑动 —— 撞墙时沿墙走，而不是整个人卡住；
+   *   ② 点地面：ship-map.walkPath() 用 0.5 格网格 A* 找一条不穿墙的折线再走过去。
+   *
+   * 三条不变量（改这里时必须守）：
+   *   · **碰撞只有一个判据**：SKShip.walkable()。渲染器不自己算墙体。
+   *   · **位置只有一个来源**：freePos（自由行走后）> walkState（折线中）> anchorInRoom。
+   *   · **不重建 DOM 也要动**：每帧只改角色 transform / 相机 viewBox / 小地图三个点
+   *     （重建整船 DOM 每帧会掉到个位数帧率，见 paintWalk 的注释）。
+   * ============================================================= */
+  let freePos = null;        /* 玩家自己走出来的落点（船体格）；null = 还没走过/换了昼夜 */
+  let freeDir = 'down';      /* 键盘走位的朝向（paintWalk 用它选行走图的行） */
+  let freeRaf = 0;
+  let freePrevT = 0;
+  let freeDirty = false;     /* 走动途中换了房间 ⇒ 停下来要重绘一次（家具可点性靠它） */
+
+  const KEY_DIR = {
+    ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right',
+    w: 'up', a: 'left', s: 'down', d: 'right',
+    W: 'up', A: 'left', S: 'down', D: 'right',
+  };
+  const KEY_HELD = { up: 0, down: 0, left: 0, right: 0 };
+  let keysBound = false;
+
+  /* 焦点在输入框里时不许抢键（发言输入框、私聊、笔记……） */
+  function isTypingTarget(t) {
+    if (!t) return false;
+    const tag = String(t.tagName || '').toUpperCase();
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
+    return !!t.isContentEditable;
+  }
+  /* 只有对局页才接管键盘：主页/结算页按方向键不该让场景里的人走起来 */
+  function sceneLive() {
+    if (!lastG || !lastV) return false;
+    const sc = el('screen-game');
+    if (sc && sc.classList && sc.classList.contains('hidden')) return false;
+    /* 弹层打开时不抢键：规则速览/席位弹窗要用方向键滚动，被走路吞掉就成了"按了没反应" */
+    const ov = ['rules-overlay', 'role-overlay'];
+    for (let i = 0; i < ov.length; i++) {
+      const n = el(ov[i]);
+      if (n && n.classList && !n.classList.contains('hidden')) return false;
+    }
+    return !!el('scene-mount');
+  }
+  function keyVector() {
+    let x = 0, y = 0;
+    if (KEY_HELD.up) y -= 1;
+    if (KEY_HELD.down) y += 1;
+    if (KEY_HELD.left) x -= 1;
+    if (KEY_HELD.right) x += 1;
+    if (x && y) { const k = Math.SQRT1_2; x *= k; y *= k; }   /* 斜向不许更快 */
+    return { x: x, y: y };
+  }
+  function keyMoving() { const v = keyVector(); return !!(v.x || v.y); }
+
+  /* 逐轴滑动：先试 x、再试 y。
+     撞墙时另一轴仍然生效 ⇒ 沿着墙擦过去（斜着撞墙不会整个人停住）。
+     判据只有 SKShip.walkable()（房间内缩矩形 + 通道带，见 ship-map.js 的批 WALK 段）。 */
+  function slideMove(from, dx, dy) {
+    const M = shipOf();
+    if (!M || !M.walkable) return { x: from.x, y: from.y };
+    let x = from.x, y = from.y;
+    if (dx && M.walkable(x + dx, y)) x += dx;
+    if (dy && M.walkable(x, y + dy)) y += dy;
+    return { x: x, y: y };
+  }
+
+  function startFreeWalk() {
+    if (freeRaf || !global.requestAnimationFrame || !sceneLive()) return;
+    freePrevT = now();
+    const step = function () {
+      freeRaf = 0;
+      if (!keyMoving()) { settleFreeWalk(); return; }
+      const t = now();
+      const dt = Math.max(0, Math.min(0.08, (t - freePrevT) / 1000));   /* 掉帧/切后台时别瞬移 */
+      freePrevT = t;
+      stepFreeWalk(dt);
+      freeRaf = global.requestAnimationFrame(step);
+    };
+    freeRaf = global.requestAnimationFrame(step);
+  }
+
+  function stepFreeWalk(dt) {
+    const M = shipOf();
+    if (!M) return;
+    const v = keyVector();
+    let from = myPos();
+    /* 起点先收敛到可站位置。
+       -------------------------------------------------------------
+       锚点不一定站得住：宿舍 1/2/4/5 号舱位的落点算出来是 y = 房间顶 + 2.0，
+       而可行走面的上沿是 +2.1（墙高 2 格再留 0.1 余量）—— 差 0.1 格。
+       从这种位置起步时，逐轴滑动会判"四个方向都撞墙"，人就**完全动不了**。
+       所以和点地面一样，先取最近的可站位置（SKShip.nearestWalkable）。 */
+    if (!M.walkable(from.x, from.y) && M.nearestWalkable) {
+      const q = M.nearestWalkable(from.x, from.y);
+      if (q) from = { x: q.x, y: q.y };
+    }
+    /* 键盘接管：正在沿折线走的话，先把当前位置落成 freePos 再打断 ——
+       否则 walkState 与 freePos 两套位置源同时存在，人会被折线拽回去。 */
+    if (walkState) { freePos = { x: from.x, y: from.y }; stopWalk(); }
+    const to = slideMove(from, v.x * WALK_SPEED * dt, v.y * WALK_SPEED * dt);
+    if (Math.abs(v.x) >= Math.abs(v.y) && v.x) freeDir = v.x > 0 ? 'right' : 'left';
+    else if (v.y) freeDir = v.y > 0 ? 'down' : 'up';
+    freePos = to;
+    paintWalk(to);
+    const here = M.roomAt(to.x, to.y);
+    if (here && here !== curRoom) {
+      /* 走进另一间房：curRoom 立刻跟着变（家具可点性、门高亮、小地图房名都读它），
+         但**不在走动中重建 DOM** —— 重建会打断这一帧的 transform。
+         记一个脏标记，等按键松开、人停下时重绘一次。 */
+      curRoom = here;
+      freeDirty = true;
+      sig = null;
+    }
+  }
+
+  function settleFreeWalk() {
+    freeRaf = 0;
+    paintWalk(myPos());
+    setIdleFrame();
+    if (!freeDirty) return;
+    freeDirty = false;
+    sig = null;
+    if (lastG && lastV) render(lastG, lastV);
+    else { const m = el('scene-mount'); if (m) m.__skBuilt = false; }
+  }
+
+  /* 停下来的姿态 = 待机帧（腿不摆），并摘掉 .sk-walking */
+  function setIdleFrame() {
+    const mount = el('scene-mount');
+    const svg = mount && mount.querySelector ? mount.querySelector('svg.sk-scene') : null;
+    if (!svg) return;
+    const meId = (lastV && lastV.humanId) || 1;
+    const g = svg.querySelector('.sk-crew[data-seat="' + meId + '"]');
+    if (g) setCrewFrame(g, 'down', false);
+  }
+
+  /* ---- 沿一条折线走（自由行走与点门共用同一个 runner）----
+     end 非空 = 走到终点后**停在 end**（点地面）；为空 = 回房间锚点（点门 / 自动导航）。
+     起点会接到人现在的位置上：A* 是从最近的格子中心出发的，差半格会让起步抖一下。 */
+  function walkAlong(p, room, end) {
+    if (!p || !p.pts || p.pts.length < 2) return null;
+    const from = myPos();
+    const pts = p.pts.slice();
+    if (Math.hypot(pts[0].x - from.x, pts[0].y - from.y) > 1e-6) pts.unshift({ x: from.x, y: from.y });
+    let len = 0;
+    for (let i = 0; i + 1 < pts.length; i++) {
+      len += Math.hypot(pts[i + 1].x - pts[i].x, pts[i + 1].y - pts[i].y);
+    }
+    walkState = { pts: pts, t: 0, len: len, room: room || curRoom, end: end || null };
+    startWalkAnim();
+    return walkState;
+  }
+
+  /* 点地面 → 走过去。走不通返回 false（调用方给提示，不假装成功）。 */
+  function walkToPoint(pt) {
+    const M = shipOf();
+    if (!M || !pt || !M.walkable) return false;
+    const from = myPos();
+    const p = M.walkPath(from, pt);
+    if (!p || !p.pts || p.pts.length < 2) return false;
+    walkAlong(p, M.roomAt(pt.x, pt.y) || curRoom, pt);
+    return true;
+  }
+
+  /* 点场景空地：先找最近的可站位置（点到墙上/家具上 = 走到它旁边），再走过去。 */
+  function onGroundClick(pt, mount) {
+    const M = shipOf();
+    if (!M || !M.nearestWalkable) return;
+    const q = M.nearestWalkable(pt.x, pt.y);
+    if (!q) { toast(mount, '那里走不过去'); return; }
+    if (!walkToPoint(q)) toast(mount, '那里走不过去');
+  }
+
+  /* 屏幕坐标 → 船体格坐标（格）。viewBox 就是船体坐标 × TILE，所以这里只除 TILE。 */
+  function shipPointFromEvent(e, mount) {
+    const svg = mount && mount.querySelector ? mount.querySelector('svg.sk-scene') : null;
+    if (!svg || !svg.getScreenCTM) return null;
+    let ctm = null;
+    try { ctm = svg.getScreenCTM(); } catch (_) { return null; }
+    if (!ctm || !ctm.a) return null;
+    let pt = null;
+    try {
+      const inv = ctm.inverse();
+      if (global.DOMPoint && global.DOMPoint) {
+        pt = new global.DOMPoint(e.clientX, e.clientY).matrixTransform(inv);
+      } else if (svg.createSVGPoint) {
+        const p = svg.createSVGPoint(); p.x = e.clientX; p.y = e.clientY;
+        pt = p.matrixTransform(inv);
+      }
+    } catch (_) { pt = null; }
+    if (!pt || !isFinite(pt.x) || !isFinite(pt.y)) return null;
+    return { x: pt.x / TILE, y: pt.y / TILE };
+  }
+
+  /* 键盘绑定：只在第一次渲染时挂一次（重复挂会让一次按键被处理多遍） */
+  function bindKeys() {
+    if (keysBound || !global.addEventListener) return;
+    keysBound = true;
+    global.addEventListener('keydown', function (e) {
+      if (!e || e.ctrlKey || e.metaKey || e.altKey) return;
+      const dir = KEY_DIR[e.key];
+      if (!dir) return;
+      if (isTypingTarget(e.target)) return;
+      if (!sceneLive()) return;
+      /* preventDefault：方向键会把面板/页面滚走，人却在走，画面跟着跳 */
+      if (e.preventDefault) e.preventDefault();
+      KEY_HELD[dir] = 1;
+      startFreeWalk();
+    });
+    global.addEventListener('keyup', function (e) {
+      const dir = e && KEY_DIR[e.key];
+      if (dir) KEY_HELD[dir] = 0;
+    });
+    /* 切窗口/失焦时必须清键：否则 alt-tab 回来人还在一直走 */
+    global.addEventListener('blur', function () {
+      KEY_HELD.up = 0; KEY_HELD.down = 0; KEY_HELD.left = 0; KEY_HELD.right = 0;
+    });
+  }
+
+  /* 〔批 ART-0/B2a · 2026-10-28〕房间外壳（地板/四壁/墙饰）与走廊带已搬到
+     `js/scene/shell.js`（零交互、零状态的纯 HTML 构建，对局页与主页共用同一份）。
+     这里只经 SHELL.* 调用，不再留第二份实现。 */
+
+  /* 通道：船体骨架的连接带（用户原话「通道连接房间」）。
+     -------------------------------------------------------------
+     为什么通道要画成"走廊"而不是一条细线：玩家点目标房间之后**自己会沿它走**，
+     走的时候必须看得出"我在廊里"。所以廊面铺地砖（floor-grate），
+     两侧加壁线，转角处不铺（本布局没有折角廊）。
+     数据全部来自 js/ship-map.js 的 corridorRects —— 渲染器不自己算几何。
+
+     【注意】廊面用**自己的一份 pattern**（sk-floor-corridor），不复用房间的。
+       第一版直接写 fill="url(#sk-floor-corridor)" 却**没有定义这个 pattern** ——
+       实测截图上走廊整条是空的（露出船体内衬），读作"房间浮在虚空里"。
+       这是 AGENTS 红线 9「元素存在 ≠ 像素可见」的又一次：DOM 里 <rect> 在、
+       包围盒也在，但它的 fill 取不到，画出来是透明的 —— 614 条断言一条都不会报。
+       test-ship 的 SH8 现在守这条：走廊 pattern 必须被定义，且 id 与引用一致。 */
+
+  /* 房间背景：地板平铺 + 四壁 + 门。**现在画的是全部 9 间房**（整船图），
+     当前房间只是"我站在哪"，不再是"画哪一间"。 */
+  function roomHtml(S) {
+    const M = shipOf();
+    let html = '<g class="sk-room-floor">';
+    /* 通道先画（压在房间下面，房间外圈光会盖住接缝） */
+    if (M) html += SHELL.corridorHtml(M);
+
+    for (const id of (S.ids ? S.ids() : [])) {
+      const o = roomOrigin(S, id);
+      const r = o.r;
+      if (!r) continue;
+      /* 每间房可用 space.js 的 dim 覆盖地板压暗强度（暖色地板需要压得更深） */
+      html += SHELL.floorWallShell(S, o, r, id, r.dim != null ? r.dim : 0.34);
+
+      /* ---- 门：墙面上的开口 + 可点热区 ----
+         〔批 UI-7〕旧版门只是一块描边矩形（fill #0b1424），读作"墙上贴了张蓝框标签"。
+         现在先贴 cozy 的 door-open 素材做**开口**，再在上面盖热区。
+         上下两侧的门按 side 旋转 90°（素材是竖版 32×64）。
+         〔批 UI-6 的约束仍然有效〕热区必须整块落在房间内 —— 见下方按 side 收边。
+         〔批 SHIP〕门锚点改走 ship-map 的 doorPoint（船体格），与通道端点同源，
+           这样"门在哪"与"廊连到哪"永远是同一个数，不会出现廊接在门旁边。 */
+      for (const d of r.doors) {
+        const a = S.doorAnchor(id, d);
+        if (!a) continue;
+        const px = o.x + a.x, py = o.y + a.y;
+        const horiz = (d.side === 't' || d.side === 'b');
+        const dw = horiz ? 2 : 0.7, dh = horiz ? 0.7 : 2;
+        /* 门热区**必须整块落在房间内**（批 UI-6 的教训：一半在画布外会被裁掉）。 */
+        let rx, ry;
+        if (d.side === 'l') { rx = o.x; ry = py - dh / 2; }
+        else if (d.side === 'r') { rx = o.x + o.w - dw; ry = py - dh / 2; }
+        else if (d.side === 't') { rx = px - dw / 2; ry = o.y; }
+        else { rx = px - dw / 2; ry = o.y + o.h - dh; }
+        /* 转成像素 */
+        const RX = rx * TILE, RY = ry * TILE, DW = dw * TILE, DH = dh * TILE;
+        /* 门洞素材：竖门直接贴；横门**旋转 90°**，不是把 32×64 拉成 2:0.7。
+           注意：第一版是"交换 width/height"——那是拉伸，门框与门板的像素比例会被拉歪，
+             截图上门变成一片浅色长方形。这里用 rotate 围绕矩形中心转，保持像素比例。 */
+        if (horiz) {
+          const cx = RX + DW / 2, cy = RY + DH / 2;
+          html += '<image class="sk-door-art" pointer-events="none" href="' + ASSET
+            + 'tiles/door-open.png" x="' + (cx - DH / 2) + '" y="' + (cy - DW / 2)
+            + '" width="' + DH + '" height="' + DW
+            + '" transform="rotate(90 ' + cx + ' ' + cy + ')"'
+            + ' image-rendering="pixelated" opacity="0.95"/>';
+        } else {
+          html += '<image class="sk-door-art" pointer-events="none" href="' + ASSET
+            + 'tiles/door-open.png" x="' + RX + '" y="' + RY + '" width="' + DW + '" height="' + DH
+            + '" image-rendering="pixelated" opacity="0.95"/>';
+        }
+        html += '<rect class="sk-door" data-door="' + escAttr(d.to) + '" data-room="' + escAttr(id)
+          + '" x="' + RX + '" y="' + RY + '" width="' + DW + '" height="' + DH
+          + '" fill="none" stroke="#4dabf7" stroke-width="2" rx="4"/>';
+        /* 〔批 SHIP-2 · 2026-10-27〕标签不再压在门洞正中，而是**向房内让开**。
+           -------------------------------------------------------------
+           旧写法把标签放在门矩形中心（RX+DW/2, RY+DH/2+4）。左右两侧的门只有
+           0.7 格宽（39px），而"查证室"三个字在 12px 字号下约 40px —— 字直接压在
+           门框描边与门洞暗部上，实测「查证室」在左侧门上读成「查证室」压成一团深色
+           （截图放大后只有中间一个字清楚）。上下两扇门更糟：门洞本身 2 格宽，
+           但标签 y 落在墙脚线，与壁线叠在一起。
+           现在按 side 把标签推到**房内一侧**（离门 0.55 格），并加一层描边
+           （paint-order:stroke，见 CSS），压在深色地板/家具上也读得出来。
+           这不是"更好看"，是"读不读得出"：玩家要靠它判断这扇门通向哪间房。 */
+        const off = TILE * 0.55;
+        let tx = RX + DW / 2, ty = RY + DH / 2 + 4, anchor = 'middle';
+        if (d.side === 'l') { tx = RX + DW + off; ty = RY + DH / 2 + 4; anchor = 'start'; }
+        else if (d.side === 'r') { tx = RX - off; ty = RY + DH / 2 + 4; anchor = 'end'; }
+        else if (d.side === 't') { tx = RX + DW / 2; ty = RY + DH + TILE * 0.5; }
+        else { tx = RX + DW / 2; ty = RY - TILE * 0.28; }
+        html += '<text class="sk-door-t" x="' + tx + '" y="' + ty + '" text-anchor="' + anchor
+          + '" data-side="' + escAttr(d.side) + '">'
+          + escAttr((S.room(d.to) || {}).name || d.to) + '</text>';
+      }
+
+      /* 房名：钉在**房间右上角**，不再钉左上角。
+         -------------------------------------------------------------
+         左上角是书记官记录板的位置（layoutClerk 把小地图与记录板都放在场景左上），
+         实测「舰桥」与记录板「书记官记录」重叠 798px² —— 两个词叠在一起谁也读不清。
+         记录板是浮层、位置由 JS 按桌面包围盒算；房名是 SVG 文本、位置写死在这里。
+         让 SVG 那一份避开浮层，比让浮层记住"左上角还有字"更可靠
+         （浮层还要避让小地图、席位、提交路径，约束已经够多）。
+         房名靠右对齐，右边界留 0.45 格，与门的标签也不会撞。 */
+      html += '<text class="sk-room-name" x="' + ((o.x + o.w) * TILE - TILE * 0.45)
+        + '" y="' + (o.y * TILE + 34) + '" text-anchor="end">'
+        + escAttr(r.name) + '</text>';
+    }
     html += '</g>';
     return html;
   }
 
-  /* 家具层 */
+  /* 家具层 —— 整船图下**全部 9 间房的家具一起画**（它们是船的一部分）。
+     只有当前房间的家具可点：其余房间的 data-hit 一律不加，
+     否则玩家会隔着两间房点到别人的手术台（交互必须"人到了才能做"）。 */
   function propsHtml(S) {
-    const o = roomOrigin(S);
-    const r = o.r;
     let html = '<g class="sk-props">';
+    const ids = S.ids ? S.ids() : [];
+    for (const id of ids) {
+      const o = roomOrigin(S, id);
+      const r = o.r;
+      if (!r) continue;
+      const here = id === curRoom;
+      html += '<g class="sk-props-room" data-room="' + escAttr(id) + '">';
+      html += propsOfRoom(S, o, r, here);
+      html += '</g>';
+    }
+    html += '</g>';
+    return html;
+  }
+
+  function propsOfRoom(S, o, r, here) {
+    let html = '';
     for (const p of r.props) {
       const d = S.PROP[p.t];
       if (!d) continue;
       const w = (p.w || d.w) * TILE, h = (p.h || d.h) * TILE;
-      const x = o.x + p.x * TILE, y = o.y + p.y * TILE;
-      const cls = 'sk-prop' + (p.k ? ' sk-hit' : '') + (p.t === 'rug' ? ' sk-decal' : '');
+      const x = o.x * TILE + p.x * TILE, y = o.y * TILE + p.y * TILE;
+      /* 只有本房间的物件可交互 */
+      const k = here ? p.k : null;
+      const cls = 'sk-prop' + (k ? ' sk-hit' : '') + (p.t === 'rug' ? ' sk-decal' : '');
       html += '<image class="' + cls + '" '
-        + (p.k ? 'data-hit="' + escAttr(p.k) + '" data-label="' + escAttr(p.label || '') + '" ' : '')
+        + (k ? 'data-hit="' + escAttr(k) + '" data-label="' + escAttr(p.label || '') + '" ' : '')
         + 'href="' + ASSET + 'furniture/' + p.t + '.png" '
         + 'x="' + x + '" y="' + (y + h - (p.t === 'rug' ? h : 0)) + '" width="' + w
         + '" height="' + h + '" preserveAspectRatio="none" image-rendering="pixelated"/>';
@@ -295,7 +793,7 @@
         }
         /* 可交互的地面片：热区用一块透明矩形盖住整片（瓦片本身不宜带 data-hit，
            否则点击会落到其中一格上，白框只框住 1/16 的面积） */
-        if (p.k) {
+        if (p.k && here) {
           html += '<rect class="sk-prop sk-decal" x="' + x + '" y="' + y + '" width="' + w
             + '" height="' + h + '" fill="none" pointer-events="all"'
             + ' data-hit="' + escAttr(p.k) + '" data-label="' + escAttr(p.label || '') + '"/>';
@@ -316,14 +814,14 @@
           + (isDeck
             ? ' fill="' + (p.tint === 'warn' ? '#8a6a2a' : '#16233a') + '" opacity="0.85"'
             : ' fill="none" stroke="#2f5178" stroke-width="2" opacity="0.55" stroke-dasharray="10 8"')
-          + (p.k ? ' data-hit="' + escAttr(p.k) + '" data-label="' + escAttr(p.label || '') + '"' : '')
+          + (k ? ' data-hit="' + escAttr(p.k) + '" data-label="' + escAttr(p.label || '') + '"' : '')
           + (p.anchor ? ' data-anchor="' + escAttr(p.anchor) + '"' : '')
           + '/>';
       }
       /* 〔批 UI-5〕新增的 5 件交互道具（通讯台 / 投票箱 / 抑制器 / 逃生舱 / 航海日志）
          没有正式素材，用 cozy 家具打底 + **同色角标**（角标里一个字），
          让玩家一眼分辨"这件东西能点、叫什么"。角标不是 emoji（用户排斥 emoji 图标）。 */
-      const np = global.SKHudMap && global.SKHudMap.newProp(p.k);
+      const np = here && global.SKHudMap && global.SKHudMap.newProp(p.k);
       if (np) {
         html += '<g class="sk-mark" pointer-events="none">'
           + '<rect x="' + (x + w - 26) + '" y="' + (y + h - 26) + '" width="24" height="24" rx="6"'
@@ -333,13 +831,15 @@
       }
     }
 
-    /* 15 席（舰桥）：座椅底座 + 编号
-       〔批 UI-6〕座圈必须与角色**同步压扁**：只改角色的 py 会让椭圆留在原位，
-       画面上就是"角色飘在半空、底下还留着一排空圈"（实测截图一眼可见）。
-       所以这里也走 squashSeatY —— 一处定义，两处消费。 */
-    const seats = S.seatPositions(curRoom);
+    /* 15 席（舰桥）：座椅底座 + 编号。
+       〔批 SHIP〕座圈不再压扁让位 —— 整船图里相机负责让位（见 cameraNow）。
+       压扁是"房间铺满画布"时代的补丁：那时人没法躲开贴底抽屉，只能把人压扁。
+       现在相机把我抬到画面上部 0.34 处，人不变形也不会被抽屉压住。
+       【注意】squashSeatY 保留（主页与旧断言仍引用它），但整船图下它的系数恒为 1。 */
+    const bridgeO = roomOrigin(S, 'bridge');
+    const seats = S.seatPositions('bridge');
     for (const s of seats) {
-      const px = o.x + s.x * TILE, py = o.y + squashSeatY(S, s.y) * TILE;
+      const px = bridgeO.x * TILE + s.x * TILE, py = bridgeO.y * TILE + squashSeatY(S, s.y) * TILE;
       html += '<g class="sk-seat' + (s.i === 1 ? '' : '') + '" data-seatpos="' + s.i + '">'
         + '<ellipse cx="' + px + '" cy="' + py + '" rx="' + (TILE * 0.46) + '" ry="' + (TILE * 0.28)
         + '" fill="#0b1424" stroke="' + PALETTE[s.i - 1] + '" stroke-width="2"/>'
@@ -348,16 +848,16 @@
     }
 
     /* 15 个睡眠舱（宿舍） */
-    const pods = S.podPositions(curRoom);
+    const dormsO = roomOrigin(S, 'dorms');
+    const pods = S.podPositions('dorms');
     for (const p of pods) {
-      const px = o.x + p.x * TILE, py = o.y + p.y * TILE;
+      const px = dormsO.x * TILE + p.x * TILE, py = dormsO.y * TILE + p.y * TILE;
       html += '<image class="sk-prop" href="' + ASSET + 'furniture/cryopod.png" x="' + px
         + '" y="' + py + '" width="' + TILE + '" height="' + (TILE * 2)
         + '" image-rendering="pixelated"/>'
         + '<text class="sk-pod-n" x="' + (px + TILE / 2) + '" y="' + (py + TILE * 2 + 12)
         + '" text-anchor="middle">' + p.i + '</text>';
     }
-    html += '</g>';
     return html;
   }
 
@@ -405,95 +905,48 @@
     return top + (y - top) * k;
   }
   function crewHtml(g, V, S) {
-    const o = roomOrigin(S);
     const players = (V && V.players) || [];
-    const seats = S.seatPositions('bridge');
-    const pods = S.podPositions('dorms');
-    const walking = walkUntil > 0;
+    /* 走动中 = 沿折线走 或 键盘正在按方向键（两种都要腿动起来） */
+    const walking = !!walkState || keyMoving();
     let html = '<g class="sk-crew-layer' + (walking ? ' sk-walking' : '') + '">';
 
-    /* 入场起点 = 房间的第一扇门（无门则从下缘外进） */
-    const doors = (S.room(curRoom) || {}).doors || [];
-    const da = doors.length ? S.doorAnchor(curRoom, doors[0]) : null;
-    const baseX = da ? o.x + da.x * TILE : o.x + o.w / 2;
-    const baseY = da ? o.y + da.y * TILE : o.y + o.h + TILE * 1.4;
+    /* 〔批 RTA-0 / R1 · 2026-10-28〕**全员渲染，但只画"看得见"的人**。
+       -------------------------------------------------------------
+       用户原话：「信息并不能看到全船，只能看到以自身为中心的一个小圈」+
+       「消除掉玩家消失系统」「枪击和目击不可以跨墙」。
 
-    for (const p of players) {
-      const isMe = p.id === V.humanId;
-      const isDay = g.phase !== 'night';
-      let px, py;
-      if (curRoom === 'bridge' && isDay) {
-        const s = seats[(p.id - 1) % seats.length];
-        px = o.x + s.x * TILE;
-        /* 〔批 UI-6〕面板展开且非模态时，座圈纵向压扁（锚定上沿），给贴底抽屉让位 */
-        py = o.y + squashSeatY(S, s.y) * TILE;
-      } else if (curRoom === 'dorms') {
-        const q = pods[(p.id - 1) % pods.length];
-        px = o.x + q.x * TILE + TILE / 2; py = o.y + q.y * TILE + TILE;
-      } else {
-        /* 其他房间：只画「我」，站在房间中央偏下 */
-        if (!isMe) continue;
-        px = o.x + o.w / 2; py = o.y + o.h - TILE * 1.6;
-      }
+       旧口径（批 SHIP）是**只画我**：整船图里出现别人 = 把"谁在哪"白送。
+       新口径不改这条**意图**，只改实现：**看不见的人不进 DOM**，
+       判据 = 距我 ≤ VISION_R（9 格）∩ 两人之间无墙（`SKShip.losClear`）。
 
-      /* 〔批 UI-7〕角色尺寸按**帧内实际内容**算，不按 96×160 的帧框算。
-         -------------------------------------------------------------
-         实测 crew-01..15 的待机帧：内容只占 y48~159、x20~79 ——
-         也就是帧框上部 30% 是透明的，左右各 20px 也是透明的。
-         旧写法 w = TILE*0.92 = 51.5 ⇒ h = 51.5×(160/96) = 85.9，
-         但**可见**只有 85.9×(112/160) = 60px 高、51.5×(60/96) = 32px 宽。
-         于是在 56px 的格子上，角色只有 32px 宽 —— 比座圈（rx 25.8）还窄，
-         读作"点"而不是"人"；同屏 15 个也显得稀稀拉拉。
-         现在按内容比例反推帧框：可见宽固定为 1.15 格（64px），
-         帧框高 = 64×(160/60)×(96/96)… 见 CREW_BOX。 */
-      const w = CREW_BOX.w(), h = CREW_BOX.h();
-      const file = CREW_FILE(p.id);
+       为什么把判据放在数据层：视线与可行走面共用同一份几何（房间内缩 + 通道带），
+       渲染器自己再写一套 raycast 必然出现"能走过去但看不见"这种不一致。
+       为什么看不见的人**不生成节点**而不是 display:none：
+       否则 F12 一开就能读 DOM 里 15 个人的坐标 —— 那是另一种"白送"。 */
+    const me = players.filter(p => p.id === V.humanId)[0];
+    if (!me) { return html + '</g>'; }
+
+    /* 位置：船体格 → 像素。走动中由 walkState 决定（paintWalk 每帧改 transform），
+       静止时落在房间锚点（舰桥座位 / 宿舍舱位 / 其他房间中央）。 */
+    const pos = myPos();
+
+    /* 〔批 UI-7〕角色尺寸按**帧内实际内容**算，不按 96×160 的帧框算 —— 见 CREW_BOX。 */
+    const w = CREW_BOX.w(), h = CREW_BOX.h();
+    const vbIdle = CREW_W + ' ' + (CREW_H * ROW_IDLE) + ' ' + CREW_W + ' ' + CREW_H;
+
+    /* 一个角色节点的 HTML（我 / 别人 共用；只是光环色、class 与编号不同） */
+    function oneCrewHtml(p, at, isMe) {
       const ring = isMe ? MINE : PALETTE[(p.id - 1) % PALETTE.length];
-
-      /* 入场起点：沿门横向散开 + 纵向错开，避免 15 人叠在同一个门口点
-         （实测：全部同起点时画面是一坨人）。每人再用 --delay 错峰出发。 */
-      const spread = ((p.id - 1) % 5 - 2) * TILE * 0.85;
-      const row = Math.floor((p.id - 1) / 5);
-      const entryX = baseX + spread;
-      const entryY = baseY + (da && da.y === 0 ? -row * TILE * 0.6 : TILE * 0.6 + row * TILE * 0.6);
-      const dx = (entryX - px).toFixed(1), dy = (entryY - py).toFixed(1);
-      const delay = ((p.id * 37) % 220);
-
-      /* 行走图截帧：
-           行走 = viewBox 框住「向下走」那一行的第 1 帧，CSS 在 4 帧列之间平移（1-2-3-2 循环）
-           待机 = viewBox 框住「待机」行第 2 列 */
-      const vb = walking
-        ? ('0 0 ' + CREW_W + ' ' + CREW_H)
-        : (CREW_W + ' ' + (CREW_H * ROW_IDLE) + ' ' + CREW_W + ' ' + CREW_H);
-
-      /* 〔批 UI-6 · 2026-10-26〕删掉 clipPath —— 它既多余又有害。
-         -------------------------------------------------------------
-         历史：批 UI-3a 加了一条 `<clipPath>` 想裁掉 384×800 行走图的溢出，
-         UI-5a 又"修"了它的坐标系（rect 跟着 viewBox 原点走）。
-         本批实测发现：**嵌套 `<svg>` 本身就会裁到自己的视口**（overflow 默认 hidden），
-         所以 clipPath 完全是多余的；而它引用的用户空间在"外层 svg / 内层 svg"
-         之间有歧义，实测在宿舍房间里把角色整块裁掉（同一份代码在舰桥却正常）——
-         也就是说它是**间歇性**的，取决于角色在画布上的位置。
-
-         证据：把 clip-path 属性去掉（只留 viewBox 取景）后，
-         舰桥与宿舍的角色都完整显示、且每帧只出一格（嵌套 svg 的裁剪生效）。
-
-         结论：删掉 clipPath 与它的 `<defs>`，只留 `overflow="hidden"` + `.sk-frame{contain:paint}`。
-         这样「待机帧不可见」那一类缺陷从根上不可能复发 —— 没有裁剪坐标系了。 */
-      html += '<g class="sk-crew' + (isMe ? ' sk-mine' : '') + (p.out ? ' sk-out' : '')
-        + '" data-seat="' + p.id + '" transform="translate(' + px.toFixed(1) + ','
-        + (py + TILE * 0.34).toFixed(1) + ')" style="--dx:' + dx + 'px;--dy:' + dy + 'px;--delay:'
-        /* 〔批 UI-8a · 2026-10-27〕--delay 以前**算出来了但没写进 DOM**（死变量）。
-           后果不只是"错峰失效"：CSS 变量是**可继承**的，重建 DOM 时新元素没声明它，
-           会继承上一次的值 —— 15 个人的出发时间实际是乱的，加重了"一坨人"的观感。
-           实测：getComputedStyle(el).getPropertyValue('--delay') 返回空串。 */
-        + delay + 'ms">'
+      const file = CREW_FILE(p.id);
+      return '<g class="sk-crew' + (isMe ? ' sk-mine' : ' sk-other') + (p.out ? ' sk-out' : '')
+        + '" data-seat="' + p.id + '" transform="translate(' + (at.x * TILE).toFixed(1) + ','
+        + (at.y * TILE + TILE * 0.34).toFixed(1) + ')">'
         + '<g class="sk-enter">'
         + '<ellipse cx="0" cy="0" rx="' + (TILE * 0.42) + '" ry="' + (TILE * 0.17)
         + '" fill="' + ring + '" opacity="0.35"/>'
         + '<svg class="sk-frame" x="' + (-w / 2).toFixed(1) + '" y="' + (-h * 0.62).toFixed(1)
         + '" width="' + w.toFixed(1) + '" height="' + h.toFixed(1)
-        + '" viewBox="' + vb + '" overflow="hidden" preserveAspectRatio="xMidYMax meet">'
+        + '" viewBox="' + vbIdle + '" overflow="hidden" preserveAspectRatio="xMidYMax meet">'
         + '<g class="sk-frames">'
         + '<image href="assets/scene/crew/' + file + '.png" x="0" y="0" width="'
         + (CREW_W * 4) + '" height="' + (CREW_H * 5) + '" image-rendering="pixelated"/>'
@@ -502,8 +955,305 @@
         + '" text-anchor="middle">' + p.id + '</text>'
         + '</g></g>';
     }
+
+    /* 我自己：永远画（否则玩家找不到自己） */
+    html += oneCrewHtml(me, pos, true);
+
+    /* 其他人：只画视野内且无墙遮挡的。顺序即玩家序号，保证 DOM 稳定（关掉重开不乱跳）。 */
+    const M2 = shipOf();
+    for (let k = 0; k < players.length; k++) {
+      const p = players[k];
+      if (!p || p.id === V.humanId) continue;
+      const at = crewPos(p.id);
+      if (!inSight(pos, at, M2)) continue;   /* 看不见 ⇒ 不生成节点（不是 display:none） */
+      html += oneCrewHtml(p, at, false);
+    }
+
     html += '</g>';
     return html;
+  }
+
+  /* ---- 〔批 R1〕视野：半径 ∩ 不跨墙 --------------------------------------
+     `inSight` 是渲染层唯一的可见性判据；将来 AI 的"目击"必须调**同一个**函数
+     （否则玩家和 AI 的视野不一致，等于一方作弊）。 */
+  function inSight(from, to, M) {
+    if (!from || !to) return false;
+    const d = Math.hypot(to.x - from.x, to.y - from.y);
+    if (d > VISION_R) return false;
+    if (!M || typeof M.losClear !== 'function') return true;   /* 数据层未加载时退化为"只判距离" */
+    return M.losClear(from, to);
+  }
+
+  /* ---- 〔批 R1〕别人站在哪 -------------------------------------------------
+     现在 AI 还没有空间状态（那是 R3），所以默认所有人**集合在舰桥各自席位**；
+     R3 起由 AI 每帧写入真实坐标（`SKScene.setCrewPos`），渲染层不改。 */
+  const CREW_POS = {};
+  function crewPos(id) {
+    if (CREW_POS[id]) return CREW_POS[id];
+    const S2 = global.SKSpace;
+    if (!S2) return { x: 0, y: 0 };
+    const o = roomOrigin(S2, 'bridge');
+    const seats = S2.seatPositions ? S2.seatPositions('bridge') : [];
+    const st = seats[(id - 1) % (seats.length || 1)];
+    return st ? { x: o.x + st.x, y: o.y + st.y } : { x: o.x + 15, y: o.y + 5.5 };
+  }
+  function setCrewPos(id, at) {
+    if (id == null) return;
+    if (at == null) { delete CREW_POS[id]; return; }
+    CREW_POS[id] = { x: at.x, y: at.y };
+    sig = null;   /* 位置变了 ⇒ 下一次 render 要重建（别人没有逐帧 paint 通道） */
+  }
+
+  /* =============================================================
+   * 〔批 RTA-0 / R3 · 2026-10-28〕别人的闲逛与**逐帧绘制**
+   * -------------------------------------------------------------
+   * 用户原话：「他们闲置的时候不再待在宿舍或静默，也会进行行动」。
+   *
+   * 这一批只做**表现层**的行走：引擎侧还没有 AI 空间状态（那要连 witness/decide 一起改），
+   * 所以这里给每个非我角色一个"闲逛计划"——随机挑一个可站的点，沿 walkPath 走过去，
+   * 停 1~3 秒，再挑下一个。它**不进存档、不影响规则**（纯视图，行为指纹不变）。
+   *
+   * 三条不变量：
+   *   · **逐帧只改 transform**（paintCrew）：每帧重建整船 DOM 会掉到个位数帧率；
+   *   · **只有"进出视野"才重建**（sig = null）：那才需要增删节点；
+   *   · **不在对局页就停**（sceneLive 为假时不跑）—— 主页/结算页不该有人在动。
+   * ============================================================= */
+  const WANDER = {};        /* id → { pts, t, len, wait } */
+  let wanderRaf = 0, wanderPrev = 0, wanderRepaintAt = 0;
+
+  /* 挑一个"看起来合理"的落脚点：随机房间里的随机点（走不到就退回房间中心） */
+  function pickWanderDest() {
+    const M = shipOf();
+    if (!M || !M.ids || !M.ids().length) return null;
+    const ids = M.ids();
+    const room = ids[Math.floor(Math.random() * ids.length)];
+    const r = M.roomRect(room);
+    if (!r) return null;
+    for (let k = 0; k < 20; k++) {
+      const x = r.x + 2 + Math.random() * (r.w - 4);
+      const y = r.y + 3 + Math.random() * (r.h - 4.5);
+      if (M.walkable(x, y)) return { x: x, y: y };
+    }
+    return M.roomCenter(room);
+  }
+
+  /* 逐帧只改 transform（+ 行走帧），不碰 DOM 结构 */
+  function paintCrew(id, pos, walking, dir) {
+    const mount = el('scene-mount');
+    const svg = mount && mount.querySelector ? mount.querySelector('svg.sk-scene') : null;
+    if (!svg) return;
+    const g = svg.querySelector('.sk-crew[data-seat="' + id + '"]');
+    if (!g) return;   /* 不在 DOM 里 = 此刻看不见，正常 */
+    g.setAttribute('transform', 'translate(' + (pos.x * TILE).toFixed(1) + ','
+      + (pos.y * TILE + TILE * 0.34).toFixed(1) + ')');
+    setCrewFrame(g, dir || 'down', !!walking);
+  }
+
+  /* 一人一步：沿当前折线前进；走完就等一会儿再挑新目标 */
+  function stepOneCrew(id, dt) {
+    const M = shipOf();
+    if (!M) return;
+    let w = WANDER[id];
+    if (!w || !w.pts) {
+      const from = crewPos(id);
+      const to = pickWanderDest();
+      if (!to) return;
+      const p = M.walkPath(from, to);
+      w = WANDER[id] = p && p.pts && p.pts.length > 1
+        ? { pts: p.pts, t: 0, len: p.len, wait: 0 }
+        : { pts: null, wait: 1 + Math.random() * 2 };
+    }
+    if (w.wait > 0) {
+      w.wait -= dt;
+      if (w.wait <= 0) WANDER[id] = null;   /* 休息完，下次循环重新挑目标 */
+      return;
+    }
+    const need = w.len > 0 ? w.len / WALK_SPEED : 0;
+    w.t = need > 0 ? Math.min(1, w.t + dt / need) : 1;
+    const pos = pointOnPath(w.pts, w.t);
+    const dir = dirOnPath(w.pts, w.t);
+    const before = crewPos(id);
+    const visBefore = inSight(myPos(), before, M);
+    setCrewPosRaw(id, pos);
+    const visAfter = inSight(myPos(), pos, M);
+    paintCrew(id, pos, true, dir);
+    /* 只有"进出视野"才需要重建 DOM（增删节点）；同视野内移动一律逐帧改 transform */
+    if (visBefore !== visAfter) {
+      sig = null;
+      const now2 = now();
+      if (now2 - wanderRepaintAt > 400) {
+        wanderRepaintAt = now2;
+        if (lastG && lastV) render(lastG, lastV);
+      }
+    }
+    if (w.t >= 1) { w.pts = null; w.t = 0; w.wait = 1 + Math.random() * 2; WANDER[id] = w; }
+  }
+
+  /* 只写坐标、不置 sig（逐帧用；置 sig 会让每次移动都重建整船 DOM） */
+  function setCrewPosRaw(id, at) {
+    if (id == null || !at) return;
+    CREW_POS[id] = { x: at.x, y: at.y };
+  }
+
+  function startWander() {
+    if (wanderRaf || !global.requestAnimationFrame) return;
+    wanderPrev = now();
+    const loop = function () {
+      wanderRaf = 0;
+      if (!sceneLive()) { wanderRaf = global.requestAnimationFrame(loop); return; }
+      const t = now();
+      const dt = Math.max(0, Math.min(0.1, (t - wanderPrev) / 1000));
+      wanderPrev = t;
+      const V = lastV;
+      const ids = (V && V.players) ? V.players.map(p => p.id) : [];
+      for (let i = 0; i < ids.length; i++) {
+        if (ids[i] === V.humanId) continue;
+        stepOneCrew(ids[i], dt);
+      }
+      wanderRaf = global.requestAnimationFrame(loop);
+    };
+    wanderRaf = global.requestAnimationFrame(loop);
+  }
+  function stopWander() {
+    if (wanderRaf && global.cancelAnimationFrame) { try { global.cancelAnimationFrame(wanderRaf); } catch (_) {} }
+    wanderRaf = 0;
+  }
+
+  /* =============================================================
+   * 〔批 SHIP · 2026-10-27〕小地图（左上角）
+   * -------------------------------------------------------------
+   * 用户原话：「小地图上会显示整张地图的布局」。
+   *
+   * 它是**唯一能看到全船**的地方，所以必须画全 9 间房 + 8 条通道；
+   * 屏幕上那层（主视图）只显示相机视窗内的一小块近景。
+   *
+   * 画法：ship-map 的 mapProjection 把 234×45 格等比塞进固定像素框，
+   *   房间 = 描边矩形（当前房间高亮），通道 = 细线，
+   *   我 = 一个亮点，视野框 = 相机矩形（让玩家知道"我看到的范围有多大"）。
+   * 它**不显示别人**（与主视图同一条口径：只看到自己）。
+   * ============================================================= */
+  /* 〔批 M2 · 2026-10-28〕小地图比例跟着船体走：126:108 ≈ 1.167 ⇒ 112×96（不留左右黑边）。
+     旧值 216×64 是为 234:45 的横长条定死的 —— 米字布局下会左右大片留白。 */
+  const MAP_W = 112, MAP_H = 96;   /* 像素；近方形，与船体 126:108 的比例一致 */
+
+  /* =============================================================
+   * 〔批 RTA-0 / R4-lite · 2026-10-28〕相位倒计时 HUD
+   * -------------------------------------------------------------
+   * 用户拍板：夜 90s / 昼讨论 60s / tick 0.25s（见 js/engine/clock.js）。
+   * 这一版先把**时钟显示**接上：换相位就重开一个 SKClock 相位，每 250ms 刷新文本。
+   * 【为什么先只做显示】引擎侧"到点自动推进"要改 steps.js 的派发（R4 主线），
+   *   在那之前先把"还剩多久"摆到玩家眼前，规则仍按旧步骤走 —— 不会出现
+   *   "界面说还剩 3 秒、引擎却在等你决策"这种自相矛盾。
+   * ============================================================= */
+  let PHASE_CLOCK = null;
+
+  function clockOf(g) {
+    const C = global.SKClock;
+    if (!C) return null;
+    const nowMs = now();
+    if (!PHASE_CLOCK || PHASE_CLOCK.phase !== g.phase) {
+      PHASE_CLOCK = C.newPhase(g.phase === 'night' ? 'night' : 'day', nowMs);
+    }
+    return PHASE_CLOCK;
+  }
+
+  function clockHtml(g) {
+    const C = global.SKClock;
+    const st = C ? clockOf(g) : null;
+    if (!st) return '';
+    return '<div class="sk-clock" aria-label="相位剩余时间"><b>'
+      + (st.phase === 'night' ? '夜' : '昼') + '</b><span>'
+      + C.fmt(C.remaining(st, now())) + '</span></div>';
+  }
+
+  /* 只改文本，不重建 DOM（每帧重建会打断角色动画） */
+  let clockTimer = 0;
+  function startClock() {
+    if (clockTimer || !global.setInterval) return;
+    clockTimer = global.setInterval(function () {
+      const mount = el('scene-mount');
+      const box = mount && mount.querySelector ? mount.querySelector('.sk-clock span') : null;
+      if (!box || !lastG) return;
+      const C = global.SKClock;
+      if (!C) return;
+      const st = clockOf(lastG);
+      const txt = C.fmt(C.remaining(st, now()));
+      if (box.textContent !== txt) box.textContent = txt;
+    }, 250);
+  }
+
+  function minimapHtml(M) {
+    const P = M.mapProjection(MAP_W, MAP_H, 3);
+    const me = myPos();
+    const cam = cameraNow();
+    let html = '<div class="sk-minimap" role="img" aria-label="整船小地图">';
+    html += '<svg viewBox="0 0 ' + MAP_W + ' ' + MAP_H + '" preserveAspectRatio="xMidYMid meet">';
+    /* 通道 */
+    for (const L of M.LINKS) {
+      const a = M.doorPoint(L.a, L.sa), b = M.doorPoint(L.b, L.sb);
+      const A = P.toMap(a.x, a.y), B = P.toMap(b.x, b.y);
+      html += '<line class="sk-mm-link" x1="' + A.x.toFixed(1) + '" y1="' + A.y.toFixed(1)
+        + '" x2="' + B.x.toFixed(1) + '" y2="' + B.y.toFixed(1) + '"/>';
+    }
+    /* 房间 */
+    for (const id of M.ids()) {
+      const r = M.roomRect(id);
+      const A = P.toMap(r.x, r.y);
+      const w = r.w * P.s, h = r.h * P.s;
+      const cur = id === curRoom ? ' sk-mm-here' : '';
+      html += '<rect class="sk-mm-room' + cur + '" x="' + A.x.toFixed(1) + '" y="' + A.y.toFixed(1)
+        + '" width="' + w.toFixed(1) + '" height="' + h.toFixed(1) + '" rx="1"/>';
+    }
+    /* 视野框：让玩家看懂"屏幕上只显示这一小块" */
+    const V = P.toMap(cam.x, cam.y);
+    html += '<rect class="sk-mm-view" x="' + V.x.toFixed(1) + '" y="' + V.y.toFixed(1)
+      + '" width="' + (cam.w * P.s).toFixed(1) + '" height="' + (cam.h * P.s).toFixed(1) + '"/>';
+    /* 我 */
+    const MP = P.toMap(me.x, me.y);
+    html += '<circle class="sk-mm-me" cx="' + MP.x.toFixed(1) + '" cy="' + MP.y.toFixed(1) + '" r="2.6"/>';
+    html += '</svg>';
+    /* 房名：小地图太小放不下 9 个中文标签，改成"我在哪"一行 */
+    const S = global.SKSpace;
+    const nm = (S && S.room(curRoom) && S.room(curRoom).name) || curRoom;
+    html += '<b class="sk-mm-name">' + escAttr(nm) + '</b>';
+    html += '</div>';
+    return html;
+  }
+
+  /* 走动时只更新小地图上的三个点（不重建整张小地图） */
+  function paintMinimap(mount, cam, pos) {
+    const M = shipOf();
+    if (!M || !mount) return;
+    const box = mount.querySelector('.sk-minimap');
+    if (!box) return;
+    const P = M.mapProjection(MAP_W, MAP_H, 3);
+    const me = P.toMap(pos.x, pos.y);
+    const dot = box.querySelector('.sk-mm-me');
+    if (dot) { dot.setAttribute('cx', me.x.toFixed(1)); dot.setAttribute('cy', me.y.toFixed(1)); }
+    const v = P.toMap(cam.x, cam.y);
+    const vb = box.querySelector('.sk-mm-view');
+    if (vb) {
+      vb.setAttribute('x', v.x.toFixed(1)); vb.setAttribute('y', v.y.toFixed(1));
+      vb.setAttribute('width', (cam.w * P.s).toFixed(1));
+      vb.setAttribute('height', (cam.h * P.s).toFixed(1));
+    }
+    /* 当前房间高亮跟着人走 */
+    const room = M.roomAt(pos.x, pos.y);
+    if (room) {
+      const rects = box.querySelectorAll('.sk-mm-room');
+      const ids = M.ids();
+      for (let i = 0; i < rects.length && i < ids.length; i++) {
+        rects[i].classList.toggle('sk-mm-here', ids[i] === room);
+      }
+    }
+    /* 〔批 WALK〕房名那一行也跟着走：键盘跨进另一间房时若等重绘，房名会停在上一间 */
+    const nmEl = box.querySelector('.sk-mm-name');
+    if (nmEl) {
+      const S = global.SKSpace;
+      const here = room || curRoom;
+      const nm = (S && S.room(here) && S.room(here).name) || here;
+      if (nmEl.textContent !== nm) nmEl.textContent = nm;
+    }
   }
 
   /* =============================================================
@@ -573,77 +1323,83 @@
    *
    * 非舰桥房间没有圆桌：锚点改地板，纸落在房间中央偏上。
    * ============================================================= */
+  /* =============================================================
+   * 〔批 SHIP · 2026-10-27〕书记官记录板：整船图下的定位重写
+   * -------------------------------------------------------------
+   * 旧规则是"钉在圆桌正中"—— 那是"一次只画一间房"时代的口径：
+   * 舰桥铺满整块画布，桌心就在屏幕正中，纸钉上去正好。
+   *
+   * 整船图之后舰桥只是船体上的一块（234 格里的 30 格），相机还跟着人走，
+   * 于是"桌心"可能根本不在视窗里 —— 实测截图上纸被夹到画面右边缘、
+   * 半个身子压在墙外（那张图就是本批最直接的证据）。
+   *
+   * 新规则（按优先级，全部以**屏幕像素**为准）：
+   *   ① 纸是**固定信息面**，不是场景装饰 ⇒ 优先钉在场景左上角（小地图右侧）；
+   *   ② 若左上角会压住「我」（seatRects 的真实绘制矩形）或行动面板/输入框，
+   *      就依次试：右上、左下、右下、上中；
+   *   ③ 仍然全压时取压得最少的那个 —— 宁可压一点点，也不要跑到画面外。
+   *
+   * 为什么不再跟桌子走：整船图里"桌子"已经不是画面的主体，
+   * 玩家要看的是**我在船的哪一段**。纸跟着桌子跑会在每次换房间时跳一下，
+   * 读作"界面在抖"。固定在一个角落反而是稳定的。
+   * ============================================================= */
   function layoutClerk() {
     const mount = el('scene-mount');
     const paper = el('clerk');
     if (!mount || !paper) return;
     const svg = mount.querySelector('svg.sk-scene');
-    /* 锚点：优先取带 data-anchor="clerk" 的道具（舰桥那张「大桌」= 地毯），
-       其次圆桌，最后地板。用**大桌**而不是中间那张矮桌，是因为纸比矮桌还宽 ——
-       钉在矮桌上会横跨到 1/2/15 号席位头顶。 */
-    const marked = mount.querySelector('[data-anchor="clerk"]');
-    const table = mount.querySelector('[data-hit="round_table"]');
-    const anchor = marked || table || (svg && svg.querySelector('.sk-room-floor rect'));
-    /* 【注意】取不到锚点时**不要 .add('hidden')**：ResizeObserver 会在切屏（#screen-game
+    /* 【注意】取不到场景时**不要 .add('hidden')**：ResizeObserver 会在切屏（#screen-game
        被隐藏 → 尺寸归零）时触发一次，隐藏是粘性的 —— 回到对局后纸就再也不出现
        （实测：移动端门禁在 844×390 直接判成"未挂载"）。留着上一次的位置即可。 */
-    if (!svg || !anchor) return;
-    const tb = anchor.getBoundingClientRect();
-    if (!tb.width) return;
+    if (!svg) return;
+    const sb = mount.getBoundingClientRect();
+    if (!sb.width) return;
     paper.classList.remove('hidden');
     /* 坐标系：纸是 #screen-game 的绝对定位子节点（不是 #scene-mount 的子节点），
-       所以 left/top 必须相对**它的 offsetParent** 算，而不是相对场景挂载点。
-       改前用 mb.left 当原点，实测整块纸向右偏了场景左边距（16px）—— 视觉上看不出来，
-       但它会在小屏上把纸推出桌面。 */
+       所以 left/top 必须相对**它的 offsetParent** 算，而不是相对场景挂载点。 */
     const host = paper.offsetParent || mount;
     const hb = host.getBoundingClientRect();
-    /* 纸宽：舰桥取「大桌」宽的 46%（上限 330），其他房间取地板宽 40%。
-       下限 150 —— 再窄「倒计时 24.0」就会折行。 */
-    const w = marked
-      ? Math.max(150, Math.min(330, tb.width * 0.46))
-      : Math.max(150, Math.min(330, tb.width * 0.40));
+    /* 纸宽：整船图里不再由桌面宽度决定（桌面可能不在视窗内）。
+       取场景宽的 26%，夹在 190~300px —— 再窄「倒计时 24.0」会折行，
+       再宽会挡住小地图或角色。 */
+    const w = Math.max(190, Math.min(300, sb.width * 0.26));
     paper.style.width = Math.round(w) + 'px';
     const ph = paper.offsetHeight || 96;
 
-    /* ---- 候选位置：舰桥优先桌心；**其他房间优先左上角** ----
-       〔批 UI-6〕非舰桥房间里没有圆桌，纸若落在房间正中就会盖住交互家具
-       （实测医疗室的手术台被整块盖住）。那些房间的中部正是玩家要点的东西，
-       所以纸改钉左上角（那里通常只有房名），把中部让给家具。
-       候选表仍保留其余位置，用于"左上角也压到人/出界"时的兜底。 */
-    const sb = mount.getBoundingClientRect();
-    const m = 8;
+    const m = 10;
     const rel = (x, y) => ({ left: x - hb.left, top: y - hb.top });
-    const centerX = tb.left + (tb.width - w) / 2;
-    const centerY = tb.top + (tb.height - ph) / 2;
-    const cornerTL = rel(sb.left + m, sb.top + m);
-    const cands = marked
-      ? [rel(centerX, centerY),                                      /* ① 桌心 */
-        rel(centerX, tb.top - ph + 6),                               /* 桌上沿 */
-        rel(centerX, tb.bottom - 6),                                 /* 桌下沿 */
-        rel(tb.left - w - 6, centerY),                               /* 桌左 */
-        rel(tb.right + 6, centerY),                                  /* 桌右 */
-        cornerTL,                                                    /* 场景左上 */
-        rel(sb.right - w - m, sb.top + m),                           /* 场景右上 */
-        rel(sb.left + m, sb.bottom - ph - m),                        /* 场景左下 */
-        rel(sb.right - w - m, sb.bottom - ph - m),                   /* 场景右下 */
-        rel(sb.left + (sb.width - w) / 2, sb.bottom - ph - m)]       /* 场景下中 */
-      : [rel(sb.left + (sb.width - w) / 2, sb.top + m),              /* 其他房间：场景上黑边居中 */
-        rel(sb.left + m, sb.top + m),
-        rel(sb.left + (sb.width - w) / 2, sb.bottom - ph - m),
-        rel(sb.right - w - m, sb.top + m),
-        rel(sb.left + m, sb.bottom - ph - m),
-        rel(sb.right - w - m, sb.bottom - ph - m),
-        rel(centerX, tb.top + 6),
-        rel(centerX, centerY)];
+    /* 左上角要让开小地图（它在 left:10 / top:10，宽 216 或矮屏 132） */
+    const mm = mount.querySelector('.sk-minimap');
+    const mmb = mm ? mm.getBoundingClientRect() : null;
+    const reserveTop = mmb ? Math.max(m, mmb.bottom - sb.top + 8) : m;
+    const cands = [
+      rel(sb.left + m, sb.top + reserveTop),                        /* ① 左上（小地图下方） */
+      rel(sb.right - w - m, sb.top + m),                            /* ② 右上 */
+      rel(sb.left + m, sb.bottom - ph - m),                         /* ③ 左下 */
+      rel(sb.right - w - m, sb.bottom - ph - m),                    /* ④ 右下 */
+      rel(sb.left + (sb.width - w) / 2, sb.top + m),                /* ⑤ 上中 */
+      rel(sb.left + (sb.width - w) / 2, sb.bottom - ph - m),        /* ⑥ 下中 */
+    ];
 
-    /* ---- 逐个量：压住几个席位（按角色**实际绘制矩形**，不按包围盒 —— 见 seatRects 的注释） ---- */
+    /* ---- 逐个量：压住几个「我」的真实绘制矩形 + 是否压住提交路径 ---- */
     const rects = seatRects();
+    const hitSel = ['#region-dec', '#talkbar'];
     const overlapAt = (pos) => {
       const L = hb.left + pos.left, T = hb.top + pos.top;
       const R = L + w, B = T + ph;
       let n = 0;
       for (const r of rects) {
-        if (r.left < R && L < r.right && r.top < B && T < r.bottom) n++;
+        if (r.left < R && L < r.right && r.top < B && T < r.bottom) n += 2;   /* 压人比压面板更糟 */
+      }
+      for (const sel of hitSel) {
+        const e = mount.parentNode && mount.parentNode.querySelector
+          ? (global.document && global.document.querySelector(sel)) : null;
+        if (!e) continue;
+        const cs = global.getComputedStyle ? global.getComputedStyle(e) : null;
+        if (cs && (cs.display === 'none' || cs.visibility === 'hidden')) continue;
+        const r = e.getBoundingClientRect();
+        if (!r.width) continue;
+        if (r.left < R && L < r.right && r.top < B && T < r.bottom) n += 1;
       }
       return n;
     };
@@ -651,13 +1407,10 @@
     for (const c of cands) {
       if (c === best) continue;
       const n = overlapAt(c);
-      /* 严格更少才换：同等遮挡时保留更靠前的候选（桌心优先） */
       if (n < bestN) { best = c; bestN = n; }
       if (bestN === 0) break;
     }
-    /* 〔批 UI-5〕最后一道夹紧：任何候选都不许把纸推出场景。
-       实测「宿舍」那间房：锚点取的是地板，候选落在房间上沿时 top 会算成 -27
-       （纸有一半在场景外，玩家看不到「当夜记录」）。夹紧到场景内即可。 */
+    /* 最后一道夹紧：任何候选都不许把纸推出场景。 */
     const minL = sb.left - hb.left + m, maxL = sb.right - hb.left - w - m;
     const minT = sb.top - hb.top + m, maxT = sb.bottom - hb.top - ph - m;
     const left = Math.min(Math.max(best.left, minL), Math.max(minL, maxL));
@@ -683,6 +1436,8 @@
 
   /* 渲染入口（接口与旧版一致：render(g, V)） */
   let sig = null, lastG = null, lastV = null, lastMount = null, lastPhaseKey = null;
+  /* 〔批 WALK〕上一帧的昼夜（首次渲染为 null ⇒ 不触发"换昼夜清落点"） */
+  let phaseSeen = null;
   /* 〔批 UI-5〕上一次「按待决策自动跳房间」去过的房间：只在 kind 变化时跳一次，
      否则玩家一点门就被拽回去（那会让人以为门坏了）。 */
   let lastAutoRoom = null;
@@ -701,6 +1456,9 @@
     if (nv === panelOpen) return;
     panelOpen = nv;
     mountPanelUp(nv);
+    /* 〔批 SHIP-2〕面板高度会随决策种类变化（投票 15 个目标 vs 只点一个按钮），
+       相机要让位就必须**先量**面板顶边。量不到时 panelAnchorY 退回常量 0.34。 */
+    measurePanelTop();
     /* 座圈位置变了（压扁 / 还原），必须重建场景。
        不需要"先量后算"的两趟渲染 —— 压扁比是常量，不依赖量测结果。 */
     sig = null;
@@ -713,6 +1471,11 @@
     if (!S) return;
     const mount = el('scene-mount');
     if (!mount) return;
+
+    /* 〔批 SHIP-2〕先量面板，再算相机。
+       面板高度随决策种类变化（投票 15 目标 ≈ 400px，只点一个按钮 ≈ 210px），
+       相机让位的量必须跟着它走，否则"矮面板"那一档会被抬得过头（房间上半截出屏）。 */
+    measurePanelTop();
 
     const key = [V.humanId, g.phase, curRoom,
       V.players.map(p => (p.out ? 1 : 0)).join(''),
@@ -740,29 +1503,79 @@
     /* 〔批 UI-5 · 2026-10-26〕待决策时自动回到「该做这件事的房间」。
        用户要的是"交互跟着物件走"：轮到我私聊，就该在舰桥的通讯台前，而不是
        上一步停在制药室里对着空气点。
-       〔批 UI-8b〕判据从 `want !== curRoom && want !== lastAutoRoom` 收成
-       **只看 `want !== curRoom`**：lastAutoRoom 那半个条件会让"回到上一个去过的房间"
-       被静默跳过（那是错的 —— 房间确实变了，就该走）。 */
+
+       〔批 SHIP · 2026-10-27〕【本批要点】这里**不再直接改 curRoom**，改成沿通道走过去。
+       -------------------------------------------------------------
+       整船图里"换房间"是一次可见的移动（用户拍板「点目标自动寻路」），
+       直接改 curRoom 会让人凭空出现在另一间房 —— 那正是批 UI-8b 修掉的
+       "突然冒出来"，只是换了个触发点。
+
+       所以：需要换房且当前没在走 ⇒ 启动走动，**这一帧先不重建 DOM**
+       （走动中重建会把角色拍回起点），走完由 startWalkAnim 的收尾自己 render。
+       【注意】必须在启动走动前把 lastG/lastV 落定：走动收尾的 render(lastG,lastV)
+         要读它们，否则第一次渲染就换房时收尾拿到 null，画面会停在半路。
+       【注意】没有 rAF 的环境（vm 沙盒 / 门禁）仍走"直接落定"这条老路，
+         否则门禁里永远等不到收尾，curRoom 就一直是旧的。 */
+    /* 〔批 WALK · 2026-10-28〕昼夜一变，站位回锚点（白天圆桌 / 夜里睡眠舱）。
+       -------------------------------------------------------------
+       freePos 是"玩家自己走出来的落点"。若跨昼夜还留着，夜里人会站在白天的座位旁，
+       而引擎侧此刻正是"回舱睡觉"的语义 —— 所以昼夜切换时清空它，让 anchorInRoom 接手。
+       这也是本批唯一允许"人自己动位置"的地方：只在昼夜切换这一条路径上，
+       且是既有语义（批 UI-8b 的"白天回圆桌 / 夜里回睡眠舱"）的延续，不是新增搬运动作。 */
+    if (phaseSeen !== null && phaseSeen !== g.phase) {
+      freePos = null;
+      if (keyMoving()) { KEY_HELD.up = 0; KEY_HELD.down = 0; KEY_HELD.left = 0; KEY_HELD.right = 0; }
+      if (freeRaf && global.cancelAnimationFrame) { try { global.cancelAnimationFrame(freeRaf); } catch (_) {} }
+      freeRaf = 0;
+      sig = null;
+    }
+    phaseSeen = g.phase;
+
     if (g.pending && !g.pending.stream && global.SKHudMap) {
       const want = global.SKHudMap.roomOf(g.pending.kind || '');
-      if (want && want !== curRoom) {
-        curRoom = want;
+      /* 〔批 WALK〕玩家自己走过（freePos 非空）之后，**不再**被"带去做决策的房"。
+         -------------------------------------------------------------
+         自由行走的意义就是坐标由玩家决定；若每到一步决策就把人拽走，
+         刚走到的位置立刻失效（而且是在玩家还在按方向键的时候被拽）。
+         引导没有丢：该去的房间门会亮（updateInteractive 的 sk-lit）、
+         书记官记录板上写着「去 X · 动作」、点那件物件仍然会自己走过去（walkToProp）。 */
+      if (want && want !== curRoom && !freePos) {
         lastAutoRoom = want;
+        if (global.requestAnimationFrame && !walkState) {
+          lastG = g; lastV = V; lastMount = mount;
+          walkTo(want);
+          return;
+        }
+        curRoom = want;
         sig = null;
       }
     } else if (!g.pending) {
       lastAutoRoom = null;
     }
 
-    /* 只有"房间变了"或"昼夜变了"才走。换决策不移动。 */
-    const phaseKey = g.phase + '|' + curRoom;
-    if (lastPhaseKey && lastPhaseKey !== phaseKey) walkUntil = now() + WALK_MS;
-    lastPhaseKey = phaseKey;
+    /* 〔批 SHIP〕【本批要点】删掉了「phaseKey 变了就 walkTo」那条。
+       -------------------------------------------------------------
+       它是上一版（walkUntil 时间戳）的写法：换房/换昼夜就播一次入场动画。
+       整船图里走动**自己**就是移动（walkTo 内部已经把 curRoom 落定在终点），
+       再按 phaseKey 补一次会立刻触发第二次走动 ——
+       实测症状：到达房间后 isWalking() 一直是 true，角色被拍回路径起点，
+       相机也跟着跳一下（截图 03-arrived 里人站在房间中央、却在"走路"）。
+       现在只保留 phaseKey 的记录，用于判断"昼夜变了要换站位"，
+       那件事由下面的 myPos/anchorInRoom 直接算，不需要走动。 */
+    lastPhaseKey = g.phase + '|' + curRoom;
 
     if (key !== sig || !mount.__skBuilt) {
+      const M = shipOf();
+      const cam = cameraNow();
+      /* 〔批 SHIP〕画布 = 相机视窗。整船坐标是 234×45 格（13104×2520px），
+         一次性全塞进 viewBox 会让角色只有几像素 —— 所以只框住视窗那一块。
+         其余房间照样在 DOM 里（滚出视口即不绘制），点门/寻路都靠它们算几何。 */
+      const vbStr = [cam.x * TILE, cam.y * TILE, cam.w * TILE, cam.h * TILE].join(' ');
       mount.innerHTML =
-        '<svg class="sk-scene" viewBox="0 0 ' + VB.w + ' ' + VB.h + '" preserveAspectRatio="xMidYMid meet">'
+        '<svg class="sk-scene" viewBox="' + vbStr + '" preserveAspectRatio="xMidYMid meet">'
         + roomHtml(S) + propsHtml(S) + crewHtml(g, V, S) + '</svg>'
+        + minimapHtml(M)
+        + clockHtml(g)
         + '<div id="sk-room-stage" class="sk-room-stage" aria-label="房间"></div>';
       mount.__skBuilt = true;
       bind(mount);
@@ -770,22 +1583,40 @@
     }
     lastG = g; lastV = V; lastMount = mount;
     updateInteractive(g, V, mount);
+    /* 〔批 SHIP-2〕相机**每次渲染都要重算并写回 viewBox**，不能只在重建 DOM 时写。
+       -------------------------------------------------------------
+       面板高度是渲染之后才定的（renderStage 填表单 → 面板变高），
+       而 key 里只有 panelOpen 的开关，没有"面板多高"。
+       于是"面板从 208px 变成 400px"时 key 不变 ⇒ 不重建 ⇒ viewBox 停在旧值
+       ⇒ 人还是被盖住。实测算到过：同一间房里 6 帧中有 2 帧仍被压 38%~65%。
+       相机只是改一个属性，代价可忽略；重建 DOM 才是贵的。 */
+    applyCamera(mount);
     layoutClerk();
     observeScene(mount);
-
-    /* 还在行走 → 到时重绘一次，切回待机帧（避免角色永远在迈步） */
-    if (walkUntil > now()) {
-      if (walkTimer) clearTimeout(walkTimer);
-      walkTimer = setTimeout(function () {
-        walkUntil = 0; sig = null;
-        if (lastG && lastV) render(lastG, lastV);
-      }, walkUntil - now() + 20);
-    }
+    /* 〔批 R3〕把"别人会走动"接上：只在有 rAF 且对局页可见时才跑 */
+    startWander();
+    startClock();   /* 〔批 R4-lite〕相位倒计时每 250ms 刷新文本 */
   }
-  let walkTimer = null;
+
+  /* 把当前相机写进 viewBox（不动 DOM 结构） */
+  function applyCamera(mount) {
+    try {
+      const m = mount || el('scene-mount');
+      if (!m) return;
+      const svg = m.querySelector('svg.sk-scene');
+      if (!svg) return;
+      const cam = cameraNow();
+      svg.setAttribute('viewBox', [cam.x * TILE, cam.y * TILE, cam.w * TILE, cam.h * TILE].join(' '));
+      /* 小地图上的"我"与视野框也要跟着（它们不随重建更新） */
+      const M = shipOf();
+      if (M) paintMinimap(m, cam, myPos());
+    } catch (_) { /* 视图层异常不阻塞对局 */ }
+  }
 
   /* ---- 交互：点门切房间；点道具/席位委托既有控件 ---- */
   function bind(mount) {
+    /* 键盘只挂一次：重复挂会让一次按键被处理多遍（走路速度翻倍） */
+    bindKeys();
     if (!mount.addEventListener || mount.__skBound) return;
     mount.__skBound = true;
     mount.addEventListener('click', function (e) {
@@ -796,31 +1627,82 @@
         const door = t.closest('[data-door]');
         if (door) { goto(door.getAttribute('data-door')); return; }
 
-        const seat = t.closest('[data-seat]');
-        if (seat) { onSeatClick(+seat.getAttribute('data-seat'), mount); return; }
-
+        /* 〔批 DEMO · 2026-10-28〕**席位点击已拆除**：人物只是"会走动的身体"，
+           点它 = 走过去（落到 ground 分支）。是谁、什么职业，一律从交互与机制里推 ——
+           旧的 openPlayerPop（身份弹窗）与"帮 pending 选中并自动提交"都随全员技能重做退役。 */
         const hit = t.closest('[data-hit]');
-        if (hit) { onPropClick(hit.getAttribute('data-hit'), hit.getAttribute('data-label'), mount); return; }
+        if (hit) {
+          /* 〔批 R4-step1〕万物可交互，但**指纹决定是否生效**（见 capGate 的注释） */
+          const key = hit.getAttribute('data-hit');
+          if (!capGate(key, mount)) return;
+          onPropClick(key, hit.getAttribute('data-label'), mount);
+          return;
+        }
 
         /* 〔U1〕旧笔记本道具已随场景退役；账本入口改由 HUD / 席位弹窗承担，
            这里保留 openLedger 的委托点，供将来在房间内加「日志终端」时接回。 */
         if (t.closest('[data-hit="ledger"]')) { if (global.UI && global.UI.openLedger) global.UI.openLedger(); }
+
+        /* 〔批 WALK · 2026-10-28〕点空地 → 自由走过去。
+           -------------------------------------------------------------
+           必须排在门/席位/道具之后：那三类是既有交互，不能被"走路"抢走。
+           落到这里说明点的是地板、廊面、墙或家具（家具只有本房带 data-hit，
+           别房的家具不带 ⇒ 点它 = "走到那件家具旁边"，这也正是玩家想要的）。
+           点到墙上/船体外时由 nearestWalkable 收敛到最近的可站位置。 */
+        const pt = shipPointFromEvent(e, mount);
+        if (pt) onGroundClick(pt, mount);
       } catch (_) { /* 交互层异常不外抛 */ }
     });
   }
 
-  /* 切房间：只改 curRoom 并重绘（不触发任何规则） */
+  /* 切房间：**沿通道走过去**（不触发任何规则）。
+     〔批 SHIP〕用户拍板「点目标房间 → 沿通道自动寻路」。所以这里不再直接改 curRoom：
+     先算出折线，人沿线走，走完（walkState.t 到 1）才落定 curRoom 并重绘。
+     走的过程中每帧调 paintWalk（角色 transform + 相机 viewBox + 小地图）。
+     【注意】立刻把 curRoom 落定会在半路上把相机拽到终点 —— 那就是"瞬移"。
+       所以 curRoom 只在**到达后**更新；走的过程中"我在哪间房"由 ship-map.roomAt 回答。 */
   function goto(roomId) {
     const S = global.SKSpace;
+    const M = shipOf();
     if (!S || !S.room(roomId) || roomId === curRoom) return;
-    curRoom = roomId;
     /* 玩家手动走门后，别在同一步里再被"自动回房间"拽回去 */
-    lastAutoRoom = curRoom;
-    walkUntil = now() + WALK_MS;
+    lastAutoRoom = roomId;
+    if (!M || !global.requestAnimationFrame) {
+      /* 没有 rAF 的环境（vm 沙盒 / 门禁）：直接落定，几何仍正确 */
+      stopWalk(); curRoom = roomId; sig = null;
+      if (lastG && lastV) render(lastG, lastV);
+      else { const m = el('scene-mount'); if (m) m.__skBuilt = false; }
+      layoutClerk();
+      return;
+    }
+    const p = walkTo(roomId);
+    if (!p) { curRoom = roomId; sig = null; if (lastG && lastV) render(lastG, lastV); return; }
+    /* 到达后才重绘（重绘会重建 DOM，所以不能边走边重绘） */
     sig = null;
-    if (lastG && lastV) render(lastG, lastV);
-    else { const m = el('scene-mount'); if (m) m.__skBuilt = false; }
-    layoutClerk();
+  }
+
+  /* 走到某件物件前（点别的房间的物件 → 走过去）。
+     与 goto 同一条路径，只是终点取物件的船体坐标而不是房间中心。 */
+  function walkToProp(roomId, hitKey) {
+    const S = global.SKSpace;
+    const M = shipOf();
+    if (!S || !M) return;
+    const r = S.room(roomId);
+    if (!r) return;
+    let target = null;
+    for (const p of r.props) {
+      if (p.k === hitKey) {
+        const d = S.PROP[p.t] || { w: 1, h: 1 };
+        target = { x: M.roomRect(roomId).x + p.x + (p.w || d.w) / 2,
+          y: M.roomRect(roomId).y + p.y + (p.h || d.h) / 2 };
+        break;
+      }
+    }
+    if (!target) { goto(roomId); return; }
+    lastAutoRoom = roomId;
+    if (!global.requestAnimationFrame) { stopWalk(); curRoom = roomId; sig = null; if (lastG && lastV) render(lastG, lastV); return; }
+    walkTo(target);
+    sig = null;
   }
 
   /* 需要补参数的行动（勾选目标后不能立即提交），沿用旧版判定 */
@@ -839,6 +1721,43 @@
        ② 这件道具属于「本局该做、但现在不在这间房」的动作：→ 直接走过去（goto）；
        ③ 其余：说明现在为什么用不了（不假装成功）。
      判据全部来自 js/hud-map.js，渲染器里不再自己写"哪个 kind 在哪间房"。 */
+  /* =============================================================
+   * 〔批 RTA-0 / R4-step1 · 2026-10-28〕万物可交互，**指纹决定是否生效**
+   * -------------------------------------------------------------
+   * 设计哲学（纲要 §2.1）：任何玩家都能点任何物件、点了都有反馈；
+   *   是否"真的生效"取决于该动作声明的权能指纹与本人角色的能力是否匹配。
+   *
+   * 两个必须守住的细节：
+   *   ① **中性反馈**：绝不写"你没有权限" —— 那等于告诉旁人"我不是这个职业"（纲要 §2.2）；
+   *   ② **判不了就放行**：`mechanism` / `base` 型能力（异形出刀、普通船员协助维修…）
+   *      在声明层没有 grants 条目，场景层不许拦（拦了主玩法就死），交给引擎判。
+   *      只有"该物件对应的动作**全部**是 grant 型、且本人一个都不具备"时才拒绝。
+   */
+  function myRole() {
+    const V = lastV;
+    if (!V || !V.players) return null;
+    const me = V.players.filter(p => p.id === V.humanId)[0];
+    return me ? (me.role || null) : null;
+  }
+
+  function capGate(hitKey, mount) {
+    const A = global.SKActionMap, RD = global.SKRoleDecl;
+    if (!A || !RD || !mount || !hitKey) return true;
+    const list = A.all().filter(a => a.place && a.place.room === curRoom && a.place.prop === hitKey);
+    if (!list.length) return true;                              /* 表里没登记 ⇒ 交引擎 */
+    /* 声明层能判的两类："grant"（grants 数组）与 "charge"（额度键，例：crew 的 assistRepair）。
+       mechanism / base 判不了（声明层没有对应条目）⇒ 交给引擎。 */
+    const decisive = list.filter(a => A.CAPS[a.cap] === 'grant' || A.CAPS[a.cap] === 'charge');
+    if (!decisive.length || decisive.length < list.length) return true;   /* 混着机制位 ⇒ 交引擎 */
+    const role = myRole();
+    if (!role) return true;
+    const d = (RD.get ? RD.get(role) : null) || {};
+    const ch = d.charges || {};
+    if (decisive.some(a => RD.hasGrant(role, a.cap) || ch[a.cap] != null)) return true;
+    toast(mount, '设备没有响应');   /* 中性：不提权限、不提身份 */
+    return false;
+  }
+
   function onPropClick(key, label, mount) {
     const g = global.Game && global.Game.g;
     if (!g) return;
@@ -855,13 +1774,13 @@
       return;
     }
 
-    /* ② 现在该做的动作在别的房间：走过去，而不是干瞪眼 */
+    /* ② 现在该做的动作在别的房间：沿通道走过去，而不是干瞪眼 */
     if (myTurn) {
       const room = H ? H.roomOf(kind) : null;
       if (room && room !== curRoom) {
         const dest = global.SKSpace && global.SKSpace.room(room);
-        goto(room);
-        toast(mount, '这一步在「' + ((dest && dest.name) || room) + '」完成');
+        walkToProp(room, H ? H.hitOf(kind) : null);
+        toast(mount, '正在前往「' + ((dest && dest.name) || room) + '」· 这一步在那里完成');
         return;
       }
       /* 本房内的其他道具：说明本次用不到 */
@@ -920,37 +1839,10 @@
     } catch (_) {}
   }
 
-  function onSeatClick(pid, mount) {
-    const g = global.Game && global.Game.g;
-    if (!g) return;
-    if (!(g.pending && !g.pending.stream)) {
-      if (global.UI && global.UI.openPlayerPop) global.UI.openPlayerPop(pid);
-      return;
-    }
-    const f = g.pending;
-    const body = el('stage-body');
-    const inp = body && body.querySelector('#f-targets input[value="' + pid + '"]:not([disabled])');
-    const inpPool = body && body.querySelector('#f-pool input[value="' + pid + '"]:not([disabled])');
-    const pick = inp || inpPool;
-    if (!pick) {
-      toast(mount, '本次行动不能指向 ' + pid + ' 号');
-      if (global.UI && global.UI.openPlayerPop) global.UI.openPlayerPop(pid);
-      return;
-    }
-    pick.click();
-    refresh();
-    const max = (f.targets && f.targets.max) || 1;
-    const needsMore = NEEDS_MORE.indexOf(f.kind) >= 0 || f.num || f.num2 || f.text;
-    if (max === 1 && !needsMore) {
-      const btn = el('btn-submit');
-      if (btn && !btn.disabled) {
-        setTimeout(function () { try { btn.click(); } catch (_) {} }, 160);
-        toast(mount, '已对 ' + pid + ' 号发动：' + (f.title || f.kind));
-        return;
-      }
-    }
-    toast(mount, '已选中 ' + pid + ' 号' + (needsMore ? ' · 在房间里补完剩余选项再提交' : ''));
-  }
+  /* 〔批 DEMO〕onSeatClick（席位身份弹窗 + 代选目标自动提交）已拆除。
+     拆它的原因见 bind() 里席位点击分支的注释；等全员技能重做落地后，
+     "指向某人"由新的动作校验（SKActions.validate 的 target）承担。 */
+
 
   let toastTimer = null;
   /* 〔U2〕提示条贴在场景顶部（不是屏幕中央）—— 白框在道具上，中央留给它 */
@@ -1041,8 +1933,11 @@
 
     /* 地板 + 四壁：与游戏内**同一个函数**（floorWallShell），不再各写一份。
        主页只是把压暗强度提到 .42 —— 让"预览"读作尚未入场，而不是已经开打。
-       〔批 UI-7〕此前这里是手抄的第二份实现，两处参数已经漂移（.42 vs .34）。 */
-    html += floorWallShell(S, { x: 0, y: 0, w: W2, h: H2 }, r, 'home', 0.42);
+       〔批 UI-7〕此前这里是手抄的第二份实现，两处参数已经漂移（.42 vs .34）。
+       〔批 SHIP〕floorWallShell 的参数统一改成**格**（它内部乘 TILE），
+         所以这里传 {0,0,w,h} 而不是像素尺寸 —— 主页画布仍是"舰桥一间房"，
+         因为主页是"登船前看一眼席位"，不是整船图。 */
+    html += SHELL.floorWallShell(S, { x: 0, y: 0, w: w, h: h }, r, 'home', 0.42);
 
     /* 家具（复用 space.js 的桥房道具表，跳过地毯与座位） */
     for (const p of r.props) {
@@ -1125,9 +2020,32 @@
        免得"渲染器按真实矩形算、门禁按包围盒算"两边各说各话。 */
     seatRects: seatRects,
     layoutClerk: layoutClerk,
-    /* 〔批 UI-6〕行动面板展开/收起 → 座位圈整体让位（见 crewHtml 的 SEAT_LIFT） */
+    /* 〔批 UI-6〕行动面板展开/收起 → 相机让位（整船图下座圈已不压扁，见 cameraNow） */
     setPanelOpen: setPanelOpen,
     isPanelOpen: function () { return panelOpen; },
+    /* 〔批 SHIP〕整船图的对外接口：门禁与调试都要能问"我在哪、相机看哪、走到哪"。
+       一律返回**格**（船体格），要像素自己乘 _tile —— 免得又出现"两边单位不同"。 */
+    myPos: myPos,
+    camera: cameraNow,
+    minimapSize: function () { return { w: MAP_W, h: MAP_H }; },
+    viewTiles: function () { return { w: VIEW_TILES.w, h: VIEW_TILES.h }; },
+    isWalking: function () { return !!walkState; },
+    /* 〔批 WALK〕自由行走的对外接口：
+         walkToPoint(pt)  — 让「我」沿可行走面走到船体格的某点（点地面走的就是它）；
+         isFreeWalking()  — 键盘此刻是否在走（腿在摆 = true）；
+         position()       — 我现在的落点；fromAnchor=true 表示还没被玩家自己走过。
+       门禁与截图脚本靠这三个问"人到底在哪、是不是真的在走"。 */
+    walkToPoint: walkToPoint,
+    /* 〔批 R1〕视野与"别人在哪"的对外接口：
+         inSight(from,to)   — 半径 ∩ 不跨墙的唯一判据（将来 AI 目击必须调它）
+         setCrewPos(id,at)  — 写入某人的位置（R3 由 AI 每帧写；现在默认集合在舰桥席位）
+         crewPos(id)        — 读某人的当前位置 */
+    inSight: inSight, setCrewPos: setCrewPos, crewPos: crewPos, _visionR: VISION_R,
+    _capGate: capGate, _myRole: myRole,
+    /* 〔批 R3〕别人的闲逛（表现层）：startWander/stopWander 供 main 在切页时收放 */
+    startWander: startWander, stopWander: stopWander, paintCrew: paintCrew,
+    isFreeWalking: function () { return keyMoving(); },
+    position: function () { const p = myPos(); p.fromAnchor = !freePos && !walkState; return p; },
     _tile: TILE, _vb: VB, _palette: PALETTE,
   };
 })(typeof window !== 'undefined' ? window : globalThis);

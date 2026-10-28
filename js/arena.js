@@ -1,5 +1,5 @@
 /* =============================================================
- * 返航录 · 主页「游戏预览页」交互层（批 H1）
+ * 新返航录 · 主页「游戏预览页」交互层（批 H1）
  * -------------------------------------------------------------
  * 用户拍板：「把主页只占一小部分的方框给它打碎掉，主页就是游戏预览页」。
  *
@@ -443,6 +443,21 @@
    * ============================================================= */
   let rlTab = 'cards';
 
+  /* 〔批 SHIP-2 · 2026-10-27〕★ 首局自动弹出的规则速览**永远停在「正在载入规则数据…」**
+     -------------------------------------------------------------
+     现象（真实首启复现）：第一次进对局时 `ui.js render()` 自动调用 `openRules()`，
+     浮层打开、标题正确、正文却一直是 index.html 里那句占位文案，三个页签一个都没有；
+     关掉再点主页「规则速览」铭牌就正常（3 页签 / 14 张卡）。
+     根因：`openRules()` 只 `classList.remove('hidden')`，**从不调 renderRules()**。
+       能渲染的那条路径是 arena.js 里 `#btn-rules-home` 的 onclick —— 它自己带了
+       `renderRules()`。于是"打开规则"这一个动作有两份实现，一份渲染、一份不渲染，
+       而自动弹出的那条走的是不渲染的那份。
+     为什么门禁没报：`test-rules-data.cjs` 量的是 `js/data/rules.js` 的内容（8 条全绿），
+       `check-docs` 量的是链接。**没有一条断言走"打开浮层"这条路** ——
+       与红线 9「元素存在 ≠ 像素可见」同源：数据在、浮层在，屏幕上是空的。
+
+     修法：把渲染收进 `openRules()`（唯一入口），并让 arena 那条 onclick 直接复用
+     `SKUI.openRules()`，不再自己写一份。这样"打开规则"只剩一条路。 */
   function rulesData() { return global.SKRules || null; }
 
   function escR(s) {
@@ -649,6 +664,9 @@
        由 ui.js 的文档委托处理），这里就真的能绑上了。
        兜底：若将来 id 又漂移，仍按铭牌位置查一次。 */
     if (rules) rules.onclick = () => {
+      /* 〔批 SHIP-2〕打开规则只有一条路：SKUI.openRules()（它内部会调 renderRules）。
+         这里不再自己 remove('hidden') + renderRules() —— 那正是"两份打开逻辑"的来源。 */
+      if (global.UI && global.UI.openRules) { global.UI.openRules(); return; }
       const ov = el('rules-overlay');
       if (ov) { ov.classList.remove('hidden'); ov.scrollTop = 0; renderRules(); }
     };
@@ -777,6 +795,9 @@
     openReplayArchive: openReplayArchive,
     closeReplayArchive: closeReplayArchive,
     renderReplayArchive: renderReplayArchive,
+    /* 〔批 SHIP-2〕规则速览的渲染器：SKUI.openRules() 打开浮层时调用它。
+       渲染与"打开"必须由同一个入口驱动，否则首局自动弹出的那条路会漏掉渲染。 */
+    renderRules: renderRules,
     init: init, setFac: setFac, syncChip: syncChip, renderStage: renderStage,
     positionTag: positionTag, openSeatPanel: openSeatPanel, commitName: commitName,
     get myName() { return myName; },
