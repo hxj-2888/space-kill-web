@@ -719,9 +719,10 @@
     function startFix(a,d){
       if(!a||!d||G.dmg.indexOf(d)<0)return false;
       if(!a.alive&&!a.ghost)return false;
-      a.doing=FIX_TIME;a._dur=FIX_TIME;a._doing='fix';a._fix=d;
+      const dur=a.ghost?FIX_TIME*1.6:FIX_TIME;
+      a.doing=dur;a._dur=dur;a._doing='fix';a._fix=d;
       a.path=null;a.moving=false;a._fixGo=null;
-      if(a===G.me){toast('维修故障「'+d.label+'」· 连续 10 秒 · 移动会中断');SND.interact();}
+      if(a===G.me){toast((a.ghost?'幽灵维修故障「':'维修故障「')+d.label+'」· 连续 '+dur.toFixed(dur%1?1:0)+' 秒 · 移动会中断');SND.interact();}
       return true;
     }
     function finishFix(a){
@@ -1621,7 +1622,7 @@
       }
       /* 任务结算：按实际修的点记账；乱序完成时把该点交换到 tIdx 槽位，
          保持 [0,tIdx) 全是已完成任务，tIdx 仍是“已完成数量” */
-      a._doing=null;
+      a._doing=null;a.doing=0;
       const picked=a._taskPt;
       a._taskPt=null;
       let k=a.tIdx;

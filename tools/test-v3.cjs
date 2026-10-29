@@ -230,6 +230,54 @@ function section(t) { console.log('\n== ' + t); }
   ok(!(await T(() => !document.getElementById('body').classList.contains('hide'))), '幽灵无法搜尸');
   await shot('28_幽灵态.png');
 
+  section('幽灵任务 · 乱序 / 故障维修');
+  await fresh(false);
+  const GO = await T(() => {
+    const t = SKV3._t, g = t.G();
+    t.tp(0, 28.2, 22); t.kill(0, 'knife');
+    g.me.tasks = [0, 4, 11, 8]; g.me.tIdx = 0; g.me.progress = 0;
+    g.me.doing = 0; g.me._doing = null; g.me.path = null;
+    const P = t.points()[11];
+    t.tp(0, P.x, P.y);
+    return { label: P.label };
+  });
+  await page.keyboard.press('e');
+  await page.waitForTimeout(180);
+  const GO1 = await T(() => {
+    const g = SKV3._t.G();
+    return { do: g.me._doing, doing: g.me.doing, pt: g.me._taskPt, tIdx: g.me.tIdx };
+  });
+  ok(GO1.do === 'task' && GO1.pt === 11 && GO1.doing > 15.5,
+    '幽灵乱序维修：实际点位「' + GO.label + '」，耗时 1.6×');
+  await T(() => SKV3._t.finishDoing(0));
+  const GO2 = await T(() => {
+    const g = SKV3._t.G();
+    return { tIdx: g.me.tIdx, prog: g.prog, msg: g.msg,
+      left: g.me.tasks.slice(g.me.tIdx).map(i => SKV3._t.points()[i].label),
+      doing: g.me.doing };
+  });
+  ok(GO2.tIdx === 1 && GO2.prog === 1 && GO2.msg.indexOf(GO.label) >= 0 &&
+    GO2.left.indexOf(GO.label) < 0 && GO2.doing === 0,
+    '幽灵任务按实际点位结算，完成后计时归零');
+  const GF = await T(() => {
+    const t = SKV3._t, g = t.G();
+    const alien = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
+    alien.sabUsed = false; g.dmg = [];
+    t.damageRoom(alien.i, 'med');
+    const d = g.dmg[0];
+    g.me.doing = 0; g.me._doing = null; g.me.path = null;
+    t.tp(0, d.x, d.y);
+    const start = t.interact();
+    return { start, dmg: g.dmg.length, doing: g.me.doing, label: d.label };
+  });
+  ok(GF.start.do === 'fix' && GF.doing > 15.5 && GF.dmg === 1,
+    '幽灵维修故障：进入连续维修且与任务同样 1.6×');
+  await T(() => { SKV3._t.G().me.doing = 0.02; });
+  await page.waitForTimeout(260);
+  const GF2 = await T(() => ({ dmg: SKV3._t.dmg().length, inv: SKV3._t.inv() }));
+  ok(GF2.dmg === 0 && GF2.inv && GF2.inv.fails.length === 0,
+    '幽灵修完故障：故障清除，不变量全过');
+
   section('DEV 无敌 / 全知');
   await fresh(true);
   const V = await T(() => {
