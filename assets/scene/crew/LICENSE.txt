@@ -1,46 +1,56 @@
-# assets/scene/crew · 15 席角色行走图（批 UI-2）
+# assets/scene/crew · 15 席角色行走图（Blender 重渲版）
 
 ## 许可：**本仓自绘，随仓库 LICENSE**
 
 ```
-生成方式：node tools/gen-crew-sprites.cjs [--force]
+渲染：blender -b -P tools/blender-crew.py -- [--test] [--seats 1,2]
+拼图：python tools/crew-sheets.py [--test] [--seats 1,2]
 产物：crew-01.png … crew-15.png（15 套）+ manifest.json
+中间帧：tools/_crew_raw/sNN_<dir>_<frame>.png（192×320，透明背景）
 ```
 
-**不再是第三方素材**。批 U1/R3 时期这里用的是 *Cozy Space Station: Walking Crew*
-（Bramble & Byte，**CC-BY 4.0**），只有 8 套，故 `ui-scene.js` 用 `(p.id-1) % 8`
-循环复用 —— 1 号与 9 号穿同一件衣服，只有脚下光环不同（用户：「把 15 个人物做差异化」）。
+角色不再使用第三方行走图。早期 U1/R3 批曾用 *Cozy Space Station: Walking Crew*
+（Bramble & Byte，CC-BY 4.0），UI-2 批起已完全替换；**不再附带 CC-BY 署名义务**。
+旧程序生成像素图备份在 `_pixel-backup/`，仅作回滚，不再被游戏引用。
 
-批 UI-2 改为程序生成 15 套，每席一套。**随之而来的一项义务：CC-BY 的署名必须一并移除**
-（见 `assets/scene/cozy/LICENSE.txt` 的说明：漏署名整个素材不能用；反之素材不用了，
-署名也不必再挂）。
+## 渲染流程（2026-10-28 重做）
 
-## 版式（**不要再改**，渲染器与 CSS 帧动画依赖它）
+- Blender 5.2 LTS，Cycles CPU，32 采样 + OIDN 降噪，透明背景，AgX 中高对比，曝光 0.75。
+- 正交相机俯视 12°（2.5D 视角），正交尺度 2.62，画面 192×320。
+- 三点布光：暖主光 + 冷补光 + 青色轮廓光；金属/织物/皮肤分别用 Principled 材质，
+  织物叠加 Noise→Bump 织纹。
+- 每个席位渲 4 方向 × 4 帧行走 + 4 帧待机 = 20 帧；PIL 用 LANCZOS 缩到 96×160，
+  按 4×5 拼成 384×800。
+- 拼图阶段做一次轻微调色（亮度 0.90、饱和 0.88、对比 1.05、冷色偏移），
+  让角色贴近深蓝船舱底色；游戏内另绘脚下软阴影。
+
+## 版式（**不要再改**，渲染器与帧动画依赖它）
 
 | 项 | 值 |
 |---|---|
-| 单帧 | 96 × 160（4x；逻辑栅格 24 × 40） |
+| 单帧 | 96 × 160 |
 | 网格 | 4 列 × 5 行 |
 | 行序 | 0 下走 / 1 上走 / 2 待机 / 3 左走 / 4 右走 |
-| 待机取帧 | 待机行第 2 列（`ui-scene.js` 的 `ROW_IDLE` + viewBox 偏移） |
-| 行走动画 | CSS 在 4 列间平移（`06-scene.css` 的 `@keyframes sk-walk-frames`，96px 步进） |
+| 待机取帧 | 待机行第 2 列 |
+| 行走动画 | 按时间切 4 列（`js/game.js` 的 `fr=Math.floor(T*7)%4`） |
 
 ## 差异化设计（15 席互不相同，且**与身份无关**）
 
-- **配色**：15 色，与 `ui-scene.js` 的 `PALETTE` 同序（只做视觉辨识）
+- **配色**：15 色，与 `manifest.json` 的 `color` 同序（只做视觉辨识）
 - **头饰**（15 种，一对一）：bare / antenna / cap / headset / crest / helmet / bun /
   spike / halo / visor-strip / horn / topknot / sidegear / wing / dome
 - **背包**（5 种循环）：flat / tall / round / twin / none（只在背面与侧面可见）
+- 体型/发型/肤色/护甲分块在脚本里按席位做微差，避免 15 人共用一张脸。
 
 > ⚠ **外观不得与本局身份挂钩**。若让异形变红、外星人变紫，等于把阵营直接印在角色上，
-> 违反 7.0 防透视。这里只按**席位号**取样式，与 `role` / `faction` 无关。
+> 违反防透视原则。这里只按**席位号**取样式，与 `role` / `faction` 无关。
 
-## 生成器的三条硬约束（改之前先看）
+## 修改约束
 
-1. **颜色必须钳到 0..255**。`shade(rgb, 1.22)` 若不钳，`255×1.22=311` 写进 `Uint8Array`
-   会**回绕成 55** —— 本该是浅红高光的地方变成深青，在身体上画出一条 3px 竖条。
-   这个 bug 不报错、只静默画错颜色（2026-10-26 实际踩到，用像素 dump 定位）。
-2. **描边只描「与画布外缘连通」的透明格**。否则两腿之间的缝隙会被当外缘涂黑，
-   读作「身体中间穿了根管子」。实现里用泛洪标记 `outside[]`。
-3. **层叠顺序固定**：阴影 → 腿 → 背包 → 身体 → 面罩 → 头饰 → 勾边。
-   腿顶必须插进身体 2px（`LEG_TOP=29` vs 身体底 31），否则 outline 会在腰上描一道黑线。
+1. 不要改 `192×320` 渲染分辨率与 `96×160` 单帧尺寸：游戏按 `384×800` 切图，
+   帧宽高比变化会让脚底对不齐格子。
+2. 角色脚底必须落在帧底部约 2px 处（脚本相机 `CAM_CZ` 已标定），
+   否则游戏里会出现悬空或陷进地板。
+3. 头饰/背包的差异只按 `seat` 选择，禁止读取 `alien` / 阵营。
+4. 重新渲染后必须跑一遍 `python tools/crew-sheets.py`，再跑
+   `node tools/test-v3.cjs`（角色尺寸与不变量会被回归测试覆盖）。
