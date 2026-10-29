@@ -3104,6 +3104,15 @@
       chat:t=>{playerTalk(t);return (G.meet&&G.meet.lines||[]).length;},
       meetLines:()=>G.meet?(G.meet.lines||[]):[],
       roomNames:()=>M.rooms.map(r=>r.name),
+      rooms:()=>M.rooms.map(r=>{
+        const c=nearestFree(r.rect[0]+r.rect[2]/2,r.rect[1]+r.rect[3]/2);
+        return {id:r.id,name:r.name,x:c[0],y:c[1],area:r.area,cls:r.cls};
+      }),
+      points:()=>M.points.map(p=>{
+        const f=nearestFree(p.x,p.y);
+        return {x:p.x,y:p.y,room:p.room,label:p.label,kind:p.kind,
+          d:Math.hypot(f[0]-p.x,f[1]-p.y),free:free(p.x,p.y)};
+      }),
       meetCtx:()=>G.meet?{victim:G.meet.ctx.victimInfo,
         claims:(G.meet.ctx.claims||[]).map(c=>({who:c.a.name,room:c.room}))}:null,
       fx:()=>G.fx.map(f=>f.type),

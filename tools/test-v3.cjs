@@ -3,7 +3,7 @@
  * 用法： node tools/test-v3.cjs
  * 依赖： playwright-core（优先本地 node_modules；找不到时可用
  *        PLAYWRIGHT_CORE 指定安装目录）
- * 覆盖： 2.5D 底图、搜尸、拖拽、幽灵态、DEV 无敌/全知、报告会议、
+ * 覆盖： 2.5D 底图、地图全连通/管道/任务点、搜尸、拖拽、幽灵态、DEV 无敌/全知、报告会议、
  *        不变量断言（SKInvariants）、监控室/电闸、地道选择、驱逐公布身份、
  *        音效日志/声纹、维修 10s 无限制、保安/医疗机器人、HUD 存活人数、
  *        暂停/退出、控制台零报错、帧率。
@@ -92,6 +92,27 @@ function section(t) { console.log('\n== ' + t); }
   await shot('25_2.5D底图_全图.png');
   await page.keyboard.press('c');
   await page.waitForTimeout(200);
+
+  section('地图 · 扩容 / 管道 / 全连通');
+  const MAPA = await T(() => {
+    const t = SKV3._t, rs = t.rooms(), ps = t.pipes(), pts = t.points();
+    const bad = [];
+    for (const a of rs) for (const b of rs) {
+      if (a.id === b.id) continue;
+      if (!t.astar(a.x, a.y, b.x, b.y)) bad.push(a.id + '→' + b.id);
+    }
+    return { rs, ps, pts, bad, pipeFree: ps.every(p => t.free(p.x, p.y)),
+      pipeRooms: ps.map(p => p.room).sort() };
+  });
+  ok(MAPA.rs.length === 9 && MAPA.bad.length === 0,
+    '9 间房两两 A* 可达' + (MAPA.bad.length ? ' :: ' + MAPA.bad.join(',') : ''));
+  const powerR = MAPA.rs.find(r => r.id === 'power'), engineR = MAPA.rs.find(r => r.id === 'engine');
+  ok(powerR.area === 124 && engineR.area === 187 && engineR.cls === '中',
+    '配电室 124 格 / 引擎 187 格（中型）');
+  ok(MAPA.ps.length === 4 && MAPA.pipeFree && MAPA.pipeRooms.join(',') === 'armory,bridge,cam,engine',
+    '4 个管道口全部可站立：engine / cam / armory / bridge（配电室已移除）');
+  ok(MAPA.pts.length === 25 && MAPA.pts.every(p => p.d <= 2.6),
+    '25 个任务点全部能被 nearPoint 命中');
 
   section('搜尸');
   await fresh(false);
@@ -339,7 +360,7 @@ function section(t) { console.log('\n== ' + t); }
   section('专属动画 · 维修 / 领取资格 / 领取补给');
   await fresh(false);
   const DURS = await T(() => SKV3._t.taskDurs());
-  ok(DURS.length === 24 && DURS.every(d => d.kind !== 'normal' || d.dur === 10),
+  ok(DURS.length === 25 && DURS.every(d => d.kind !== 'normal' || d.dur === 10),
     '16 个普通任务全部 10 秒（高难仍为 15–20 秒）');
   const W0 = await T(() => {
     const t = SKV3._t, g = t.G();
@@ -806,7 +827,7 @@ function section(t) { console.log('\n== ' + t); }
       sub: document.getElementById('pipe-sub').textContent };
   });
   ok(PD.p.open && PD.p.opts.length === 3 && PD.open, '异形按 E 打开地道出口列表：3 个可选目的地');
-  ok(PD.p.fromRoom === '配电室' && PD.btns.length === 3 && PD.btns[0].indexOf('1') === 0,
+  ok(PD.p.fromRoom === '监控室' && PD.btns.length === 3 && PD.btns[0].indexOf('1') === 0,
     '列表标出当前管道口与 1–3 快捷键');
   await shot('42_地道选择.png');
   const DEST = PD.p.opts[1];
