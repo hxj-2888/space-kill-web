@@ -103,9 +103,11 @@
         act:null,_rest:0,_delay:2+Math.random()*6,_fxT:0,
         nRoom:null,nSeen:{},nTask:null,nTaskRoom:null,accuse:null,_lie:null,
         _taskPt:null,_reportT:0,_sawBody:null,
-        /* 认知层：只记录自己看见/听见/搜查到的事实，不保存身份答案 */
-        mind:{mem:[],sus:{},why:{},alert:0,noise:null,seenBy:{},seenT:{},lastBody:null,tone:i%3}
+        /* 认知层：只记录自己看见/听见/搜查到的事实，不保存身份答案。
+           mind 统一由 mindReset() 建，避免两处字面量漂移（known/redSeen 漏字段）。 */
+        mind:null
       }));
+      for(const a of agents)mindReset(a);
       // 出生：15 人全部在中央会议室，异形混在人群里
       const br=M.rooms.find(r=>r.id==='bridge');
       for(const a of agents){
@@ -811,6 +813,21 @@
             a.mind.seenT[w.i]=evNow();
             evPush(a,{kind:'saw_agent',x:w.x,y:w.y,room:roomIdAt(w.x,w.y),subj:w.i,conf:0.8,src:'sight'});
           }
+          /* 刀者红身：只有刚出刀的人会红 3 秒；人类没有刀，所以看到红光 = 确证异形。
+             同一个人的一次红身只记一条，避免 3 秒里刷满记忆。 */
+          if(!a.alien&&w.redT>0){
+            const lastRed=a.mind.redSeen[w.i]||-99;
+            if(evNow()-lastRed>5){
+              a.mind.redSeen[w.i]=evNow();
+              const ev={kind:'saw_red',x:w.x,y:w.y,room:roomIdAt(w.x,w.y),subj:w.i,
+                conf:0.9,src:'sight'};
+              evPush(a,ev);
+              susAdd(a,w.i,EV_W.saw_red,'saw_red',ev);
+              a.mind.known[w.i]={t:ev.t,kind:'saw_red',room:ev.room,conf:0.9};
+              a.mind.sus[w.i]=1;
+              a.suspect=w.i;
+            }
+          }
         }
       }
     }
@@ -820,7 +837,7 @@
        证据 → 嫌疑分 → 行为（报告 / 开枪 / 投票）与会议语料。 */
     const MEM_MAX=64;
     const EV_W={saw_knife:0.75,saw_shot:0.55,saw_pipe:0.7,saw_sabotage:0.65,
-      saw_bot:0.6,saw_breaker:0.32,saw_drag:0.22,saw_detain:0.6,
+      saw_bot:0.6,saw_breaker:0.32,saw_drag:0.22,saw_detain:0.6,saw_red:0.85,
       heard_knife:0.18,heard_shot:0.16,heard_scream:0.22,heard_power:0.14,
       heard_robot:0.12,heard_pipe:0.2,heard_door:0.04,heard_detain:0.6,heard_drag:0.12,
       env_lights:0.1,env_fault:0.12,env_robot:0.14};
@@ -828,7 +845,10 @@
     function mindReset(a){
       if(!a)return;
       a.mind={mem:[],sus:{},why:{},alert:0,noise:null,seenBy:{},seenT:{},
-        lastBody:null,tone:(a.i||0)%3};
+        lastBody:null,tone:(a.i||0)%3,
+        /* known：亲眼确认「这个人就是异形」（钻管道 / 出刀 / 破坏 / 停摆机器人 /
+           身上带着刚出刀的红光）。不是嫌疑分，是不再动摇的身份结论。 */
+        known:{},redSeen:{}};
     }
     function evPush(a,ev){
       if(!a||!G)return;
@@ -870,6 +890,19 @@
     function bestSusTarget(a,min){
       const s=topSus(a,min); if(!s)return null;
       return liveTarget(s.i,a)?s:null;
+    }
+    /* 确证目标：亲眼见过异形专属行为的人，不再靠嫌疑分猜。
+       返回 {i,score,why,known}，known 里带确证类型（saw_pipe / saw_knife / saw_red…）。 */
+    function bestKnownTarget(a){
+      if(!a||!a.mind||!a.mind.known)return null;
+      let best=null,bt=-1;
+      for(const k in a.mind.known){
+        const i=+k, t=a.mind.known[k];
+        if(!liveTarget(i,a))continue;
+        if((t.t||0)>bt){bt=t.t||0;best={i,score:1,known:t,
+          why:(a.mind.why[i]||[]).slice(-4)};}
+      }
+      return best;
     }
     function evidenceReason(a,i){
       const why=(a.mind&&a.mind.why[i])||[];
@@ -935,6 +968,14 @@
         evPush(w,ev);
         susAdd(w,actor.i,wt,'saw_'+kind,ev);
         if(alienAct||kind==='shot'||kind==='detain')w.suspect=actor.i;
+        /* 异形专属行为（出刀 / 钻管道 / 破坏设备 / 停摆机器人）是身份级证据：
+           直接看见就等于确证，不再只是加一点嫌疑分。开枪与拘留人类也会做，不算确证。 */
+        if(alienAct){
+          w.mind.known[actor.i]={t:ev.t,kind:'saw_'+kind,room:ev.room,conf:0.95};
+          w.mind.sus[actor.i]=1;
+          w.mind.why[actor.i]=(w.mind.why[actor.i]||[]).concat([{
+            w:1,reason:'确证异形',kind:'saw_'+kind,t:ev.t,x,y,room:ev.room}]).slice(-8);
+        }
       }
       /* 异形自己知道谁在视线里看见了它；这是现场感知，不是读取对方内心 */
       if(actor.alien){
@@ -1324,11 +1365,14 @@
         }
         if(si!=null){
           const s=G.agents[si];
+          const kn=bestKnownTarget(a);
+          const sure=!!(kn&&kn.i===si);
+          const shootR=sure?10:8, chaseR=sure?14:10;
           const d=Math.hypot(s.x-a.x,s.y-a.y);
-          if(d<8&&aiCanSee(a,s.x,s.y,8)){
+          if(d<shootR&&aiCanSee(a,s.x,s.y,shootR)){
             fireShot(a,s);a._rest=2.5+Math.random()*2;return;
           }
-          if(d<10){
+          if(d<chaseR){
             if(!a.path||!a.path.length)walkTo(a,s.x,s.y);
             stepMove(a,dt,moveSpeed(a));return;
           }
@@ -2221,7 +2265,8 @@
     }
     function buildMeetCtx(kind,reporter,victim){
       const vi=victimInfo(victim);
-      const ctx={kind,reporter,victim,victimInfo:vi,claims:[]};
+      const ctx={kind,reporter,victim,victimInfo:vi,claims:[],playerSays:[],
+        playerAccuse:null,playerVote:null,playerClaimRoom:null};
       const used=new Set(vi?[vi.roomId]:[]);
       const alienAccused=new Set();
       /* 先做一轮时间线对质：如果我在别的舱室见过你，而你现在声称整晚在另一处，
@@ -2260,14 +2305,17 @@
           a.accuse=pick?pick.i:null;
           if(a.accuse!=null)alienAccused.add(a.accuse);
         }else{
-          /* 人类：目击凶手优先，其次使用证据链里的最高嫌疑分 */
-          let si=a.suspect!=null?a.suspect:null;
+          /* 人类：确证优先（见过出刀/钻管道/破坏/红身），其次目击凶手，最后嫌疑分 */
+          const kn=bestKnownTarget(a);
+          let si=kn?kn.i:(a.suspect!=null?a.suspect:null);
           if(si==null){const bs=bestSusTarget(a,0.5);if(bs)si=bs.i;}
           const s=si!=null?G.agents[si]:null;
           if(s&&s!==a&&s.alive&&!s.downed){
             a.accuse=si;
-            a.accuseWhy=evidenceReason(a,si)||(a.suspect!=null?
-              {kind:'saw_alien',room:null,reason:'亲眼目击'}:null);
+            a.accuseWhy=kn?{kind:kn.known.kind,room:kn.known.room||null,
+              reason:'确证异形',known:true}:
+              (evidenceReason(a,si)||(a.suspect!=null?
+                {kind:'saw_alien',room:null,reason:'亲眼目击'}:null));
           }
         }
       }
@@ -2293,6 +2341,7 @@
         case 'saw_bot':return '他停摆了巡逻机器人';
         case 'saw_breaker':return '断电前他就在配电室附近';
         case 'saw_drag':return '我看见他拖动了尸体';
+        case 'saw_red':return '我看见他身上带着刚出刀的红光';
         case 'saw_detain':return '保安机器人当场抓住了他';
         case 'near_body':return '尸体旁边的人里就有他';
         case 'heard_scream':return '尖叫声响起时他在附近';
@@ -2429,6 +2478,18 @@
         '我投'+t.name+'。他的说法对不上。',
         '我跟一票'+t.name+'，总得有人为这事负责。'
       ],14);
+      /* 确证：不是"我怀疑"，是"我知道"——直接点破动作 */
+      const kn=bestKnownTarget(a);
+      if(kn&&kn.i===a.accuse){
+        const k=kn.known.kind, rm=kn.known.room?roomNameById(kn.known.room):'现场';
+        const act=k==='saw_pipe'?'钻管道':(k==='saw_knife'?'出刀':
+          (k==='saw_sabotage'?'破坏设备':(k==='saw_bot'?'停摆机器人':'带着刚出刀的红光')));
+        return pickLine(a,[
+          '我确定：'+t.name+'是异形。我亲眼看见他'+act+'，就在'+rm+'。这一票我投他。',
+          '不用再猜了，'+t.name+'刚才在'+rm+act+'，我看得很清楚——他是异形。我投'+t.name+'。',
+          '我确证'+t.name+'是异形：'+act+'，就在'+rm+'，不是推断。我投他。'
+        ],23);
+      }
       const why=a.accuseWhy||evidenceReason(a,a.accuse);
       if(a.suspect!=null){
         if(why&&why.kind==='saw_knife'&&m&&m.ctx.victimInfo)
@@ -2449,127 +2510,338 @@
       const ai=G.agents.filter(a=>a.alive&&!a.downed&&a!==G.me);
       if(!ai.length)return;
       const cands=ai.slice().sort(()=>Math.random()-0.5);
-      let t=520;
+      const D=Math.max(12,m.discuss||25);
+      const endAt=Math.max(5200,D*1000-2200);   /* 收尾留 2.2 秒 */
+      const agenda=[];
+      const push=fn=>agenda.push(fn);
+
       if(m.kind==='pre'){
-        meetLater(m,t,()=>sysSay('第 1 天 · 公开讨论：先认识彼此，讨论完直接进入第 1 夜。'));
-        t+=1200;
-        for(const a of cands.slice(0,3)){
-          meetLater(m,t,()=>say(a.name,alibiLine(a,m)));
-          t+=1250;
+        push(()=>sysSay('第 1 天 · 公开讨论 '+D+' 秒：先认识彼此、报第一站，讨论完直接进入第 1 夜。'));
+        for(const a of cands.slice(0,3)) push(()=>say(a.name,alibiLine(a,m)));
+        for(const a of cands.slice(3,5)){
+          push(()=>{
+            const f=alibiOf(a);
+            say(a.name,pickLine(a,[
+              '我打算先去'+f.room+(f.task?('，把'+f.task+'做掉'):'')+'，谁顺路？',
+              '第 1 夜我先跑'+f.room+'，'+(f.task||'手头任务')+'优先。',
+              '有没有人跟我一块去'+f.room+'？一个人修太慢了。'
+            ],41));
+          });
+        }
+        const p1=cands[5]||cands[0], p2=cands[6]||cands[1];
+        if(p1&&p2&&p1!==p2){
+          push(()=>{
+            const f=alibiOf(p2);
+            say(p1.name,'我和'+p2.name+'说好了，开局先去'+f.room+'那边看看。');
+          });
+        }
+        if(G.me.alive&&!G.me.downed){
+          const asker=cands[3]||cands[0];
+          push(()=>say(asker.name,'你呢，'+G.me.name+'？准备先修哪片？'));
+        }
+        const tail=cands[cands.length-1];
+        push(()=>sysSay('提示：异形会拉闸 / 钻管道 / 破坏设备 / 停摆机器人；亲眼看见可以直接在会议里点破。'));
+        push(()=>say(tail.name,pickLine(tail,[
+          '都精神点，今晚谁看见谁钻管道，天亮直接说。',
+          '我建议每个人先报自己第一站，出了事好对时间线。',
+          '别一个人乱跑，两两结伴最好，出了事也有证人。'
+        ],42)));
+        if(G.me.alive&&!G.me.downed){
+          const q=cands[1]||cands[0];
+          push(()=>say(q.name,'对了，'+G.me.name+'，你要是看到管道有人钻，记得先记下是谁。'));
+        }
+      }else{
+        const vi=m.ctx.victimInfo;
+        if(m.reporter&&m.reporter!==G.me&&m.reporter.alive&&!m.reporter.downed){
+          push(()=>say(m.reporter.name,openingLine(m.reporter,m)));
+        }else if(vi){
+          push(()=>say(G.me.name,'我在'+vi.room+'发现'+vi.name+'，'+vi.cause+(vi.dead?'，人已经没了。':'，还有呼吸。'),true));
+        }else{
+          push(()=>sysSay(m.kind==='day'?'天亮了，全员到会议室。':'没有尸体，但有人按下了会议铃。'));
+        }
+        const speakers=cands.slice(0,3);
+        for(const a of speakers){
+          m.ctx.claims.push({a,room:alibiOf(a).room});
+          push(()=>say(a.name,alibiLine(a,m)));
         }
         const asker=cands[3]||cands[0];
-        if(G.me.alive)meetLater(m,t,()=>say(asker.name,'你呢，'+G.me.name+'？准备先修哪片？'));
-        t+=1200;
-        meetLater(m,t,()=>sysSay('讨论结束，进入第 1 夜。'));
-        return;
-      }
-      const vi=m.ctx.victimInfo;
-      if(m.reporter&&m.reporter!==G.me&&m.reporter.alive&&!m.reporter.downed){
-        meetLater(m,t,()=>say(m.reporter.name,openingLine(m.reporter,m)));
-      }else if(vi){
-        meetLater(m,t,()=>say(G.me.name,'我在'+vi.room+'发现'+vi.name+'，'+vi.cause+(vi.dead?'，人已经没了。':'，还有呼吸。'),true));
-      }else{
-        meetLater(m,t,()=>sysSay(m.kind==='day'?'天亮了，全员到会议室。':'没有尸体，但有人按下了会议铃。'));
-      }
-      t+=1450;
-      const speakers=cands.slice(0,3);
-      for(const a of speakers){
-        m.ctx.claims.push({a,room:alibiOf(a).room});
-        meetLater(m,t,()=>say(a.name,alibiLine(a,m)));
-        t+=1300;
-      }
-      const asker=cands[3]||cands[0];
-      if(G.me.alive&&!G.me.downed){
-        meetLater(m,t,()=>say(asker.name,'你呢，'+G.me.name+'？今晚在哪，看到谁了？'));
-        t+=1250;
-      }
-      const ch=pickChallenge(m.ctx.claims,cands);
-      if(ch){
-        meetLater(m,t,()=>say(ch.c.name,challengeText(ch)));
-        t+=1300;
-        meetLater(m,t,()=>say(ch.s.a.name,respondText(ch,m)));
-        t+=1400;
-      }
-      const accusers=cands.filter(a=>a.accuse!=null&&G.agents[a.accuse]&&G.agents[a.accuse].alive&&a.accuse!==a.i)
-        .sort((x,y)=>{
-          const sx=(x.alien?0:2)+(x.suspect!=null?2:0)+(x.accuseWhy?1:0);
-          const sy=(y.alien?0:2)+(y.suspect!=null?2:0)+(y.accuseWhy?1:0);
-          return sy-sx;
-        }).slice(0,2);
-      for(const a of accusers){
-        meetLater(m,t,()=>{const l=accuseLine(a,m);if(l)say(a.name,l);});
-        t+=1250;
-      }
-      /* 被指控者当场辩护：只用自己的口供与证人，不泄露隐藏身份 */
-      const accused=cands.find(a=>a.accuse!=null&&G.agents[a.accuse]&&G.agents[a.accuse].alive&&
-        a.accuse!==a.i&&a!==accusers[0]);
-      if(accused){
-        meetLater(m,t,()=>say(accused.name,defenseClause(accused)));
-        t+=1250;
-      }
-      // 有人跟票：把指控同步进投票，做到「说的」和「投的」一致
-      let supporter=null;
-      if(accusers.length){
-        const a0=accusers[0],tgt=G.agents[a0.accuse];
-        /* 跟票者必须自己手里有点动静（警觉度），否则就是在"无证据投票"：
-           规则要求没有证据的人类 AI 弃权，所以这里不能凭空替人定罪。 */
-        const pool=cands.filter(x=>x!==a0&&x!==tgt&&x.suspect==null&&x.accuse==null&&
-          x.alive&&!x.downed&&!x.alien&&(x.mind?x.mind.alert:0)>=0.25);
-        if(pool.length&&Math.random()<0.6){
-          supporter=pool[Math.floor(Math.random()*pool.length)];
-          supporter.accuse=tgt.i;
-          meetLater(m,t,()=>say(supporter.name,pickLine(supporter,[
-            '我跟'+a0.name+'一票，'+tgt.name+'得给个说法。',
-            '我信'+a0.name+'的判断，先投'+tgt.name+'。',
-            '我跟一票'+tgt.name+'，时间线对不上。'
-          ],15)));
-          t+=1200;
+        if(G.me.alive&&!G.me.downed){
+          push(()=>say(asker.name,'你呢，'+G.me.name+'？今晚在哪，看到谁了？'));
         }
+        const ch=pickChallenge(m.ctx.claims,cands);
+        if(ch){
+          push(()=>say(ch.c.name,challengeText(ch)));
+          push(()=>say(ch.s.a.name,respondText(ch,m)));
+        }
+        const accusers=cands.filter(a=>a.accuse!=null&&G.agents[a.accuse]&&G.agents[a.accuse].alive&&a.accuse!==a.i)
+          .sort((x,y)=>{
+            const sx=(x.alien?0:2)+(x.suspect!=null?2:0)+(x.accuseWhy?1:0);
+            const sy=(y.alien?0:2)+(y.suspect!=null?2:0)+(y.accuseWhy?1:0);
+            return sy-sx;
+          }).slice(0,2);
+        for(const a of accusers){
+          push(()=>{const l=accuseLine(a,m);if(l)say(a.name,l);});
+        }
+        const accused=cands.find(a=>a.accuse!=null&&G.agents[a.accuse]&&G.agents[a.accuse].alive&&
+          a.accuse!==a.i&&a!==accusers[0]);
+        if(accused)push(()=>say(accused.name,defenseClause(accused)));
+        /* 有确证的人最后点名：不是"我怀疑"，是"我确定" */
+        const sure=cands.find(a=>!a.alien&&bestKnownTarget(a));
+        if(sure)push(()=>{const l=accuseLine(sure,m);if(l)say(sure.name,l);});
+        let supporter=null;
+        if(accusers.length){
+          const a0=accusers[0],tgt=G.agents[a0.accuse];
+          const pool=cands.filter(x=>x!==a0&&x!==tgt&&x.suspect==null&&x.accuse==null&&
+            x.alive&&!x.downed&&!x.alien&&(x.mind?x.mind.alert:0)>=0.25);
+          if(pool.length&&Math.random()<0.6){
+            supporter=pool[Math.floor(Math.random()*pool.length)];
+            supporter.accuse=tgt.i;
+            push(()=>say(supporter.name,pickLine(supporter,[
+              '我跟'+a0.name+'一票，'+tgt.name+'得给个说法。',
+              '我信'+a0.name+'的判断，先投'+tgt.name+'。',
+              '我跟一票'+tgt.name+'，时间线对不上。'
+            ],15)));
+          }
+        }
+        /* 第二轮：再追一个没被问到的人，避免 60 秒里只有前三位开口 */
+        const extra=cands.find(x=>!speakers.includes(x)&&x!==asker);
+        if(extra){
+          push(()=>{
+            const f=alibiOf(extra);
+            say(extra.name,pickLine(extra,[
+              '我补一句：我在'+f.room+(f.task?('修'+f.task):'')+'，路上没碰上'+ (vi?vi.name:'出事的人') +'。',
+              '我这边是'+f.room+'，谁要核对时间线可以找我。'
+            ],43));
+          });
+        }
+        const closer=cands[cands.length-1];
+        push(()=>{
+          const target=closer.accuse!=null?G.agents[closer.accuse]:null;
+          if(target&&target.alive){
+            say(closer.name,pickLine(closer,[
+              '我先把票压在'+target.name+'身上。'+(vi?vi.name+'的事不能就这么算了。':''),
+              '我跟'+target.name+'，他的口供最不干净。',
+              '我投'+target.name+'，这一票不是随便给的。'
+            ],16));
+          }else if(vi){
+            closer._abstain=true;
+            say(closer.name,pickLine(closer,[
+              '我信息不够，先弃权。'+(G.me.alive&&!G.me.downed?('你呢，'+G.me.name+'？'):''),
+              '我手上没有能落地的证据，先不投。',
+              '我先弃权，别把无辜的人推出去。'
+            ],17));
+          }else{
+            closer._abstain=true;
+            say(closer.name,pickLine(closer,[
+              '没有尸体就别乱投，今晚把任务修起来。',
+              '没有证据我不投，先回去修船。'
+            ],18));
+          }
+        });
       }
-      const closer=cands[cands.length-1];
-      meetLater(m,t,()=>{
-        const target=closer.accuse!=null?G.agents[closer.accuse]:null;
-        if(target&&target.alive){
-          say(closer.name,pickLine(closer,[
-            '我先把票压在'+target.name+'身上。'+(vi?vi.name+'的事不能就这么算了。':''),
-            '我跟'+target.name+'，他的口供最不干净。',
-            '我投'+target.name+'，这一票不是随便给的。'
-          ],16));
-        }else if(vi){
-          closer._abstain=true;
-          say(closer.name,pickLine(closer,[
-            '我信息不够，先弃权。'+(G.me.alive&&!G.me.downed?('你呢，'+G.me.name+'？'):''),
-            '我手上没有能落地的证据，先不投。',
-            '我先弃权，别把无辜的人推出去。'
-          ],17));
+
+      /* 均匀铺满讨论窗口：行与行间隔最多 2.6 秒，最少 1.2 秒；
+         内容提前讲完后用系统提示补空档，避免"开头 7 秒热闹、剩下 50 秒死寂"。 */
+      const t0=520;
+      const step=Math.min(1600,Math.max(1000,(endAt-t0)/Math.max(1,agenda.length-1)));
+      agenda.forEach((fn,i)=>meetLater(m,t0+i*step+Math.random()*160,fn));
+      const lastAt=t0+step*(agenda.length-1);
+      const nudges=[];
+      for(let tn=lastAt+4200;tn<endAt-1600;tn+=9000){
+        nudges.push(Math.round(tn));
+        const seq=nudges.length;
+        if(seq%2===1){
+          meetLater(m,tn,()=>sysSay('自由讨论 · 剩余 '+Math.max(0,Math.round(m.t))+' 秒 · 输入框发言可直接追问'));
         }else{
-          closer._abstain=true;
-          say(closer.name,pickLine(closer,[
-            '没有尸体就别乱投，今晚把任务修起来。',
-            '没有证据我不投，先回去修船。'
-          ],18));
+          /* 空档里让 AI 主动接话：优先引用玩家刚才自述的位置，
+             把「槽位」真正用进 AI 之间的对话，而不是只用于回复玩家。 */
+          meetLater(m,tn,()=>{
+            const a=cands[(seq*3)%cands.length]||cands[0];
+            const cr=m.ctx&&m.ctx.playerClaimRoom;
+            if(cr)say(a.name,'刚才'+G.me.name+'说在'+roomNameById(cr)+'，那会儿谁在那边？有没有人能对上时间线？');
+            else say(a.name,pickLine(a,[
+              '还有谁没报自己第一站的？趁现在说清楚。',
+              '我第二站去'+alibiOf(a).room+'，有人同路吗？',
+              '刚才说的那几个人，谁还有补充？别等投票再想起来。',
+              '谁的路线要经过走廊的，结个伴，别落单。'
+            ],44+seq));
+          });
         }
+      }
+      /* 排期审计：门禁用它确认「讨论内容真的覆盖到结束前」 */
+      m.plan={kind:m.kind,discuss:D,t0:Math.round(t0),step:Math.round(step),
+        n:agenda.length,lastAt:Math.round(lastAt),endAt:Math.round(endAt),nudges,
+        lastScheduled:Math.round(Math.max(lastAt,nudges.length?nudges[nudges.length-1]:0,endAt))};
+      meetLater(m,endAt,()=>{
+        if(m.kind==='pre')sysSay('讨论结束，进入第 1 夜。');
+        else sysSay('讨论时间到，进入投票。');
       });
     }
-    /* 玩家发言 → 按意图回答，并引用真实位置/任务/指控 */
+    /* ---------------- 玩家发言 → 槽位解析 ----------------
+       把自由文本拆成「提到的人 / 舱室 / 指控 / 投票 / 是否否认 / 自述位置」，
+       再用这些槽位生成 AI 回应：时间线对质、当场辩护、附和确证、追问证据。
+       纯本地规则，不接模型；关键词只做槽位抽取，不做语义理解。 */
+    const ROOM_WORDS=[
+      ['中央会议室','bridge'],['会议室','bridge'],['监控室','cam'],['监控','cam'],
+      ['生态舱','ecosys'],['生态','ecosys'],['配电室','power'],['配电','power'],
+      ['中转间','transit'],['中转','transit'],['娱乐室','fun'],['娱乐','fun'],
+      ['引擎','engine'],['医疗间','med'],['医疗','med'],['军械库','armory'],['军械','armory'],
+      ['走廊','corridor']
+    ];
+    function parseSpeech(text){
+      const s=String(text||'');
+      const out={raw:s.slice(0,80),rooms:[],people:[],accuse:null,vote:null,deny:false,where:null};
+      for(const [w,id] of ROOM_WORDS){
+        if(s.indexOf(w)>=0&&out.rooms.indexOf(id)<0)out.rooms.push(id);
+      }
+      for(const a of G.agents){
+        if(a.i===0||!a.name)continue;
+        if(s.indexOf(a.name)>=0||s.indexOf(seatNo(a))>=0)out.people.push(a.i);
+      }
+      if(out.people.length){
+        if(/我(投|跟|票给)|投给/.test(s))out.vote=out.people[0];
+        if(/怀疑|凶手|就是他|是他|他杀|异形|杀了/.test(s))out.accuse=out.people[0];
+      }
+      if(/不是我|我没|我没去|我没动|不在场|冤枉/.test(s))out.deny=true;
+      if(out.rooms.length&&/(我在|就在|一直在|当时在|去过|待在|在)/.test(s))out.where=out.rooms[0];
+      return out;
+    }
+    /* 找一个能替某人作证的证人（只用于台词，不改变判定） */
+    function seedWitness(a){
+      const seen=seenNames(a,{aliveOnly:true});
+      return seen.length?(seen[0].name+'能给我作证'):'';
+    }
     function playerTalk(text){
       const m=G.meet;
       if(!m||m.phase!=='discuss')return;
       const cands=G.agents.filter(a=>a.alive&&!a.downed&&a!==G.me);
       if(!cands.length)return;
+      const sl=parseSpeech(text);
+      m.ctx.playerSays=m.ctx.playerSays||[];
+      m.ctx.playerSays.push({t:evNow(),slots:sl});
+      if(sl.accuse!=null)m.ctx.playerAccuse=sl.accuse;
+      if(sl.vote!=null)m.ctx.playerVote=sl.vote;
+      if(sl.where)m.ctx.playerClaimRoom=sl.where;
+      const vi=m.ctx.victimInfo;
+
+      /* 1) 时间线对质：玩家自称在哪，但某个 AI 记得在别处见过他 → 当场拆穿 */
+      let challenger=null,conflict=null;
+      if(sl.where){
+        for(const w of cands){
+          if(w.alien||!w.mind)continue;
+          for(const e of w.mind.mem.slice(-24)){
+            if(e.kind!=='saw_agent'||e.subj!==0||e.room==null||e.night!==G.night)continue;
+            if(evNow()-e.t>45||e.room===sl.where)continue;
+            susAdd(w,0,0.3,'contradiction_player',e);
+            challenger=w;conflict=e;break;
+          }
+          if(challenger)break;
+        }
+      }
+      if(challenger&&conflict){
+        const roomClaim=roomNameById(sl.where),roomSeen=roomNameById(conflict.room);
+        meetLater(m,650+Math.random()*400,()=>say(challenger.name,pickLine(challenger,[
+          G.me.name+'，你说你在'+roomClaim+'？我明明在'+roomSeen+'看见你了。',
+          G.me.name+'，你说你在'+roomClaim+'？'+roomSeen+'那会儿你可不在那儿，我亲眼看到的。',
+          G.me.name+'，'+roomClaim+'？我在'+roomSeen+'碰见你了，别跟我说两个地方。'
+        ],31)));
+        return;
+      }
+
+      /* 2) 玩家点名指控：被点的人辩护；有同款确证的人直接站队 */
+      if(sl.accuse!=null){
+        const t=G.agents[sl.accuse];
+        if(!t||!t.alive||t.downed)return;
+        const sameKnown=cands.find(w=>w!==t&&!w.alien&&w.mind&&w.mind.known&&w.mind.known[t.i]);
+        if(sameKnown){
+          const k=sameKnown.mind.known[t.i];
+          const rm=k.room?roomNameById(k.room):'现场';
+          const act=k.kind==='saw_pipe'?'钻了管道':(k.kind==='saw_knife'?'出刀':
+            (k.kind==='saw_red'?'身上带着刚出刀的红光':'破坏了设备'));
+          meetLater(m,600+Math.random()*500,()=>say(sameKnown.name,
+            '我同意'+G.me.name+'。'+t.name+'在'+rm+act+'，我亲眼看见的——他就是异形。'));
+          return;
+        }
+        meetLater(m,650+Math.random()*450,()=>say(t.name,pickLine(t,[
+          G.me.name+'，你凭什么怀疑我？我今晚在'+alibiOf(t).room+'，'+
+            (seedWitness(t)||'没人作证不代表我有罪')+'。',
+          '我不是异形。'+G.me.name+'，你说我，那你说说你当时在哪？',
+          '要投我就直说，别拿猜测当证据。'
+        ],32)));
+        const bw=cands.find(w=>w!==t&&!w.alien&&((w.mind&&w.mind.sus[t.i])||0)>=0.4);
+        if(bw)meetLater(m,1500,()=>say(bw.name,pickLine(bw,[
+          '我这边也有一条对得上'+t.name+'的线索，先记他一票。',
+          '我不止听'+G.me.name+'说，我自己也看到过'+t.name+'不对劲。'
+        ],33)));
+        return;
+      }
+
+      /* 3) 玩家自述位置（无冲突）：在场的人可以作证或反问 */
+      if(sl.where){
+        const there=cands.find(w=>!w.alien&&w.nRoom===sl.where&&
+          !(w.mind&&w.mind.seenT&&w.mind.seenT[0]&&evNow()-w.mind.seenT[0]<8));
+        if(there){
+          const rn=roomNameById(sl.where);
+          meetLater(m,600+Math.random()*500,()=>say(there.name,pickLine(there,[
+            '我那会儿也在'+rn+'，怎么没看见你？',
+            '你说你在'+rn+'？我整晚都在那边，没碰上你。',
+            rn+'？我就在那儿修东西，没见到你。'
+          ],34)));
+        }else{
+          const rn=roomNameById(sl.where);
+          const resp=pickResponder(m,cands);
+          meetLater(m,600+Math.random()*500,()=>say(resp.name,pickLine(resp,[
+            '记下了：'+G.me.name+'在'+rn+'。',
+            '好，'+G.me.name+'的位置是'+rn+'，我先记着。'
+          ],35)));
+        }
+        return;
+      }
+
+      /* 4) 玩家投票：有警觉的人可以跟票，零证据的人不跟（规则不允许无证据投票） */
+      if(sl.vote!=null){
+        const t=G.agents[sl.vote];
+        if(!t||!t.alive||t.downed)return;
+        const follower=cands.find(w=>w!==t&&!w.alien&&w.mind&&w.mind.alert>=0.25&&w.accuse==null);
+        if(follower){
+          follower.accuse=t.i;
+          meetLater(m,600+Math.random()*500,()=>say(follower.name,
+            '我跟'+G.me.name+'一票，'+t.name+'得给个说法。'));
+        }else{
+          const resp=pickResponder(m,cands);
+          meetLater(m,600+Math.random()*500,()=>say(resp.name,
+            G.me.name+'，你要投'+t.name+'？先说说你看到了什么，我不跟没证据的票。'));
+        }
+        return;
+      }
+
+      /* 5) 玩家否认：有人会接受，有人会追问 */
+      if(sl.deny){
+        const press=cands.find(w=>w.alien||((w.mind&&w.mind.sus[0])||0)>=0.3);
+        if(press){
+          const where=vi?vi.room:'案发那会儿';
+          meetLater(m,600+Math.random()*500,()=>say(press.name,pickLine(press,[
+            '你说不是你，那'+where+'你在哪？说清楚。',
+            '没人说是你，但你得把时间线说圆了。'
+          ],36)));
+        }else{
+          const resp=pickResponder(m,cands);
+          meetLater(m,600+Math.random()*500,()=>say(resp.name,'行，我记下了。'));
+        }
+        return;
+      }
+
+      /* 6) 兜底：任务 / 进度 / 看见谁 */
       const a=pickResponder(m,cands);
-      meetLater(m,700+Math.random()*900,()=>{
-        const f=alibiOf(a),vi=m.ctx.victimInfo;
+      meetLater(m,600+Math.random()*600,()=>{
+        const f=alibiOf(a);
         let line;
-        if(/你.*(可疑|凶手|刀|杀|开枪)|怀疑你|是不是你/.test(text)){
-          line=(a.alien?'我要是异形，就不会站在这里让你点名。':'我没动过手。')+
-            '我今晚在'+f.room+(f.task?('，把'+f.task+'搞定了'):'')+'，'+
-            (f.witnesses[0]?f.witnesses[0].name+'能作证。':'没人作证，但我没去过'+(vi?vi.room:'那片区域')+'。');
-        }else if(/在哪|哪里|位置|哪边/.test(text)){
+        if(/在哪|哪里|位置|哪边/.test(text)){
           line='我在'+f.room+(f.task?('，把'+f.task+'搞定了'):'')+'。'+
             (f.witnesses[0]?('路上碰到'+f.witnesses[0].name+'。'):'');
         }else if(/谁|怀疑|投|凶手/.test(text)){
-          if(a.accuse!=null)line='我怀疑'+nameOf(a.accuse)+'。'+(a.suspect!=null?'我亲眼看见的。':'他的说法对不上。');
+          if(a.accuse!=null)line='我怀疑'+nameOf(a.accuse)+'。'+
+            (a.suspect!=null?'我亲眼看见的。':'他的说法对不上。');
           else line='我还没定。'+(vi?('我更在意'+vi.name+'倒下的那会儿，谁在'+vi.room+'。'):'你先说说你看到了什么。');
         }else if(/任务|修|进度/.test(text)){
           line='我修了'+a.tIdx+'个，还剩'+Math.max(0,4-a.tIdx)+'个。'+
@@ -2584,7 +2856,6 @@
         say(a.name,line);
       });
     }
-
     function openMeeting(kind,reporter,victim){
       if(G.over)return;
       releaseAllDrags(true);
@@ -2667,6 +2938,11 @@
       // AI 投票：先说出口的指控 → 证据链最高嫌疑 → 人类无证据弃权；异形随机独立投票
       for(const a of G.agents){
         if(!a.alive||a===G.me||a.downed)continue;
+        /* 确证优先：见过异形专属行为的人不需要再猜，直接投确证目标 */
+        if(!a.alien){
+          const kn=bestKnownTarget(a);
+          if(kn){ m.votes[a.i]=kn.i; continue; }
+        }
         const acc=(a.accuse!=null&&G.agents[a.accuse]&&G.agents[a.accuse].alive&&a.accuse!==a.i)?a.accuse:null;
         if(acc!=null){ m.votes[a.i]=acc; continue; }
         if(a.suspect!=null&&G.agents[a.suspect]&&G.agents[a.suspect].alive&&G.agents[a.suspect]!==a){
@@ -5168,7 +5444,14 @@
           d:Math.hypot(f[0]-p.x,f[1]-p.y),free:free(p.x,p.y)};
       }),
       meetCtx:()=>G.meet?{victim:G.meet.ctx.victimInfo,
-        claims:(G.meet.ctx.claims||[]).map(c=>({who:c.a.name,room:c.room}))}:null,
+        claims:(G.meet.ctx.claims||[]).map(c=>({who:c.a.name,room:c.room})),
+        playerSays:(G.meet.ctx.playerSays||[]).map(s=>s.slots),
+        playerAccuse:G.meet.ctx.playerAccuse,playerVote:G.meet.ctx.playerVote}:null,
+      parseSpeech:t=>parseSpeech(t),
+      chatterPlan:()=>G.meet&&G.meet.plan?Object.assign({},G.meet.plan):null,
+      accuseLineOf:i=>G.agents[i]?(accuseLine(G.agents[i],G.meet)||''):'',
+      notice:(i,x,y,rad,kind,victim)=>noticeAction(G.agents[i],x,y,rad,kind,
+        victim==null?null:G.agents[victim]),
       fx:()=>G.fx.map(f=>f.type),
       acts:()=>G.agents.map(a=>a.act&&a.act.kind).filter(Boolean),
       roomName:id=>roomNameById(id),
@@ -5301,7 +5584,13 @@
       mind:i=>{const a=G.agents[i];if(!a||!a.mind)return null;
         return {mem:a.mind.mem.slice(-24),sus:Object.assign({},a.mind.sus),
           why:JSON.parse(JSON.stringify(a.mind.why)),alert:a.mind.alert,noise:a.mind.noise,
-          seenBy:Object.assign({},a.mind.seenBy)};},
+          seenBy:Object.assign({},a.mind.seenBy),
+          known:JSON.parse(JSON.stringify(a.mind.known||{})),
+          redSeen:Object.assign({},a.mind.redSeen||{})};},
+      /* 门禁用：立刻跑一轮感知（正常由 update 每 0.4 秒调用） */
+      track:()=>{for(const a of G.agents)if(a.alive&&!a.downed)trackNight(a);return true;},
+      knownOf:i=>{const a=G.agents[i];if(!a||!a.mind)return null;
+        return JSON.parse(JSON.stringify(a.mind.known||{}));},
       aiReportUsed:()=>!!G.aiReportUsed,
       invHist:()=>G.inv
     };

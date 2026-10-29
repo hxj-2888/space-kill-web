@@ -824,6 +824,124 @@ function section(t) { console.log('\n== ' + t); }
   const DMI = await T(() => SKV3._t.inv());
   ok(DMI && DMI.fails.length === 0, '会议结束后不变量全过');
 
+  section('AI 确证 · 管道 / 红身 / 误判边界');
+  await fresh(false);
+  const CERT1 = await T(() => {
+    const t = SKV3._t; t.newGame();
+    const g = t.G(); g.paused = true; g.noReport = true;
+    const demote = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
+    demote.alien = false; g.me.alien = true;
+    const w = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
+    const pipe = t.pipes().find(p => p.room === 'bridge');
+    t.tp(w.i, 57.8, 6.2);
+    t.tp(0, pipe.x, pipe.y);
+    const before = t.knownOf(w.i);
+    t.openPipe();
+    t.pickPipe(t.pipes().find(p => p.room === 'cam').i);
+    const after = t.knownOf(w.i);
+    t.openMeeting('night', w.i, null);
+    const acc = g.agents[w.i].accuse;
+    const why = g.agents[w.i].accuseWhy;
+    const line = t.accuseLineOf(w.i);
+    t.startVote();
+    const vote = g.meet.votes[w.i];
+    t.finishMeeting();
+    return { w: w.i, before, after, acc, why, line, vote, inv: t.inv() };
+  });
+  ok(!CERT1.before || !CERT1.before[0], '钻管道之前：证人没有"他是异形"的结论');
+  ok(CERT1.after && CERT1.after[0] && CERT1.after[0].kind === 'saw_pipe',
+    '亲眼看见钻管道 → 直接确证该人是异形（不是加一点嫌疑分）');
+  ok(CERT1.acc === 0 && CERT1.vote === 0, '确证之后：会议指控与投票都锁定这个席位');
+  ok(/管道/.test(CERT1.line) && /(确定|确证|异形)/.test(CERT1.line),
+    '确证台词点破具体行为与地点：' + CERT1.line);
+  ok(CERT1.inv.fails.length === 0, '确证链路不变量全过');
+
+  const CERT2 = await T(() => {
+    const t = SKV3._t; t.newGame();
+    const g = t.G(); g.paused = true; g.noReport = true;
+    const k = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
+    const w = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
+    t.tp(k.i, 56, 51); t.tp(w.i, 57.2, 51);
+    k.redT = 3;                       /* 模拟刚出刀后的 3 秒红身 */
+    t.track();
+    const know = t.knownOf(w.i);
+    const sus = (t.mind(w.i).sus || {})[k.i] || 0;
+    return { k: k.i, w: w.i, know, sus };
+  });
+  ok(CERT2.know[CERT2.k] && CERT2.know[CERT2.k].kind === 'saw_red',
+    '看见「刀者红身」同样确证：带红光的人就是刚出刀的异形');
+  ok(CERT2.sus >= 0.99, '红身目击把嫌疑分直接拉满（' + CERT2.sus + '），不再慢慢累计');
+
+  const CERT3 = await T(() => {
+    const t = SKV3._t; t.newGame();
+    const g = t.G(); g.paused = true; g.noReport = true;
+    const k = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
+    const w = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
+    t.tp(k.i, 56, 51); t.tp(w.i, 57.2, 51);
+    t.notice(k.i, 56, 51, 6, 'shot', null);   /* 开枪人类也会做 */
+    return { know: t.knownOf(w.i), sus: (t.mind(w.i).sus || {})[k.i] || 0, k: k.i };
+  });
+  ok(Object.keys(CERT3.know).length === 0 && CERT3.sus > 0.3,
+    '开枪 / 拖尸这类人类也会做的事：只记嫌疑（' + CERT3.sus + '），不确证身份');
+
+  section('玩家发言 · 槽位解析与时间线对质');
+  await fresh(false);
+  const SLOT = await T(() => {
+    const t = SKV3._t;
+    const p1 = t.parseSpeech('我怀疑 03 北极，他一直在配电室');
+    const p2 = t.parseSpeech('我投 05，我在医疗间修东西');
+    const p3 = t.parseSpeech('不是我，我整晚都在引擎');
+    return { p1, p2, p3 };
+  });
+  ok(SLOT.p1.people.indexOf(2) >= 0 && SLOT.p1.accuse === 2 && SLOT.p1.where === 'power',
+    '槽位：认出「03 北极」+ 指控意图 + 自述舱室（配电室）');
+  ok(SLOT.p2.vote === 4 && SLOT.p2.where === 'med', '槽位：认出投票对象（05）与自述位置（医疗间）');
+  ok(SLOT.p3.deny === true && SLOT.p3.where === 'engine', '槽位：认出否认语气与不在场声明（引擎）');
+
+  const SLOT2 = await T(() => {
+    const t = SKV3._t; t.newGame();
+    const g = t.G(); g.paused = true; g.noReport = true;
+    const h = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
+    g.me.x = 8; g.me.y = 30; h.x = 9; h.y = 30; h.nRoom = 'engine';
+    h.mind.mem = [];
+    t.track();                        /* h 记住：玩家在引擎舱 */
+    t.tp(0, 55, 50);                  /* 玩家随后跑到医疗间 */
+    for (const a of g.agents) if (a !== g.me) a._delay = 999;
+    t.openMeeting('day');
+    const s0 = (t.mind(h.i).sus || {})[0] || 0;
+    t.chat('我一直在医疗间');
+    return { h: h.i, s0 };
+  });
+  await page.waitForTimeout(1250);
+  const SLOT3 = await T(o => {
+    const t = SKV3._t;
+    const lines = t.meetLines().map(l => l.text);
+    const claim = lines.find(x => x.indexOf(t.G().me.name) >= 0 && x.indexOf('医疗间') >= 0 &&
+      /(看见|碰见|不在|明明)/.test(x)) || '';
+    return { s1: (t.mind(o.h).sus || {})[0] || 0, claim, says: t.meetCtx().playerSays };
+  }, SLOT2);
+  ok(SLOT3.s1 > SLOT2.s0 + 0.2,
+    '玩家谎报位置：目击过他的 AI 当场拆穿并把玩家嫌疑分从 ' + SLOT2.s0.toFixed(2) + ' 调到 ' + SLOT3.s1.toFixed(2));
+  ok(/医疗间/.test(SLOT3.claim) && /引擎/.test(SLOT3.claim),
+    '拆穿台词同时引用「玩家声称的舱室」与「真实目击地点」：' + SLOT3.claim);
+  ok(SLOT3.says.length === 1 && SLOT3.says[0].where === 'med',
+    '发言槽位进入会议上下文（where=med，可供后续追问与投票引用）');
+
+  section('开局讨论 · 时间覆盖');
+  const PACE = await T(() => {
+    const t = SKV3._t; t.newGame();
+    const g = t.G(); g.paused = true;
+    t.openMeeting('pre');
+    return { plan: t.chatterPlan() };
+  });
+  ok(PACE.plan && PACE.plan.n >= 10,
+    '开局公开讨论排了 ' + (PACE.plan ? PACE.plan.n : 0) + ' 条发言（原来只有 5 条、7 秒就说完）');
+  ok(PACE.plan && PACE.plan.endAt >= 55000, '讨论窗口保持 60 秒（结束前 2.2 秒才收尾）');
+  ok(PACE.plan && PACE.plan.lastScheduled >= PACE.plan.endAt - 2500,
+    '最后一条讨论/提示贴着结束时间，不再出现「前 7 秒热闹、后面 50 秒死寂」');
+  ok(PACE.plan && PACE.plan.nudges.length >= 2,
+    '内容讲完后用自由讨论提示补空档（' + (PACE.plan ? PACE.plan.nudges.length : 0) + ' 次）');
+
   section('任务清单 · 1 高难 + 3 普通');
   await fresh(false);
   const TP = await T(() => {
