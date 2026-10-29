@@ -26,16 +26,19 @@
 | `sfx-knife-01.ogg` | blade_01.ogg | [OpenGameArt「80 CC0 RPG SFX」](https://opengameart.org/content/80-cc0-rpg-sfx) | 出刀挥砍 | CC0 |
 | `sfx-knife-02.ogg` | blade_02.ogg | 同上 | 出刀挥砍变体 | CC0 |
 | `sfx-flesh.ogg` | creature_hurt_02.ogg | 同上 | 刀/枪命中血肉 | CC0 |
-| `sfx-step-01.ogg` | sfx100v2_footstep_01.ogg | [OpenGameArt「100 CC0 SFX #2」](https://opengameart.org/content/100-cc0-sfx-2) | 脚步（截 0.32s） | CC0 |
-| `sfx-step-02.ogg` | sfx100v2_footstep_02.ogg | 同上 | 脚步变体（截 0.30s） | CC0 |
+| `sfx-step-01.ogg` | sfx100v2_footstep_wood_01.ogg | [OpenGameArt「100 CC0 SFX #2」](https://opengameart.org/content/100-cc0-sfx-2) | 轻木地板脚步（2026-10-29 替换原 loud step） | CC0 |
+| `sfx-step-02.ogg` | sfx100v2_footstep_wood_02.ogg | 同上 | 轻木地板脚步变体 | CC0 |
+| `sfx-scream-01.ogg` | creature_die_01.ogg | [OpenGameArt「80 CC0 RPG SFX」](https://opengameart.org/content/80-cc0-rpg-sfx) | 被击倒喊叫 / 死亡喊声 | CC0 |
+| `sfx-scream-02.ogg` | creature_hurt_01.ogg | 同上 | 被击倒喊叫变体 | CC0 |
 | `sfx-metal.ogg` | sfx100v2_metal_hit_01.ogg | 同上 | 电闸/破坏/机器人金属撞击 | CC0 |
 | `sfx-door.ogg` | sfx100v2_door_01.ogg | 同上 | 交互/投票确认/气闸 | CC0 |
 
-（音效已统一响度归一；新增采样经 ffmpeg 转 44.1kHz OGG，游戏内由 `<audio>` 元素池播放，加载失败自动退回 WebAudio 合成。原始下载包在 `tools/_sfx/`。）
+（音效均为公开 CC0 素材；脚步改用更轻的木地板采样并在游戏内压低音量；新增采样经 ffmpeg 转 44.1kHz OGG，游戏内由 `<audio>` 元素池播放，加载失败自动退回 WebAudio 合成。原始下载包在 `tools/_sfx/`。）
 
 ## 游戏内映射（js/game.js `SND`）
 
-knife=出刀（双变体，附带血肉命中） · gun=开枪 · step=脚步（双变体，按距离衰减） ·
+knife=出刀（双变体） · gun=开枪 · step=轻脚步（双变体，按距离衰减，AI 仅 6 格内） ·
+scream=被击倒喊叫（双变体，距离衰减） ·
 metal=电闸/破坏/机器人 · door=交互/投票/驱逐 · notify=尸体报告 ·
 其余 UI 音（维修完成、资格、治疗等）仍由 WebAudio 合成。
 

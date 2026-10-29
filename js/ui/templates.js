@@ -86,6 +86,20 @@
     margin-top:9px;font-size:11px;color:#6D7C8D}
   .cam-foot b{color:#BFE9F7;font-weight:500}
   .cam-foot button{padding:5px 10px;font-size:11.5px}
+  #wheel{z-index:9;background:rgba(6,8,12,.62)}
+  .wheel-card{position:relative;width:min(520px,92vw);height:min(520px,92vw);border-radius:50%;
+    background:radial-gradient(circle at 50% 50%,rgba(26,34,45,.98),rgba(9,13,19,.97) 70%);
+    border:1px solid #33465C;box-shadow:0 24px 90px rgba(0,0,0,.7),inset 0 0 40px rgba(60,90,120,.12)}
+  .wheel-title{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);color:#F0C674;
+    font-size:14px;letter-spacing:3px;text-align:center;line-height:1.6;pointer-events:none}
+  .wheel-sub{position:absolute;left:50%;bottom:26px;transform:translateX(-50%);color:#6D7C8D;
+    font-size:11px;letter-spacing:1px;white-space:nowrap}
+  #wheel-opts{position:absolute;inset:0}
+  #wheel-opts button{position:absolute;transform:translate(-50%,-50%);width:150px;padding:8px 9px;
+    display:flex;align-items:center;gap:7px;justify-content:flex-start;white-space:nowrap}
+  #wheel-opts .pn{display:inline-flex;width:17px;height:17px;border-radius:50%;align-items:center;
+    justify-content:center;background:rgba(240,198,116,.18);color:#F0C674;font-size:10px;flex:0 0 auto}
+  #wheel-opts .pl{font-size:12px;color:#DDE3EC;overflow:hidden;text-overflow:ellipsis}
   #pipe{z-index:8}
   .pipe-card{width:min(520px,88vw);min-width:0}
   .pipe-list{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
@@ -148,12 +162,12 @@
   <div>剩余 <b id="tm">120</b> 秒 · 第 <b id="nt">1</b> 夜 · <b id="pwr">照明正常</b></div>
   <div class="surv">存活 <b id="alive">15</b> 人 · 人类 <b id="hum">11</b> · 异形 <b id="ali">4</b></div>
   <div>你是 <b id="role">人类</b> · 濒死 <b id="dn">0</b> 人</div>
-  <div>任务 <b id="tk">0</b>/4 · 资格 <b id="ql">0</b> · 弹 <b id="bl">0</b> · 包 <b id="md">0</b></div>
+  <div>任务 <b id="tk">0</b>/4 · 申请单 <b id="ql">0</b> · 待领 <b id="qp">0</b> · 弹 <b id="bl">0</b> · 包 <b id="md">0</b></div>
   <div id="tasks"></div>
   <div id="dmgline" class="hide"></div>
   <div id="devline" class="hide">DEV <b>无敌 · 全知</b> · 断言 <b id="inv">0</b> 失败</div>
 </div>
-<div id="tip">点击地面移动 · E 交互 · V 监控 · R 报告 · F 施救/破坏 · Q 出刀/开枪 · X 搜尸 · G 拖拽 · ESC 暂停 · T 视野 · C 相机 · F2 DEV</div>
+<div id="tip">点击地面移动 · E 交互（多项开轮盘） · V 监控 · R 报告 · F 施救 · H 破坏 · Q 出刀 · B 开枪 · X 搜尸 · G 拖拽 · ESC 暂停 · T 视野 · C 相机 · F2 DEV</div>
 <div id="dragtag" class="hide">拖拽中 · 按 G 放下</div>
 <div id="invfail" class="hide"></div>
 <div id="dev" class="hide">
@@ -179,6 +193,12 @@
   <h2>破坏 · 选择目标舱室</h2><div class="sub" id="sabot-sub">每夜一次 · 抵达目标舱室后损毁设备 · 60 秒内未修复则维修进度 -3</div>
   <div class="pipe-list" id="sabot-list"></div>
   <div class="btns"><button id="sabot-cancel">取消 (Esc)</button></div>
+</div></div>
+
+<div id="wheel" class="ov hide"><div class="wheel-card">
+  <div class="wheel-title">选择交互</div>
+  <div id="wheel-opts"></div>
+  <div class="wheel-sub">数字键 / 点击选择 · ESC 取消</div>
 </div></div>
 
 <div id="cam" class="ov hide"><div class="cam-panel">

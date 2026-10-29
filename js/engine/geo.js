@@ -1,11 +1,11 @@
 /* =============================================================
  * SKGeo · 几何 / 可行走网格 / A* 寻路 / 视线（返航录V1 · 2026-10-29）
  * -------------------------------------------------------------
- * 职责：   多边形命中、走廊判定、房间查询、可行走网格（含家具软代价）、
+ * 职责：   多边形命中、走廊判定、房间查询、可行走网格（含家具硬掩体）、
  *          A* 寻路、视线遮挡。
  * 不变量： · 只读 SKMapData，不读写对局状态、不读 DOM、不掷随机；
  *          · 网格在脚本加载时一次性烘焙（GS = 0.6 格），运行期零分配；
- *          · 家具是"软代价"不是硬墙（穿过 +2.2，绕路更近时才绕）；
+ *          · 家具/掩体是硬阻挡，A* 与行走都不能穿过；
  *          · 船体外不可达：free() 对越界/墙外一律返回 false。
  * 依赖：   js/data/map.js（window.SKMapData）
  * 对外：   window.SKGeo = { CW, GS, GW, GH, inPoly, d2seg, inCorr,
@@ -38,16 +38,16 @@
     function roomAt(x,y){for(const r of M.rooms) if(inPoly(x,y,r.poly)) return r; return null;}
     
     /* ---------------- 可行走网格 ---------------- */
-    /* 家具不再是硬墙：人物本来就能从家具上走过去，硬堵只会让 A* 绕大圈。
-       这里改成「软代价」—— 只有绕路比穿过家具明显更划算时才绕。 */
-    const walk=new Uint8Array(GW*GH), soft=new Uint8Array(GW*GH);
+    /* 掩体是硬阻挡：家具、培养罐、货箱都不能穿过。掩体布局由地图保证
+       每个房间仍有连通通路，并且不会形成夹缝或死路。 */
+    const walk=new Uint8Array(GW*GH);
     (function build(){
       const cov=M.cover.map(c=>[c.x-.12,c.y-.12,c.x+c.w+.12,c.y+c.h+.12]);
       for(let gy=0;gy<GH;gy++)for(let gx=0;gx<GW;gx++){
         const x=(gx+.5)*GS,y=(gy+.5)*GS; let ok=false;
         for(const r of M.rooms) if(inPoly(x,y,r.poly)){ok=true;break;}
         if(!ok&&inCorr(x,y))ok=true;
-        if(ok) for(const c of cov) if(x>c[0]&&x<c[2]&&y>c[1]&&y<c[3]){soft[gy*GW+gx]=1;break;}
+        if(ok) for(const c of cov) if(x>c[0]&&x<c[2]&&y>c[1]&&y<c[3]){ok=false;break;}
         if(ok) for(const w of M.walls) if(d2seg(x,y,w[0][0],w[0][1],w[1][0],w[1][1])<.36){ok=false;break;}
         walk[gy*GW+gx]=ok?1:0;
       }
@@ -62,10 +62,13 @@
       return[x,y];}
     
     function pathClear(x1,y1,x2,y2){
-      const d=Math.hypot(x2-x1,y2-y1), n=Math.max(2,Math.ceil(d/0.22));
+      const d=Math.hypot(x2-x1,y2-y1), n=Math.max(2,Math.ceil(d/0.12));
+      /* 平滑时留 0.16 格贴墙余量：只在采样点判 free() 会从墙角擦过去，
+         AI 贴着墙角走时容易被 next-cell 判成不可走而卡死。 */
+      const px=d?-(y2-y1)/d*0.16:0, py=d?(x2-x1)/d*0.16:0;
       for(let i=1;i<n;i++){
-        const t=i/n;
-        if(!free(x1+(x2-x1)*t,y1+(y2-y1)*t))return false;
+        const t=i/n, x=x1+(x2-x1)*t, y=y1+(y2-y1)*t;
+        if(!free(x,y)||!free(x+px,y+py)||!free(x-px,y-py))return false;
       }
       return true;
     }
@@ -100,7 +103,7 @@
           if(nx<0||ny<0||nx>=GW||ny>=GH)continue;
           const ni=ny*GW+nx; if(!walk[ni])continue;
           if(dx&&dy&&(!walk[cy*GW+nx]||!walk[ny*GW+cx]))continue;
-          const ng=g[cur]+(dx&&dy?1.414:1)+(soft[ni]?2.2:0);
+          const ng=g[cur]+(dx&&dy?1.414:1);
           if(ng<g[ni]-1e-6){g[ni]=ng;f[ni]=ng+H(ni);prev[ni]=cur;
             if(!inOpen[ni]){open.push(ni);inOpen[ni]=1;}}
         }

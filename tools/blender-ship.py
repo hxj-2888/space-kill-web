@@ -1,7 +1,7 @@
 # =============================================================
 # blender-ship.py · 新返航录 2.5D 整船底图
 # -------------------------------------------------------------
-# 唯一几何来源：js/game.js 里内嵌的 `const MAP = {...}`（不另存一份地图）。
+# 唯一几何来源：js/data/map.js 的 `SKMapData`（不另存一份地图）。
 # 产出：assets/scene/v4/base-lit.png
 #   · 正交 2.5D 相机（俯角 12°），地板按世界坐标精确对齐 98×60，
 #     墙顶因高度产生 ~0.25 格的屏幕位移 —— 这就是 2.5D 的"厚度"；
@@ -11,6 +11,8 @@
 # 用法：
 #   blender -b -P tools/blender-ship.py -- [--test] [--cycles] [--res 4704]
 #   --test  渲染 960×580 预览到 assets/scene/v4/_preview.png
+# 注意：改过 js/data/map.js 的房间 / 墙体 / 门 / 走廊后必须重新渲染，
+#       否则 2.5D 底图与逻辑碰撞面会错位。
 # =============================================================
 import bpy, bmesh, json, math, os, re, sys
 from mathutils import Vector
@@ -35,8 +37,8 @@ THETA = math.radians(12.0)
 
 # ---------------- 读地图 ----------------
 def read_map():
-    src = open(os.path.join(ROOT, 'js', 'game.js'), encoding='utf-8').read()
-    i = src.index('const MAP = ')
+    src = open(os.path.join(ROOT, 'js', 'data', 'map.js'), encoding='utf-8').read()
+    i = src.index('global.SKMapData = ')
     j = src.index('{', i)
     depth, instr, esc = 0, False, False
     end = None
@@ -329,15 +331,34 @@ for c in M['corridors']:
                 L - 0.4, 0.07, 0.012, 0.030, CYAN, rot=rot)
 
 # 门槛灯：每条门缝一条琥珀色贴地灯，兼作"这里能过去"的视觉提示
+# 自动门门框也在这里烘焙：门板由游戏内动态绘制（扩散纹理），底座只留框与指示灯。
 for r in M['rooms']:
     x0, y0, rw, rh = r['rect']
     for side, t in r['doors']:
-        if side in ('t', 'b'):
+        horiz = side in ('t', 'b')
+        if horiz:
             cx, cy = t, (y0 if side == 't' else y0 + rh)
-            box('door_%s_%s_%s' % (r['id'], side, t), cx, cy, 2.0, 0.16, 0.01, 0.035, AMBER)
         else:
             cx, cy = (x0 if side == 'l' else x0 + rw), t
-            box('door_%s_%s_%s' % (r['id'], side, t), cx, cy, 0.16, 2.0, 0.01, 0.035, AMBER)
+        rot = 0.0 if horiz else math.pi / 2
+        tag = 'door_%s_%s_%s' % (r['id'], side, t)
+        # 地面暗轨 + 琥珀门槛灯
+        box(tag + '_track', cx, cy, 2.34, 0.40, 0.004, 0.018, DARK, rot=rot)
+        box(tag, cx, cy, 2.0, 0.16, 0.020, 0.042, AMBER, rot=rot)
+        # 两侧门柱（留出 1.8 格净宽）
+        for s in (-1, 1):
+            px = cx + (1.02 * s if horiz else 0)
+            py = cy + (0 if horiz else 1.02 * s)
+            box(tag + '_jamb_%d' % s, px, py,
+                0.16 if horiz else 0.46, 0.46 if horiz else 0.16,
+                0.0, 1.26, TRIM, rot=rot, bevel=0.02)
+        # 门楣 + 状态灯（动态门板的开合状态在游戏里覆盖这盏灯）
+        box(tag + '_lintel', cx, cy, 2.30, 0.46, 1.18, 1.34, DARK, rot=rot, bevel=0.02)
+        lx = cx + (0 if horiz else (-0.27 if side == 'l' else 0.27))
+        ly = cy + ((-0.27 if side == 't' else 0.27) if horiz else 0)
+        box(tag + '_light', lx, ly,
+            1.78 if horiz else 0.06, 0.06 if horiz else 1.78,
+            1.20, 1.26, AMBER, rot=rot)
 
 # ---------------- 墙 ----------------
 wall_i = 0
