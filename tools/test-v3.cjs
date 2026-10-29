@@ -400,6 +400,49 @@ function section(t) { console.log('\n== ' + t); }
   await freezeFx();
   await shotClip('31_出刀动画.png', { x: 440, y: 220, width: 600, height: 460 });
 
+  section('刀者红身 · 3 秒');
+  await fresh(false);
+  const RED = await T(() => {
+    const t = SKV3._t, g = t.G();
+    g.noReport = true;
+    const k = g.agents.find(a => a.alien && a !== g.me && a.alive);
+    const v = g.agents.find(a => !a.alien && a !== g.me && a.alive);
+    for (const a of g.agents) if (a !== g.me && a !== k && a !== v) {
+      a.knife = 0; a.path = null; a.x = 28.2; a.y = 22.0;
+    }
+    t.tp(k.i, 34.8, 11.8); t.tp(v.i, 35.7, 11.8); t.tp(0, 33.2, 11.8);
+    k.knife = 1; k.sabUsed = true; k._delay = 999; v._delay = 999;
+    t.knife(k.i, v.i);
+    const st = t.state();
+    return { k: k.i, v: v.i, red: st[k.i].redT, victimRed: st[v.i].redT };
+  });
+  ok(RED.red >= 2.9 && RED.red <= 3.0, '出刀者获得 3 秒红身标记（' + RED.red + 's）');
+  ok(RED.victimRed === 0, '红身只给刀者，不给被击倒者');
+  await page.waitForTimeout(1200);
+  const RED2 = await T(o => SKV3._t.state()[o.k].redT, RED);
+  ok(RED2 > 0.8 && RED2 < 2.6, '红身按真实时间衰减（1.2 秒后剩 ' + RED2.toFixed(2) + 's）');
+  await page.waitForTimeout(2600);
+  const RED3 = await T(o => ({ red: SKV3._t.state()[o.k].redT, inv: SKV3._t.inv() }), RED);
+  ok(RED3.red === 0, '3 秒后红身自动结束');
+  ok(RED3.inv.fails.length === 0, '红身结束后不变量全过');
+
+  section('任务标记 · 掩体本体闪烁取代黄色边框');
+  await fresh(false);
+  const TK = await T(() => {
+    const t = SKV3._t, g = t.G();
+    g.paused = true; g.noReport = true;
+    const pts = t.points();
+    const idx = pts.findIndex(p => p.label === '引擎组同步');
+    g.me.tasks = [idx]; g.me.tIdx = 0;
+    t.tp(0, pts[idx].x + 2.4, pts[idx].y + 2.4);
+    g.gfx.coverFlashes = 0; g.gfx.dashedBorders = 0;
+    return { idx, spot: pts[idx] };
+  });
+  await page.waitForTimeout(360);
+  const TK2 = await T(() => SKV3._t.gfx());
+  ok(TK2.coverFlashes > 0, '任务点所在掩体以本体金色脉冲提示（' + TK2.coverFlashes + ' 帧叠加）');
+  ok(TK2.dashedBorders === 0, '不再给掩体套黄色虚线边框');
+
   section('专属动画 · 开枪');
   await fresh(false);
   const SH = await T(() => {
@@ -1723,6 +1766,7 @@ function section(t) { console.log('\n== ' + t); }
     t.tp(k.i, p[0], p[1]);
     k._delay = 0; k._rest = 0; k.doing = 0; k._doing = null;
     k.sabUsed = false; k.knife = 1; k.path = null; k.target = null; k._pipeCD = 0;
+    t.clearDrags(); t.resetAiState(k.i);
     const before = t.lights().state;
     const r = t.aiTickAlien(k.i, 120, 0.05);
     return { i: k.i, p, before, after: t.lights().state, sab: r.sab,
@@ -1751,6 +1795,7 @@ function section(t) { console.log('\n== ' + t); }
     const p = freeNear(sp[0], sp[1], 2.4, 3.6);
     t.tp(k.i, p[0], p[1]);
     k.sabUsed = false; k.path = null; k.target = null; k.doing = 0; k._doing = null;
+    t.clearDrags(); t.resetAiState(k.i); k.sabUsed = false;
     const r = t.aiTickAlien(k.i, 100, 0.05);
     return { p, sp, dead: t.robots().sec.dead, sab: r.sab, fx: t.fx(),
       prog: g.prog, inv: t.inv() };
@@ -1776,7 +1821,8 @@ function section(t) { console.log('\n== ' + t); }
     const p = freeNear(sp.x, sp.y, 0.8, 1.6);
     t.tp(k.i, p[0], p[1]);
     k.sabUsed = false; k.path = null; k.target = null; k.doing = 0; k._doing = null;
-    k.sabRoom = 'engine'; k._delay = 0; k._pipeCD = 0;
+    t.clearDrags(); t.resetAiState(k.i);
+    k.sabRoom = 'engine'; k._delay = 0; k._pipeCD = 0; k.sabUsed = false;
     const first = t.aiTickAlien(k.i, 1, 0.05);
     const r = t.aiTickAlien(k.i, 30, 0.05);
     return { first, sp, dmg: t.dmg(), sab: r.sab, fx: t.fx(), msg: g.msg, inv: t.inv() };
@@ -1797,6 +1843,7 @@ function section(t) { console.log('\n== ' + t); }
     t.tp(k.i, 12.2, 35.2);
     k.sabUsed = true; k.knife = 1; k.path = null; k.target = null;
     k.doing = 0; k._doing = null; k._pipeCD = 0;
+    t.clearDrags(); t.resetAiState(k.i); k.sabUsed = true; k.knife = 1;
     const r = t.aiTickAlien(k.i, 1, 0.05);
     return { r, fx: t.fx(), pipe: t.pipes(), cd: k._pipeCD };
   }, AIK0);
@@ -1956,6 +2003,182 @@ function section(t) { console.log('\n== ' + t); }
   ok(AIQ.first.do === 'qual' && AIQ.first.qualPending === 1,
     'AI 人类同样必须回中央会议室圆桌领取物资申请单');
   ok(AIQ.inv && AIQ.inv.fails.length === 0, 'AI 领取申请单状态不变量全过');
+
+  section('AI 拖拽 · 濒死者送医疗间复活');
+  await fresh(false);
+  const ADR = await T(() => {
+    const t = SKV3._t; t.newGame();
+    const g = t.G(); g.paused = true; g.noReport = true; g.dmg = [];
+    const k = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
+    const v = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
+    const h = g.agents.find(a => !a.alien && a.i !== 0 && a.alive && a !== v);
+    for (const a of g.agents) if (a !== k && a !== v && a !== h) t.tp(a.i, 30, 10);
+    t.clearDrags();
+    [k, v, h].forEach(a => {
+      t.resetAiState(a.i);
+      a._delay = 0; a._rest = 0; a.knife = 0; a.bullet = 0; a.medkit = 0;
+      a.qual = 0; a.qualPending = 0; a.suspect = null; a.tIdx = a.tasks.length;
+    });
+    k.knife = 1;
+    t.tp(v.i, 58, 41); t.tp(h.i, 58.4, 40.4);
+    t.knife(k.i, v.i);
+    k.knife = 0;
+    const first = t.aiTick(h.i, 2, 0.05);
+    return { k: k.i, v: v.i, h: h.i, drag: first.drag,
+      draggedBy: g.agents[v.i].draggedBy, inv: t.inv(), med: t.robots().med.left };
+  });
+  ok(ADR.drag === ADR.v && ADR.draggedBy === ADR.h,
+    'AI 人类没有医疗包时把濒死者拖起来（双向标记互指）');
+  ok(ADR.inv.fails.length === 0, 'AI 拖拽起始不变量全过');
+  const ADR2 = await T(o => {
+    const t = SKV3._t, g = t.G();
+    let last = null;
+    for (let i = 0; i < 900; i++) {
+      last = t.aiTick(o.h, 1, 0.05);
+      if (last.drag === null && i > 4) break;
+    }
+    return { drag: last.drag, draggedBy: g.agents[o.v].draggedBy,
+      room: t.state()[o.v].room, moved: t.bodyInfo(o.v).moved,
+      pos: t.bodyOf(o.v), med: t.robots().med.left, inv: t.inv() };
+  }, ADR);
+  ok(ADR2.drag === null && ADR2.draggedBy === null, 'AI 把伤者拖进医疗间后松手');
+  ok(ADR2.room === 'med', '伤者被拖进医疗间（当前 ' + ADR2.room + '）');
+  ok(ADR2.moved === true, 'AI 拖拽同样留下 bodyMoved 痕迹（搜尸可读）');
+  const ADR3 = await T(o => {
+    const t = SKV3._t;
+    for (let i = 0; i < 40; i++) t.botTick(0.2);
+    const st = t.state()[o.v];
+    return { downed: st.downed, alive: st.alive, left: t.robots().med.left, inv: t.inv() };
+  }, ADR);
+  ok(ADR3.alive && !ADR3.downed, '医疗机器人把 AI 拖来的伤者救活');
+  ok(ADR3.left === 1, '医疗机器人电量按次扣减（剩 ' + ADR3.left + '/2）');
+  ok(ADR3.inv.fails.length === 0, 'AI 拖尸→医疗间复活链路不变量全过');
+
+  section('AI 异形 · 藏尸');
+  await fresh(false);
+  const HID = await T(() => {
+    const t = SKV3._t; t.newGame();
+    const g = t.G(); g.paused = true; g.noReport = true;
+    const k = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
+    const v = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
+    for (const a of g.agents) if (a !== k && a !== v) t.tp(a.i, 30, 10);
+    t.clearDrags(); t.resetAiState(k.i);
+    g.secbotDead = true;
+    k.knife = 0; k.sabUsed = true; k._delay = 0; k._rest = 0;
+    t.tp(v.i, 84, 32); t.kill(v.i, 'knife');
+    t.tp(k.i, 84.6, 32.6);
+    const b0 = t.bodyOf(v.i);
+    let dragSeen = false, last = null;
+    for (let i = 0; i < 900; i++) {
+      last = t.aiTickAlien(k.i, 1, 0.05);
+      if (last.drag === v.i) dragSeen = true;
+      if (dragSeen && last.drag === null) break;
+    }
+    const b1 = t.bodyOf(v.i);
+    return { k: k.i, v: v.i, dragSeen, b0, b1,
+      dist: Math.hypot(b1[0] - b0[0], b1[1] - b0[1]),
+      hides: last.hides, draggedBy: t.state()[v.i].draggedBy,
+      moved: t.bodyInfo(v.i).moved, room: t.state()[v.i].room,
+      spot: t.hideSpot('fun'), inv: t.inv() };
+  });
+  ok(HID.dragSeen, 'AI 异形会把尸体拖走藏起来（不必等玩家发现）');
+  ok(HID.dist > 2 && HID.moved === true,
+    '尸体被拖动 ' + HID.dist.toFixed(2) + ' 格并写入 bodyMoved');
+  ok(HID.draggedBy === null && HID.hides === 1, '藏到角落后松手，本夜藏尸计数 +1');
+  ok(HID.room === 'fun' && HID.spot && Math.hypot(HID.b1[0] - HID.spot[0], HID.b1[1] - HID.spot[1]) < 2.2,
+    '藏尸点落在远离门与任务点的舱室角落');
+  ok(HID.inv.fails.length === 0, 'AI 藏尸后不变量全过');
+
+  section('AI 异形 · 避开保安扇形');
+  await fresh(false);
+  const SEC = await T(() => {
+    const t = SKV3._t; t.newGame();
+    const g = t.G(); g.paused = true; g.noReport = true;
+    const k = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
+    const v = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
+    for (const a of g.agents) if (a !== k && a !== v) t.tp(a.i, 30, 10);
+    t.clearDrags(); t.resetAiState(k.i);
+    const sec = t.setBot('secbot', 66, 32, 0);
+    const sb = g.bots.secbot; sb.wps = [[sec[0], sec[1]]]; sb.wp = 0; sb.ang = 0;
+    t.tp(k.i, 69, 32); t.tp(v.i, 70, 32);
+    k.knife = 1; k.sabUsed = true; k._delay = 0; k._rest = 0;
+    const seen = t.secWouldSee(69, 32);
+    const r1 = t.aiTickAlien(k.i, 20, 0.05);
+    const blocked = { downed: t.state()[v.i].downed, avoid: r1.secAvoid, knife: k.knife };
+    t.setBot('secbot', sec[0], sec[1], Math.PI);
+    k._secAvoidT = 0; k.path = null;
+    t.aiTickAlien(k.i, 40, 0.05);
+    return { seen, blocked, after: { downed: t.state()[v.i].downed, knife: k.knife },
+      detained: t.detained().length, inv: t.inv() };
+  });
+  ok(SEC.seen && !SEC.blocked.downed && SEC.blocked.avoid > 0 && SEC.blocked.knife === 1,
+    '保安扇形正对时 AI 异形不出刀（宁可废刀也不进拘留区）');
+  ok(SEC.after.downed && SEC.after.knife === 0,
+    '保安转向背后后 AI 异形立刻补刀（同一判定，换个朝向就动手）');
+  ok(SEC.detained === 0 && SEC.inv.fails.length === 0, '回避判定没有触发拘留，不变量全过');
+
+  section('AI 人类 · 断电后主动合闸');
+  await fresh(false);
+  const LB = await T(() => {
+    const t = SKV3._t; t.newGame();
+    const g = t.G(); g.paused = true; g.noReport = true; g.dmg = [];
+    const h = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
+    for (const a of g.agents) if (a !== h) { a.knife = 0; t.tp(a.i, 30, 10); }
+    t.clearDrags(); t.resetAiState(h.i);
+    h.medkit = 0; h.bullet = 0; h.qual = 0; h.qualPending = 0; h.suspect = null;
+    h.tIdx = h.tasks.length; h._delay = 0; h._rest = 0;
+    t.breaker();
+    const st0 = t.lights().state;
+    let hp = null;
+    for (let r = 0.4; r <= 3.2 && !hp; r += 0.2)
+      for (let i = 0; i < 24 && !hp; i++) {
+        const a = i / 24 * Math.PI * 2, x = 50.8 + Math.cos(a) * r, y = 32.1 + Math.sin(a) * r;
+        if (t.free(x, y)) hp = [x, y];
+      }
+    t.tp(h.i, hp[0], hp[1]);
+    t.aiTick(h.i, 40, 0.05);
+    const doing = g.agents[h.i]._doing;
+    g.agents[h.i].doing = 0.02;
+    t.aiTick(h.i, 4, 0.05);
+    return { st0, doing, after: t.lights().state, lightGo: g.agents[h.i]._lightGo,
+      inv: t.inv() };
+  });
+  ok(LB.st0 === 2 && LB.doing === 'breaker', '断电时 AI 人类走到电闸前开始合闸（3 秒站桩）');
+  ok(LB.after !== 2 && !LB.lightGo, '合闸完成：全船照明恢复，响应标记清空');
+  ok(LB.inv.fails.length === 0, 'AI 合闸后不变量全过');
+
+  section('AI 异形 · 主动寻管道口');
+  await fresh(false);
+  const PIP = await T(() => {
+    const t = SKV3._t; t.newGame();
+    const g = t.G(); g.paused = true; g.noReport = true;
+    const k = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
+    const v = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
+    for (const a of g.agents) if (a !== k && a !== v) t.tp(a.i, 30, 10);
+    t.clearDrags(); t.resetAiState(k.i);
+    k.knife = 1; k.sabUsed = true; k._delay = 0; k._rest = 0; k._pipeCD = 0;
+    let kp = null;
+    for (let r = 0; r <= 3.2 && !kp; r += 0.2)
+      for (let i = 0; i < 24 && !kp; i++) {
+        const a = i / 24 * Math.PI * 2, x = 8 + Math.cos(a) * r, y = 30 + Math.sin(a) * r;
+        if (t.free(x, y)) kp = [x, y];
+      }
+    t.tp(k.i, kp[0], kp[1]); t.tp(v.i, 84, 9);
+    k.target = v;                    /* 目标锁定监控室的人：验证它会规划到管道口 */
+    let last = null;
+    for (let i = 0; i < 600; i++) {
+      last = t.aiTickAlien(k.i, 1, 0.05);
+      if (last.pipeSeeks >= 1) break;
+    }
+    const pipes = t.pipes();
+    const at = pipes.find(p => Math.hypot(p.x - k.x, p.y - k.y) < 0.05);
+    return { seeks: last.pipeSeeks, at, cd: k._pipeCD, room: t.state()[k.i].room,
+      x: k.x, y: k.y, inv: t.inv() };
+  });
+  ok(PIP.seeks >= 1 && PIP.at && PIP.cd === 20,
+    'AI 异形会自己寻路到管道口再钻（不再要求正好站在口上）');
+  ok(PIP.room === 'cam', '管道出口按离目标最近选择（目标在监控室 → ' + PIP.room + '）');
+  ok(PIP.inv.fails.length === 0, 'AI 主动钻管道后不变量全过');
 
   section('破坏技 · 选舱 / 60 秒 / 连续 10 秒维修');
   await fresh(false);

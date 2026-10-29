@@ -95,20 +95,26 @@
     const wantLit = G.lightState === 1 ? M.rooms.length : (G.lightState === 2 ? 1 : bright);
     ok(litCount === wantLit, 'G5', '点灯房数 ' + litCount + ' ≠ ' + wantLit);
 
-    /* ---------- 拖拽 ---------- */
-    if (G.drag != null) {
-      const b = agents[G.drag];
-      ok(!!b, 'D1', '拖拽目标不存在');
-      if (b) {
-        ok(b.draggedBy === me.i, 'D2', '拖拽标记未互指');
-        ok(me.alive && !me.downed, 'D3', '已倒下仍在拖拽');
-        const bp = env.bodyPos(b);
-        ok(!!bp, 'D4', '拖拽目标没有尸体');
-        if (bp) ok(Math.hypot(bp[0] - me.x, bp[1] - me.y) <= 3.2, 'D5', '被拖尸体离人过远');
+    /* ---------- 拖拽（玩家与 AI 共用） ---------- */
+    for (const a of agents) {
+      if (a.drag != null) {
+        const b = agents[a.drag];
+        ok(!!b, 'D1', a.name + ' 拖拽目标不存在');
+        if (b) {
+          ok(b !== a, 'D1b', a.name + ' 拖拽了自己');
+          ok(b.draggedBy === a.i, 'D2', a.name + ' 拖拽标记未与目标互指');
+          ok(a.alive && !a.downed && !a.detained, 'D3', a.name + ' 当前状态不能拖拽');
+          const bp = env.bodyPos(b);
+          ok(!!bp, 'D4', a.name + ' 拖拽目标没有尸体/濒死者');
+          if (bp) ok(Math.hypot(bp[0] - a.x, bp[1] - a.y) <= 3.2, 'D5', a.name + ' 拖拽距离过远');
+        }
       }
-    } else {
-      for (const a of agents) ok(a.draggedBy == null, 'D6', a.name + ' 拖拽标记残留');
+      if (a.draggedBy != null) {
+        const d = agents[a.draggedBy];
+        ok(!!d && d.drag === a.i, 'D6', a.name + ' 被拖标记没有对应拖拽者');
+      }
     }
+    ok((G.drag == null) === (me.drag == null) && G.drag === me.drag, 'D7', 'G.drag 与玩家拖拽状态不同步');
 
     /* ---------- 会议 / 投票 ---------- */
     if (G.meet) {

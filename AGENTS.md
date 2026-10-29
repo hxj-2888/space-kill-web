@@ -51,7 +51,9 @@
 | `js/game.js` | 编排 | 状态、AI、动作结算、会议/投票、渲染、输入（`window.SKV3`） |
 | `js/main.js` | 入口 | 开始页按钮绑定 + `[data-version]` 填充 |
 | `tools/serve.cjs` | 工具 | 零依赖静态服务器 |
-| `tools/test-v3.cjs` | 门禁 | Playwright 浏览器断言（331 条） |
+| `tools/test-v3.cjs` | 门禁 | Playwright 浏览器断言（360 条） |
+| `tools/blender-ship.py` | 美术工具 | 2.5D 底图烘焙（需 Blender，读 `js/data/map.js`） |
+| `tools/gen-materials.py` | 美术工具 | 家具/掩体表面材质生成（本地 SDXL 流式上卡；`--mode reuse` 为无显卡兜底） |
 | `assets/` · `audio/` | 素材 | 许可与署名见各子目录 `LICENSE*` 与 `audio/CREDITS.md` |
 
 ## 四、架构约定
@@ -69,7 +71,23 @@
   新增开枪入口必须走同一函数，保证子弹消耗、犯罪记录、声纹与目击者逻辑一致。`Q` 只出刀（异形），`B` 才是开枪；
   异形有子弹时同样可以开枪。DEV 免伤也必须先扣子弹，杜绝无限连射。
 - **统一移速**：所有活人（玩家 / AI 人类 / AI 异形）统一使用 `MOVE_SPEED = 5`；
-  拖拽尸体 3.0 格/秒、玩家幽灵 6.5 格/秒是显式例外。新增移动入口必须复用 `MOVE_SPEED`。
+  拖拽尸体 `DRAG_SPEED = 3.0` 格/秒（玩家与 AI 共用 `moveSpeed(a)`）、玩家幽灵 6.5 格/秒是显式例外。
+  新增移动入口必须走 `moveSpeed(a)`，不要手写常量，否则 AI 会出现“拖着尸体满速跑”。
+- **拖拽是通用状态**：拖拽关系存在拖拽者身上（`a.drag` = 被拖席位），被拖者 `draggedBy` 指回；
+  玩家额外用 `G.drag` 做 UI 别名（不变量 D7 会校验两者同步）。
+  玩家与 AI 都必须走 `startDrag / releaseDragBy / syncDragOf / releaseAllDrags`，
+  禁止再直接改 `G.drag` 或 `draggedBy`；尸体跟随在 `stepMove()` 内触发，保证门禁的
+  `aiTick / aiTickAlien` 单步模拟也能拖动尸体。
+- **刀者红身**：`knife()` 命中后给出手者 `redT = 3.0`，在 `tickActs()` 里按 dt 递减，
+  绘制端用 `tintedSheet()` 缓存的红色染色图叠加。红身是**纯表现层**，不得参与任何判定、
+  证据或会议发言；新增攻击入口若要给红身，必须在真实扣刀分支里赋值。
+- **任务提示不用边框**：自己的任务点所在掩体由 `drawTaskCoverFlash()` 从底图裁出物体像素做金色
+  `screen` 脉冲（`G.gfx.coverFlashes` 计数），不得再画黄色虚线矩形；`G.gfx.dashedBorders`
+  只允许在无掩体的空地分支上增长，门禁据此回归。改底图烘焙尺寸/对齐会同时影响这个取样框。
+- **AI 规则利用**：AI 与玩家共用结算入口——救人走 `fireShot/finishDoing('revive')`、
+  拖尸走 `startDrag`、合闸走 `pullBreaker`、钻管道走 `witnessAlienAction + aiHear('pipe')`；
+  出刀 / 破坏前用 `secbotWouldSee(x,y)`（与 `botTick` 同源：14 格 + 180° 扇形 + `losWalls`）预判。
+  新增 AI 能力必须复用这些入口，否则会出现“AI 有特权、玩家没有”的失衡。
 - **AI 认知与证据链**：每个 AI 的 `mind` 只记录自己看见/听见/搜查到的事实
   （`saw_* / heard_* / env_* / saw_body / search_result`），并换算成 `sus` 嫌疑分；
   **禁止读取 `alien` 身份**。新增动作或环境提示必须调用 `noticeAction()` / `aiHear()` / `envNotice()`，
@@ -104,6 +122,12 @@
   保安被攻击时会转向袭击者并尝试反制拘留；即使未造成濒死，危险行为也要写入 `pendingCrime`。
 - **地图与底图**：改 `js/data/map.js` 的房间 / 墙体 / 门 / 走廊后，逻辑碰撞立即生效，
   但 `assets/scene/v4/base-lit.png` 必须用 `tools/blender-ship.py` 重新烘焙；无 Blender 时须在交付说明中标注底图未更新。
+  改家具**材质**（`assets/scene/v4/tex/panel-metal|crate-steel|fabric-weave|table-composite|panel-white|hazard-stripe|ao-soft.png`）
+  同样要重烘一次；材质由 `tools/gen-materials.py --mode sdxl` 用本地 SDXL 生成
+  （768px 出图 → 降饱和冷调 → 四向镜像拼贴 → 回缩 1024）。
+  该工具刻意**不走 diffusers 默认的 safetensors mmap 加载**（5.13GB fp16 UNet 在 16GB 内存机器上
+  会 access violation 段错误），而是逐张量流式上卡 + 先编码提示词再释放文本编码器；
+  没有显卡时用 `--mode reuse` 从场景已有素材派生兜底。
 - **破坏与故障**：每个异形每夜一次破坏技；故障统一存 `G.dmg`，60 秒倒计时只在 `update` 里走。
   新增破坏入口必须走 `damageRoom()`，新增维修入口必须走 `startFix()`（`doing='fix'`，连续 10 秒，
   移动打断）。幽灵不可破坏；天亮清空故障且不扣分。
@@ -118,7 +142,7 @@
 
 ## 六、当前基线（返航录V1）
 
-- 门禁：`node tools/test-v3.cjs` —— **331 通过 / 0 失败**（2026-10-29 实跑，Edge headless）。
+- 门禁：`node tools/test-v3.cjs` —— **360 通过 / 0 失败**（2026-10-29 实跑，Edge headless）。
 - 门禁覆盖：地图全连通 / 4 管道口 / 25 任务点（中转间 102 格 / 配电室 148 格 / 引擎 216 格 / 会议室管道右上角）、
   22 扇自动门开合与视线/移动阻挡、机器人 4 点巡逻与运行时判定、
   AI 夜间能力（拉闸 / 停摆机器人 / 破坏舱室 / 钻管道 / 开枪 / 救人 / 补给）、

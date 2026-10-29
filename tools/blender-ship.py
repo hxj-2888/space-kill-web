@@ -129,7 +129,13 @@ def sock(node, names, value):
 
 
 def mat_tex(name, tex, scale=(1 / 4.2, 1 / 4.2, 1.0), metallic=0.55, rough=0.42,
-            emit_mul=0.0, tint=None):
+            emit_mul=0.0, tint=None, fallback=None):
+    """贴图材质；素材缺失（没跑 SDXL 工具）时退回纯色，保证烘图流程不中断。"""
+    path = os.path.join(ROOT, 'assets', 'scene', 'v4', 'tex', tex)
+    if not os.path.exists(path):
+        print('[ship] 缺贴图 %s，退回纯色材质' % tex)
+        c, m, r = fallback or ((0.25, 0.28, 0.32), 0.5, 0.5)
+        return mat_plain(name, c, metallic=m, rough=r)
     m = bpy.data.materials.new(name)
     m.use_nodes = True
     nt = m.node_tree
@@ -137,7 +143,7 @@ def mat_tex(name, tex, scale=(1 / 4.2, 1 / 4.2, 1.0), metallic=0.55, rough=0.42,
     coord = nt.nodes.new('ShaderNodeTexCoord')
     mapping = nt.nodes.new('ShaderNodeMapping')
     img = nt.nodes.new('ShaderNodeTexImage')
-    img.image = bpy.data.images.load(os.path.join(ROOT, 'assets', 'scene', 'v4', 'tex', tex))
+    img.image = bpy.data.images.load(path)
     img.extension = 'REPEAT'
     img.interpolation = 'Linear'
     mapping.inputs['Scale'].default_value = scale
@@ -159,6 +165,36 @@ def mat_tex(name, tex, scale=(1 / 4.2, 1 / 4.2, 1.0), metallic=0.55, rough=0.42,
     if emit_mul:
         nt.links.new(emit_src, bsdf.inputs.get('Emission Color') or bsdf.inputs.get('Emission'))
         sock(bsdf, ['Emission Strength'], emit_mul)
+    return m
+
+
+def mat_shadow(name, tex, strength=0.55, z_bias=0.008):
+    """接地软阴影：只用 alpha 贴图压暗地面，本身不参与投影。"""
+    path = os.path.join(ROOT, 'assets', 'scene', 'v4', 'tex', tex)
+    m = bpy.data.materials.new(name)
+    m.use_nodes = True
+    nt = m.node_tree
+    bsdf = nt.nodes.get('Principled BSDF')
+    sock(bsdf, ['Base Color'], (0.01, 0.012, 0.016, 1))
+    sock(bsdf, ['Metallic'], 0.0)
+    sock(bsdf, ['Roughness'], 1.0)
+    sock(bsdf, ['Specular IOR Level', 'Specular'], 0.0)
+    if os.path.exists(path):
+        tex_node = nt.nodes.new('ShaderNodeTexImage')
+        tex_node.image = bpy.data.images.load(path)
+        mul = nt.nodes.new('ShaderNodeMath')
+        mul.operation = 'MULTIPLY'
+        mul.inputs[1].default_value = strength
+        nt.links.new(tex_node.outputs['Alpha'], mul.inputs[0])
+        nt.links.new(mul.outputs['Value'], bsdf.inputs['Alpha'])
+    else:
+        print('[ship] 缺 %s，接地阴影改用固定 alpha' % tex)
+        sock(bsdf, ['Alpha'], strength)
+    try:
+        m.blend_method = 'BLEND'
+        m.show_transparent_back = False
+    except Exception:
+        pass
     return m
 
 
@@ -225,6 +261,89 @@ WATER = mat_plain('water', (0.03, 0.12, 0.22), metallic=0.3, rough=0.06,
                   emit=(0.02, 0.18, 0.35), strength=1.2)
 WHITE = mat_plain('white', (0.62, 0.70, 0.76), metallic=0.25, rough=0.45)
 BLANKET = mat_plain('blanket', (0.18, 0.30, 0.42), metallic=0.0, rough=0.95)
+
+# ---------------- 家具表面材质（gen-materials.py 生成，缺失时自动退回纯色） ----------------
+# emit_mul：让设备面板自带一点冷光，暗舱（引擎 / 配电）里也能读出掩体轮廓，
+# 不至于和地板糊成一片黑。
+PANEL = mat_tex('panel_metal', 'panel-metal.png', scale=(1 / 2.6, 1 / 2.6, 1 / 1.4),
+                metallic=0.70, rough=0.36, emit_mul=0.26, tint=(0.98, 1.02, 1.10),
+                fallback=((0.13, 0.15, 0.18), 0.72, 0.36))
+PANEL_LIGHT = mat_tex('panel_metal_light', 'panel-metal.png', scale=(1 / 2.2, 1 / 2.2, 1 / 1.2),
+                      metallic=0.64, rough=0.42, emit_mul=0.20, tint=(1.10, 1.14, 1.20),
+                      fallback=((0.24, 0.27, 0.31), 0.66, 0.42))
+CRATE = mat_tex('crate_steel', 'crate-steel.png', scale=(1 / 1.9, 1 / 1.9, 1 / 1.0),
+                metallic=0.56, rough=0.52, emit_mul=0.24, tint=(1.06, 0.98, 0.82),
+                fallback=((0.20, 0.18, 0.15), 0.5, 0.6))
+FABRIC_TEX = mat_tex('fabric_weave', 'fabric-weave.png', scale=(1 / 1.5, 1 / 1.5, 1 / 1.0),
+                     metallic=0.0, rough=0.94, emit_mul=0.08, tint=(0.86, 0.96, 1.06),
+                     fallback=((0.10, 0.13, 0.16), 0.0, 0.94))
+TOPPLATE = mat_tex('table_composite', 'table-composite.png', scale=(1 / 3.0, 1 / 3.0, 1.0),
+                   metallic=0.24, rough=0.44, emit_mul=0.16, tint=(0.92, 0.96, 1.04),
+                   fallback=((0.10, 0.11, 0.13), 0.24, 0.44))
+MEDWHITE = mat_tex('panel_white', 'panel-white.png', scale=(1 / 2.4, 1 / 2.4, 1 / 1.2),
+                   metallic=0.16, rough=0.42, emit_mul=0.10, tint=(0.96, 0.99, 1.03),
+                   fallback=((0.60, 0.66, 0.70), 0.16, 0.42))
+HAZ = mat_tex('hazard_stripe', 'hazard-stripe.png', scale=(1 / 1.1, 1 / 1.1, 1.0),
+              metallic=0.18, rough=0.62, emit_mul=0.18, tint=(1.05, 0.98, 0.88),
+              fallback=((0.32, 0.20, 0.05), 0.2, 0.6))
+SHADOW = mat_shadow('ao_shadow', 'ao-soft.png', strength=0.62)
+
+
+# ---------------- 家具细节工具 ----------------
+def shadow_decal(tag, cx, cy, w, d, z=0.008, grow=1.0):
+    """家具脚下的软阴影贴片：把物体"压"进地板，消除贴纸感。"""
+    me = bpy.data.meshes.new(tag)
+    hw, hd = w * grow / 2, d * grow / 2
+    me.from_pydata([(-hw, -hd, z), (hw, -hd, z), (hw, hd, z), (-hw, hd, z)], [], [(0, 1, 2, 3)])
+    me.validate()
+    recalc(me)
+    ob = link(bpy.data.objects.new(tag, me))
+    ob.location = (cx, cy, 0)
+    ob.data.materials.append(SHADOW)
+    try:
+        ob.visible_shadow = False
+    except Exception:
+        pass
+    return ob
+
+
+def floor_frame(tag, cx, cy, w, d, mat=HAZ, z0=0.006, z1=0.014, bar=0.13, gap=0.22):
+    """设备周边的地面警戒框：说明"这是台要维护的机器"，同时统一家具与地板的色调。"""
+    ow, od = w + gap * 2, d + gap * 2
+    box(tag + '_h1', cx, cy - od / 2, ow, bar, z0, z1, mat)
+    box(tag + '_h2', cx, cy + od / 2, ow, bar, z0, z1, mat)
+    box(tag + '_v1', cx - ow / 2, cy, bar, od - bar * 2, z0, z1, mat)
+    box(tag + '_v2', cx + ow / 2, cy, bar, od - bar * 2, z0, z1, mat)
+
+
+def bolts(tag, cx, cy, w, d, z, r=0.035, inset=0.12, mat=DARK):
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            cyl(tag + '_b%d%d' % (sx, sy), cx + sx * (w / 2 - inset), cy + sy * (d / 2 - inset),
+                r, z, z + 0.02, mat, verts=8)
+
+
+def vent(tag, cx, cy, w, d, z0, n=5, mat=DARK):
+    """百叶散热口：一组薄板，替代原来一整块纯色面板。"""
+    step = d / max(1, n)
+    for i in range(n):
+        box(tag + '_v%d' % i, cx, cy - d / 2 + step * (i + 0.5), w, step * 0.42, z0, z0 + 0.022, mat)
+
+
+def led_strip(tag, cx, cy, w, z, mat=CYAN, n=3):
+    step = w / max(1, n)
+    for i in range(n):
+        box(tag + '_l%d' % i, cx - w / 2 + step * (i + 0.5), cy, step * 0.42, 0.05, z, z + 0.03, mat)
+
+
+def pipe_run(tag, x0, y0, x1, y1, z, r=0.06, mat=METAL):
+    """家具之间的短管线/线缆：让设备看起来接在船上，而不是摆在地板上的方块。"""
+    dx, dy = x1 - x0, y1 - y0
+    L = math.hypot(dx, dy)
+    if L < 0.05:
+        return
+    box(tag, (x0 + x1) / 2, (y0 + y1) / 2, L, r * 2, z - r, z + r, mat,
+        rot=math.atan2(dy, dx))
 
 
 # ---------------- 网格工具 ----------------
@@ -385,6 +504,9 @@ for seg in M['walls']:
 def furniture(c):
     x, y, w, h, k = c['x'], c['y'], c['w'], c['h'], c['kind']
     cx, cy = x + w / 2, y + h / 2
+    tag = 'f_%s_%s' % (k, c.get('label', ''))
+    if k != 'pond':
+        shadow_decal(tag + '_ao', cx, cy, w, h, grow=1.9)
     if k == 'table' and c.get('label') == '圆桌':
         R = min(w, h) / 2
         # 深色全息会议桌：冷灰桌面 + 琥珀外圈 + 青色任务环 + 八条刻度
@@ -402,69 +524,168 @@ def furniture(c):
             box('f_round_table_tick_%d' % i, cx + math.cos(a) * rr, cy + math.sin(a) * rr,
                 0.34, 0.05, 0.8405, 0.8435, TABLE_RING, rot=a)
     elif k == 'table':
-        box('f_table_top', cx, cy, w, h, 0.72, 0.82, METAL, bevel=0.04)
+        # 台面用磨砂复合板材质，边缘留暗色包边与琥珀细线，桌腿带地脚垫
+        box(tag + '_top', cx, cy, w, h, 0.72, 0.82, TOPPLATE, bevel=0.03)
+        box(tag + '_rim', cx, cy, w + 0.05, h + 0.05, 0.70, 0.735, TRIM, bevel=0.02)
         for side in (-1, 1):
-            box('f_table_edge_x', cx, cy + side * (h / 2 - 0.03), w, 0.06, 0.80, 0.84, AMBER)
-            box('f_table_edge_y', cx + side * (w / 2 - 0.03), cy, 0.06, h, 0.80, 0.84, AMBER)
+            box(tag + '_edge_x', cx, cy + side * (h / 2 - 0.02), w, 0.04, 0.80, 0.83, AMBER)
+            box(tag + '_edge_y', cx + side * (w / 2 - 0.02), cy, 0.04, h, 0.80, 0.83, AMBER)
+        box(tag + '_shelf', cx, cy, w * 0.82, h * 0.66, 0.30, 0.335, DARK)
         for sx, sy in ((-1, -1), (1, -1), (1, 1), (-1, 1)):
-            cyl('f_table_leg', cx + sx * (w / 2 - 0.16), cy + sy * (h / 2 - 0.16), 0.055, 0, 0.72, DARK)
+            lx, ly = cx + sx * (w / 2 - 0.16), cy + sy * (h / 2 - 0.16)
+            box(tag + '_leg', lx, ly, 0.10, 0.10, 0.06, 0.72, METAL, bevel=0.015)
+            cyl(tag + '_foot', lx, ly, 0.11, 0.0, 0.06, DARK, verts=12)
     elif k == 'console':
-        box('f_console', cx, cy, w, h, 0.0, 0.9, DARK, bevel=0.035)
-        box('f_console_sc', cx, cy, w * 0.82, h * 0.6, 0.905, 0.925, SCREEN)
-        box('f_console_glow', cx, cy, w * 0.86, h * 0.64, 0.88, 0.9, CYAN)
+        # 机柜 + 斜面操作台 + 散热百叶 + 状态灯带 + 地面警戒框
+        box(tag + '_body', cx, cy, w, h, 0.0, 0.86, PANEL, bevel=0.035)
+        box(tag + '_cap', cx, cy, w * 1.02, h * 1.02, 0.86, 0.90, PANEL_LIGHT, bevel=0.02)
+        box(tag + '_slope', cx, cy - h * 0.10, w * 0.86, h * 0.42, 0.90, 0.985, SCREEN, rot=0.0)
+        box(tag + '_slope_trim', cx, cy - h * 0.10, w * 0.92, h * 0.46, 0.885, 0.905, TRIM)
+        vent(tag + '_vent', cx, cy + h * 0.30, w * 0.66, h * 0.22, 0.30, n=5)
+        led_strip(tag + '_led', cx, cy + h * 0.46, w * 0.7, 0.905, CYAN, n=4)
+        bolts(tag + '_bolt', cx, cy, w, h, 0.905, r=0.03, inset=0.10, mat=METAL)
+        floor_frame(tag + '_hz', cx, cy, w, h)
+        pipe_run(tag + '_cable', cx, cy + h / 2, cx + w * 0.35, cy + h / 2 + 0.9, 0.05, 0.045, DARK)
     elif k == 'pillar':
-        cyl('f_pillar', cx, cy, min(w, h) * 0.46, 0, 1.3, METAL, verts=16, bevel=0.02)
-        cyl('f_pillar_base', cx, cy, min(w, h) * 0.58, 0, 0.10, DARK, verts=16)
+        r = min(w, h) * 0.44
+        cyl(tag + '_body', cx, cy, r, 0.10, 1.30, PANEL_LIGHT, verts=20, bevel=0.02)
+        cyl(tag + '_base', cx, cy, r * 1.22, 0.0, 0.12, DARK, verts=20)
+        cyl(tag + '_cap', cx, cy, r * 1.14, 1.28, 1.36, TRIM, verts=20)
+        cyl(tag + '_band', cx, cy, r * 1.03, 0.42, 0.56, HAZ, verts=20)
+        cyl(tag + '_ring', cx, cy, r * 1.05, 0.98, 1.02, CYAN, verts=20)
+        box(tag + '_plate', cx + r, cy, 0.10, r * 0.9, 0.62, 0.86, DARK)
     elif k == 'tank':
-        cyl('f_tank', cx, cy, min(w, h) * 0.46, 0.1, 1.85, GLASS, verts=20)
-        cyl('f_tank_base', cx, cy, min(w, h) * 0.52, 0, 0.1, METAL, verts=20)
-        cyl('f_tank_ring1', cx, cy, min(w, h) * 0.49, 0.55, 0.62, METAL, verts=20)
-        cyl('f_tank_ring2', cx, cy, min(w, h) * 0.49, 1.30, 1.37, METAL, verts=20)
-        ball('f_tank_core', cx, cy, 0.95, min(w, h) * 0.22, LEAF)
+        r = min(w, h) * 0.44
+        cyl(tag + '_base', cx, cy, r * 1.24, 0.0, 0.14, METAL, verts=24)
+        cyl(tag + '_glass', cx, cy, r, 0.14, 1.80, GLASS, verts=24, bevel=0.02)
+        cyl(tag + '_liquid', cx, cy, r * 0.9, 0.20, 1.42, WATER, verts=24)
+        cyl(tag + '_ring1', cx, cy, r * 1.06, 0.52, 0.62, METAL, verts=24)
+        cyl(tag + '_ring2', cx, cy, r * 1.06, 1.28, 1.38, METAL, verts=24)
+        cyl(tag + '_cap', cx, cy, r * 1.12, 1.80, 1.92, PANEL_LIGHT, verts=24, bevel=0.02)
+        cyl(tag + '_cap_led', cx, cy, r * 0.5, 1.92, 1.95, CYAN, verts=20)
+        ball(tag + '_core', cx, cy, 0.92, r * 0.30, LEAF)
+        for i in range(3):
+            a = math.pi * 2 * i / 3
+            ball(tag + '_bub%d' % i, cx + math.cos(a) * r * 0.4, cy + math.sin(a) * r * 0.4,
+                 0.62 + i * 0.32, r * 0.07, WATER)
+        led_strip(tag + '_led', cx, cy + r * 1.2, r * 1.2, 0.14, AMBER, n=3)
     elif k == 'tree':
-        cyl('f_tree_trunk', cx, cy, min(w, h) * 0.10, 0, 1.0, WOOD, verts=10)
-        ball('f_tree_leaf1', cx, cy, 1.05, min(w, h) * 0.52, LEAF)
-        ball('f_tree_leaf2', cx + w * 0.18, cy - h * 0.12, 1.28, min(w, h) * 0.38, LEAF)
-        ball('f_tree_leaf3', cx - w * 0.16, cy + h * 0.15, 1.20, min(w, h) * 0.34, LEAF)
+        cyl(tag + '_soil', cx, cy, min(w, h) * 0.42, 0.0, 0.16, DARK, verts=18)
+        cyl(tag + '_pot', cx, cy, min(w, h) * 0.46, 0.0, 0.22, TRIM, verts=18)
+        cyl(tag + '_trunk', cx, cy, min(w, h) * 0.09, 0.16, 1.05, WOOD, verts=10)
+        ball(tag + '_leaf1', cx, cy, 1.10, min(w, h) * 0.50, LEAF)
+        ball(tag + '_leaf2', cx + w * 0.18, cy - h * 0.12, 1.32, min(w, h) * 0.36, LEAF)
+        ball(tag + '_leaf3', cx - w * 0.16, cy + h * 0.15, 1.24, min(w, h) * 0.32, LEAF)
+        ball(tag + '_leaf4', cx - w * 0.05, cy - h * 0.20, 1.44, min(w, h) * 0.26, LEAF)
     elif k == 'pond':
-        box('f_pond', cx, cy, w, h, 0.0, 0.05, WATER)
-        box('f_pond_rim', cx, cy, w + 0.2, h + 0.2, 0.0, 0.09, TRIM)
+        box(tag + '_water', cx, cy, w, h, 0.0, 0.05, WATER)
+        box(tag + '_rim', cx, cy, w + 0.24, h + 0.24, 0.0, 0.10, TRIM, bevel=0.03)
+        box(tag + '_rim_in', cx, cy, w - 0.06, h - 0.06, 0.045, 0.075, DARK)
+        for i, (ox, oy, rr) in enumerate(((-0.32, 0.24, 0.16), (0.28, -0.18, 0.13), (0.05, 0.30, 0.10))):
+            ball(tag + '_stone%d' % i, cx + ox * w, cy + oy * h, 0.05, rr * min(w, h) * 0.4, WHITE)
+        cyl(tag + '_lily', cx - w * 0.18, cy - h * 0.20, min(w, h) * 0.10, 0.052, 0.062, LEAF, verts=14)
     elif k == 'machine':
-        box('f_machine', cx, cy, w, h, 0.0, 1.15, METAL, bevel=0.04)
-        box('f_machine_panel', cx, cy - h * 0.30, w * 0.72, h * 0.22, 0.45, 0.8, SCREEN)
-        box('f_machine_light', cx, cy + h * 0.32, w * 0.6, h * 0.16, 0.9, 0.95, CYAN)
+        # 主体 + 顶盖 + 前屏 + 灯带 + 散热 + 管线 + 地面警戒框：让方块读成"一台设备"
+        box(tag + '_body', cx, cy, w, h, 0.0, 1.06, PANEL, bevel=0.05)
+        box(tag + '_cap', cx, cy, w * 0.94, h * 0.94, 1.06, 1.14, PANEL_LIGHT, bevel=0.03)
+        box(tag + '_cap_in', cx, cy, w * 0.6, h * 0.6, 1.14, 1.16, DARK)
+        box(tag + '_panel', cx, cy - h * 0.30, w * 0.70, h * 0.20, 0.42, 0.80, SCREEN)
+        box(tag + '_panel_trim', cx, cy - h * 0.30, w * 0.76, h * 0.24, 0.40, 0.425, TRIM)
+        led_strip(tag + '_led', cx, cy + h * 0.34, w * 0.62, 0.90, CYAN, n=4)
+        vent(tag + '_vent', cx - w * 0.32, cy, h * 0.5, w * 0.22, 0.24, n=6)
+        box(tag + '_haz', cx, cy + h * 0.5, w * 1.01, h * 0.08, 0.16, 0.30, HAZ)
+        cyl(tag + '_stack', cx + w * 0.30, cy + h * 0.22, min(w, h) * 0.12, 1.14, 1.52, METAL, verts=14)
+        cyl(tag + '_stack_cap', cx + w * 0.30, cy + h * 0.22, min(w, h) * 0.15, 1.50, 1.56, DARK, verts=14)
+        pipe_run(tag + '_pipe', cx - w * 0.45, cy + h * 0.35, cx + w * 0.30, cy + h * 0.22, 1.20, 0.055)
+        bolts(tag + '_bolt', cx, cy, w, h, 1.14, r=0.035, inset=0.14, mat=METAL)
+        floor_frame(tag + '_hzf', cx, cy, w, h)
     elif k == 'crate':
-        box('f_crate', cx, cy, w, h, 0.0, 0.85, WOOD, bevel=0.04)
-        box('f_crate_band', cx, cy, w * 1.02, h * 0.18, 0.32, 0.40, DARK)
+        # 钢板货箱：框筋 + 警戒色带 + 顶盖缝 + 锁扣，替换原来的纯色木盒
+        box(tag + '_body', cx, cy, w, h, 0.0, 0.84, CRATE, bevel=0.045)
+        box(tag + '_lid', cx, cy, w * 0.96, h * 0.96, 0.84, 0.90, PANEL_LIGHT, bevel=0.025)
+        box(tag + '_seam', cx, cy, w * 1.005, h * 1.005, 0.815, 0.835, DARK)
+        for sx in (-1, 1):
+            box(tag + '_post_l%d' % sx, cx + sx * (w / 2 - 0.06), cy, 0.12, h * 1.01, 0.0, 0.88, DARK)
+            box(tag + '_post_w%d' % sx, cx, cy + sx * (h / 2 - 0.06), w * 1.01, 0.12, 0.0, 0.88, DARK)
+        box(tag + '_band', cx, cy, w * 1.02, h * 0.20, 0.34, 0.42, HAZ)
+        box(tag + '_latch', cx + w * 0.30, cy - h * 0.5, w * 0.18, 0.07, 0.44, 0.62, METAL)
+        box(tag + '_plate', cx - w * 0.22, cy - h * 0.5, w * 0.30, 0.05, 0.50, 0.68, WHITE)
+        bolts(tag + '_bolt', cx, cy, w, h, 0.90, r=0.03, inset=0.13, mat=METAL)
+        floor_frame(tag + '_hzf', cx, cy, w, h, bar=0.10, gap=0.16)
     elif k == 'breaker':
-        box('f_breaker', cx, cy, w, h, 0.0, 1.25, DARK, bevel=0.03)
-        box('f_breaker_glow', cx, cy - h * 0.52, w * 0.7, 0.05, 0.92, 1.02, RED)
-        box('f_breaker_screen', cx, cy, w * 0.55, h * 0.22, 0.55, 0.62, AMBER)
+        box(tag + '_body', cx, cy, w, h, 0.0, 1.22, PANEL, bevel=0.035)
+        box(tag + '_door', cx, cy - h * 0.5, w * 0.92, 0.06, 0.22, 1.10, PANEL_LIGHT)
+        box(tag + '_screen', cx, cy - h * 0.5, w * 0.55, 0.05, 0.86, 1.02, AMBER)
+        box(tag + '_haz', cx, cy, w * 1.01, h * 1.01, 0.14, 0.26, HAZ)
+        box(tag + '_lever', cx + w * 0.22, cy - h * 0.52, 0.09, 0.09, 0.42, 0.72, RED)
+        cyl(tag + '_knob', cx + w * 0.22, cy - h * 0.56, 0.075, 0.70, 0.76, METAL, verts=12)
+        led_strip(tag + '_led', cx, cy + h * 0.5, w * 0.6, 1.22, CYAN, n=3)
+        pipe_run(tag + '_cond', cx, cy + h / 2, cx, cy + h / 2 + 1.2, 1.05, 0.07, DARK)
+        floor_frame(tag + '_hzf', cx, cy, w, h)
     elif k == 'sofa':
-        box('f_sofa', cx, cy, w, h, 0.0, 0.45, FABRIC, bevel=0.06)
-        box('f_sofa_back', cx, cy - h / 2 + 0.12, w, 0.24, 0.45, 0.85, FABRIC, bevel=0.05)
-        box('f_sofa_arm_l', cx - w / 2 + 0.12, cy, 0.24, h, 0.45, 0.68, FABRIC, bevel=0.05)
-        box('f_sofa_arm_r', cx + w / 2 - 0.12, cy, 0.24, h, 0.45, 0.68, FABRIC, bevel=0.05)
+        box(tag + '_base', cx, cy, w, h, 0.10, 0.42, FABRIC_TEX, bevel=0.06)
+        box(tag + '_back', cx, cy - h / 2 + 0.11, w, 0.22, 0.42, 0.86, FABRIC_TEX, bevel=0.05)
+        box(tag + '_arm_l', cx - w / 2 + 0.11, cy, 0.22, h, 0.42, 0.66, FABRIC_TEX, bevel=0.05)
+        box(tag + '_arm_r', cx + w / 2 - 0.11, cy, 0.22, h, 0.42, 0.66, FABRIC_TEX, bevel=0.05)
+        for i, sx in enumerate((-1, 1)):
+            box(tag + '_cush%d' % i, cx + sx * w * 0.22, cy + 0.03, w * 0.40, h * 0.72,
+                0.42, 0.52, FABRIC_TEX, bevel=0.04)
+        for li, (sx, sy) in enumerate(((-1, -1), (1, -1), (1, 1), (-1, 1))):
+            cyl(tag + '_leg%d' % li, cx + sx * (w / 2 - 0.14), cy + sy * (h / 2 - 0.14),
+                0.045, 0.0, 0.11, METAL, verts=8)
     elif k == 'chair':
-        box('f_chair', cx, cy, w, h, 0.0, 0.45, FABRIC, bevel=0.05)
-        box('f_chair_back', cx, cy - h / 2 + 0.08, w, 0.16, 0.45, 0.92, FABRIC, bevel=0.04)
-        cyl('f_chair_pole', cx, cy, 0.05, 0, 0.12, DARK)
+        box(tag + '_seat', cx, cy, w, h, 0.36, 0.48, FABRIC_TEX, bevel=0.05)
+        box(tag + '_back', cx, cy - h / 2 + 0.07, w * 0.94, 0.14, 0.48, 0.94, FABRIC_TEX, bevel=0.04)
+        box(tag + '_back_post', cx, cy - h / 2 + 0.07, 0.07, 0.07, 0.44, 0.52, DARK)
+        cyl(tag + '_pole', cx, cy, 0.05, 0.12, 0.36, DARK, verts=10)
+        for i in range(5):
+            a = math.pi * 2 * i / 5
+            box(tag + '_arm%d' % i, cx + math.cos(a) * 0.16, cy + math.sin(a) * 0.16,
+                0.30, 0.05, 0.06, 0.12, DARK, rot=a)
+            cyl(tag + '_cast%d' % i, cx + math.cos(a) * 0.28, cy + math.sin(a) * 0.28,
+                0.035, 0.0, 0.07, METAL, verts=8)
     elif k == 'bed':
-        box('f_bed', cx, cy, w, h, 0.0, 0.52, WHITE, bevel=0.04)
-        box('f_bed_blanket', cx, cy + h * 0.12, w * 0.96, h * 0.72, 0.52, 0.60, BLANKET, bevel=0.03)
-        box('f_bed_pillow', cx, cy - h / 2 + 0.35, w * 0.62, 0.42, 0.52, 0.66, WHITE, bevel=0.06)
-        box('f_bed_frame', cx, cy, w, h, 0.0, 0.12, METAL, bevel=0.02)
+        box(tag + '_frame', cx, cy, w, h, 0.0, 0.14, METAL, bevel=0.02)
+        box(tag + '_body', cx, cy, w * 0.98, h * 0.98, 0.40, 0.52, MEDWHITE, bevel=0.04)
+        box(tag + '_mattress', cx, cy, w * 0.92, h * 0.94, 0.52, 0.62, WHITE, bevel=0.05)
+        box(tag + '_blanket', cx, cy + h * 0.14, w * 0.94, h * 0.66, 0.60, 0.665, BLANKET, bevel=0.03)
+        box(tag + '_blanket_fold', cx, cy - h * 0.16, w * 0.94, h * 0.08, 0.62, 0.68, FABRIC_TEX, bevel=0.02)
+        box(tag + '_pillow', cx, cy - h / 2 + 0.32, w * 0.58, 0.40, 0.62, 0.74, WHITE, bevel=0.07)
+        for sx in (-1, 1):
+            box(tag + '_rail%d' % sx, cx + sx * (w / 2 - 0.05), cy + h * 0.10, 0.05, h * 0.42,
+                0.52, 0.80, METAL, bevel=0.015)
+        cyl(tag + '_pole', cx - w * 0.42, cy - h * 0.42, 0.035, 0.14, 1.10, METAL, verts=10)
+        box(tag + '_monitor', cx - w * 0.42, cy - h * 0.42, 0.30, 0.06, 0.98, 1.14, SCREEN)
+        box(tag + '_pad', cx, cy, w * 1.35, h * 1.18, 0.005, 0.012, MEDWHITE)
     elif k == 'fridge':
-        box('f_fridge', cx, cy, w, h, 0.0, 1.5, WHITE, bevel=0.04)
-        box('f_fridge_seam', cx, cy, w * 1.01, h * 0.02, 0.72, 0.74, DARK)
-        box('f_fridge_light', cx, cy - h * 0.51, w * 0.5, 0.04, 1.16, 1.22, CYAN)
+        box(tag + '_body', cx, cy, w, h, 0.0, 1.46, MEDWHITE, bevel=0.045)
+        box(tag + '_top', cx, cy, w * 1.01, h * 1.01, 1.46, 1.50, PANEL_LIGHT, bevel=0.02)
+        box(tag + '_seam', cx, cy, w * 1.015, h * 0.022, 0.70, 0.735, DARK)
+        box(tag + '_seam_v', cx, cy, w * 0.022, h * 1.015, 0.02, 1.44, DARK)
+        for sx in (-1, 1):
+            box(tag + '_handle%d' % sx, cx + sx * w * 0.18, cy - h * 0.5, 0.05, 0.05,
+                0.86, 1.12, METAL)
+        box(tag + '_label', cx - w * 0.20, cy - h * 0.5, w * 0.30, 0.04, 1.16, 1.30, CYAN)
+        vent(tag + '_vent', cx, cy + h * 0.5, w * 0.66, h * 0.16, 1.24, n=4)
+        led_strip(tag + '_led', cx, cy - h * 0.5, w * 0.5, 0.05, CYAN, n=3)
+        floor_frame(tag + '_hzf', cx, cy, w, h, bar=0.10, gap=0.16)
     elif k == 'rack':
-        box('f_rack', cx, cy, w, h, 0.0, 1.45, DARK, bevel=0.03)
+        box(tag + '_frame', cx, cy, w, h, 0.0, 1.46, DARK, bevel=0.03)
+        for sx in (-1, 1):
+            box(tag + '_side%d' % sx, cx + sx * (w / 2 - 0.04), cy, 0.08, h * 1.01, 0.02, 1.44, PANEL)
         for i in range(4):
-            box('f_rack_slot', cx, cy - h * 0.36 + i * h * 0.24, w * 0.72, h * 0.10, 0.22 + i * 0.30, 0.30 + i * 0.30, METAL)
-        box('f_rack_light', cx, cy + h * 0.45, w * 0.55, 0.04, 1.25, 1.32, AMBER)
+            z = 0.22 + i * 0.30
+            box(tag + '_slot%d' % i, cx, cy - h * 0.36 + i * h * 0.24, w * 0.74, h * 0.10,
+                z, z + 0.09, PANEL_LIGHT, bevel=0.01)
+            led_strip(tag + '_slot_led%d' % i, cx + w * 0.22, cy - h * 0.36 + i * h * 0.24,
+                      w * 0.22, z + 0.09, AMBER if i % 2 else CYAN, n=2)
+        box(tag + '_cap', cx, cy, w * 1.02, h * 1.02, 1.44, 1.50, TRIM, bevel=0.02)
+        vent(tag + '_vent', cx, cy + h * 0.44, w * 0.6, h * 0.12, 1.30, n=4)
+        pipe_run(tag + '_cable', cx, cy + h / 2, cx - w * 0.4, cy + h / 2 + 1.0, 0.06, 0.05, DARK)
+        floor_frame(tag + '_hzf', cx, cy, w, h, bar=0.10, gap=0.16)
     else:
-        box('f_unknown', cx, cy, w, h, 0.0, 0.7, METAL, bevel=0.03)
+        box(tag + '_body', cx, cy, w, h, 0.0, 0.7, PANEL, bevel=0.03)
+        box(tag + '_cap', cx, cy, w * 0.96, h * 0.96, 0.70, 0.74, PANEL_LIGHT, bevel=0.02)
 
 
 for c in M['cover']:
@@ -486,13 +707,15 @@ def area(name, x, y, z, size, energy, color=(1, 1, 1), shape='SQUARE'):
 area('key', W * 0.35, H * 0.30, 9.0, 26.0, 1500.0, (0.78, 0.88, 1.0))
 area('fill', W * 0.70, H * 0.75, 7.0, 22.0, 900.0, (1.0, 0.84, 0.62))
 area('rim', W * 0.15, H * 0.85, 6.0, 16.0, 650.0, (0.55, 0.75, 1.0))
-# 每间房一盏吊顶灯：保证暗房也能读出地面材质，同时保留明暗层次
+# 每间房一盏吊顶灯：保证暗房也能读出地面材质与掩体轮廓。
+# 注意：烘焙图是"亮版"，游戏里未点亮的舱室由 fog 叠层压暗，
+# 所以这里不能把暗舱烘得过黑，否则手电锥里也看不清掩体。
 ROOM_LIGHT = {
-    'bridge': ((0.78, 0.86, 1.0), 1.00), 'cam': ((0.72, 0.82, 1.0), 0.75),
-    'ecosys': ((0.62, 0.95, 0.72), 0.85), 'power': ((0.65, 0.72, 1.0), 0.55),
-    'transit': ((0.85, 0.88, 1.0), 0.80), 'fun': ((1.0, 0.80, 0.55), 0.85),
-    'engine': ((1.0, 0.55, 0.42), 0.55), 'med': ((0.82, 0.94, 1.0), 1.00),
-    'armory': ((1.0, 0.76, 0.45), 0.85),
+    'bridge': ((0.78, 0.86, 1.0), 1.00), 'cam': ((0.72, 0.82, 1.0), 0.85),
+    'ecosys': ((0.62, 0.95, 0.72), 0.90), 'power': ((0.68, 0.76, 1.0), 0.92),
+    'transit': ((0.85, 0.88, 1.0), 0.88), 'fun': ((1.0, 0.80, 0.55), 0.88),
+    'engine': ((1.0, 0.66, 0.50), 0.95), 'med': ((0.82, 0.94, 1.0), 1.00),
+    'armory': ((1.0, 0.76, 0.45), 0.90),
 }
 for r in M['rooms']:
     x0, y0, rw, rh = r['rect']
