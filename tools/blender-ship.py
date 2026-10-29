@@ -470,14 +470,14 @@ for r in M['rooms']:
             py = cy + (0 if horiz else 1.02 * s)
             box(tag + '_jamb_%d' % s, px, py,
                 0.16 if horiz else 0.46, 0.46 if horiz else 0.16,
-                0.0, 1.26, TRIM, rot=rot, bevel=0.02)
-        # 门楣 + 状态灯（动态门板的开合状态在游戏里覆盖这盏灯）
-        box(tag + '_lintel', cx, cy, 2.30, 0.46, 1.18, 1.34, DARK, rot=rot, bevel=0.02)
+                0.0, 1.16, TRIM, rot=rot, bevel=0.02)
+        # 只保留门槛灯：不烘门楣 / 高处灯带，2.5D 里只看得见门的最上面一层，
+        # 门板本身由 js/game.js 的 drawDoors() 动态画成顶面薄板。
         lx = cx + (0 if horiz else (-0.27 if side == 'l' else 0.27))
         ly = cy + ((-0.27 if side == 't' else 0.27) if horiz else 0)
         box(tag + '_light', lx, ly,
             1.78 if horiz else 0.06, 0.06 if horiz else 1.78,
-            1.20, 1.26, AMBER, rot=rot)
+            0.024, 0.040, AMBER, rot=rot)
 
 # ---------------- 墙 ----------------
 wall_i = 0

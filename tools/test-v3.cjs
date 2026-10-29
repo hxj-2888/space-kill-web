@@ -77,7 +77,8 @@ function section(t) { console.log('\n== ' + t); }
   ok(A.n === 15, '15 个席位');
   ok(A.inv && A.inv.fails.length === 0 && A.inv.checks > 200, '不变量基线 ' + (A.inv && A.inv.checks) + ' 项检查全过');
   ok(A.role.indexOf('人类') >= 0, 'HUD 显示人类');
-  ok(A.tip.indexOf('X 搜尸') >= 0 && A.tip.indexOf('G 拖拽') >= 0, '提示栏含搜尸/拖拽');
+  ok(A.tip.indexOf('S 搜尸') >= 0 && A.tip.indexOf('D 收尸') >= 0 && A.tip.indexOf('W 交互') >= 0,
+    '提示栏改为 WASD 主操作键：W 交互 / S 搜尸 / D 收尸');
   ok(!A.meet, '?test 跳过开局会议，直接进夜');
   await T(() => { SKV3._t.tp(0, 34.8, 11.8); });
   await page.waitForTimeout(300);
@@ -187,6 +188,88 @@ function section(t) { console.log('\n== ' + t); }
     tag: !document.getElementById('dragtag').classList.contains('hide'), inv: SKV3._t.inv() }));
   ok(D3.drag === null && D3.st.draggedBy === null && !D3.tag, 'G 放下：拖拽标记与提示条清除');
   ok(D3.inv && D3.inv.fails.length === 0, '放下后不变量全过');
+
+  section('搜尸 · 取走尸体身上的物资');
+  await fresh(false);
+  const LOOT = await T(() => {
+    const t = SKV3._t, g = t.G(); g.noReport = true;
+    for (const a of g.agents) if (a.alien) { a.knife = 0; a.target = null; a.path = null; }
+    const v = g.agents[1];
+    v.bullet = 1; v.medkit = 1; v.qual = 2;
+    t.tp(v.i, 28.2, 22.0);
+    t.kill(v.i, 'knife');
+    t.tp(0, 28.4, 22.4);
+    g.me.bullet = 0; g.me.medkit = 0; g.me.qual = 0;
+    return { v: v.i, before: t.bodyItems(v.i), vname: v.name };
+  });
+  ok(LOOT.before.bullet === 1 && LOOT.before.medkit === 1 && LOOT.before.qual === 2,
+    '尸体保留生前物资：子弹 / 医疗包 / 申请单');
+  await page.keyboard.press('s');
+  await page.waitForTimeout(1650);
+  const LOOT2 = await T(o => {
+    const t = SKV3._t, g = t.G();
+    return { body: t.bodyItems(o.v), bullet: g.me.bullet, medkit: g.me.medkit, qual: g.me.qual,
+      msg: g.msg, searched: t.state()[o.v].searched, card: t.inspect(), inv: t.inv() };
+  }, LOOT);
+  ok(LOOT2.bullet === 1 && LOOT2.medkit === 1 && LOOT2.qual === 2,
+    'S 搜尸把子弹 / 医疗包 / 申请单一起收进背包');
+  ok(LOOT2.body.bullet === 0 && LOOT2.body.medkit === 0 && LOOT2.body.qual === 0,
+    '尸体上的物资被清空（不是复制）');
+  ok(/取得/.test(LOOT2.msg) && LOOT2.card === '银翼',
+    '搜尸播报列出取得的物资，并打开尸检卡：' + LOOT2.msg);
+  ok(LOOT2.searched === true && LOOT2.inv.fails.length === 0, '搜尸同时完成取证，不变量全过');
+  await T(() => { SKV3._t.tp(0, 28.4, 22.4); SKV3._t.G().msg = ''; });
+  await page.keyboard.press('Escape');   /* 先关掉上一步自动打开的尸检卡 */
+  await page.waitForTimeout(120);
+  await page.keyboard.press('s');
+  await page.waitForTimeout(320);
+  const LOOT3 = await T(() => {
+    const t = SKV3._t, g = t.G();
+    return { do: g.me._doing, msg: g.msg };
+  });
+  ok(LOOT3.do !== 'search' && /(没有可带走|已经检查)/.test(LOOT3.msg),
+    '物资取空后再搜尸会被拒绝（不再空耗 1.2 秒）：' + LOOT3.msg);
+
+  const LOOT4 = await T(() => {
+    const t = SKV3._t; t.newGame();
+    const g = t.G(); g.paused = true; g.noReport = true;
+    const v = g.agents.find(a => !a.alien && a.i !== 0);
+    const h = g.agents.find(a => !a.alien && a.i !== 0 && a !== v);
+    for (const a of g.agents) if (a !== v && a !== h) t.tp(a.i, 30, 10);
+    v.bullet = 1; v.qual = 1;
+    t.tp(v.i, 28.2, 22.0); t.kill(v.i, 'knife');
+    t.tp(h.i, 28.4, 22.4);
+    h.bullet = 0; h.qual = 0; h.doing = 0; h._doing = null; h.path = null; h._delay = 0;
+    t.aiScan(h.i, 0.6);
+    const do0 = g.agents[h.i]._doing;
+    t.aiTick(h.i, 40, 0.05);
+    return { h: h.i, v: v.i, do0, bullet: g.agents[h.i].bullet, qual: g.agents[h.i].qual,
+      body: t.bodyItems(v.i), searched: t.state()[v.i].searched, inv: t.inv() };
+  });
+  ok(LOOT4.do0 === 'search' && LOOT4.bullet === 1 && LOOT4.qual === 1,
+    'AI 人类会主动搜尸取物资：子弹 +1 / 申请单 +1');
+  ok(LOOT4.body.bullet === 0 && LOOT4.searched === true,
+    'AI 搜完同样清空尸体物资并完成取证');
+  ok(LOOT4.inv.fails.length === 0, 'AI 搜尸后不变量全过');
+
+  const LOOT5 = await T(() => {
+    const t = SKV3._t; t.newGame();
+    const g = t.G(); g.paused = true; g.noReport = true;
+    const v = g.agents.find(a => !a.alien && a.i !== 0);
+    const k = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
+    for (const a of g.agents) if (a !== v && a !== k) t.tp(a.i, 30, 10);
+    v.bullet = 1;
+    t.tp(v.i, 28.2, 22.0); t.kill(v.i, 'knife');
+    t.tp(k.i, 28.4, 22.4);
+    k.bullet = 0; k.doing = 0; k._doing = null; k.path = null; k._delay = 0; k.sabUsed = true;
+    t.aiScan(k.i, 0.6);
+    const do0 = g.agents[k.i]._doing;
+    t.aiTickAlien(k.i, 40, 0.05);
+    return { do0, bullet: g.agents[k.i].bullet, body: t.bodyItems(v.i), inv: t.inv() };
+  });
+  ok(LOOT5.do0 === 'search' && LOOT5.bullet === 1 && LOOT5.body.bullet === 0,
+    'AI 异形也会搜尸取物资（从尸体上拿走子弹）');
+  ok(LOOT5.inv.fails.length === 0, '异形搜尸后不变量全过');
 
   section('幽灵态');
   await fresh(false);
@@ -883,6 +966,31 @@ function section(t) { console.log('\n== ' + t); }
   });
   ok(Object.keys(CERT3.know).length === 0 && CERT3.sus > 0.3,
     '开枪 / 拖尸这类人类也会做的事：只记嫌疑（' + CERT3.sus + '），不确证身份');
+
+  const CERT4 = await T(() => {
+    const t = SKV3._t; t.newGame();
+    const g = t.G(); g.paused = true; g.noReport = true;
+    const k = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
+    const w = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
+    t.tp(k.i, 56, 51); t.tp(w.i, 57.2, 51);
+    t.notice(k.i, 56, 51, 6, 'sabotage', null);
+    const k1 = t.knownOf(w.i);
+    t.newNight();                        /* 进入下一夜：普通认知清空 */
+    const k2 = t.knownOf(w.i);
+    const mem = t.mind(w.i).mem.length;
+    const sus = Object.keys(t.mind(w.i).sus).length;
+    t.openMeeting('day');
+    const acc = g.agents[w.i].accuse;
+    t.startVote();
+    const vote = g.meet.votes[w.i];
+    t.finishMeeting();
+    return { k: k.i, w: w.i, k1, k2, mem, sus, acc, vote, inv: t.inv() };
+  });
+  ok(CERT4.k1[CERT4.k] && CERT4.k2[CERT4.k] && CERT4.k2[CERT4.k].kind === 'saw_sabotage',
+    '确证是长期记忆：第二天仍然记得「他是异形」');
+  ok(CERT4.mem === 0 && CERT4.sus === 0, '普通记忆与嫌疑分仍按夜清空（只有确证跨夜）');
+  ok(CERT4.acc === CERT4.k && CERT4.vote === CERT4.k,
+    '下一夜的会议指控与投票继续锁定这个人');
 
   section('玩家发言 · 槽位解析与时间线对质');
   await fresh(false);
@@ -2290,6 +2398,136 @@ function section(t) { console.log('\n== ' + t); }
     '保安转向背后后 AI 异形立刻补刀（同一判定，换个朝向就动手）');
   ok(SEC.detained === 0 && SEC.inv.fails.length === 0, '回避判定没有触发拘留，不变量全过');
 
+  section('AI 异形 · 杀完人绕一圈回来报告');
+  await fresh(false);
+  const RP = await T(() => {
+    const t = SKV3._t; t.newGame();
+    const g = t.G(); g.paused = true; g.noReport = false; g.aiReportUsed = false;
+    const k = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
+    const v = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
+    for (const a of g.agents) if (a !== k && a !== v) t.tp(a.i, 30, 10);
+    t.tp(v.i, 56, 51); t.kill(v.i, 'knife');
+    t.tp(k.i, 56.6, 51);
+    k.knife = 0; k.sabUsed = true; k._delay = 0;
+    t.planReport(k.i, v.i, 0);
+    t.aiTickAlien(k.i, 20, 0.05);
+    const out = { meet: !!g.meet, used: t.aiReportUsed(),
+      by: document.getElementById('m-by').textContent,
+      tag: String(k.i + 1).padStart(2, '0') + ' ' + k.name, inv: t.inv() };
+    if (g.meet) t.finishMeeting();
+    return out;
+  });
+  ok(RP.meet && RP.used && RP.by === RP.tag, 'AI 异形会主动回到现场报告尸体：' + RP.by);
+  ok(RP.inv.fails.length === 0, '回场报告后不变量全过');
+
+  const RP2 = await T(() => {
+    const t = SKV3._t; t.newGame();
+    const g = t.G(); g.paused = true; g.noReport = false; g.aiReportUsed = false;
+    const k = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
+    const v = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
+    for (const a of g.agents) if (a !== k && a !== v) t.tp(a.i, 30, 10);
+    t.tp(v.i, 56, 51); t.kill(v.i, 'knife');
+    t.tp(k.i, 56.6, 51);
+    k.knife = 0; k.sabUsed = true; k._delay = 0;
+    t.planReport(k.i, v.i, 4);
+    t.aiTickAlien(k.i, 20, 0.05);
+    const mid = { d: +Math.hypot(g.agents[k.i].x - 56, g.agents[k.i].y - 51).toFixed(1),
+      meet: !!g.meet, plan: t.reportPlan(k.i) };
+    t.aiTickAlien(k.i, 700, 0.05);
+    const after = { meet: !!g.meet, used: t.aiReportUsed() };
+    if (g.meet) t.finishMeeting();
+    return { mid, after, inv: t.inv() };
+  });
+  ok(RP2.mid.d > 1.5 && !RP2.mid.meet, '报告前先离开现场（不站在尸体旁喊人，间距 ' +
+    RP2.mid.d + ' 格）');
+  ok(RP2.after.meet && RP2.after.used, '绕一圈后回到现场再拉铃，用会议拖人类的时间');
+  ok(RP2.inv.fails.length === 0, '绕场报告后不变量全过');
+
+  section('会议 · 尸体还热就有人来报');
+  const QR = await T(() => {
+    const t = SKV3._t; t.newGame();
+    const g = t.G(); g.paused = true; g.noReport = false;
+    const k = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
+    const v = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
+    const w = g.agents.find(a => !a.alien && a.i !== 0 && a.alive && a !== v);
+    for (const a of g.agents) if (a !== k && a !== v && a !== w) t.tp(a.i, 30, 10);
+    t.tp(v.i, 56, 51); t.kill(v.i, 'knife');
+    t.tp(w.i, 57.4, 51);
+    t.aiScan(w.i, 0.6);                    /* w 看到尸体（没看到凶手） */
+    const s0 = (t.mind(w.i).sus || {})[k.i] || 0;
+    t.openMeeting('night', k.i, v.i);      /* 凶手本人报告 */
+    const q = t.meetCtx().quick;
+    const s1 = (t.mind(w.i).sus || {})[k.i] || 0;
+    t.finishMeeting();
+    return { k: k.i, w: w.i, s0, s1, q, inv: t.inv() };
+  });
+  ok(QR.q && QR.q.age <= 10, '会议记录「尸体刚倒下」（quick.age=' + (QR.q && QR.q.age) + 's）');
+  ok(QR.s1 > QR.s0 + 0.15,
+    '见过尸体的人会怀疑报告人来得太快（' + QR.s0.toFixed(2) + ' → ' + QR.s1.toFixed(2) + '）');
+  ok(QR.inv.fails.length === 0, '快速报告不变量全过');
+
+  const QR2 = await T(() => {
+    const t = SKV3._t; t.newGame();
+    const g = t.G(); g.paused = true; g.noReport = false;
+    const k = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
+    const v = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
+    const w = g.agents.find(a => !a.alien && a.i !== 0 && a.alive && a !== v);
+    for (const a of g.agents) if (a !== k && a !== v && a !== w) t.tp(a.i, 30, 10);
+    t.tp(v.i, 56, 51); t.kill(v.i, 'knife');
+    v.deathAt = g.t + 30;                  /* 死了 30 秒才被报 */
+    t.tp(w.i, 57.4, 51);
+    t.aiScan(w.i, 0.6);
+    const s0 = (t.mind(w.i).sus || {})[k.i] || 0;
+    t.openMeeting('night', k.i, v.i);
+    const s1 = (t.mind(w.i).sus || {})[k.i] || 0;
+    const q = t.meetCtx().quick;
+    t.finishMeeting();
+    return { s0, s1, q };
+  });
+  ok(QR2.q && QR2.q.age > 10, '死亡 30 秒后才报告：quick.age=' + (QR2.q && QR2.q.age) + 's');
+  ok(QR2.s1 <= QR2.s0 + 0.05,
+    '不是「来得太快」就不加报告人嫌疑（' + QR2.s0.toFixed(2) + ' → ' + QR2.s1.toFixed(2) + '）');
+
+  section('故障维修 · 队友修好后立即松手');
+  await fresh(false);
+  const SFIX = await T(() => {
+    const t = SKV3._t; t.newGame();
+    const g = t.G(); g.paused = true; g.noReport = true;
+    const a1 = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
+    const a2 = g.agents.find(a => !a.alien && a.i !== 0 && a.alive && a !== a1);
+    t.tp(a1.i, 56, 51); t.tp(a2.i, 57.2, 51);
+    g.dmg = [{room: 'med', x: 56.5, y: 51, label: '测试设备', left: 60, dur: 60, by: 0}];
+    t.startFix(a1.i, 'med'); t.startFix(a2.i, 'med');
+    const before = { d1: g.agents[a1.i]._doing, d2: g.agents[a2.i]._doing };
+    g.agents[a1.i].doing = 0.01;
+    t.finishDoing(a1.i);
+    return { a1: a1.i, a2: a2.i, before, dmg: g.dmg.length,
+      d2: g.agents[a2.i]._doing, doing2: g.agents[a2.i].doing,
+      path2: !!g.agents[a2.i].path, inv: t.inv() };
+  });
+  ok(SFIX.before.d1 === 'fix' && SFIX.before.d2 === 'fix', '两名 AI 可以同时修同一座故障');
+  ok(SFIX.dmg === 0 && !SFIX.d2 && SFIX.doing2 === 0,
+    '队友修好后另一人立即停止站桩（不再空耗剩下的 10 秒）');
+  ok(!SFIX.path2 && SFIX.inv.fails.length === 0, '同时清掉旧故障路径，不变量全过');
+
+  const SFIX2 = await T(() => {
+    const t = SKV3._t; t.newGame();
+    const g = t.G(); g.paused = true; g.noReport = true;
+    const a1 = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
+    const a2 = g.agents.find(a => !a.alien && a.i !== 0 && a.alive && a !== a1);
+    t.tp(a1.i, 56, 51); t.tp(a2.i, 70, 30);
+    g.dmg = [{room: 'med', x: 56.5, y: 51, label: '测试设备', left: 60, dur: 60, by: 0}];
+    a2._fixGo = g.dmg[0];
+    a2.path = [[56.5, 51]];
+    g.dmg = [];
+    t.aiTick(a2.i, 1, 0.05);
+    const end = a2.path && a2.path.length ? a2.path[a2.path.length - 1] : null;
+    return { fixGo: a2._fixGo, end,
+      atFault: !!(end && Math.hypot(end[0] - 56.5, end[1] - 51) < 0.6), inv: t.inv() };
+  });
+  ok(!SFIX2.fixGo && !SFIX2.atFault, '赶往故障途中故障被修好：立刻改道，不再往旧设备跑');
+  ok(SFIX2.inv.fails.length === 0, '改道后不变量全过');
+
   section('AI 人类 · 断电后主动合闸');
   await fresh(false);
   const LB = await T(() => {
@@ -2541,9 +2779,9 @@ function section(t) { console.log('\n== ' + t); }
     const t = SKV3._t, g = t.G();
     const k = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
     for (const a of g.agents) if (a !== g.me && a !== k) t.tp(a.i, 30, 10);
-    t.tp(0, 56, 51); t.tp(k.i, 60, 51);
+    t.tp(0, 56, 51); t.tp(k.i, 61, 51);
     g.me.bullet = 1;
-    t.breaker(); /* 断电后只能靠 7 格手电锥 */
+    t.breaker(); /* 断电后只有 4.2 格近身视野 + 7 格手电锥；目标在 5 格背后 */
     g.aimX = g.me.x - 1; g.aimY = g.me.y;
     t.shoot();
     const dark = { bullet: g.me.bullet, downed: g.agents[k.i].downed, msg: g.msg,
@@ -2840,6 +3078,149 @@ function section(t) { console.log('\n== ' + t); }
     return SKV3._t.sfxLog();
   });
   ok(SL.join(',') === 'step,drag,step', '脚步 / 拖拽 / 出刀走独立音源与日志');
+
+  section('设置面板 · 音乐 / 音效 / 暂停 / 退出');
+  await fresh(false);
+  const SET1 = await T(() => {
+    const sid = document.getElementById('settings');
+    return { hasMenuBtn: !!document.getElementById('btn-settings'),
+      z: +(getComputedStyle(sid).zIndex || 0),
+      hasBgm: !!document.getElementById('bgm') };
+  });
+  ok(SET1.hasMenuBtn && SET1.z >= 10000,
+    '开始页有设置入口，设置层层级高于游戏根节点（z=' + SET1.z + '）');
+  ok(SET1.hasBgm, '背景音乐元素已挂载（audio/music-bgm.m4a）');
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(160);
+  await page.click('#p-set');
+  const SET2 = await T(() => ({
+    open: !document.getElementById('settings').classList.contains('hide'),
+    paused: SKV3.isPaused(),
+    label: document.getElementById('set-pause').textContent
+  }));
+  ok(SET2.open && SET2.paused, '暂停面板「设置」打开设置层，游戏保持暂停');
+  const SET3 = await T(() => {
+    const s = document.getElementById('set-sfx');
+    s.value = 25; s.dispatchEvent(new Event('input'));
+    const m = document.getElementById('set-music');
+    m.value = 40; m.dispatchEvent(new Event('input'));
+    let ls = null; try { ls = JSON.parse(localStorage.getItem('sk.settings.v1')); } catch (e) {}
+    return { sfx: SKV3.getSfxVolume(), ls,
+      sfxLabel: document.getElementById('set-sfx-v').textContent };
+  });
+  ok(Math.abs(SET3.sfx - 0.25) < 0.01 && SET3.ls && Math.abs(SET3.ls.sfx - 0.25) < 0.01,
+    '音效滑杆实时生效并写入 localStorage（master=' + SET3.sfx + '）');
+  ok(SET3.ls && Math.abs(SET3.ls.music - 0.4) < 0.01,
+    '音乐滑杆同样持久化（music=' + (SET3.ls && SET3.ls.music) + '）');
+  await page.keyboard.press('Escape');
+  const SET4 = await T(() => ({
+    open: !document.getElementById('settings').classList.contains('hide'),
+    paused: SKV3.isPaused()
+  }));
+  ok(!SET4.open && SET4.paused, 'ESC 先关设置层，游戏仍保持暂停');
+  const SET5 = await T(() => {
+    SKV3.setSfxVolume(0.8);
+    document.getElementById('set-sfx').value = 80;
+    document.getElementById('set-sfx').dispatchEvent(new Event('input'));
+    return { v: SKV3.getSfxVolume() };
+  });
+  ok(Math.abs(SET5.v - 0.8) < 0.01, '音效音量可恢复（不影响后续音频断言）');
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(140);
+  ok((await T(() => SKV3.isPaused())) === false, '再按 ESC 继续游戏');
+
+  section('视野 · 异形与人类同款手电锥 + 近身感知 +1/3');
+  await fresh(false);
+  const VIS2 = await T(() => {
+    const t = SKV3._t; t.newGame();
+    const g = t.G(); g.paused = true; g.noReport = true;
+    const k = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
+    const h = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
+    for (const a of g.agents) if (a !== k && a !== h && a !== g.me) t.tp(a.i, 30, 10);
+    t.tp(k.i, 64, 10); t.tp(h.i, 64, 10);
+    const alienFar = t.aiSee(k.i, 74, 10, 8);   /* 10 格，同一走廊：双方都超出 8 格 */
+    const humanFar = t.aiSee(h.i, 74, 10, 8);
+    const light = t.breaker();                  /* 断电：走廊灯熄灭，只剩近身视野 */
+    const alienNear = t.aiSee(k.i, 69, 10, 8);  /* 5 格：异形 5.6 内可见 */
+    const humanNear = t.aiSee(h.i, 69, 10, 8);  /* 5 格：人类 4.2 外不可见 */
+    t.tp(0, 70, 10);
+    g.me.alien = false; g.aimX = 72; g.aimY = 10;
+    const humanCone = t.visible(75, 10);        /* 手电朝东 5 格 */
+    const humanBack = t.visible(67, 10);        /* 背后 3 格：人类近身 4.2 内 */
+    const humanBackFar = t.visible(65, 10);     /* 背后 5 格：人类看不见 */
+    g.me.alien = true;
+    const alienCone = t.visible(75, 10);        /* 同款手电锥 */
+    const alienBack = t.visible(65, 10);        /* 背后 5 格：异形近身 5.6 内 */
+    const alienBackFar = t.visible(63.5, 10);   /* 背后 6.5 格：异形也看不见 */
+    return { alienFar, humanFar, alienNear, humanNear, light,
+      humanCone, humanBack, humanBackFar, alienCone, alienBack, alienBackFar };
+  });
+  ok(!VIS2.alienFar && !VIS2.humanFar,
+    '同样 10 格：异形与人类都超出 8 格视距，异形不再有 ×1.5 远视野');
+  ok(VIS2.light.state === 2 && VIS2.alienNear && !VIS2.humanNear,
+    '断电后 5 格：异形近身 5.6 格看得见，人类 4.2 格外看不见');
+  ok(VIS2.alienCone && VIS2.humanCone,
+    '同款手电锥：朝向 5 格内的目标都看得见');
+  ok(VIS2.humanBack && !VIS2.humanBackFar,
+    '人类近身 4.2 格：背后 3 格可见、5 格不可见');
+  ok(VIS2.alienBack && !VIS2.alienBackFar,
+    '异形近身 5.6 格：背后 5 格可见、6.5 格不可见');
+
+  section('旁观者模式 · 第 16 人');
+  await T(() => { SKV3.stop(); SKV3.start('spect'); });
+  await page.waitForFunction(() => window.SKV3 && SKV3._t && SKV3._t.assets().base, null, { timeout: 30000 });
+  await page.waitForTimeout(500);
+  const SP1 = await T(() => ({
+    spect: SKV3._t.spect(), role: document.getElementById('role').textContent,
+    fog: SKV3._t.fog(), dev: !document.getElementById('dev').classList.contains('hide'),
+    personal: document.getElementById('personal').classList.contains('hide'),
+    tip: document.getElementById('tip').textContent, inv: SKV3._t.inv()
+  }));
+  ok(SP1.spect.mode && SP1.spect.agents === 15 && !SP1.fog,
+    '旁观者不占席位：仍是 15 人，全知无雾');
+  ok(SP1.role.indexOf('旁观者') >= 0 && SP1.personal,
+    'HUD 切成旁观者：隐藏个人任务与背包');
+  ok(SP1.dev && SP1.tip.indexOf('旁观者') >= 0,
+    '旁观者强制显示全知总览面板与专属提示');
+  ok(SP1.inv.fails.length === 0, '旁观者开局不变量全过');
+  /* 先把相机幽灵放到地图中央（相机不贴边），再点屏幕右侧 5 格处 */
+  const SP2 = await T(() => { SKV3._t.spectTo(49, 30); return { before: [49, 30] }; });
+  await page.mouse.click(960, 450);
+  await page.waitForTimeout(430);
+  const SP3 = await T(o => ({ after: [SKV3._t.spect().x, SKV3._t.spect().y] }), SP2);
+  const dist = Math.hypot(SP3.after[0] - SP2.before[0], SP3.after[1] - SP2.before[1]);
+  ok(dist > 3, '旁观者点击直线飞行：0.43 秒移动 ' + dist.toFixed(1) + ' 格');
+  const SP4 = await T(() => {
+    const a = SKV3._t.G().agents[0];
+    return { x: a.x, y: a.y };
+  });
+  await page.waitForTimeout(1600);
+  const SP5 = await T(o => {
+    const a = SKV3._t.G().agents[0];
+    return { moved: Math.hypot(a.x - o.x, a.y - o.y) > 0.4, alive: a.alive,
+      busy: !!a.doing || !!a.moving || !!a.path || a.tIdx > 0 || a._delay > 0 || a._rest > 0 };
+  }, SP4);
+  ok(SP5.moved || SP5.busy || !SP5.alive, '0 号席位由 AI 托管，旁观者不操控它');
+  await page.keyboard.press('e'); await page.keyboard.press('x'); await page.keyboard.press('g');
+  await page.waitForTimeout(260);
+  const SP6 = await T(() => {
+    const g = SKV3._t.G();
+    return { do: g.me._doing, wheel: !!g.wheel, drag: g.drag, inspect: g.inspect };
+  });
+  ok(!SP6.do && !SP6.wheel && !SP6.drag && SP6.inspect === null,
+    '旁观者不能交互 / 搜尸 / 收尸（按键全部无效）');
+  await T(() => { SKV3._t.openMeeting('day'); });
+  const SP7 = await T(() => ({
+    input: document.getElementById('m-text').disabled,
+    skip: document.getElementById('m-skip').classList.contains('hide'),
+    who: document.querySelectorAll('#m-who button').length
+  }));
+  ok(SP7.input && SP7.skip && SP7.who === 0, '会议对旁观者只读：不能发言 / 跳过 / 投票');
+  await T(() => SKV3._t.finishMeeting());
+  await T(() => { SKV3.stop(); SKV3.start('human'); });
+  await page.waitForFunction(() => window.SKV3 && SKV3._t && SKV3._t.assets().base, null, { timeout: 30000 });
+  await page.waitForTimeout(320);
+  ok((await T(() => SKV3._t.spect().mode)) === false, '退出旁观者后恢复人类对局');
 
   section('暂停 / 重开 / 退出');
   await fresh(false);

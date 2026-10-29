@@ -1,5 +1,5 @@
 /* =============================================================
- * SKUITemplates · 游戏界面样式与结构模板（返航录V1 · 2026-10-29）
+ * SKUITemplates · 游戏界面样式与结构模板（返航录V2 · 2026-10-29）
  * -------------------------------------------------------------
  * 职责：   集中存放 `#v3-root` 的 CSS 与 HTML 字符串，供 js/game.js 注入页面。
  * 不变量： · 纯字符串常量，不读 DOM、不执行逻辑；
@@ -129,7 +129,8 @@
   #devline{color:#7FD3F0}
   #dev{position:fixed;right:196px;top:16px;width:272px;max-height:calc(100vh - 150px);overflow-y:auto;
     background:rgba(9,13,19,.93);border:1px solid #2E4A63;border-radius:10px;padding:10px 12px;
-    font-size:11.5px;line-height:1.5;z-index:6;box-shadow:0 8px 30px rgba(0,0,0,.45)}
+    font-size:11.5px;line-height:1.5;z-index:6;box-shadow:0 8px 30px rgba(0,0,0,.45);
+    pointer-events:none}
   #dev .dt{color:#7FD3F0;letter-spacing:1.5px;font-size:10.5px;margin-bottom:6px}
   #dev .dr{display:grid;grid-template-columns:1fr auto;gap:0 6px;padding:3px 0;border-top:1px solid #1B2530}
   #dev .dr b{color:#C9D1DB;font-weight:500}
@@ -162,12 +163,12 @@
   <div>剩余 <b id="tm">120</b> 秒 · 第 <b id="nt">1</b> 夜 · <b id="pwr">照明正常</b></div>
   <div class="surv">存活 <b id="alive">15</b> 人 · 人类 <b id="hum">11</b> · 异形 <b id="ali">4</b></div>
   <div>你是 <b id="role">人类</b> · 濒死 <b id="dn">0</b> 人</div>
-  <div>任务 <b id="tk">0</b>/4 · 申请单 <b id="ql">0</b> · 待领 <b id="qp">0</b> · 弹 <b id="bl">0</b> · 包 <b id="md">0</b></div>
+  <div id="personal">任务 <b id="tk">0</b>/4 · 申请单 <b id="ql">0</b> · 待领 <b id="qp">0</b> · 弹 <b id="bl">0</b> · 包 <b id="md">0</b></div>
   <div id="tasks"></div>
   <div id="dmgline" class="hide"></div>
   <div id="devline" class="hide">DEV <b>无敌 · 全知</b> · 断言 <b id="inv">0</b> 失败</div>
 </div>
-<div id="tip">点击地面移动 · E 交互（多项开轮盘） · V 监控 · R 报告 · F 施救 · H 破坏 · Q 出刀 · B 开枪 · X 搜尸 · G 拖拽 · ESC 暂停 · T 视野 · C 相机 · F2 DEV</div>
+<div id="tip">点击地面移动 · W 交互（多项开轮盘） · A 出刀 · S 搜尸/查验 · D 收尸 · F 施救 · R 报告 · B 开枪 · H 破坏 · V 监控 · ESC 暂停/设置 · T 视野 · C 相机</div>
 <div id="dragtag" class="hide">拖拽中 · 按 G 放下</div>
 <div id="invfail" class="hide"></div>
 <div id="dev" class="hide">
@@ -244,9 +245,10 @@
   <h2>已暂停</h2><div class="sub">单机模式 · 夜里的倒计时和 AI 都已冻结</div>
   <div class="row"><span>继续游戏</span><b>ESC / P</b></div>
   <div class="row"><span>当前进度</span><b id="p-info">—</b></div>
-  <div class="row"><span>版本</span><b data-version>返航录V1</b></div>
+  <div class="row"><span>版本</span><b data-version>返航录V2</b></div>
   <div class="btns">
     <button class="p" id="p-resume">继续</button>
+    <button id="p-set">设置</button>
     <button id="p-restart">重开本局</button>
     <button id="p-exit">退出到开始页</button>
   </div>
