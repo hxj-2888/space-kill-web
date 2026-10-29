@@ -1,0 +1,13 @@
+# 文本统一 LF；二进制显式标记，避免换行转换损坏素材
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.ico binary
+*.ogg binary
+*.m4a binary
+*.wav binary
+*.zip binary
+*.blend binary

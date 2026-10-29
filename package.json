@@ -1,0 +1,20 @@
+{
+  "name": "xin-fan-hang-lu",
+  "displayName": "新返航录",
+  "version": "1.0.0",
+  "gameVersion": "返航录V1",
+  "description": "《新返航录》网页试玩版 · 返航录V1——11 人类 vs 4 异形的实时太空船对抗游戏（零依赖前端，file:// 可直接运行）",
+  "author": "hxj-2888",
+  "license": "MIT",
+  "private": true,
+  "homepage": "https://github.com/hxj-2888/space-kill-web",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hxj-2888/space-kill-web.git"
+  },
+  "scripts": {
+    "start": "node tools/serve.cjs",
+    "dev": "node tools/serve.cjs",
+    "test": "node tools/test-v3.cjs"
+  }
+}

@@ -1,8 +1,11 @@
 <!DOCTYPE html>
-<html lang="zh-CN"><head><meta charset="utf-8">
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#080A0F">
-<title>新返航录</title>
+<meta name="description" content="《新返航录》网页试玩版 · 返航录V1——11 人类 vs 4 异形的实时太空船对抗游戏">
+<title>新返航录 · 返航录V1</title>
 <style>
   html,body{margin:0;height:100%;background:#080A0F;overflow:hidden;
     font-family:system-ui,"Microsoft YaHei",sans-serif;color:#DDE3EC}
@@ -19,23 +22,33 @@
   .role b{display:block;font-size:15px;font-weight:500;margin-bottom:5px}
   .role span{font-size:11.5px;color:#7C8798;line-height:1.7}
   .role.h b{color:#8FA6C0}.role.a b{color:#E0574F}
+  .card .ver{margin:18px 0 0;font-size:11px;letter-spacing:1px;color:#5D6675}
   #rotate{position:fixed;inset:0;z-index:30;display:none;align-items:center;justify-content:center;
     background:#05070B;color:#F0C674;font-size:15px;text-align:center;line-height:2}
   @media (orientation:portrait) and (max-width:900px){ #rotate{display:flex} }
-</style></head>
+</style>
+</head>
 <body>
 <div id="pick"><div class="card">
   <h1>新 返 航 录</h1>
   <p>11 人类 · 4 异形 · 无特殊职业<br>选择你的身份开始一局</p>
   <div class="roles">
-    <div class="role h" onclick="SKV3.start('human')"><b>人类</b><span>维修 40 分，或把异形全部清出去</span></div>
-    <div class="role a" onclick="SKV3.start('alien')"><b>异形</b><span>出刀、穿管道、破坏，杀光人类</span></div>
+    <div class="role h" data-role="human"><b>人类</b><span>维修 40 分，或把异形全部清出去</span></div>
+    <div class="role a" data-role="alien"><b>异形</b><span>出刀、穿管道、破坏，杀光人类</span></div>
   </div>
+  <div class="ver" data-version>返航录V1</div>
 </div></div>
 <div id="rotate">请横屏使用</div>
 <link rel="preload" as="image" href="assets/scene/v4/base-lit.png">
 <link rel="preload" as="image" href="assets/scene/v4/hull-deck.png">
+<!-- 加载顺序即依赖顺序：版本 → 数据 → 模板 → 引擎 → 对局 → 入口 -->
+<script src="js/config/version.js"></script>
+<script src="js/data/map.js"></script>
+<script src="js/ui/templates.js"></script>
 <script src="js/engine/clock.js"></script>
 <script src="js/engine/invariants.js"></script>
+<script src="js/engine/geo.js"></script>
 <script src="js/game.js"></script>
-</body></html>
+<script src="js/main.js"></script>
+</body>
+</html>

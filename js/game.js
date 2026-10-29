@@ -15,217 +15,10 @@
 (function (global) {
   'use strict';
 
-  const CSS = String.raw`html,body{margin:0;height:100%;background:#080A0F;overflow:hidden;
-    font-family:system-ui,"Microsoft YaHei",sans-serif;color:#DDE3EC}
-  #cv{display:block;width:100vw;height:100vh}
-  #hud{position:fixed;left:14px;top:12px;font-size:12.5px;line-height:1.75;
-    background:rgba(14,18,25,.88);border:1px solid #29303D;border-radius:10px;
-    padding:9px 12px;min-width:196px}
-  #hud b{color:#F0C674;font-weight:500}
-  #bar{height:6px;background:#222833;border-radius:3px;margin:5px 0 7px;overflow:hidden}
-  #bar i{display:block;height:100%;background:linear-gradient(90deg,#3FBF8C,#F0C674);width:0}
-  #tip{position:fixed;left:14px;bottom:12px;font-size:12px;color:#FFE0A3;line-height:1.7;
-    background:linear-gradient(90deg,rgba(62,38,6,.95),rgba(28,22,12,.88));
-    border:1px solid #B9892F;border-left:4px solid #FFB020;border-radius:8px;
-    padding:7px 12px 7px 10px;box-shadow:0 0 22px rgba(255,176,32,.16);
-    max-width:calc(100vw - 420px);text-shadow:0 1px 2px rgba(0,0,0,.7)}
-  #tip::before{content:"操作";display:inline-block;margin-right:8px;padding:0 6px;
-    background:#FFB020;color:#1A1306;border-radius:4px;font-weight:700;font-size:11px;
-    letter-spacing:1px;vertical-align:1px}
-  #tasks{margin-top:8px;border-top:1px solid #2B3442;padding-top:7px;font-size:11.5px}
-  #tasks .th{color:#8A94A3;letter-spacing:1.5px;font-size:10.5px;margin-bottom:3px}
-  #tasks .tr{display:flex;gap:6px;align-items:baseline;padding:2px 0;color:#B7C2D0;line-height:1.45}
-  #tasks .tr .no{color:#5E6B7C;font-variant-numeric:tabular-nums;min-width:15px}
-  #tasks .tr .tag{flex:0 0 auto;font-size:9.5px;padding:0 4px;border-radius:3px;border:1px solid #4A5568;color:#8FA6C0}
-  #tasks .tr.hard .tag{color:#FF9A90;border-color:#7A3530;background:rgba(90,28,26,.35)}
-  #tasks .tr.normal .tag{color:#8CC6F0;border-color:#2E587A;background:rgba(22,50,76,.35)}
-  #tasks .tr .loc{color:#F0C674}
-  #tasks .tr .nm{color:#DDE3EC;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  #tasks .tr.now{background:rgba(240,198,116,.08);border-radius:4px;padding-left:2px}
-  #tasks .tr.done{opacity:.42}
-  #tasks .tr.done .nm{text-decoration:line-through}
-  .ov{position:fixed;inset:0;background:rgba(6,8,12,.86);display:flex;
-    align-items:center;justify-content:center;backdrop-filter:blur(2px)}
-  .card{background:#12161E;border:1px solid #2A3240;border-radius:14px;padding:22px 26px;
-    min-width:420px;max-width:560px}
-  .card h2{margin:0 0 4px;font-size:16px;font-weight:500;color:#fff}
-  .card .sub{color:#7C8798;font-size:12px;margin-bottom:14px}
-  .row{display:flex;justify-content:space-between;padding:7px 0;border-top:1px solid #1F2733;font-size:13px}
-  .row span:first-child{color:#8A94A3}
-  .row b{color:#F0C674;font-weight:500}
-  .btns{margin-top:16px;display:flex;gap:10px;flex-wrap:wrap}
-  button{background:#1D2530;color:#DDE3EC;border:1px solid #313B4B;border-radius:8px;
-    padding:8px 14px;font-size:13px;cursor:pointer;font-family:inherit}
-  button:hover{background:#26313F;border-color:#43536B}
-  button.p{background:#2A4A6B;border-color:#3C6690}
-  .who{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
-  .who button{padding:6px 11px;font-size:12.5px}
-  .hide{display:none}
-  .mtg{display:grid;grid-template-columns:1fr 1.05fr .95fr;gap:14px;width:min(1180px,94vw);
-    height:min(620px,86vh)}
-  .mtg .col{background:#12161E;border:1px solid #2A3240;border-radius:14px;padding:16px 18px;
-    display:flex;flex-direction:column;min-height:0}
-  .mtg .ch{font-size:12px;color:#8A94A3;letter-spacing:2px;margin-bottom:10px}
-  .mtg .mid h2{margin:0 0 4px}
-  #m-say{flex:1;overflow-y:auto;font-size:13px;line-height:1.9;padding-right:4px}
-  #m-say .ln{margin-bottom:6px;color:#C9D1DB;word-break:break-word}
-  #m-say .ln b{color:#8FA6C0;font-weight:500;margin-right:8px}
-  #m-say .ln.me b{color:#F0C674}
-  #hud .surv b{font-variant-numeric:tabular-nums}
-  #hud #hum{color:#8FD3F0}
-  #hud #ali{color:#FF8A80}
-  #pwr.off{color:#FF6B61 !important}
-  #pwr.full{color:#7FE3B4 !important}
-  #cam{z-index:8}
-  #cam .cam-panel{background:#070C12;border:1px solid #24405A;border-radius:14px;
-    padding:14px 16px 12px;box-shadow:0 24px 80px rgba(0,0,0,.65);max-width:calc(100vw - 28px)}
-  .cam-head{display:flex;align-items:baseline;justify-content:space-between;gap:18px;margin-bottom:9px}
-  .cam-title{font-size:14px;letter-spacing:2px;color:#BFE9F7}
-  .cam-sub{font-size:10.5px;color:#5E7286;letter-spacing:1px}
-  .cam-right{display:flex;gap:14px;align-items:baseline;font-size:11px;color:#8A94A3}
-  #cam-state{color:#5FE0A8}
-  #cam-state.cut{color:#FF6B61}
-  #camcv{display:block;width:min(1080px,calc(92vw - 32px));height:auto;border-radius:8px;
-    background:#04070B;border:1px solid #16222E}
-  .cam-foot{display:flex;justify-content:space-between;align-items:center;gap:12px;
-    margin-top:9px;font-size:11px;color:#6D7C8D}
-  .cam-foot b{color:#BFE9F7;font-weight:500}
-  .cam-foot button{padding:5px 10px;font-size:11.5px}
-  #pipe{z-index:8}
-  .pipe-card{width:min(520px,88vw);min-width:0}
-  .pipe-list{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
-  .pipe-list button{display:flex;align-items:center;gap:9px;text-align:left;padding:10px 11px}
-  .pipe-list .pn{color:#A896FF;font-variant-numeric:tabular-nums;font-size:11px}
-  .pipe-list .pr{color:#DDE3EC;font-size:13px}
-  .pipe-list .pd{margin-left:auto;color:#6D7C8D;font-size:10.5px}
-  .pipe-card .sub{margin-bottom:2px}
-  .inp{display:flex;gap:8px;margin-top:10px}
-  .inp input{flex:1;background:#0D1117;border:1px solid #313B4B;border-radius:8px;
-    color:#DDE3EC;padding:8px 10px;font-size:13px;font-family:inherit;outline:none}
-  .inp input:focus{border-color:#F0C674}
-  .vote .who{flex:0 0 auto;max-height:52%;overflow-y:auto}
-  .vote #m-tally{flex:1;overflow-y:auto;margin-top:10px}
-  #m-tally{margin-top:12px}
-  .tl-h{font-size:12px;color:#8A94A3;margin-bottom:4px}
-  .tl{display:flex;justify-content:space-between;padding:5px 0;border-top:1px solid #1F2733;font-size:12.5px}
-  .tl b{color:#F0C674;font-weight:500}
-  .tl-note{margin-top:10px;font-size:12.5px;color:#C9D1DB;line-height:1.6}
-  .ex-role{font-weight:700;letter-spacing:.5px}
-  .ex-role.ali{color:#FF8A80}
-  .ex-role.hum{color:#8FD3F0}
-  #devline{color:#7FD3F0}
-  #dev{position:fixed;right:196px;top:16px;width:272px;max-height:calc(100vh - 150px);overflow-y:auto;
-    background:rgba(9,13,19,.93);border:1px solid #2E4A63;border-radius:10px;padding:10px 12px;
-    font-size:11.5px;line-height:1.5;z-index:6;box-shadow:0 8px 30px rgba(0,0,0,.45)}
-  #dev .dt{color:#7FD3F0;letter-spacing:1.5px;font-size:10.5px;margin-bottom:6px}
-  #dev .dr{display:grid;grid-template-columns:1fr auto;gap:0 6px;padding:3px 0;border-top:1px solid #1B2530}
-  #dev .dr b{color:#C9D1DB;font-weight:500}
-  #dev .dr span{color:#7C8798;font-size:10.5px}
-  #dev .dr i{grid-column:1/3;color:#5E6B7C;font-style:normal;font-size:10.5px}
-  #dev .dr.al b{color:#E0574F}
-  #dev .dr.dead{opacity:.5}
-  #dev .dr.me b{color:#F0C674}
-  #dev .dt2{margin-top:6px;color:#5E6B7C;font-size:10.5px;line-height:1.6}
-  #dragtag{position:fixed;left:50%;bottom:88px;transform:translateX(-50%);font-size:12px;
-    color:#F0C674;background:rgba(10,14,20,.88);border:1px solid #4A3C1E;border-radius:8px;
-    padding:4px 12px;z-index:5}
-  #invfail{position:fixed;left:50%;top:10px;transform:translateX(-50%);font-size:12px;color:#FF8A80;
-    background:rgba(40,8,8,.94);border:1px solid #7A2A2A;border-radius:8px;padding:6px 12px;z-index:50}
-  #body .card{width:min(460px,88vw)}
-  #body .row{display:flex;justify-content:space-between;gap:18px;padding:7px 0;
-    border-top:1px solid #1F2733;font-size:13px;align-items:flex-start}
-  #body .row span:first-child{color:#8A94A3;flex:0 0 auto}
-  #body .row b{color:#F0C674;font-weight:500;text-align:right;word-break:break-word}
-  #body .bd-note{margin-top:12px;font-size:12px;color:#7C8798;line-height:1.7}
-  #body .bd-bad{color:#E0574F}
-  @keyframes qpop{0%{transform:scale(1)}35%{transform:scale(1.9);color:#FFF3C4;text-shadow:0 0 12px #F0C674}100%{transform:scale(1)}}
-  #hud b.pop{display:inline-block;animation:qpop .75s ease}
-  #m-say .ln.sys{color:#7C8798;font-size:12px}`;
+  const CSS = global.SKUITemplates.CSS;
+  const HTML = global.SKUITemplates.HTML;
 
-  const HTML = String.raw`<canvas id="cv"></canvas>
-<div id="hud">
-  <div>维修 <b><span id="pg">0</span> / 40</b></div>
-  <div id="bar"><i id="pgi"></i></div>
-  <div>剩余 <b id="tm">120</b> 秒 · 第 <b id="nt">1</b> 夜 · <b id="pwr">照明正常</b></div>
-  <div class="surv">存活 <b id="alive">15</b> 人 · 人类 <b id="hum">11</b> · 异形 <b id="ali">4</b></div>
-  <div>你是 <b id="role">人类</b> · 濒死 <b id="dn">0</b> 人</div>
-  <div>任务 <b id="tk">0</b>/4 · 资格 <b id="ql">0</b> · 弹 <b id="bl">0</b> · 包 <b id="md">0</b></div>
-  <div id="tasks"></div>
-  <div id="devline" class="hide">DEV <b>无敌 · 全知</b> · 断言 <b id="inv">0</b> 失败</div>
-</div>
-<div id="tip">点击地面移动 · E 交互 · V 监控 · R 报告 · F 施救/破坏 · Q 出刀/开枪 · X 搜尸 · G 拖拽 · ESC 暂停 · T 视野 · C 相机 · F2 DEV</div>
-<div id="dragtag" class="hide">拖拽中 · 按 G 放下</div>
-<div id="invfail" class="hide"></div>
-<div id="dev" class="hide">
-  <div class="dt">DEV · 全知总览</div>
-  <div id="dev-rows"></div>
-  <div class="dt2">F2 关闭 · 攻击与驱逐对你无效<br>尸体信息里会显示凶手</div>
-</div>
-
-<div id="body" class="ov hide"><div class="card">
-  <h2 id="b-t">尸检记录</h2><div class="sub" id="b-s"></div>
-  <div id="b-rows"></div>
-  <div class="bd-note" id="b-note">搜查会花掉一点时间，夜里也一样。</div>
-  <div class="btns"><button class="p" id="b-close">关闭 (X / Esc)</button></div>
-</div></div>
-
-<div id="pipe" class="ov hide"><div class="card pipe-card">
-  <h2>地道 · 选择出口</h2><div class="sub" id="pipe-sub">异形专用 · 选择要去的那一端</div>
-  <div class="pipe-list" id="pipe-list"></div>
-  <div class="btns"><button id="pipe-cancel">取消 (Esc)</button></div>
-</div></div>
-
-<div id="cam" class="ov hide"><div class="cam-panel">
-  <div class="cam-head">
-    <div><span class="cam-title">全船监控</span> <span class="cam-sub">CCTV · 9 路画面</span></div>
-    <div class="cam-right"><span id="cam-state">● 信号正常</span><span id="cam-meta"></span></div>
-  </div>
-  <canvas id="camcv" width="1080" height="620"></canvas>
-  <div class="cam-foot"><span>画面只显示在场人员与倒地者，不显示身份 · 配电室拉闸会切断全部信号</span>
-    <button id="cam-close">关闭 (E / V / Esc)</button></div>
-</div></div>
-
-<div id="meet" class="ov hide"><div class="mtg">
-  <div class="col say">
-    <div class="ch">发言</div>
-    <div id="m-say"></div>
-    <div class="inp"><input id="m-text" placeholder="自由发言，回车发送"><button id="m-send">发送</button></div>
-  </div>
-  <div class="col mid">
-    <h2 id="m-title">紧急会议</h2>
-    <div class="sub" id="m-sub"></div>
-    <div id="m-rows">
-      <div class="row"><span>报告地点</span><b id="m-room">—</b></div>
-      <div class="row"><span>发起报告</span><b id="m-by">—</b></div>
-      <div class="row"><span id="m-vic-l">伤者</span><b id="m-vic">—</b></div>
-    </div>
-    <div class="row"><span>阶段</span><b id="m-ph">讨论</b></div>
-    <div class="btns"><button id="m-skip">跳过讨论</button></div>
-  </div>
-  <div class="col vote">
-    <div class="ch">投票</div>
-    <div class="who" id="m-who"></div>
-    <div id="m-tally"></div>
-  </div>
-</div></div>
-
-<div id="end" class="ov hide"><div class="card">
-  <h2 id="e-t">结束</h2><div class="sub" id="e-s"></div>
-  <div class="btns"><button class="p" id="e-r">再来一局</button></div>
-</div></div>
-
-<div id="pause" class="ov hide"><div class="card">
-  <h2>已暂停</h2><div class="sub">单机模式 · 夜里的倒计时和 AI 都已冻结</div>
-  <div class="row"><span>继续游戏</span><b>ESC / P</b></div>
-  <div class="row"><span>当前进度</span><b id="p-info">—</b></div>
-  <div class="btns">
-    <button class="p" id="p-resume">继续</button>
-    <button id="p-restart">重开本局</button>
-    <button id="p-exit">退出到开始页</button>
-  </div>
-</div></div>`;
-
-  const MAP = {"scale":{"px_per_tile":56,"corridor_w":3.2},"bounds":{"w":98,"h":60},"rooms":[{"id":"bridge","name":"中央会议室","cls":"超大","light":"bright","cut":3,"rect":[20,3,42,16],"doors":[["b",28],["b",56],["r",10]],"poly":[[23,3],[59,3],[62,6],[62,16],[59,19],[23,19],[20,16],[20,6]],"area":654.0,"label":[31,11.5]},{"id":"cam","name":"监控室","cls":"小","light":"bright","cut":2,"rect":[78,5,11,10],"doors":[["l",10],["b",84]],"poly":[[80,5],[87,5],[89,7],[89,13],[87,15],[80,15],[78,13],[78,7]],"area":102.0,"label":[83.5,9.6]},{"id":"ecosys","name":"生态舱","cls":"大","light":"bright","cut":3,"rect":[17,25,22,15],"doors":[["t",28],["l",31],["r",32],["b",30]],"poly":[[20,25],[36,25],[39,28],[39,37],[36,40],[20,40],[17,37],[17,28]],"area":312.0,"label":[28,34.6]},{"id":"power","name":"配电室","cls":"小","light":"dark","cut":2,"rect":[43,27,10,10],"doors":[["l",32]],"poly":[[45,27],[51,27],[53,29],[53,35],[51,37],[45,37],[43,35],[43,29]],"area":92.0,"label":[48.4,35.3]},{"id":"transit","name":"中转间","cls":"中","light":"bright","cut":2,"rect":[54,25,14,14],"doors":[["t",56],["b",56],["r",32]],"poly":[[56,25],[66,25],[68,27],[68,37],[66,39],[56,39],[54,37],[54,27]],"area":188.0,"label":[62,26.6]},{"id":"fun","name":"娱乐室","cls":"大","light":"bright","cut":3,"rect":[75,25,20,14],"doors":[["l",32],["t",84],["b",83]],"poly":[[78,25],[92,25],[95,28],[95,36],[92,39],[78,39],[75,36],[75,28]],"area":262.0,"label":[82,33.8]},{"id":"engine","name":"引擎","cls":"小","light":"dark","cut":2,"rect":[3,26,11,10],"doors":[["r",31]],"poly":[[5,26],[12,26],[14,28],[14,34],[12,36],[5,36],[3,34],[3,28]],"area":102.0,"label":[8.6,31.2]},{"id":"med","name":"医疗间","cls":"中","light":"bright","cut":2,"rect":[46,44,18,12],"doors":[["t",56],["l",50],["r",49]],"poly":[[48,44],[62,44],[64,46],[64,54],[62,56],[48,56],[46,54],[46,46]],"area":208.0,"label":[52.5,46.0]},{"id":"armory","name":"军械库","cls":"中","light":"bright","cut":2,"rect":[75,43,16,13],"doors":[["t",83],["l",49]],"poly":[[77,43],[89,43],[91,45],[91,54],[89,56],[77,56],[75,54],[75,45]],"area":200.0,"label":[85,45.0]}],"corridors":[{"id":"c1","a":"bridge","b":"ecosys","pts":[[28,19],[28,25]]},{"id":"c2","a":"bridge","b":"transit","pts":[[56,19],[56,25]]},{"id":"c3","a":"bridge","b":"cam","pts":[[62,10],[78,10]]},{"id":"c4","a":"ecosys","b":"engine","pts":[[17,31],[13,31]]},{"id":"c5","a":"ecosys","b":"power","pts":[[39,32],[43,32]]},{"id":"c6","a":"ecosys","b":"med","pts":[[30,40],[30,50],[46,50]]},{"id":"c7","a":"transit","b":"med","pts":[[56,39],[56,44]]},{"id":"c8","a":"transit","b":"fun","pts":[[68,32],[75,32]]},{"id":"c9","a":"fun","b":"cam","pts":[[84,25],[84,15]]},{"id":"c10","a":"fun","b":"armory","pts":[[83,39],[83,43]]},{"id":"c11","a":"armory","b":"med","pts":[[75,49],[64,49]]}],"cover":[{"room":"bridge","x":38,"y":7.8,"w":6,"h":6,"kind":"table","label":"圆桌"},{"room":"bridge","x":26,"y":11.5,"w":1.6,"h":1.6,"kind":"pillar","label":"立柱"},{"room":"bridge","x":52,"y":7.5,"w":1.6,"h":1.6,"kind":"pillar","label":"立柱"},{"room":"bridge","x":24,"y":4.4,"w":6,"h":1.9,"kind":"console","label":"控制台"},{"room":"bridge","x":46,"y":4.4,"w":6,"h":1.9,"kind":"console","label":"控制台"},{"room":"bridge","x":22.4,"y":9,"w":1.6,"h":1.6,"kind":"pillar","label":"立柱"},{"room":"bridge","x":58.4,"y":14,"w":1.6,"h":1.6,"kind":"pillar","label":"立柱"},{"room":"bridge","x":32,"y":16.4,"w":5,"h":1.5,"kind":"console","label":"大屏"},{"room":"bridge","x":45,"y":16.4,"w":5,"h":1.5,"kind":"console","label":"大屏"},{"room":"ecosys","x":19,"y":26.5,"w":2.5,"h":3,"kind":"tank","label":"培养罐"},{"room":"ecosys","x":19,"y":33,"w":2.5,"h":3,"kind":"tank","label":"培养罐"},{"room":"ecosys","x":35.5,"y":26.5,"w":2.5,"h":3,"kind":"tank","label":"培养罐"},{"room":"ecosys","x":35.5,"y":33,"w":2.5,"h":3,"kind":"tank","label":"培养罐"},{"room":"ecosys","x":26,"y":30,"w":2.5,"h":2.5,"kind":"tree","label":"巨树"},{"room":"ecosys","x":23,"y":36,"w":4,"h":2.5,"kind":"pond","label":"水池"},{"room":"ecosys","x":32.5,"y":30.5,"w":2,"h":2,"kind":"tree","label":"巨树"},{"room":"engine","x":4.5,"y":27,"w":3,"h":3,"kind":"machine","label":"引擎组"},{"room":"engine","x":4.5,"y":32,"w":3,"h":3,"kind":"machine","label":"缸体"},{"room":"engine","x":9,"y":28.5,"w":2,"h":2,"kind":"crate","label":"零件箱"},{"room":"engine","x":9,"y":33,"w":2,"h":2,"kind":"crate","label":"工具箱"},{"room":"power","x":45,"y":28,"w":2.5,"h":2.5,"kind":"console","label":"电控柜"},{"room":"power","x":45,"y":34,"w":2.5,"h":2.5,"kind":"console","label":"变压器"},{"room":"power","x":50,"y":31,"w":1.6,"h":2.2,"kind":"breaker","label":"电闸"},{"room":"transit","x":58,"y":27,"w":3,"h":3,"kind":"crate","label":"货箱"},{"room":"transit","x":58,"y":34,"w":3,"h":3,"kind":"crate","label":"货箱"},{"room":"transit","x":64,"y":28,"w":2.5,"h":2.5,"kind":"crate","label":"货箱"},{"room":"transit","x":64,"y":35,"w":2.5,"h":2.5,"kind":"crate","label":"货箱"},{"room":"transit","x":61.5,"y":30.5,"w":2,"h":3,"kind":"console","label":"升降台"},{"room":"fun","x":77,"y":27,"w":2.5,"h":2.5,"kind":"machine","label":"街机"},{"room":"fun","x":77,"y":35,"w":2.5,"h":2.5,"kind":"machine","label":"街机"},{"room":"fun","x":81,"y":30,"w":3,"h":2,"kind":"sofa","label":"沙发"},{"room":"fun","x":86,"y":29,"w":3,"h":2,"kind":"table","label":"娱乐桌"},{"room":"fun","x":86,"y":35,"w":3,"h":2,"kind":"table","label":"娱乐桌"},{"room":"fun","x":90,"y":26.5,"w":2,"h":2,"kind":"pillar","label":"音响"},{"room":"fun","x":90,"y":36,"w":2,"h":2,"kind":"pillar","label":"音响"},{"room":"cam","x":80,"y":6,"w":4,"h":1.5,"kind":"console","label":"监控墙"},{"room":"cam","x":86,"y":7,"w":2,"h":2,"kind":"console","label":"操作台"},{"room":"cam","x":82,"y":11,"w":1.5,"h":1.5,"kind":"chair","label":"座椅"},{"room":"med","x":47.5,"y":45,"w":2,"h":3,"kind":"bed","label":"病床"},{"room":"med","x":47.5,"y":52,"w":2,"h":3,"kind":"bed","label":"病床"},{"room":"med","x":55,"y":48,"w":3,"h":2,"kind":"table","label":"手术台"},{"room":"med","x":61,"y":45,"w":2.5,"h":2,"kind":"fridge","label":"药柜"},{"room":"med","x":61,"y":53,"w":2.5,"h":2,"kind":"fridge","label":"消毒池"},{"room":"med","x":57,"y":52.5,"w":2,"h":2,"kind":"machine","label":"机器人坞"},{"room":"armory","x":76.5,"y":44,"w":3,"h":2,"kind":"rack","label":"枪架"},{"room":"armory","x":76.5,"y":52,"w":2.5,"h":2,"kind":"crate","label":"弹药箱"},{"room":"armory","x":82,"y":47,"w":3,"h":2,"kind":"table","label":"工作台"},{"room":"armory","x":86,"y":50,"w":2,"h":3,"kind":"console","label":"靶道"},{"room":"armory","x":79,"y":52,"w":2,"h":2,"kind":"machine","label":"保安位"}],"points":[{"room":"engine","x":6,"y":28.5,"kind":"hard","label":"引擎组同步","dur":18},{"room":"engine","x":6,"y":33.5,"kind":"hard","label":"压力表校准","dur":16},{"room":"engine","x":10,"y":29.5,"kind":"normal","label":"零件台","dur":10},{"room":"engine","x":10,"y":34,"kind":"normal","label":"工具架","dur":10},{"room":"ecosys","x":27.2,"y":31.2,"kind":"hard","label":"氧气循环","dur":16},{"room":"ecosys","x":20.2,"y":28,"kind":"normal","label":"培养罐补液","dur":10},{"room":"ecosys","x":36.7,"y":35,"kind":"normal","label":"温控面板","dur":10},{"room":"ecosys","x":24,"y":37.2,"kind":"normal","label":"水培阀","dur":10},{"room":"power","x":48.2,"y":31.3,"kind":"hard","label":"电路维修","dur":20},{"room":"power","x":46.2,"y":35.2,"kind":"hard","label":"变压器换芯","dur":16},{"room":"power","x":46.2,"y":29.2,"kind":"normal","label":"电控柜","dur":10},{"room":"transit","x":62.5,"y":32,"kind":"normal","label":"升降台","dur":10},{"room":"transit","x":65.2,"y":29.2,"kind":"normal","label":"储物柜","dur":10},{"room":"fun","x":87.5,"y":30,"kind":"normal","label":"娱乐桌","dur":10},{"room":"fun","x":82.5,"y":31,"kind":"normal","label":"点唱机","dur":10},{"room":"med","x":56.5,"y":49,"kind":"hard","label":"手术台校准","dur":15},{"room":"med","x":62.2,"y":46,"kind":"normal","label":"药柜","dur":10},{"room":"med","x":62.2,"y":54,"kind":"normal","label":"消毒循环","dur":10},{"room":"armory","x":87,"y":51.5,"kind":"hard","label":"靶道校准","dur":15},{"room":"armory","x":83.5,"y":48,"kind":"normal","label":"工作台","dur":10},{"room":"armory","x":77.7,"y":53,"kind":"normal","label":"弹药清点","dur":10},{"room":"cam","x":82,"y":6.8,"kind":"hard","label":"监控墙重连","dur":15},{"room":"cam","x":87,"y":8,"kind":"normal","label":"操作台","dur":10},{"room":"cam","x":83,"y":11.7,"kind":"normal","label":"录像归档","dur":10}],"pipes":[{"room":"engine","x":12.2,"y":35.2},{"room":"power","x":52.2,"y":27.8},{"room":"cam","x":88.2,"y":14.2},{"room":"armory","x":90.2,"y":44.2}],"facility":[{"kind":"breaker","room":"power","x":50.8,"y":32.1,"label":"电闸"},{"kind":"medbot","room":"med","x":58,"y":53.5,"label":"医疗机器人"},{"kind":"secbot","room":"armory","x":80,"y":53,"label":"保安机器人"},{"kind":"monitor","room":"cam","x":84,"y":7,"label":"监控台"}],"walls":[[[23.0,3.0],[59,3]],[[59.0,3.0],[62,6]],[[62.0,6.0],[62.0,9.100000000000001]],[[62.0,10.9],[62,16]],[[62.0,16.0],[59,19]],[[59.0,19.0],[56.9,19.0]],[[55.1,19.0],[28.9,19.0]],[[27.099999999999998,19.0],[23,19]],[[23.0,19.0],[20,16]],[[20.0,16.0],[20,6]],[[20.0,6.0],[23,3]],[[80.0,5.0],[87,5]],[[87.0,5.0],[89,7]],[[89.0,7.0],[89,13]],[[89.0,13.0],[87,15]],[[87.0,15.0],[84.9,15.0]],[[83.1,15.0],[80,15]],[[80.0,15.0],[78,13]],[[78.0,13.0],[78.0,10.9]],[[78.0,9.1],[78,7]],[[78.0,7.0],[80,5]],[[20.0,25.0],[27.1,25.0]],[[28.9,25.0],[36,25]],[[36.0,25.0],[39,28]],[[39.0,28.0],[39.0,31.1]],[[39.0,32.9],[39,37]],[[39.0,37.0],[36,40]],[[36.0,40.0],[30.9,40.0]],[[29.1,40.0],[20,40]],[[20.0,40.0],[17,37]],[[17.0,37.0],[17.0,31.9]],[[17.0,30.1],[17,28]],[[17.0,28.0],[20,25]],[[45.0,27.0],[51,27]],[[51.0,27.0],[53,29]],[[53.0,29.0],[53,35]],[[53.0,35.0],[51,37]],[[51.0,37.0],[45,37]],[[45.0,37.0],[43,35]],[[43.0,35.0],[43.0,32.9]],[[43.0,31.1],[43,29]],[[43.0,29.0],[45,27]],[[56.9,25.0],[66,25]],[[66.0,25.0],[68,27]],[[68.0,27.0],[68.0,31.1]],[[68.0,32.9],[68,37]],[[68.0,37.0],[66,39]],[[66.0,39.0],[56.9,39.0]],[[55.363603896932105,38.363603896932105],[54,37]],[[54.0,37.0],[54,27]],[[54.0,27.0],[55.363603896932105,25.63639610306789]],[[78.0,25.0],[83.1,25.0]],[[84.9,25.0],[92,25]],[[92.0,25.0],[95,28]],[[95.0,28.0],[95,36]],[[95.0,36.0],[92,39]],[[92.0,39.0],[83.9,39.0]],[[82.1,39.0],[78,39]],[[78.0,39.0],[75,36]],[[75.0,36.0],[75.0,32.9]],[[75.0,31.1],[75,28]],[[75.0,28.0],[78,25]],[[5.0,26.0],[12,26]],[[12.0,26.0],[14,28]],[[14.0,28.0],[14.0,30.1]],[[14.0,31.9],[14,34]],[[14.0,34.0],[12,36]],[[12.0,36.0],[5,36]],[[5.0,36.0],[3,34]],[[3.0,34.0],[3,28]],[[3.0,28.0],[5,26]],[[48.0,44.0],[55.1,44.0]],[[56.9,44.0],[62,44]],[[62.0,44.0],[64,46]],[[64.0,46.0],[64.0,48.1]],[[64.0,49.9],[64,54]],[[64.0,54.0],[62,56]],[[62.0,56.0],[48,56]],[[48.0,56.0],[46,54]],[[46.0,54.0],[46.0,50.9]],[[46.0,49.1],[46,46]],[[46.0,46.0],[48,44]],[[77.0,43.0],[82.1,43.0]],[[83.9,43.0],[89,43]],[[89.0,43.0],[91,45]],[[91.0,45.0],[91,54]],[[91.0,54.0],[89,56]],[[89.0,56.0],[77,56]],[[77.0,56.0],[75,54]],[[75.0,54.0],[75.0,49.9]],[[75.0,48.1],[75,45]],[[75.0,45.0],[77,43]],[[26.4,19.0],[26.4,25.0]],[[29.6,19.0],[29.6,25.0]],[[54.4,19.0],[54.4,25.0]],[[57.6,19.0],[57.6,25.0]],[[62.0,11.6],[78.0,11.6]],[[62.0,8.4],[78.0,8.4]],[[17.0,29.4],[13.0,29.4]],[[17.0,32.6],[13.0,32.6]],[[39.0,33.6],[43.0,33.6]],[[39.0,30.4],[43.0,30.4]],[[28.4,40.0],[28.4,51.6]],[[28.4,51.6],[46.0,51.6]],[[31.6,40.0],[31.6,48.4]],[[31.6,48.4],[46.0,48.4]],[[54.4,39.0],[54.4,44.0]],[[57.6,39.0],[57.6,44.0]],[[68.0,33.6],[75.0,33.6]],[[68.0,30.4],[75.0,30.4]],[[85.6,25.0],[85.6,15.0]],[[82.4,25.0],[82.4,15.0]],[[81.4,39.0],[81.4,43.0]],[[84.6,39.0],[84.6,43.0]],[[75.0,47.4],[64.0,47.4]],[[75.0,50.6],[64.0,50.6]]]}
+  const MAP = global.SKMapData;
 
   let booted = false;
   let shutdown = null;
@@ -245,6 +38,11 @@
     const root = document.createElement('div');
     root.id = 'v3-root';
     root.innerHTML = HTML;
+    if (global.SKConfig) {
+      root.querySelectorAll('[data-version]').forEach(function (el) {
+        el.textContent = global.SKConfig.version;
+      });
+    }
     document.body.appendChild(root);
     shutdown = boot();
   }
@@ -260,127 +58,17 @@
 
   function boot() {
     'use strict';
-    const M=MAP, CW=M.scale.corridor_w, NIGHT=120, GS=0.6;
+    const M=MAP, NIGHT=120;
     const TEST=/[?&]test\b/.test(location.search);
     const DEV0=/[?&#]dev\b/.test(location.search+location.hash);
     const STRICT=/[?&]strict\b/.test(location.search);
-    const GW=Math.ceil(M.bounds.w/GS), GH=Math.ceil(M.bounds.h/GS);
     
-    /* ---------------- 几何 ---------------- */
-    function inPoly(x,y,p){let c=false;
-      for(let i=0,j=p.length-1;i<p.length;j=i++){
-        const xi=p[i][0],yi=p[i][1],xj=p[j][0],yj=p[j][1];
-        if(((yi>y)!==(yj>y))&&(x<(xj-xi)*(y-yi)/(yj-yi)+xi))c=!c;}
-      return c;}
-    function d2seg(x,y,ax,ay,bx,by){
-      const dx=bx-ax,dy=by-ay,L2=dx*dx+dy*dy;
-      let t=L2?((x-ax)*dx+(y-ay)*dy)/L2:0; t=Math.max(0,Math.min(1,t));
-      const px=ax+t*dx,py=ay+t*dy; return Math.hypot(x-px,y-py);}
-    function inCorr(x,y){
-      for(const c of M.corridors) for(let i=0;i<c.pts.length-1;i++){
-        const a=c.pts[i],b=c.pts[i+1];
-        if(d2seg(x,y,a[0],a[1],b[0],b[1])<=CW/2) return c;}
-      return null;}
-    function roomAt(x,y){for(const r of M.rooms) if(inPoly(x,y,r.poly)) return r; return null;}
-    
-    /* ---------------- 可行走网格 ---------------- */
-    /* 家具不再是硬墙：人物本来就能从家具上走过去，硬堵只会让 A* 绕大圈。
-       这里改成「软代价」—— 只有绕路比穿过家具明显更划算时才绕。 */
-    const walk=new Uint8Array(GW*GH), soft=new Uint8Array(GW*GH);
-    (function build(){
-      const cov=M.cover.map(c=>[c.x-.12,c.y-.12,c.x+c.w+.12,c.y+c.h+.12]);
-      for(let gy=0;gy<GH;gy++)for(let gx=0;gx<GW;gx++){
-        const x=(gx+.5)*GS,y=(gy+.5)*GS; let ok=false;
-        for(const r of M.rooms) if(inPoly(x,y,r.poly)){ok=true;break;}
-        if(!ok&&inCorr(x,y))ok=true;
-        if(ok) for(const c of cov) if(x>c[0]&&x<c[2]&&y>c[1]&&y<c[3]){soft[gy*GW+gx]=1;break;}
-        if(ok) for(const w of M.walls) if(d2seg(x,y,w[0][0],w[0][1],w[1][0],w[1][1])<.36){ok=false;break;}
-        walk[gy*GW+gx]=ok?1:0;
-      }
-    })();
-    function free(x,y){const gx=Math.floor(x/GS),gy=Math.floor(y/GS);
-      return gx>=0&&gy>=0&&gx<GW&&gy<GH&&walk[gy*GW+gx]===1;}
-    function nearestFree(x,y){
-      if(free(x,y))return[x,y];
-      for(let r=1;r<=8;r++)for(let a=0;a<16;a++){
-        const t=a/16*Math.PI*2,nx=x+Math.cos(t)*r*GS,ny=y+Math.sin(t)*r*GS;
-        if(free(nx,ny))return[nx,ny];}
-      return[x,y];}
-    
-    function pathClear(x1,y1,x2,y2){
-      const d=Math.hypot(x2-x1,y2-y1), n=Math.max(2,Math.ceil(d/0.22));
-      for(let i=1;i<n;i++){
-        const t=i/n;
-        if(!free(x1+(x2-x1)*t,y1+(y2-y1)*t))return false;
-      }
-      return true;
-    }
-    function smoothPath(out){
-      if(!out||out.length<3)return out;
-      const res=[out[0]]; let i=0;
-      while(i<out.length-1){
-        let j=out.length-1;
-        for(;j>i+1;j--) if(pathClear(out[i][0],out[i][1],out[j][0],out[j][1]))break;
-        res.push(out[j]); i=j;
-      }
-      return res;
-    }
-    function astar(sx,sy,tx,ty){
-      const s=nearestFree(sx,sy),t=nearestFree(tx,ty);
-      let s0=[Math.floor(s[0]/GS),Math.floor(s[1]/GS)],t0=[Math.floor(t[0]/GS),Math.floor(t[1]/GS)];
-      if(s0[0]===t0[0]&&s0[1]===t0[1])return[[t[0],t[1]]];
-      const N=GW*GH,gS=idx(s0[0],s0[1]),gT=idx(t0[0],t0[1]);
-      const g=new Float32Array(N).fill(1e9),f=new Float32Array(N).fill(1e9);
-      const prev=new Int32Array(N).fill(-1),open=[gS],inOpen=new Uint8Array(N);
-      g[gS]=0;f[gS]=0;inOpen[gS]=1;
-      const H=(i)=>{const x=i%GW,y=(i/GW)|0;return Math.hypot(x-t0[0],y-t0[1]);};
-      let guard=0;
-      while(open.length&&guard++<40000){
-        let bi=0;for(let i=1;i<open.length;i++)if(f[open[i]]<f[open[bi]])bi=i;
-        const cur=open.splice(bi,1)[0];inOpen[cur]=0;
-        if(cur===gT)break;
-        const cx=cur%GW,cy=(cur/GW)|0;
-        for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){
-          if(!dx&&!dy)continue;
-          const nx=cx+dx,ny=cy+dy;
-          if(nx<0||ny<0||nx>=GW||ny>=GH)continue;
-          const ni=ny*GW+nx; if(!walk[ni])continue;
-          if(dx&&dy&&(!walk[cy*GW+nx]||!walk[ny*GW+cx]))continue;
-          const ng=g[cur]+(dx&&dy?1.414:1)+(soft[ni]?2.2:0);
-          if(ng<g[ni]-1e-6){g[ni]=ng;f[ni]=ng+H(ni);prev[ni]=cur;
-            if(!inOpen[ni]){open.push(ni);inOpen[ni]=1;}}
-        }
-      }
-      if(prev[gT]<0&&gT!==gS)return null;
-      const out=[];let c=gT;
-      while(c!==-1&&c!==gS){out.push([(c%GW+.5)*GS,(((c/GW)|0)+.5)*GS]);c=prev[c];}
-      out.reverse(); out.push(t);
-      return smoothPath(out);
-    }
-    function idx(x,y){return y*GW+x;}
-    
-    /* ---------------- 视线 ---------------- */
-    function segX(a,b,c,d){
-      const r1=b[0]-a[0],r2=b[1]-a[1],s1=d[0]-c[0],s2=d[1]-c[1];
-      const den=r1*s2-r2*s1; if(Math.abs(den)<1e-9)return false;
-      const t=((c[0]-a[0])*s2-(c[1]-a[1])*s1)/den;
-      const u=((c[0]-a[0])*r2-(c[1]-a[1])*r1)/den;
-      return t>0.001&&t<0.999&&u>=0&&u<=1;
-    }
-    function los(x1,y1,x2,y2){
-      const a=[x1,y1],b=[x2,y2];
-      for(const w of M.walls) if(segX(a,b,w[0],w[1]))return false;
-      for(const c of M.cover){
-        const p=[[c.x,c.y],[c.x+c.w,c.y],[c.x+c.w,c.y+c.h],[c.x,c.y+c.h]];
-        for(let i=0;i<4;i++) if(segX(a,b,p[i],p[(i+1)%4]))return false;}
-      return true;
-    }
-    /* 只算墙体：保安机器人坐在安保位家具里，用 los() 会被自己的机位挡住 */
-    function losWalls(x1,y1,x2,y2){
-      const a=[x1,y1],b=[x2,y2];
-      for(const w of M.walls) if(segX(a,b,w[0],w[1]))return false;
-      return true;
-    }
+    /* ---------------- 几何 / 寻路（js/engine/geo.js） ---------------- */
+    const {
+      CW, GS, GW, GH,
+      inPoly, d2seg, inCorr, roomAt, free, nearestFree,
+      pathClear, smoothPath, astar, idx, segX, los, losWalls,
+    } = global.SKGeo;
     
     /* ---------------- 状态 ---------------- */
     /* 名字用老数据层的 15 个人名（SKData.NAMES 恒 15 项，长度参与 rng 序列，不要自己造） */

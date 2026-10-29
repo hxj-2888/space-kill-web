@@ -1,19 +1,34 @@
-/* 新返航录 V3 · 浏览器断言门禁
+/* 新返航录 · 返航录V1 · 浏览器断言门禁
  * ------------------------------------------------------------
  * 用法： node tools/test-v3.cjs
+ * 依赖： playwright-core（优先本地 node_modules；找不到时可用
+ *        PLAYWRIGHT_CORE 指定安装目录）
  * 覆盖： 2.5D 底图、搜尸、拖拽、幽灵态、DEV 无敌/全知、报告会议、
  *        不变量断言（SKInvariants）、监控室/电闸、地道选择、驱逐公布身份、
  *        音效日志/声纹、维修 10s 无限制、保安/医疗机器人、HUD 存活人数、
  *        暂停/退出、控制台零报错、帧率。
- * 产出： C:/Users/ASUS/WorkBuddy AI/2026-10-28-15-00-42/原型截图/24..46_*.png
+ * 产出： tools/screenshots/*.png（可用 SHOT_DIR 覆盖）
  */
-const { chromium } = require('C:/Users/ASUS/Desktop/太空杀游戏-完整版/node_modules/playwright-core');
 const path = require('path');
 const fs = require('fs');
 
+function loadPlaywright() {
+  const candidates = [
+    process.env.PLAYWRIGHT_CORE,
+    'playwright-core',
+  ].filter(Boolean);
+  const errors = [];
+  for (const c of candidates) {
+    try { return require(c); } catch (e) { errors.push(c + ': ' + (e.code || e.message)); }
+  }
+  throw new Error('未找到 playwright-core。请 npm i -D playwright-core，或设置 PLAYWRIGHT_CORE 指向安装目录。\n  ' + errors.join('\n  '));
+}
+
+const { chromium } = loadPlaywright();
+
 const DIR = path.resolve(__dirname, '..');
 const URL = 'file:///' + DIR.replace(/\\/g, '/') + '/index.html?test';
-const SHOT = 'C:/Users/ASUS/WorkBuddy AI/2026-10-28-15-00-42/原型截图';
+const SHOT = process.env.SHOT_DIR || path.join(DIR, 'tools', 'screenshots');
 fs.mkdirSync(SHOT, { recursive: true });
 
 let pass = 0, fail = 0;
