@@ -98,7 +98,7 @@
         killedBy:null,bodyX:null,bodyY:null,bodyGone:false,bodyMoved:false,
         downX:null,downY:null,downRoom:null,woundCause:null,draggedBy:null,searched:false,
         drag:null,redT:0,_dragSnd:0,_dragAiT:0,_hideSpot:null,_hideRoom:null,_hideCD:0,_hides:0,
-        _lightGo:false,_pipePlan:null,_pipeSeeks:0,_secAvoidT:0,
+        _lightGo:false,_pipePlan:null,_pipeSeeks:0,_secAvoidT:0,_botCD:0,
         /* 表现层：动作 / 工作计时 / 夜间见闻（会议发言要用真实事实） */
         act:null,_rest:0,_delay:2+Math.random()*6,_fxT:0,
         nRoom:null,nSeen:{},nTask:null,nTaskRoom:null,accuse:null,_lie:null,
@@ -1527,6 +1527,7 @@
         return;
       }
       if(a._pipeCD>0)a._pipeCD-=dt;
+      if(a._botCD>0)a._botCD-=dt;
       if(!a.target||!a.target.alive||a.target.downed){
         let best=null,bd=1e9;
         for(const h of G.agents){
@@ -1564,8 +1565,8 @@
         }
         stepMove(a,dt,moveSpeed(a));return;
       }
-      /* 每晚一次的破坏：拉闸手跨图去配电室；其他人只在 8 格内顺手停摆机器人。
-         离人太近（<5 格）时先处理人，避免异形当着面无视玩家去拆机器。 */
+      /* 每晚一次的破坏：指定的拉闸手跨图去配电室断电。
+         离人太近（<5 格）时先处理人，避免异形当着面无视玩家去拆设备。 */
       if(!a.sabUsed){
         const br=M.facility.find(f=>f.kind==='breaker');
         if(a.i===G.breakerSaboteur&&br&&G.lightState!==2&&td>5){
@@ -1577,6 +1578,10 @@
           if(!a.path||!a.path.length)walkTo(a,br.x,br.y);
           stepMove(a,dt,moveSpeed(a));return;
         }
+      }
+      /* 机器人：有刀就先出刀砍装甲（消耗刀数，按保安 2 / 医疗 1 的 HP 结算，
+         与玩家 Q 完全同一条 knifeBot 入口）；刀用完了才动用每夜一次的破坏技直接停摆。 */
+      {
         let bk=null,bp=null,bd=8;
         for(const k of ['secbot','medbot']){
           if(k==='secbot'&&G.secbotDead)continue;
@@ -1585,20 +1590,31 @@
           const d=Math.hypot(q.x-a.x,q.y-a.y);
           if(d<bd){bd=d;bk=k;bp=q;}
         }
-        if(bk&&bp&&td>5){
+        if(bk&&bp&&td>5&&a._botCD<=0){
           if(bd<1.8){
-            a.sabUsed=true;
-            if(bk==='secbot')G.secbotDead=true;else G.medbotDead=true;
-            G.fx.push({type:'spark',x:bp.x,y:bp.y,t:1.4,dur:1.4});
-            hear(bp.x,bp.y,'power',0.9);
-            SND.sabotage();
-            witnessAlienAction(a,bp.x,bp.y,6,'bot');
-            aiHear('robot_down',bp.x,bp.y,18,{actor:a});
-            return;
+            /* 有刀先用刀：消耗刀数、按装甲 HP 结算（与玩家 Q 共用 knifeBot 入口） */
+            if(a.knife>0&&knifeBot(a,bk)){a._botCD=10;return;}
+            /* 刀用完了才动每夜一次的破坏技直接停摆 */
+            if(!a.sabUsed){
+              a.sabUsed=true;
+              if(bk==='secbot')G.secbotDead=true;else G.medbotDead=true;
+              G.botHp[bk]=0;
+              G.fx.push({type:'spark',x:bp.x,y:bp.y,t:1.4,dur:1.4});
+              hear(bp.x,bp.y,'power',0.9);
+              SND.sabotage();
+              witnessAlienAction(a,bp.x,bp.y,6,'bot');
+              aiHear('robot_down',bp.x,bp.y,18,{actor:a});
+              return;
+            }
           }
-          if(!a.path||!a.path.length)walkTo(a,bp.x,bp.y);
-          stepMove(a,dt,moveSpeed(a));return;
+          /* 只有还留着破坏技时，才专门为机器人跑一趟，避免抢掉追人节奏 */
+          if(!a.sabUsed){
+            if(!a.path||!a.path.length)walkTo(a,bp.x,bp.y);
+            stepMove(a,dt,moveSpeed(a));return;
+          }
         }
+      }
+      if(!a.sabUsed){
         /* 破坏技：选一个非会议室的舱室，走到设备旁下手（每夜每人一次）。
            离活人 5 格内时先处理人，避免当着面无视目标去拆设备。 */
         if(!a.sabRoom||!sabRoomOk(a.sabRoom)){
@@ -1766,6 +1782,11 @@
       const ang=Math.atan2(victim.y-killer.y,victim.x-killer.x);
       /* 危险行为先记账：即使 DEV 免伤/未造成濒死，保安也能据此反制 */
       G.pendingCrime=killer.i;
+      /* 先扣刀再进 DEV 免伤分支：否则 AI 对 DEV 玩家能无限连刀，刀数永远用不掉
+         （与「DEV 免伤也必须先扣子弹」同一口径） */
+      killer.knife--;
+      /* 3 秒红身：让目击者一眼认出刚出刀的人（纯表现，不改变判定） */
+      killer.redT=3.0;
       if(victim===G.me&&G.dev){
         setAct(killer,'stab',0.4,{ang,lunge:0.4});
         G.fx.push({type:'shield',x:victim.x,y:victim.y,t:0.6,dur:0.6});
@@ -1773,9 +1794,6 @@
         toast('DEV 无敌：这一刀没有生效');
         return;
       }
-      killer.knife--;
-      /* 3 秒红身：让目击者一眼认出刚出刀的人（纯表现，不改变判定） */
-      killer.redT=3.0;
       /* 只响一次：单层刀风，不再叠 70ms 后的血肉声 */
       SND.knife(Math.max(0.18,Math.min(1,1.25-Math.hypot(victim.x-G.me.x,victim.y-G.me.y)/16)));
       hear(victim.x,victim.y,'knife',1.0);
@@ -2493,7 +2511,10 @@
       let supporter=null;
       if(accusers.length){
         const a0=accusers[0],tgt=G.agents[a0.accuse];
-        const pool=cands.filter(x=>x!==a0&&x!==tgt&&x.suspect==null&&x.accuse==null);
+        /* 跟票者必须自己手里有点动静（警觉度），否则就是在"无证据投票"：
+           规则要求没有证据的人类 AI 弃权，所以这里不能凭空替人定罪。 */
+        const pool=cands.filter(x=>x!==a0&&x!==tgt&&x.suspect==null&&x.accuse==null&&
+          x.alive&&!x.downed&&!x.alien&&(x.mind?x.mind.alert:0)>=0.25);
         if(pool.length&&Math.random()<0.6){
           supporter=pool[Math.floor(Math.random()*pool.length)];
           supporter.accuse=tgt.i;
@@ -2734,7 +2755,7 @@
         /* 拖拽 / 红身 / 藏尸 / 断电响应 / 管道规划：全部按夜清空 */
         a.drag=null;a.draggedBy=null;a.redT=0;a._dragSnd=0;a._dragAiT=0;
         a._hideSpot=null;a._hideRoom=null;a._hideCD=0;a._hides=0;
-        a._lightGo=false;a._pipePlan=null;a._pipeSeeks=0;a._secAvoidT=0;
+        a._lightGo=false;a._pipePlan=null;a._pipeSeeks=0;a._secAvoidT=0;a._botCD=0;
         /* 节奏控制：错峰开工 + 修完歇一会儿；异形更早开始活动，但不会开局贴脸 */
         a.act=null;a._rest=0;a._delay=2+Math.random()*6;a._fxT=0;
         a.nRoom=roomIdAt(a.x,a.y);a.nSeen={};a.nTask=null;a.nTaskRoom=null;
@@ -3079,9 +3100,8 @@
       }
       if(!best&&!botKind){toast('近身没有目标（1.3 格内、无遮挡）');return;}
       if(botKind){
-        me.knife--;
-        damageBot(botKind,me,'knife');
-        toast('出刀：'+(botKind==='secbot'?'保安机器人':'医疗机器人')+'装甲受击');
+        if(!knifeBot(me,botKind)){toast('这一刀没有砍到机器人');return;}
+        toast('出刀：'+(botKind==='secbot'?'保安机器人':'医疗机器人')+'装甲受击 · 刀数 -1');
         return;
       }
       knife(me,best);
@@ -3129,6 +3149,18 @@
       if(G.botHp[kind]==null)G.botHp[kind]=kind==='secbot'?2:1;
       return G.botHp[kind];
     }
+    /* 出刀打机器人的公共入口：玩家 Q 与 AI 异形共用，
+       必须消耗刀数并按装甲 HP（保安 2 / 医疗 1）结算，不允许"一刀拆死" */
+    function knifeBot(a,kind){
+      if(!a||a.knife<1)return false;
+      if(botDead(kind))return false;
+      const p=botPos(kind); if(!p)return false;
+      if(Math.hypot(p.x-a.x,p.y-a.y)>=1.8)return false;
+      if(!losNow(a.x,a.y,p.x,p.y))return false;
+      a.knife--;
+      if(!damageBot(kind,a,'knife')){ a.knife++; return false; }
+      return true;
+    }
     /* 机器人受击：刀/枪都可摧毁；保安存活时会面向袭击者并尝试反制拘留 */
     function damageBot(kind,attacker,cause){
       if(!G||G.over||!attacker||!attacker.alive||attacker.downed||attacker.detained)return false;
@@ -3138,6 +3170,13 @@
       const hp=botHp(kind)-1;
       G.botHp[kind]=Math.max(0,hp);
       G.pendingCrime=attacker.i;
+      /* 出刀打机器人也留下「刀者红身」与挥砍动作，和打人一刀的表现对齐 */
+      if(cause==='knife'){
+        const ang=Math.atan2(p.y-attacker.y,p.x-attacker.x);
+        attacker.redT=3.0;
+        setAct(attacker,'stab',0.5,{ang,lunge:0.55});
+        SND.knife(Math.max(0.18,Math.min(1,1.25-Math.hypot(p.x-G.me.x,p.y-G.me.y)/16)));
+      }
       if(kind==='secbot'&&G.bots&&G.bots.secbot){
         G.bots.secbot.ang=Math.atan2(attacker.y-p.y,attacker.x-p.x);
         G.bots.secbot.face=attacker.x<p.x?-1:1;
@@ -5087,7 +5126,7 @@
       resetAiState:i=>{const a=G.agents[i];if(!a)return null;
         a.drag=null;a.draggedBy=null;a.redT=0;a._dragSnd=0;a._dragAiT=0;
         a._hideSpot=null;a._hideRoom=null;a._hideCD=0;a._hides=0;
-        a._pipePlan=null;a._pipeSeeks=0;a._secAvoidT=0;a._lightGo=false;
+        a._pipePlan=null;a._pipeSeeks=0;a._secAvoidT=0;a._lightGo=false;a._botCD=0;
         a._look=null;a._fixGo=null;a.path=null;a.doing=0;a._doing=null;a.target=null;
         return a.i;},
       clearDrags:()=>{releaseAllDrags(true);return G.drag;},

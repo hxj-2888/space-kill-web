@@ -306,8 +306,18 @@ function section(t) { console.log('\n== ' + t); }
   ok(V.dev && V.panel && V.line, 'F2/API 开启 DEV：面板与 HUD 行可见');
   ok(V.rows === 15, 'DEV 面板列出 15 个席位');
   ok(V.text.indexOf('异形') >= 0 && V.text.indexOf('人类') >= 0, 'DEV 面板显示全部身份');
-  const K = await T(() => { SKV3._t.knife(1, 0); return { st: SKV3._t.state()[0], inv: SKV3._t.inv() }; });
+  const K = await T(() => {
+    const t = SKV3._t, g = t.G();
+    g.agents[1].knife = 1;
+    const before = g.agents[1].knife;
+    t.knife(1, 0);
+    return { st: t.state()[0], inv: t.inv(), before, after: g.agents[1].knife,
+      red: g.agents[1].redT };
+  });
   ok(K.st.alive && !K.st.downed, 'DEV 无敌：AI 出刀对玩家无效');
+  ok(K.before === 1 && K.after === 0,
+    'DEV 免伤仍然消耗 AI 的刀（不会变成无限连刀，与子弹同一口径）');
+  ok(K.red >= 2.5, 'DEV 免伤的这一刀同样留下刀者红身');
   ok(K.inv && K.inv.fails.length === 0, 'DEV 被刀后不变量全过');
   const VM = await T(() => {
     const t = SKV3._t;
@@ -1163,11 +1173,18 @@ function section(t) { console.log('\n== ' + t); }
     t.openMeeting('day', null, null);
     t.startVote();
     const vote = g.meet.votes[h.i];
+    const humans = g.agents.filter(a => !a.alien && a.alive && !a.downed && a !== g.me);
+    const badVotes = humans.filter(a => g.meet.votes[a.i] !== undefined && g.meet.votes[a.i] !== -1)
+      .map(a => a.i);
     t.finishMeeting();
-    return { h: h.i, vote, sus: h.suspect, acc: h.accuse, mind: h.mind ? {sus:h.mind.sus, mem:h.mind.mem.length} : null,
+    return { h: h.i, vote, sus: h.suspect, acc: h.accuse, badVotes, humanN: humans.length,
+      mind: h.mind ? {sus:h.mind.sus, mem:h.mind.mem.length} : null,
       votes: g.meet ? Object.assign({}, g.meet.votes) : null, mem: h.mind ? h.mind.mem.length : -1 };
   });
   ok(ABST.vote === -1, 'AI 人类没有证据时弃权，不再随机投人');
+  ok(ABST.badVotes.length === 0,
+    '零证据的人类 AI 全部弃权（跟票只给手里有动静的人，不会凭空替人定罪）' +
+    (ABST.badVotes.length ? ' :: ' + JSON.stringify(ABST.badVotes) : ''));
   ok(ABST.sus === null && ABST.mem === 0, '进入新一夜：suspect 与认知记忆清空（无跨夜记忆）');
 
   section('开局出生点 · HUD 存活人数');
@@ -1796,11 +1813,13 @@ function section(t) { console.log('\n== ' + t); }
     t.tp(k.i, p[0], p[1]);
     k.sabUsed = false; k.path = null; k.target = null; k.doing = 0; k._doing = null;
     t.clearDrags(); t.resetAiState(k.i); k.sabUsed = false;
+    k.knife = 0;   /* 本节只验"破坏技停摆机器人"：先把刀用完，才轮到每夜一次的破坏技 */
     const r = t.aiTickAlien(k.i, 100, 0.05);
     return { p, sp, dead: t.robots().sec.dead, sab: r.sab, fx: t.fx(),
+      knife: r.knife, hp: t.robots().sec.hp,
       prog: g.prog, inv: t.inv() };
   }, AIK0);
-  ok(AIK1.dead && AIK1.sab, 'AI 异形贴近巡逻中的保安机器人：当晚停摆');
+  ok(AIK1.dead && AIK1.sab, 'AI 异形刀用完后改用破坏技停摆保安机器人：当晚停摆');
   ok(AIK1.fx.includes('spark'), 'AI 停摆机器人留下火花特效');
   ok(AIK1.inv && AIK1.inv.fails.length === 0, 'AI 停摆机器人后不变量全过');
   const AIK2 = await T(o => {
@@ -1851,6 +1870,40 @@ function section(t) { console.log('\n== ' + t); }
   ok(Math.abs(AIK3.r.x - armPipe.x) < 0.01 && Math.abs(AIK3.r.y - armPipe.y) < 0.01 &&
     AIK3.cd === 20, 'AI 异形钻管道：瞬移到离目标最近的出口（20s 冷却）');
   ok(AIK3.fx.includes('pipefx'), '钻管道留下管道口特效');
+
+  /* AI 异形有刀时：砍机器人必须走玩家 Q 同一条结算——消耗刀数、按装甲 HP 掉血，不能一刀拆死 */
+  const AIKB = await T(() => {
+    const t = SKV3._t; t.newGame();
+    const g = t.G(); g.paused = true; g.noReport = true;
+    const k = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
+    for (const a of g.agents) if (a !== k) { a.knife = 0; t.tp(a.i, 30, 10); }
+    g.breakerSaboteur = -1;
+    t.clearDrags(); t.resetAiState(k.i);
+    const sec = t.setBot('secbot', 80, 53, 0);
+    const sb = g.bots.secbot; sb.wps = [[sec[0], sec[1]]]; sb.wp = 0; sb.ang = Math.PI;
+    let p = null;
+    for (let r = 0.8; r <= 1.6 && !p; r += 0.1)
+      for (let i = 0; i < 20 && !p; i++) {
+        const a = i / 20 * Math.PI * 2, x = sec[0] + Math.cos(a) * r, y = sec[1] + Math.sin(a) * r;
+        if (t.free(x, y)) p = [x, y];
+      }
+    t.tp(k.i, p[0], p[1]);
+    k.knife = 1; k.sabUsed = false; k._delay = 0; k.doing = 0; k._doing = null;
+    k.path = null; k.target = null;
+    const before = { knife: k.knife, sab: k.sabUsed, hp: t.robots().sec.hp, dead: t.robots().sec.dead };
+    const r1 = t.aiTickAlien(k.i, 3, 0.05);
+    const after = { knife: r1.knife, sab: r1.sab, hp: t.robots().sec.hp, dead: t.robots().sec.dead,
+      red: k.redT, acts: t.acts(), crime: g.pendingCrime };
+    return { before, after, k: k.i, inv: t.inv() };
+  });
+  ok(AIKB.before.hp === 2 && AIKB.after.knife === 0,
+    'AI 异形对机器人出刀：消耗刀数（不再是白得的停摆）');
+  ok(AIKB.after.hp === 1 && !AIKB.after.dead && AIKB.after.sab === false,
+    'AI 出刀按装甲 HP 结算：保安 2 点装甲只掉到 1，没被一刀拆死，也没偷用破坏技');
+  ok(AIKB.after.red >= 2.5 && AIKB.after.acts.includes('stab'),
+    'AI 对机器人出刀同样留下挥砍动作与 3 秒刀者红身');
+  ok(AIKB.after.crime === AIKB.k && AIKB.inv.fails.length === 0,
+    'AI 砍机器人同样登记危险行为（保安可反制），不变量全过');
 
   section('管道权限 · 人类不可用');
   await fresh(false);
@@ -2102,11 +2155,13 @@ function section(t) { console.log('\n== ' + t); }
     const sb = g.bots.secbot; sb.wps = [[sec[0], sec[1]]]; sb.wp = 0; sb.ang = 0;
     t.tp(k.i, 69, 32); t.tp(v.i, 70, 32);
     k.knife = 1; k.sabUsed = true; k._delay = 0; k._rest = 0;
+    k._botCD = 999;              /* 本节只验"保安扇形回避"，机器人砍击另有 AIKB 用例 */
     const seen = t.secWouldSee(69, 32);
     const r1 = t.aiTickAlien(k.i, 20, 0.05);
     const blocked = { downed: t.state()[v.i].downed, avoid: r1.secAvoid, knife: k.knife };
     t.setBot('secbot', sec[0], sec[1], Math.PI);
-    k._secAvoidT = 0; k.path = null;
+    t.tp(k.i, 69, 32); t.tp(v.i, 70, 32);   /* 回避阶段可能走开：复位后再验补刀 */
+    k._secAvoidT = 0; k.path = null; k.target = null;
     t.aiTickAlien(k.i, 40, 0.05);
     return { seen, blocked, after: { downed: t.state()[v.i].downed, knife: k.knife },
       detained: t.detained().length, inv: t.inv() };
