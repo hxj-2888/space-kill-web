@@ -112,8 +112,10 @@
          lit:{},blackout:false,vis:null,fogOn:true,camMode:'follow',fx:[],waves:[],clickFx:null,lightState:0,
          corrLit:true,paused:false,pauseAt:0,taskKey:'',camView:false,pipePick:null,powerFixed:false,
          secbotUsed:false,secbotDead:false,medbotUsed:false,medbotDead:false,medbotT:0,secbotT:0,
+         bots:null,jailPos:null,
          drag:null,inspect:null,dev:keepDev,inv:{runs:0,checks:0,fails:[],warned:{},lastTag:''},invT:0,devT:0};
       G.aimX=me.x+1; G.aimY=me.y;
+      resetBots();
       refreshLight();
       document.getElementById('end').classList.add('hide');
       document.getElementById('body').classList.add('hide');
@@ -852,17 +854,56 @@
     }
     
     /* ---- 两台机器人 ---- */
+    /* 巡逻机器人：M.facility 的 x/y 只是初始位，运行时坐标放在 G.bots。
+       botTick / interact / sabotage / 绘制都读运行时坐标，否则巡逻只是画面上动、玩法不变。 */
+    const BOT_SPEED=1.6;
+    function resetBots(){
+      if(!G)return;
+      G.bots=G.bots||{};
+      for(const kind of ['medbot','secbot']){
+        const f=M.facility.find(q=>q.kind===kind);
+        if(!f)continue;
+        const p=nearestFree(f.x,f.y);
+        const wps=(f.patrol&&f.patrol.length?f.patrol:[[f.x,f.y]]).map(q=>nearestFree(q[0],q[1]));
+        G.bots[kind]={x:p[0],y:p[1],wp:0,ang:0,face:1,wps:wps,moving:false};
+      }
+      /* 拘留位固定在军械库角落：被擒者是硬控状态，不能拖着锁链跟着机器人满地图跑 */
+      const sec=M.facility.find(q=>q.kind==='secbot');
+      G.jailPos=sec?nearestFree(sec.x+1.7,sec.y+1.3):null;
+    }
+    function botPos(kind){
+      const b=G&&G.bots&&G.bots[kind];
+      if(b)return b;
+      const f=M.facility.find(q=>q.kind===kind);
+      return f?{x:f.x,y:f.y}:null;
+    }
+    /* 巡逻推进：1.6 格/秒（玩家 5 格/秒），到点 0.3 格换下一个航点。
+       不做避障——巡逻线是照家具空位手动排的，硬套 A* 会被家具软代价带偏。 */
+    function moveBot(b,dt,dead){
+      if(!b)return;
+      b.moving=false;
+      if(dead||!b.wps||!b.wps.length)return;
+      const w=b.wps[b.wp]||b.wps[0];
+      const dx=w[0]-b.x, dy=w[1]-b.y, d=Math.hypot(dx,dy);
+      if(d<0.3){ b.wp=(b.wp+1)%b.wps.length; return; }
+      const step=Math.min(d,BOT_SPEED*dt);
+      b.x+=dx/d*step; b.y+=dy/d*step;
+      b.ang=Math.atan2(dy,dx);
+      if(Math.abs(dx)>0.05)b.face=dx<0?-1:1;
+      b.moving=true;
+    }
     /* 拘留位：军械库角落（保安机器人把凶手拽过去，18 秒后自动解锁） */
     function secJail(){
-      const sec=M.facility.find(f=>f.kind==='secbot');
-      if(!sec)return null;
-      /* 拘留位放在保安位东南侧的空地：不被弹药箱挡视线，玩家能看到被擒者 */
-      return nearestFree(sec.x+1.7,sec.y+1.3);
+      /* 缓存一次即可：拘留位必须固定；原来每帧 nearestFree 会白跑 128 次循环 */
+      return G&&G.jailPos?G.jailPos:null;
     }
     function botTick(dt){
       if(G.meet||G.over)return;
-      const med=M.facility.find(f=>f.kind==='medbot');
-      const sec=M.facility.find(f=>f.kind==='secbot');
+      if(!G.bots)resetBots();
+      const med=botPos('medbot');
+      const sec=botPos('secbot');
+      moveBot(G.bots.medbot,dt,G.medbotDead);
+      moveBot(G.bots.secbot,dt,G.secbotDead);
       if(G.secbotT>0)G.secbotT=Math.max(0,G.secbotT-dt);
       // 医疗机器人：每夜救 1 个「倒在医疗间里」的濒死者（拖进来也算）
       if(med&&!G.medbotUsed&&!G.medbotDead){
@@ -1377,6 +1418,7 @@
       }
       G.trackT=0;G.medbotUsed=false;G.medbotT=0;G.secbotUsed=false;G.secbotT=0;G.pendingCrime=null;
       G.medbotDead=false;G.secbotDead=false;G.powerFixed=false;
+      resetBots();
       G.lightState=0;G.waves=[];G.fx=[];
       closeCams(true);closePipePick(true);
       refreshLight();
@@ -1504,8 +1546,14 @@
         me.doing=p.dur; me._dur=p.dur; me._doing='task';
         toast('开始维修「'+p.label+'」 '+p.dur+'s'); return;
       }
-      // 两台机器人不能手动操作，但靠近能读到状态
-      const bot=M.facility.find(f=>(f.kind==='medbot'||f.kind==='secbot')&&Math.hypot(f.x-me.x,f.y-me.y)<1.7);
+      // 两台机器人不能手动操作，但靠近能读到状态（距离按巡逻中的运行时坐标算）
+      let bot=null,bd=1.7;
+      for(const f of M.facility){
+        if(f.kind!=='medbot'&&f.kind!=='secbot')continue;
+        const bp=botPos(f.kind); if(!bp)continue;
+        const d=Math.hypot(bp.x-me.x,bp.y-me.y);
+        if(d<bd){bd=d;bot=f;}
+      }
       if(bot){
         if(bot.kind==='secbot')toast(G.secbotDead?'保安机器人：今晚已停摆':(G.secbotUsed?'保安机器人：本夜已经擒拿过一次':'保安机器人：在线 · 视野内行凶会被拘留 18s'));
         else toast(G.medbotDead?'医疗机器人：今晚已停摆':(G.medbotUsed?'医疗机器人：本夜已经救过一次':'医疗机器人：在线 · 把濒死者拖进医疗间会自动施救'));
@@ -1521,15 +1569,23 @@
       if(!me.alive||me.downed){ toast('幽灵无法破坏'); return; }
       if(!me.alien){ toast('你做不到'); return; }
       if(me.sabUsed){ toast('今晚已经破坏过了'); return; }
-      /* 贴着机器人按 F：让这台机器今晚停摆（医疗/保安各一次机会） */
-      const rb=M.facility.find(f=>(f.kind==='medbot'||f.kind==='secbot')&&Math.hypot(f.x-me.x,f.y-me.y)<1.8);
-      if(rb){
+      /* 贴着机器人按 F：让这台机器今晚停摆（仍然消耗本夜唯一一次破坏技）
+         贴身判定按巡逻中的运行时坐标，否则机器人走开后还能隔空破坏 */
+      /* 两台都在时取最近的那台，避免总选中先声明的医疗机器人 */
+      let target=null,tp=null,td=1.8;
+      for(const f of M.facility){
+        if(f.kind!=='medbot'&&f.kind!=='secbot')continue;
+        const p=botPos(f.kind); if(!p)continue;
+        const d=Math.hypot(p.x-me.x,p.y-me.y);
+        if(d<td){td=d;target=f;tp=p;}
+      }
+      if(target){
         me.sabUsed=true;
-        if(rb.kind==='secbot')G.secbotDead=true; else G.medbotDead=true;
-        G.fx.push({type:'spark',x:rb.x,y:rb.y,t:1.4,dur:1.4});
-        hear(rb.x,rb.y,'power',0.9);
+        if(target.kind==='secbot')G.secbotDead=true; else G.medbotDead=true;
+        G.fx.push({type:'spark',x:tp.x,y:tp.y,t:1.4,dur:1.4});
+        hear(tp.x,tp.y,'power',0.9);
         SND.sabotage();
-        toast(rb.kind==='secbot'?'破坏成功：保安机器人今晚停摆':'破坏成功：医疗机器人今晚停摆');
+        toast(target.kind==='secbot'?'破坏成功：保安机器人今晚停摆':'破坏成功：医疗机器人今晚停摆');
         runInvariants('sabotageBot');
         return;
       }
@@ -1938,10 +1994,72 @@
       }
     }
     /* 设施：电闸 / 监控台 / 医疗机器人 / 保安机器人 / 拘留区 */
+    /* 人形机器人：脚在 (x,y)，总高约 1.15 格（与船员视觉同高）。
+       自绘而不用船员素材：设施要能随时改配色/停摆态，且机器人没有 4 向行走图。 */
+    function drawRobotBody(T,x,y,s,o){
+      const dead=!!o.dead, face=o.face<0?-1:1, moving=!dead&&!!o.moving;
+      const swing=moving?Math.sin(T*8):0;
+      /* 身体颠簸 0.03 格；停摆时头部下沉 0.1 格，腿不摆 */
+      const bob=moving?Math.abs(Math.sin(T*8))*0.03*s:0;
+      const sink=dead?0.1*s:0;
+      const base=dead?'#5B6572':o.base;
+      const dark=dead?'#39404A':'rgba(12,16,21,.97)';
+      ctx.save();ctx.translate(x,y);ctx.scale(face,1);
+      ctx.fillStyle='rgba(0,0,0,.32)';
+      ctx.beginPath();ctx.ellipse(0,0,.34*s,.12*s,0,0,7);ctx.fill();
+      ctx.lineCap='round';
+      /* 两条腿：前后摆动 */
+      ctx.strokeStyle=base;ctx.lineWidth=.11*s;
+      ctx.beginPath();ctx.moveTo(-.09*s,-.42*s+bob*.5);
+      ctx.lineTo(-.09*s+swing*.16*s,0);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(.09*s,-.42*s+bob*.5);
+      ctx.lineTo(.09*s-swing*.16*s,0);ctx.stroke();
+      /* 手臂与腿反相摆动 */
+      ctx.strokeStyle=dead?'#4E5663':base;ctx.lineWidth=.09*s;
+      ctx.beginPath();ctx.moveTo(-.19*s,-.74*s+bob);
+      ctx.lineTo(-.24*s-swing*.10*s,-.48*s+bob);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(.19*s,-.74*s+bob);
+      ctx.lineTo(.24*s+swing*.10*s,-.48*s+bob);ctx.stroke();
+      /* 躯干 + 头 */
+      ctx.fillStyle=dark;ctx.strokeStyle=base;ctx.lineWidth=1.5;
+      ctx.beginPath();ctx.roundRect(-.21*s,-.84*s+bob,.42*s,.44*s,4);ctx.fill();ctx.stroke();
+      ctx.beginPath();ctx.arc(0,-1.0*s+bob+sink,.155*s,0,7);ctx.fill();ctx.stroke();
+      /* 目镜 */
+      ctx.fillStyle=dead?'rgba(90,100,115,.5)':o.accent;
+      ctx.fillRect(-.08*s,-1.01*s+bob+sink,.16*s,.045*s);
+      if(o.kind==='medbot'){
+        /* 胸口十字 */
+        ctx.fillStyle=dead?'#5B6572':o.accent;
+        ctx.fillRect(-.05*s,-.69*s+bob,.1*s,.22*s);
+        ctx.fillRect(-.11*s,-.63*s+bob,.22*s,.1*s);
+      }else{
+        /* 肩部警示条 + 胸前指示灯 */
+        ctx.fillStyle=dead?'#5B6572':'#F0C674';
+        ctx.fillRect(-.21*s,-.82*s+bob,.16*s,.055*s);
+        ctx.fillStyle=dead?'#5B6572':o.accent;
+        ctx.beginPath();ctx.arc(.08*s,-.64*s+bob,.035*s,0,7);ctx.fill();
+      }
+      ctx.restore();
+    }
+    function drawBotLabel(f,x,y,s,dead){
+      const text=f.label+(dead?' · 停摆':' · 在线');
+      ctx.font='500 9.5px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';
+      const w=ctx.measureText(text).width+10,h=13,ly=y+0.62*s;
+      /* 医疗间地面偏亮，纯文字标签会糊进底图，加一层暗底保证可读 */
+      ctx.fillStyle=dead?'rgba(8,11,16,.55)':'rgba(8,11,16,.72)';
+      ctx.beginPath();ctx.roundRect(x-w/2,ly-h/2,w,h,4);ctx.fill();
+      ctx.strokeStyle=dead?'rgba(138,148,163,.28)':'rgba(126,142,164,.35)';
+      ctx.lineWidth=1;ctx.stroke();
+      ctx.fillStyle=dead?'rgba(170,180,195,.75)':'rgba(225,238,248,.92)';
+      ctx.fillText(text,x,ly+0.5);
+    }
+    /* 设施：电闸 / 监控台 / 医疗机器人 / 保安机器人 / 拘留区 */
     function drawFacilities(T){
       const s=VIEW.s;
       for(const f of M.facility){
-        const x=SX(f.x),y=SY(f.y);
+        /* 机器人按巡逻运行时坐标画，设施表里的 x/y 只是初始位 */
+        const rp=(f.kind==='medbot'||f.kind==='secbot')?botPos(f.kind):null;
+        const x=SX(rp?rp.x:f.x),y=SY(rp?rp.y:f.y);
         if(f.kind==='breaker'){
           const off=G.lightState===2;
           ctx.save();ctx.translate(x,y);
@@ -1978,48 +2096,42 @@
           ctx.restore();
         }else if(f.kind==='medbot'){
           const dead=!!G.medbotDead;
-          const hover=Math.sin(T*2.1)*0.045*s;
-          ctx.save();ctx.translate(x,y+hover);
+          const b=G.bots&&G.bots.medbot;
+          ctx.save();
           if(!dead){
-            const rad=ctx.createRadialGradient(0,0,0,0,0,1.1*s);
+            const rad=ctx.createRadialGradient(x,y,0,x,y,1.1*s);
             rad.addColorStop(0,'rgba(63,191,140,.20)');rad.addColorStop(1,'rgba(63,191,140,0)');
-            ctx.fillStyle=rad;ctx.beginPath();ctx.arc(0,0,1.1*s,0,7);ctx.fill();
+            ctx.fillStyle=rad;ctx.beginPath();ctx.arc(x,y,1.1*s,0,7);ctx.fill();
           }
-          ctx.fillStyle='rgba(14,22,26,.96)';
-          ctx.strokeStyle=dead?'#5B6572':'#3FBF8C';ctx.lineWidth=1.6;
-          ctx.beginPath();ctx.arc(0,0,0.36*s,0,7);ctx.fill();ctx.stroke();
-          drawIcon('cross',dead?'#5B6572':'#7FE3B4',0,0,0.34*s,0,1.8);
-          ctx.fillStyle=dead?'#5B6572':'#5FE0A8';
-          ctx.beginPath();ctx.arc(0.34*s,-0.26*s,0.05*s,0,7);ctx.fill();
+          drawRobotBody(T,x,y,s,{kind:'medbot',dead:dead,face:b?b.face:1,
+            moving:!!(b&&b.moving),base:'#3FBF8C',accent:'#7FE3B4'});
           if(G.medbotT>0&&!G.medbotUsed&&!dead){
+            /* 施救进度环：圆心钉在运行时坐标，机器人边走环边跟着 */
             ctx.strokeStyle='rgba(127,227,180,'+(0.35+0.35*Math.sin(T*10)).toFixed(2)+')';ctx.lineWidth=2;
-            ctx.beginPath();ctx.arc(0,0,(0.5+0.6*Math.min(1,G.medbotT/3))*s,0,7);ctx.stroke();
+            ctx.beginPath();ctx.arc(x,y-0.6*s,(0.55+0.65*Math.min(1,G.medbotT/3))*s,0,7);ctx.stroke();
           }
+          drawBotLabel(f,x,y,s,dead);
           ctx.restore();
         }else if(f.kind==='secbot'){
           const dead=!!G.secbotDead;
           const used=!!G.secbotUsed;
-          ctx.save();ctx.translate(x,y);
+          const b=G.bots&&G.bots.secbot;
+          ctx.save();
           if(!dead){
             const scan=T*0.9;
             ctx.strokeStyle='rgba(255,107,97,.28)';ctx.lineWidth=1.6;
-            ctx.beginPath();ctx.arc(0,0,2.1*s,scan-0.34,scan+0.34);ctx.stroke();
-            ctx.beginPath();ctx.arc(0,0,2.1*s,scan+Math.PI-0.34,scan+Math.PI+0.34);ctx.stroke();
+            ctx.beginPath();ctx.arc(x,y-0.55*s,2.1*s,scan-0.34,scan+0.34);ctx.stroke();
+            ctx.beginPath();ctx.arc(x,y-0.55*s,2.1*s,scan+Math.PI-0.34,scan+Math.PI+0.34);ctx.stroke();
             if(G.secbotT>0){
               ctx.strokeStyle='rgba(255,107,97,'+(0.5+0.4*Math.sin(T*16)).toFixed(2)+')';ctx.lineWidth=2.6;
-              ctx.beginPath();ctx.arc(0,0,(1.1+0.8*(1.6-G.secbotT))*s,0,7);ctx.stroke();
+              ctx.beginPath();ctx.arc(x,y-0.55*s,(1.1+0.8*(1.6-G.secbotT))*s,0,7);ctx.stroke();
             }
           }
-          ctx.fillStyle='rgba(12,15,20,.97)';
-          ctx.strokeStyle=dead?'#4E5663':(used?'#8A6A45':'#FF7B72');ctx.lineWidth=1.6;
-          ctx.beginPath();ctx.roundRect(-0.42*s,-0.34*s,0.84*s,0.7*s,4);ctx.fill();ctx.stroke();
-          ctx.fillStyle=dead?'#4E5663':(used?'#8A6A45':'#FF6B61');
-          ctx.beginPath();ctx.arc(0,-0.02*s,0.16*s,0,7);ctx.fill();
-          ctx.fillStyle=dead?'rgba(78,86,99,.6)':(used?'rgba(138,106,69,.6)':'rgba(255,107,97,.55)');
-          ctx.fillRect(-0.26*s,0.18*s,0.52*s,0.08*s);
-          ctx.fillStyle=dead?'#5B6572':(used?'#C9A46B':'#FFB4A8');
-          ctx.font='600 8px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';
-          ctx.fillText(dead?'OFF':(used?'EMPTY':'GUARD'),0,0.37*s);
+          /* 已擒拿过的当晚转琥珀色，保留原有"本夜用过"的信息 */
+          drawRobotBody(T,x,y,s,{kind:'secbot',dead:dead,face:b?b.face:1,
+            moving:!!(b&&b.moving),base:used?'#8A6A45':'#FF6B61',
+            accent:used?'#C9A46B':'#FFB4A8'});
+          drawBotLabel(f,x,y,s,dead);
           ctx.restore();
         }
       }
@@ -2040,6 +2152,7 @@
         ctx.restore();
       }
     }
+    /* 地道口：紫色格栅 + 呼吸光环 */
     /* 地道口：紫色格栅 + 呼吸光环 */
     function drawPipes(T){
       const s=VIEW.s;
@@ -2621,10 +2734,16 @@
             label:'[V] 全船监控'+(G.lightState===2?'（信号中断）':''),
             accent:'rgba(95,224,168,.75)',fg:'#B9F5DA'});
         }
-        const bot=M.facility.find(f=>(f.kind==='medbot'||f.kind==='secbot')&&Math.hypot(f.x-me.x,f.y-me.y)<1.7);
+        let bot=null,bp=null,botD=1.7;
+        for(const f of M.facility){
+          if(f.kind!=='medbot'&&f.kind!=='secbot')continue;
+          const q=botPos(f.kind); if(!q)continue;
+          const d=Math.hypot(q.x-me.x,q.y-me.y);
+          if(d<botD){botD=d;bot=f;bp=q;}
+        }
         if(bot){
           const dead=bot.kind==='secbot'?G.secbotDead:G.medbotDead;
-          cands.push({d:Math.hypot(bot.x-me.x,bot.y-me.y),x:bot.x,y:bot.y,
+          cands.push({d:botD,x:bp.x,y:bp.y,
             label:(bot.kind==='secbot'?'保安机器人':'医疗机器人')+(dead?' · 停摆':' · 在线'),
             accent:dead?'rgba(120,130,145,.5)':'rgba(63,191,140,.7)',fg:dead?'#8A94A3':'#9FE8C6'});
         }
@@ -2861,8 +2980,10 @@
         ctx.fillStyle='rgba(168,150,255,.9)';ctx.fillRect(-1.8,-1.8,3.6,3.6);ctx.restore();
       }
       for(const f of M.facility){
+        /* 小地图也读运行时坐标，否则机器人巡逻时图上仍停在坞位 */
+        const bp=(f.kind==='medbot'||f.kind==='secbot')?botPos(f.kind):null;
         ctx.fillStyle=f.kind==='breaker'?'#E0A94B':'#3FBF8C';
-        ctx.beginPath();ctx.arc(x+f.x*k,my+f.y*k,1.8,0,7);ctx.fill();
+        ctx.beginPath();ctx.arc(x+(bp?bp.x:f.x)*k,my+(bp?bp.y:f.y)*k,1.8,0,7);ctx.fill();
       }
       const mine=G.me.tasks.slice(G.me.tIdx);
       for(const p of M.points){
@@ -3141,6 +3262,22 @@
       robots:()=>({
         sec:{used:!!G.secbotUsed,dead:!!G.secbotDead,t:G.secbotT||0},
         med:{used:!!G.medbotUsed,dead:!!G.medbotDead,t:G.medbotT||0}}),
+      bots:()=>{
+        const out={};
+        for(const k of ['medbot','secbot']){
+          const b=G.bots&&G.bots[k];
+          const f=M.facility.find(q=>q.kind===k);
+          out[k]=b?{x:b.x,y:b.y,wp:b.wp,face:b.face,moving:!!b.moving,
+            patrol:f&&f.patrol?f.patrol:[]}:null;
+        }
+        return out;
+      },
+      setBot:(kind,x,y)=>{
+        const b=G.bots&&G.bots[kind]; if(!b)return null;
+        const p=nearestFree(x,y);
+        b.x=p[0];b.y=p[1];b.moving=false;
+        return[p[0],p[1]];
+      },
       jail:()=>secJail(),
       botTick:(dt)=>{botTick(dt==null?0.2:dt);return {sec:G.secbotUsed,med:G.medbotUsed,
         detained:G.agents.filter(a=>a.detained&&a.alive).map(a=>({i:a.i,t:a.detainedT}))};},

@@ -5,8 +5,8 @@
  *        PLAYWRIGHT_CORE 指定安装目录）
  * 覆盖： 2.5D 底图、地图全连通/管道/任务点、搜尸、拖拽、幽灵态、DEV 无敌/全知、报告会议、
  *        不变量断言（SKInvariants）、监控室/电闸、地道选择、驱逐公布身份、
- *        音效日志/声纹、维修 10s 无限制、保安/医疗机器人、HUD 存活人数、
- *        暂停/退出、控制台零报错、帧率。
+ *        音效日志/声纹、维修 10s 无限制、保安/医疗机器人（4 点巡逻 / 停摆 / 运行时坐标）、
+ *        HUD 存活人数、暂停/退出、控制台零报错、帧率。
  * 产出： tools/screenshots/*.png（可用 SHOT_DIR 覆盖）
  */
 const path = require('path');
@@ -889,6 +889,43 @@ function section(t) { console.log('\n== ' + t); }
   await T(() => SKV3._t.finishMeeting());
   await page.waitForTimeout(160);
 
+  section('机器人 · 巡逻 / 停摆');
+  await fresh(false);
+  const PT0 = await T(() => ({ b: SKV3._t.bots() }));
+  ok(PT0.b.medbot && PT0.b.secbot &&
+    PT0.b.medbot.patrol.length === 4 && PT0.b.secbot.patrol.length === 4,
+    '医疗 / 保安机器人各有 4 点巡逻路线');
+  const PT1 = await T(() => {
+    const t = SKV3._t, g = t.G();
+    g.noReport = true;
+    const before = t.bots();
+    t.botTick(1.0);
+    const after = t.bots();
+    return { before, after,
+      medFree: t.free(after.medbot.x, after.medbot.y),
+      secFree: t.free(after.secbot.x, after.secbot.y) };
+  });
+  const medStep = Math.hypot(PT1.after.medbot.x - PT1.before.medbot.x,
+    PT1.after.medbot.y - PT1.before.medbot.y);
+  const secStep = Math.hypot(PT1.after.secbot.x - PT1.before.secbot.x,
+    PT1.after.secbot.y - PT1.before.secbot.y);
+  ok(medStep > 1.2 && medStep < 1.75 && secStep > 1.2 && secStep < 1.75,
+    '巡逻速度 1.6 格/秒（1s 位移 ' + medStep.toFixed(2) + ' / ' + secStep.toFixed(2) + ' 格）');
+  ok(PT1.medFree && PT1.secFree, '巡逻中的机器人始终站在可行走格上');
+  const PT2 = await T(() => {
+    const t = SKV3._t, g = t.G();
+    g.secbotDead = true;
+    const p0 = t.bots().secbot;
+    t.botTick(1.0);
+    const p1 = t.bots().secbot;
+    return { p0, p1 };
+  });
+  ok(Math.hypot(PT2.p1.x - PT2.p0.x, PT2.p1.y - PT2.p0.y) < 1e-9,
+    '停摆的保安机器人原地不动');
+  await T(() => SKV3._t.tp(0, 84, 50));
+  await page.waitForTimeout(220);
+  await shot('47_机器人巡逻.png');
+
   section('保安机器人 · 拘留 / 释放 / 破坏');
   await fresh(false);
   const SB0 = await T(() => {
@@ -904,22 +941,26 @@ function section(t) { console.log('\n== ' + t); }
     };
     const k = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
     const v = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
-    const kp = freeNear(82, 51.5), vp = freeNear(82, 50.4);
+    /* 把保安机器人摆到军械库东南角：离设施初始位 >6 格，只有读运行时坐标才会擒拿 */
+    const sec = t.setBot('secbot', 88.5, 54.5);
+    const kp = freeNear(86, 54), vp = freeNear(86, 53.2);
     t.tp(k.i, kp[0], kp[1]);
     t.tp(v.i, vp[0], vp[1]);
     k.knife = 1;
     t.knife(k.i, v.i);
-    return { k: k.i, v: v.i, jail: t.jail(), kp, vp, inv: t.inv() };
+    return { k: k.i, v: v.i, jail: t.jail(), kp, vp, sec, inv: t.inv() };
   });
   await page.waitForTimeout(200);
   const SB1 = await T(o => {
     const t = SKV3._t, g = t.G();
     const a = g.agents[o.k];
     return { detained: t.detained(), st: t.state()[o.k], fx: t.fx(), pos: [a.x, a.y],
-      used: t.robots().sec.used, jail: t.jail(), msg: g.msg, inv: t.inv() };
+      used: t.robots().sec.used, jail: t.jail(), msg: g.msg, inv: t.inv(),
+      bots: t.bots() };
   }, SB0);
-  ok(SB0.kp && Math.hypot(SB0.kp[0] - 80, SB0.kp[1] - 53) < 6 && SB0.inv.fails.length === 0,
-    '军械库内行凶：保安机器人在 6 格视野内');
+  ok(SB0.sec && Math.hypot(SB0.kp[0] - SB0.sec[0], SB0.kp[1] - SB0.sec[1]) < 6 &&
+    Math.hypot(SB0.kp[0] - 80, SB0.kp[1] - 53) > 6 && SB0.inv.fails.length === 0,
+    '行凶点离保安机器人初始位 >6 格：仍按巡逻坐标擒拿');
   ok(SB1.detained.some(d => d.i === SB0.k) && SB1.st.detained && SB1.st.detainedT > 15,
     '保安机器人擒拿凶手：拘留倒计时 ' + (SB1.st.detainedT || 0).toFixed(1) + 's');
   ok(SB1.used && SB1.st.room === 'armory' && SB1.jail &&
@@ -970,24 +1011,25 @@ function section(t) { console.log('\n== ' + t); }
     swap.alien = false;
     g.me.alien = true;
     g.me.sabUsed = false;
-    let best = [80, 53];
-    for (let r = 0.6; r <= 1.75; r += 0.15) {
+    const sp = t.setBot('secbot', 80, 53);
+    let best = [sp[0] + 1.2, sp[1]];
+    for (let r = 0.6; r <= 1.4; r += 0.15) {
       let hit = null;
       for (let i = 0; i < 24; i++) {
-        const a = i / 24 * Math.PI * 2, x = 80 + Math.cos(a) * r, y = 53 + Math.sin(a) * r;
+        const a = i / 24 * Math.PI * 2, x = sp[0] + Math.cos(a) * r, y = sp[1] + Math.sin(a) * r;
         if (t.free(x, y)) { hit = [x, y]; break; }
       }
       if (hit) { best = hit; break; }
     }
     t.tp(0, best[0], best[1]);
-    return { pos: best, dist: Math.hypot(best[0] - 80, best[1] - 53), inv: t.inv() };
+    return { pos: best, sec: sp, dist: Math.hypot(best[0] - sp[0], best[1] - sp[1]), inv: t.inv() };
   });
   await page.keyboard.press('f');
   await page.waitForTimeout(200);
   const SS1 = await T(() => ({
     robots: SKV3._t.robots(), fx: SKV3._t.fx(), msg: SKV3._t.G().msg, inv: SKV3._t.inv()
   }));
-  ok(SS0.dist < 1.8 && SS1.robots.sec.dead, '异形贴近保安机器人按 F：当晚停摆');
+  ok(SS0.dist < 1.5 && SS1.robots.sec.dead, '异形贴近巡逻中的保安机器人按 F：当晚停摆');
   ok(SS1.fx.includes('spark') && SS1.msg.indexOf('保安机器人今晚停摆') >= 0, '破坏反馈：火花 + 明确播报');
   ok(SS1.inv && SS1.inv.fails.length === 0, '破坏后不变量全过');
   const SS2 = await T(() => {
@@ -1020,19 +1062,24 @@ function section(t) { console.log('\n== ' + t); }
     const t = SKV3._t, g = t.G();
     g.noReport = true;
     const v = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
-    let p = [58.5, 51.5];
+    /* 医疗机器人推到医疗间西北角：离初始坞位 (58,53.5) 约 10 格，验证按运行时坐标施救 */
+    const med = t.setBot('medbot', 52, 46);
+    let p = [52.5, 47.5];
     for (let r = 0.4; r <= 2.4; r += 0.2)
       for (let i = 0; i < 20; i++) {
-        const a = i / 20 * Math.PI * 2, x = 58.5 + Math.cos(a) * r, y = 51.5 + Math.sin(a) * r;
+        const a = i / 20 * Math.PI * 2, x = 52.5 + Math.cos(a) * r, y = 47.5 + Math.sin(a) * r;
         if (t.free(x, y)) { p = [x, y]; r = 99; break; }
       }
     t.tp(v.i, p[0], p[1]);
     v.downed = true; v.downAt = g.t; v.path = null; v.doing = 0; v._doing = null;
     const b = t.botTick(3.05);
-    return { v: v.i, p, b, st: t.state()[v.i], fx: t.fx(), msg: g.msg, inv: t.inv(),
+    return { v: v.i, p, med, b, st: t.state()[v.i], fx: t.fx(), msg: g.msg, inv: t.inv(),
       room: t.state()[v.i].room };
   });
   ok(MB0.room === 'med' && !MB0.st.downed, '濒死者躺在医疗间：医疗机器人 3 秒后救起');
+  ok(Math.hypot(MB0.p[0] - MB0.med[0], MB0.p[1] - MB0.med[1]) < 7 &&
+    Math.hypot(MB0.p[0] - 58, MB0.p[1] - 53.5) > 7,
+    '施救按巡逻坐标判定：离初始坞位 >7 格仍能救人');
   ok(MB0.b.med === true && MB0.fx.includes('healBeam') && MB0.fx.includes('heal'),
     '施救特效：机械臂光束 + 治疗环');
   ok(MB0.msg.indexOf('医疗机器人救起了') >= 0, '播报点名说明获救者');
@@ -1040,7 +1087,7 @@ function section(t) { console.log('\n== ' + t); }
   await T(() => {
     const t = SKV3._t, g = t.G();
     g.fx.forEach(f => { f.dur = Math.max(6, f.dur); f.t = f.dur * 0.4; });
-    t.tp(0, 57.2, 50.4);
+    t.tp(0, 53.2, 48.6);
   });
   await page.waitForTimeout(140);
   await shot('45_医疗机器人施救.png');
