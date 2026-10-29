@@ -223,6 +223,22 @@ function section(t) { console.log('\n== ' + t); }
   const GR2 = await T(() => ({ prog: SKV3._t.G().prog, tIdx: SKV3._t.G().me.tIdx, inv: SKV3._t.inv() }));
   ok(GR2.prog >= 2 && GR2.tIdx === 1, '幽灵维修可完成并计分（prog=' + GR2.prog + '）');
   ok(GR2.inv && GR2.inv.fails.length === 0, '幽灵修完不变量全过');
+  const GCAP = await T(() => {
+    const t = SKV3._t, g = t.G();
+    const spot = t.taskSpot(0);
+    t.tp(0, spot.x, spot.y);
+    g.me.doing = 0; g.me._doing = null; g.me.path = null;
+    return { pts: g.me.ghostPts, tIdx: g.me.tIdx, spot: spot.label };
+  });
+  await page.keyboard.press('e');
+  await page.waitForTimeout(220);
+  const GCAP2 = await T(() => {
+    const g = SKV3._t.G();
+    return { pts: g.me.ghostPts, tIdx: g.me.tIdx, do: g.me._doing, msg: g.msg };
+  });
+  ok(GCAP.pts === 2 && GCAP2.pts === 2, '幽灵任务额度：修满 2 分');
+  ok(GCAP2.do === null && GCAP2.tIdx === GCAP.tIdx && GCAP2.msg.indexOf('2 分') >= 0,
+    '幽灵额度用尽后不再开始新任务（' + GCAP.spot + '）');
   await T(() => { SKV3._t.tp(0, 28.2, 21.1); });
   await page.waitForTimeout(350);
   await page.keyboard.press('x');

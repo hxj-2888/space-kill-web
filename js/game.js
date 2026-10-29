@@ -94,7 +94,7 @@
         tIdx:0,doing:0,progress:0,qual:0,qualPending:0,_q3:false,_q5:false,bullet:0,medkit:0,
         knife:1,think:0,target:null,
         /* 幽灵 / 尸体 / 拖拽 / 搜查 */
-        ghost:false,deathCause:null,deathAt:0,deathRoom:null,deathX:null,deathY:null,
+        ghost:false,ghostPts:0,deathCause:null,deathAt:0,deathRoom:null,deathX:null,deathY:null,
         killedBy:null,bodyX:null,bodyY:null,bodyGone:false,bodyMoved:false,
         downX:null,downY:null,downRoom:null,woundCause:null,draggedBy:null,searched:false,
         /* 表现层：动作 / 工作计时 / 夜间见闻（会议发言要用真实事实） */
@@ -1638,7 +1638,13 @@
       const p=M.points[a.tasks[a.tIdx]];
       if(!p)return;
       const v=p.kind==='hard'?2:1;
+      if(a.ghost&&(a.ghostPts||0)+v>2){
+        a._doing=null;a.doing=0;
+        if(actor)toast('幽灵最多维修 2 分的剩余任务');
+        return;
+      }
       G.prog=Math.min(40,G.prog+v);
+      if(a.ghost)a.ghostPts=(a.ghostPts||0)+v;
       a.tIdx++; a.progress+=v;
       a.nTask=p.label; a.nTaskRoom=roomIdAt(a.x,a.y);
       let gotQual=false;
@@ -2571,8 +2577,13 @@
       SND.interact();
       return true;
     }
+    function ghostTaskPts(p){return p&&p.kind==='hard'?2:1;}
+    function ghostTaskAllowed(a,p){return !a||!a.ghost||((a.ghostPts||0)+ghostTaskPts(p)<=2);}
     function startTask(me,p,ghost){
       me.path=null;me.moving=false;
+      if(me.ghost&&!ghostTaskAllowed(me,p)){
+        toast('幽灵最多维修 2 分的剩余任务');return false;
+      }
       /* 记住实际修的任务点：玩家可以乱序修自己的任意剩余任务，
          结算时不能按 tasks[tIdx] 记账（否则会出现“修 C 记 A 完成”） */
       me._taskPt=M.points.indexOf(p);
@@ -2616,7 +2627,7 @@
       }
       const p=nearPoint(me);
       const mine=p&&ml.indexOf(M.points.indexOf(p))>=0;
-      if(mine)out.push({id:'task',x:p.x,y:p.y,short:p.label,
+      if(mine&&(!ghost||ghostTaskAllowed(me,p)))out.push({id:'task',x:p.x,y:p.y,short:p.label,
         pill:'[E] 维修 '+p.label+'  '+p.dur+'s',
         accent:'rgba(255,205,60,.7)',fg:'#F0C674',run:()=>startTask(me,p,ghost)});
       return out;
@@ -2672,7 +2683,10 @@
           else toast(G.medbotDead?'医疗机器人：今晚已停摆':(G.medbotLeft<=0?'医疗机器人：电量耗尽':(G.medbotUsed?'医疗机器人：电量 '+G.medbotLeft+'/2':'医疗机器人：在线 · 电量 2/2 · 把濒死者拖进医疗间会自动施救')));
           return;
         }
-        toast(!me.alive?'幽灵只能维修任务点或故障':'这里没有你能做的事');
+        toast(!me.alive?
+          (me.tIdx<me.tasks.length&&!ghostTaskAllowed(me,M.points[me.tasks[me.tIdx]])?
+            '幽灵维修额度已用尽（每只幽灵最多 2 分）':'幽灵只能维修任务点或故障'):
+          '这里没有你能做的事');
         return;
       }
       if(items.length===1){items[0].run();return;}
@@ -4602,7 +4616,7 @@
               :(G.sabTarget&&G.me.alien&&!G.me.sabUsed
                 ?'破坏目标：'+roomNameById(G.sabTarget.room)+'「'+G.sabTarget.label+'」· 进入舱室自动下手 · 60 秒内可被修复'
                 :(!G.me.alive
-                  ?'幽灵态：点击穿墙移动 · E 维修任务（1.6×）/故障 · 不能报告/投票/搜尸 · 不能破坏 · F2 DEV'
+                  ?'幽灵态：点击穿墙移动 · E 维修任务（1.6×，额度 '+(2-(G.me.ghostPts||0))+' 分）/故障 · 不能报告/投票/搜尸 · 不能破坏 · F2 DEV'
                   :(G.me.downed
                     ?'你已濒死：等队友 F 施救，或被拖进医疗间 · F2 DEV'
                     :(G.me.detained
@@ -4825,7 +4839,7 @@
       },
       state:()=>G.agents.map(a=>({i:a.i,name:a.name,alien:a.alien,alive:a.alive,ghost:a.ghost,
         qual:a.qual,qualPending:a.qualPending||0,
-        downed:a.downed,detained:!!a.detained,detainedT:a.detainedT||0,body:bodyPos(a),cause:a.deathCause,
+        downed:a.downed,detained:!!a.detained,detainedT:a.detainedT||0,body:bodyPos(a),cause:a.deathCause,ghostPts:a.ghostPts||0,
         wound:a.alive?(a.woundCause||null):(a.deathCause||null),searched:!!a.searched,
         downRoom:a.downRoom||null,
         room:roomIdAt(a.x,a.y),draggedBy:a.draggedBy,bodyMoved:a.bodyMoved,
