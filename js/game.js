@@ -112,15 +112,19 @@
          lit:{},blackout:false,vis:null,fogOn:true,camMode:'follow',fx:[],waves:[],clickFx:null,lightState:0,
          corrLit:true,paused:false,pauseAt:0,taskKey:'',camView:false,pipePick:null,powerFixed:false,
          secbotUsed:false,secbotDead:false,medbotUsed:false,medbotDead:false,medbotT:0,secbotT:0,
-         bots:null,jailPos:null,
+         bots:null,jailPos:null,breakerSaboteur:null,
+         dmg:[],sabPick:null,sabTarget:null,
          drag:null,inspect:null,dev:keepDev,inv:{runs:0,checks:0,fails:[],warned:{},lastTag:''},invT:0,devT:0};
       G.aimX=me.x+1; G.aimY=me.y;
       resetBots();
+      const alienIds=agents.filter(a=>a.alien&&a.i!==0).map(a=>a.i);
+      G.breakerSaboteur=alienIds.length?alienIds[Math.floor(Math.random()*alienIds.length)]:null;
       refreshLight();
       document.getElementById('end').classList.add('hide');
       document.getElementById('body').classList.add('hide');
       document.getElementById('cam').classList.add('hide');
       document.getElementById('pipe').classList.add('hide');
+      document.getElementById('sabot').classList.add('hide');
       document.getElementById('dragtag').classList.add('hide');
       const pe=document.getElementById('pause'); if(pe)pe.classList.add('hide');
       syncDevUi();
@@ -293,7 +297,7 @@
     }
     /* 单机暂停：冻结 update 与 SKClock（恢复时整体平移相位时间），会议/搜尸中不可暂停 */
     function togglePause(){
-      if(!G||G.over||G.meet||G.inspect||G.camView||G.pipePick)return;
+      if(!G||G.over||G.meet||G.inspect||G.camView||G.pipePick||G.sabPick)return;
       const el=document.getElementById('pause');
       if(!G.paused){
         G.paused=true; G.pauseAt=performance.now(); G.pauseT=performance.now()/1000;
@@ -353,7 +357,7 @@
     }
     function pipeOpts(from){ return M.pipes.map((q,i)=>({q,i})).filter(o=>o.q!==from); }
     function openPipePick(from){
-      if(!G||G.meet||G.over||G.inspect||G.camView)return false;
+      if(!G||G.meet||G.over||G.inspect||G.camView||G.sabPick)return false;
       const me=G.me;
       if(!me.alive||me.downed||me.detained)return false;
       if(!me.alien){toast('管道口：你没有能力打开它');return false;}
@@ -401,7 +405,7 @@
     }
     function inCamRoom(a){const r=roomAt(a.x,a.y);return !!(r&&r.id==='cam');}
     function openCams(){
-      if(!G||G.over||G.meet||G.inspect||G.pipePick)return false;
+      if(!G||G.over||G.meet||G.inspect||G.pipePick||G.sabPick)return false;
       const me=G.me;
       if(!me.alive||me.downed||me.detained)return false;
       if(!inCamRoom(me)&&!nearMonitor(me)){toast('要走到监控室才能调取画面');return false;}
@@ -440,6 +444,149 @@
       return best;
     }
     function myTasksLeft(a){ return a.tasks.filter((t,i)=>i>=a.tIdx); }
+
+    /* ---------------- 异形破坏 / 故障维修 ----------------
+       每个异形每晚一次破坏技：选一个非会议室舱室，抵达后损毁该舱室的设备。
+       故障 60 秒内没人连续修满 10 秒就扣 3 点维修进度；天亮前没修完不追罚。
+       幽灵不能破坏（但可以参与维修），破坏必须在活着的异形手里。 */
+    const SAB_TIME=60, FIX_TIME=10, SAB_RANGE=1.7, FIX_RANGE=2.0;
+    function dmgOfRoom(rid){ return G.dmg.find(d=>d.room===rid)||null; }
+    function sabRoomOk(rid){
+      return !!rid&&rid!=='bridge'&&M.rooms.some(r=>r.id===rid)&&!dmgOfRoom(rid);
+    }
+    /* 破坏落点取该舱室的高难任务点（没有就退普通点，再没有就房间中心），
+       这样被损毁的“物品”有名字，维修也落在人本来就会去的地方 */
+    function sabSpot(rid){
+      const ps=M.points.filter(p=>p.room===rid);
+      const p=ps.find(q=>q.kind==='hard')||ps[0];
+      if(p){const f=nearestFree(p.x,p.y);return{room:rid,x:f[0],y:f[1],label:p.label};}
+      const r=M.rooms.find(q=>q.id===rid);
+      if(!r)return null;
+      const f=nearestFree(r.rect[0]+r.rect[2]/2,r.rect[1]+r.rect[3]/2);
+      return{room:rid,x:f[0],y:f[1],label:r.name+'设备'};
+    }
+    function nearDmg(a,maxD){
+      let best=null,bd=maxD==null?FIX_RANGE:maxD;
+      for(const d of G.dmg){
+        const dd=Math.hypot(d.x-a.x,d.y-a.y);
+        if(dd<bd){bd=dd;best=d;}
+      }
+      return best;
+    }
+    function openSabPick(){
+      if(!G||G.over||G.meet||G.inspect||G.camView||G.pipePick)return false;
+      const me=G.me;
+      if(!me.alive||me.downed||me.detained){toast('当前状态无法破坏');return false;}
+      if(!me.alien){toast('你做不到');return false;}
+      if(me.sabUsed){toast('今晚已经破坏过了');return false;}
+      const rooms=M.rooms.filter(r=>sabRoomOk(r.id));
+      if(!rooms.length){toast('已经没有可破坏的舱室');return false;}
+      G.sabPick={rooms:rooms.map(r=>r.id)};
+      me.path=null;me.moving=false;me.doing=0;me._doing=null;
+      const box=document.getElementById('sabot-list');
+      box.innerHTML=rooms.map((r,n)=>{
+        const sp=sabSpot(r.id),d=sp?Math.hypot(sp.x-me.x,sp.y-me.y):0;
+        return '<button data-room="'+r.id+'"><span class="pn">'+(n+1)+'</span>'
+          +'<span class="pr">'+r.name+'</span><span class="pd">'+d.toFixed(0)+' 格</span></button>';
+      }).join('');
+      [...box.children].forEach(btn=>{btn.onclick=()=>pickSabRoom(btn.dataset.room);});
+      const sub=document.getElementById('sabot-sub');
+      if(sub)sub.textContent='每夜一次 · 抵达目标舱室后损毁设备 · 60 秒内未修复则维修进度 -3';
+      document.getElementById('sabot').classList.remove('hide');
+      SND.interact();
+      return true;
+    }
+    function closeSabPick(silent){
+      if(G)G.sabPick=null;
+      const el=document.getElementById('sabot'); if(el)el.classList.add('hide');
+      if(!silent)toast('已取消');
+    }
+    function pickSabRoom(rid){
+      if(!G||!G.sabPick||!sabRoomOk(rid))return false;
+      const sp=sabSpot(rid); if(!sp)return false;
+      G.sabTarget=sp; G.sabPick=null;
+      const el=document.getElementById('sabot'); if(el)el.classList.add('hide');
+      const d=Math.hypot(sp.x-G.me.x,sp.y-G.me.y);
+      toast('破坏目标：'+roomNameById(rid)+'「'+sp.label+'」· 进入舱室自动下手 · '+d.toFixed(0)+' 格');
+      SND.interact();
+      return true;
+    }
+    function damageRoom(a,rid){
+      if(!a||!a.alive||a.downed||!a.alien||a.sabUsed)return false;
+      if(!sabRoomOk(rid))return false;
+      const sp=sabSpot(rid); if(!sp)return false;
+      G.dmg.push({room:rid,x:sp.x,y:sp.y,label:sp.label,left:SAB_TIME,dur:SAB_TIME,by:a.i});
+      a.sabUsed=true;a.sabRoom=null;a.target=null;a.path=null;
+      if(a===G.me)G.sabTarget=null;
+      G.fx.push({type:'spark',x:sp.x,y:sp.y,t:1.6,dur:1.6});
+      G.fx.push({type:'alarm',x:sp.x,y:sp.y,t:1.3,dur:1.3});
+      hear(sp.x,sp.y,'power',1.0);
+      SND.sabotage();
+      toast('警报：'+roomNameById(rid)+'「'+sp.label+'」被损毁 · 60 秒内修复，否则维修进度 -3');
+      runInvariants('damageRoom');
+      return true;
+    }
+    function startFix(a,d){
+      if(!a||!d||G.dmg.indexOf(d)<0)return false;
+      if(!a.alive&&!a.ghost)return false;
+      a.doing=FIX_TIME;a._dur=FIX_TIME;a._doing='fix';a._fix=d;
+      a.path=null;a.moving=false;a._fixGo=null;
+      if(a===G.me){toast('维修故障「'+d.label+'」· 连续 10 秒 · 移动会中断');SND.interact();}
+      return true;
+    }
+    function finishFix(a){
+      const d=a._fix;
+      a._fix=null;a._doing=null;a.doing=0;
+      if(!d||G.dmg.indexOf(d)<0)return;
+      G.dmg.splice(G.dmg.indexOf(d),1);
+      G.fx.push({type:'heal',x:d.x,y:d.y,t:1.2,dur:1.2});
+      G.fx.push({type:'done',x:a.x,y:a.y,t:1.0,dur:1.0});
+      if(a===G.me)toast('故障已修复：'+roomNameById(d.room)+'「'+d.label+'」');
+      SND.done();
+      runInvariants('finishFix');
+    }
+    /* 连续维修：移动会打断；计时到 0 才结算 */
+    function tickDoing(a,dt){
+      if(!(a.doing>0))return;
+      if(a._doing==='fix'&&a.moving){
+        a.doing=0;a._doing=null;a._fix=null;
+        if(a===G.me)toast('移动打断了维修');
+        return;
+      }
+      a.doing-=dt;
+      if(a.doing<=0)finishDoing(a);
+    }
+    function dmgTick(dt){
+      if(!G.dmg.length)return;
+      for(let i=G.dmg.length-1;i>=0;i--){
+        const d=G.dmg[i];
+        d.left-=dt;
+        if(d.left>0)continue;
+        /* 天亮后不再追罚：dawn 会清掉剩余故障，这一夜算白干但不扣分 */
+        if(G.t>0.05){
+          G.prog=Math.max(0,G.prog-3);
+          G.fx.push({type:'alarm',x:d.x,y:d.y,t:1.4,dur:1.4});
+          G.fx.push({type:'spark',x:d.x,y:d.y,t:1.0,dur:1.0});
+          hear(d.x,d.y,'power',1.0);
+          toast('故障未修复：'+roomNameById(d.room)+'「'+d.label+'」· 维修进度 -3');
+          runInvariants('faultPenalty');
+        }
+        G.dmg.splice(i,1);
+        for(const a of G.agents){
+          if(a._doing==='fix'&&a._fix===d){a._doing=null;a._fix=null;a.doing=0;}
+        }
+      }
+    }
+    /* 玩家异形的目标引爆：进入目标舱室即可，不要求踩准某个点 */
+    function sabTick(){
+      const me=G.me;
+      if(G.t<=0||!me.alien||!me.alive||me.downed||me.detained||me.sabUsed)return;
+      const t=G.sabTarget;
+      if(!t)return;
+      if(!sabRoomOk(t.room)){G.sabTarget=null;return;}
+      if(roomIdAt(me.x,me.y)===t.room||Math.hypot(me.x-t.x,me.y-t.y)<SAB_RANGE)
+        damageRoom(me,t.room);
+    }
     
     /* 夜间见闻：只记录真的进过的房间和视距内看见的人。
        会议发言全部从这些事实里生成，才不会前言不搭后语。 */
@@ -470,9 +617,14 @@
       if(!G.phase) G.phase=SKClock.newPhase('night',performance.now(),NIGHT*1000);
       G.t=SKClock.remaining(G.phase,performance.now())/1000;
       const me=G.me;
-      /* 被擒 / 倒下 / 死亡时立刻退出监控台与地道选择，避免卡在遮罩里 */
+      /* 故障：60 秒倒计时（只在夜里 update 里走），到点未修扣 3 分 */
+      dmgTick(dt);
+      sabTick();
+      /* 被擒 / 倒下 / 死亡时立刻退出监控台、地道与破坏选择，避免卡在遮罩里 */
       if(G.camView&&(!me.alive||me.downed||me.detained))closeCams(true);
       if(G.pipePick&&(!me.alive||me.downed||me.detained))closePipePick(true);
+      if(G.sabPick&&(!me.alive||me.downed||me.detained||!me.alien||me.sabUsed))closeSabPick(true);
+      if(G.sabTarget&&(me.sabUsed||!me.alien||!me.alive||me.downed))G.sabTarget=null;
       /* 保安机器人拘留倒计时：18 秒后自动释放 */
       for(const a of G.agents){
         if(!a.detained)continue;
@@ -487,16 +639,10 @@
       // 玩家：活人正常走；幽灵穿墙飘；濒死/被擒不能动
       if(me.alive&&!me.downed&&!me.detained){
         if(me.path) stepMove(me,dt,G.drag!=null?3.0:5);
-        if(me.doing>0){
-          me.doing-=dt;
-          if(me.doing<=0) finishDoing(me);
-        }
+        tickDoing(me,dt);
       }else if(!me.alive&&me.ghost){
         if(me.path) stepMove(me,dt,6.5);
-        if(me.doing>0){
-          me.doing-=dt;
-          if(me.doing<=0) finishDoing(me);
-        }
+        tickDoing(me,dt);
       }
       /* 拖拽声：低频摩擦，和脚步/出刀完全分开 */
       if(G.drag!=null&&me.moving&&me.alive&&!me.downed){
@@ -622,6 +768,16 @@
 
     /* AI 做任务比玩家慢一档；且和玩家一样，一夜只能修一个 */
     const AI_TASK_MULT=1.55;
+    /* 最近的可救目标：只认视线内的濒死者，避免 AI 隔墙“知道”谁倒了 */
+    function nearestDowned(a,maxD){
+      let best=null,bd=maxD;
+      for(const v of G.agents){
+        if(v===a||!v.alive||!v.downed)continue;
+        const d=Math.hypot(v.x-a.x,v.y-a.y);
+        if(d<bd&&los(a.x,a.y,v.x,v.y)){bd=d;best=v;}
+      }
+      return best;
+    }
     function aiHuman(a,dt){
       if(a.detained)return;
       if(a.doing>0){a.doing-=dt;if(a.doing<=0)finishDoing(a);return;}
@@ -638,24 +794,78 @@
         if(a.path&&a.path.length) stepMove(a,dt,3.2);
         return;
       }
-      if(!a.path||!a.path.length){
-        if(a.tIdx>=a.tasks.length){
-          if(Math.random()<dt*0.25){
-            const r=M.rooms[Math.floor(Math.random()*M.rooms.length)];
-            const p=randIn(r); walkTo(a,p[0],p[1]);
-          }else a.moving=false;
+      /* 医疗包优先救人：濒死者拖到天亮会失血而死，AI 会主动跑过去按 F */
+      if(a.medkit>0&&(!a.path||!a.path.length)){
+        const v=nearestDowned(a,7.5);
+        const busy=v&&G.agents.some(x=>x!==a&&x._doing==='revive'&&x._rv===v);
+        if(v&&!busy){
+          if(Math.hypot(v.x-a.x,v.y-a.y)<1.7){
+            a.doing=5;a._dur=5;a._doing='revive';a._rv=v;a.path=null;
+            setAct(a,'heal',0.6,{ang:0});
+          }else walkTo(a,v.x,v.y);
           return;
         }
-        const p=M.points[a.tasks[a.tIdx]];
-        if(Math.hypot(p.x-a.x,p.y-a.y)<2.8){
-          a.doing=p.dur*AI_TASK_MULT; a._dur=a.doing; a._doing='task';
-        }else walkTo(a,p.x,p.y);
+      }
+      /* 有枪 + 有目击凶手：射程内直接开枪，结算与玩家共用 fireShot */
+      if(a.bullet>0&&a.suspect!=null){
+        const s=G.agents[a.suspect];
+        if(!s||s===a||!s.alive||s.downed)a.suspect=null;
+        else{
+          const d=Math.hypot(s.x-a.x,s.y-a.y);
+          if(d<8&&los(a.x,a.y,s.x,s.y)){
+            fireShot(a,s);a._rest=2.5+Math.random()*2;return;
+          }
+          if(d<10){
+            if(!a.path||!a.path.length)walkTo(a,s.x,s.y);
+            stepMove(a,dt,4.2);return;
+          }
+        }
+      }
+      /* 故障抢修：一座故障最多 2 名 AI 响应，18 格内优先赶过去连续修 10 秒。
+         60 秒后要扣 3 分，比手上零散任务的收益高，所以排在开枪之后、任务之前。 */
+      if(G.dmg.length){
+        if(a._fixGo&&G.dmg.indexOf(a._fixGo)<0)a._fixGo=null;
+        if(!a._fixGo){
+          let best=null,bd=18;
+          for(const d of G.dmg){
+            const crew=G.agents.filter(x=>x!==a&&((x._doing==='fix'&&x._fix===d)||x._fixGo===d)).length;
+            if(crew>=2)continue;
+            const dd=Math.hypot(d.x-a.x,d.y-a.y);
+            if(dd<bd){bd=dd;best=d;}
+          }
+          if(best&&best!==a._fixGo){a._fixGo=best;a.path=null;}
+        }
+        if(a._fixGo){
+          const d=a._fixGo;
+          if(Math.hypot(d.x-a.x,d.y-a.y)<1.5){startFix(a,d);return;}
+          if(!a.path||!a.path.length)walkTo(a,d.x,d.y);
+          stepMove(a,dt,4.0);return;
+        }
+      }
+      if(a.path&&a.path.length){ stepMove(a,dt,4.0); return; }
+      /* 站在补给房且还有资格就顺手补给：AI 也要能开枪/救人，不能只会修任务 */
+      const rid=roomIdAt(a.x,a.y);
+      if(a.qual>0&&a.bullet<1&&rid==='armory'){
+        a.doing=10;a._dur=10;a._doing='ammo';SND.interact();return;
+      }
+      if(a.qual>0&&a.medkit<1&&rid==='med'){
+        a.doing=6;a._dur=6;a._doing='med';SND.interact();return;
+      }
+      if(a.tIdx>=a.tasks.length){
+        if(Math.random()<dt*0.25){
+          const r=M.rooms[Math.floor(Math.random()*M.rooms.length)];
+          const p=randIn(r); walkTo(a,p[0],p[1]);
+        }else a.moving=false;
         return;
       }
-      stepMove(a,dt,4.0);
+      const p=M.points[a.tasks[a.tIdx]];
+      if(Math.hypot(p.x-a.x,p.y-a.y)<2.8){
+        a.doing=p.dur*AI_TASK_MULT; a._dur=a.doing; a._doing='task';
+      }else walkTo(a,p.x,p.y);
     }
     function aiAlien(a,dt){
       if(a.detained)return;
+      if(a.doing>0){a.doing-=dt;if(a.doing<=0)finishDoing(a);return;}
       /* 开局全员同舱：异形也必须遵守错峰延迟，否则一进夜就贴脸出刀 */
       if(a._delay>0){
         a._delay-=dt;
@@ -668,20 +878,89 @@
         if(a.path&&a.path.length) stepMove(a,dt,3.4);
         return;
       }
-      if(a.knife<=0){ // 没刀了就游荡
-        if(!a.path||!a.path.length){const r=M.rooms[Math.floor(Math.random()*M.rooms.length)];const p=randIn(r);walkTo(a,p[0],p[1]);}
-        stepMove(a,dt,4.6); return;
-      }
+      if(a._pipeCD>0)a._pipeCD-=dt;
       if(!a.target||!a.target.alive||a.target.downed){
         let best=null,bd=1e9;
         for(const h of G.agents) if(!h.alien&&h.alive&&!h.downed){
           const d=Math.hypot(h.x-a.x,h.y-a.y); if(d<bd){bd=d;best=h;}}
         a.target=best;
       }
-      if(!a.target)return;
-      const d=Math.hypot(a.target.x-a.x,a.target.y-a.y);
-      if(d<1.3){ knife(a,a.target); return; }
-      if(!a.path||!a.path.length) walkTo(a,a.target.x,a.target.y);
+      const tgt=a.target;
+      const td=tgt?Math.hypot(tgt.x-a.x,tgt.y-a.y):1e9;
+      /* 每晚一次的破坏：拉闸手跨图去配电室；其他人只在 8 格内顺手停摆机器人。
+         离人太近（<5 格）时先处理人，避免异形当着面无视玩家去拆机器。 */
+      if(!a.sabUsed){
+        const br=M.facility.find(f=>f.kind==='breaker');
+        if(a.i===G.breakerSaboteur&&br&&G.lightState!==2&&td>5){
+          const d=Math.hypot(br.x-a.x,br.y-a.y);
+          if(d<1.6){
+            a.sabUsed=true;a.doing=3;a._dur=3;a._doing='breaker';
+            return;
+          }
+          if(!a.path||!a.path.length)walkTo(a,br.x,br.y);
+          stepMove(a,dt,4.6);return;
+        }
+        let bk=null,bp=null,bd=8;
+        for(const k of ['secbot','medbot']){
+          if(k==='secbot'&&G.secbotDead)continue;
+          if(k==='medbot'&&G.medbotDead)continue;
+          const q=botPos(k); if(!q)continue;
+          const d=Math.hypot(q.x-a.x,q.y-a.y);
+          if(d<bd){bd=d;bk=k;bp=q;}
+        }
+        if(bk&&bp&&td>5){
+          if(bd<1.8){
+            a.sabUsed=true;
+            if(bk==='secbot')G.secbotDead=true;else G.medbotDead=true;
+            G.fx.push({type:'spark',x:bp.x,y:bp.y,t:1.4,dur:1.4});
+            hear(bp.x,bp.y,'power',0.9);
+            SND.sabotage();
+            return;
+          }
+          if(!a.path||!a.path.length)walkTo(a,bp.x,bp.y);
+          stepMove(a,dt,4.6);return;
+        }
+        /* 破坏技：选一个非会议室的舱室，走到设备旁下手（每夜每人一次）。
+           离活人 5 格内时先处理人，避免当着面无视目标去拆设备。 */
+        if(!a.sabRoom||!sabRoomOk(a.sabRoom)){
+          const cands=M.rooms.filter(r=>r.id!=='bridge'&&sabRoomOk(r.id)&&r.id!==roomIdAt(a.x,a.y));
+          a.sabRoom=cands.length?cands[Math.floor(Math.random()*cands.length)].id:null;
+        }
+        if(a.sabRoom&&td>5){
+          const sp=sabSpot(a.sabRoom);
+          if(sp){
+            const dd=Math.hypot(sp.x-a.x,sp.y-a.y);
+            if(dd<1.7||roomIdAt(a.x,a.y)===a.sabRoom){damageRoom(a,a.sabRoom);return;}
+            if(!a.path||!a.path.length)walkTo(a,sp.x,sp.y);
+            stepMove(a,dt,4.6);return;
+          }
+        }
+      }
+      if(a.knife<=0){ // 没刀了就游荡
+        if(!a.path||!a.path.length){const r=M.rooms[Math.floor(Math.random()*M.rooms.length)];const p=randIn(r);walkTo(a,p[0],p[1]);}
+        stepMove(a,dt,4.6); return;
+      }
+      if(!tgt)return;
+      /* 管道：目标远且自己正好站在管道口，钻到离目标最近的出口（20 秒冷却） */
+      if(td>15&&a._pipeCD<=0){
+        const from=nearPipe(a);
+        if(from){
+          let best=null,bd=1e9;
+          for(const q of M.pipes){
+            if(q===from)continue;
+            const d=Math.hypot(q.x-tgt.x,q.y-tgt.y);
+            if(d<bd){bd=d;best=q;}
+          }
+          if(best&&bd<td-4){
+            a.x=best.x;a.y=best.y;a.path=null;a._pipeCD=20;
+            G.fx.push({type:'pipefx',x:best.x,y:best.y,t:0.8,dur:0.8});
+            hear(best.x,best.y,'pipe',0.9);
+            return;
+          }
+        }
+      }
+      if(td<1.3){ knife(a,tgt); return; }
+      if(!a.path||!a.path.length) walkTo(a,tgt.x,tgt.y);
       stepMove(a,dt,4.6);
     }
     
@@ -738,7 +1017,7 @@
       victim.downed=true; victim.downAt=G.t;
       victim.downX=victim.x; victim.downY=victim.y; victim.killedBy=killer.i;
       victim.path=null; victim.doing=0; victim._doing=null; victim._sv=null;
-      if(victim===G.me){closeCams(true);closePipePick(true);toast('你被出刀击倒，濒死');}
+      if(victim===G.me){closeCams(true);closePipePick(true);closeSabPick(true);G.sabTarget=null;toast('你被出刀击倒，濒死');}
     }
 
     /* 真正的死亡：尸体坐标与幽灵坐标分离 —— 幽灵可以飘走，尸体留在现场。
@@ -763,7 +1042,8 @@
         G.drag=null;
         document.getElementById('dragtag').classList.add('hide');
         closeBodyCard();
-        closeCams(true);closePipePick(true);
+        closeCams(true);closePipePick(true);closeSabPick(true);
+        G.sabTarget=null;
         G.fogOn=false;
         toast('你已阵亡 · 幽灵态：穿墙、全视，仍可维修（1.6×）');
         SND.ghost();
@@ -798,11 +1078,11 @@
       }
       if(a._doing==='breaker'){
         a._doing=null;
-        const br=M.facility.find(f=>f.kind==='breaker');
-        if(br)G.fx.push({type:'power',x:br.x,y:br.y,t:1.0,dur:1.0,on:G.lightState!==2});
-        if(actor)pullBreaker();
+        /* AI 拉闸以前只播特效不改状态（if(actor) 挡住了），这里统一走真断电 */
+        pullBreaker();
         return;
       }
+      if(a._doing==='fix'){finishFix(a);return;}
       if(a._doing==='revive'){
         const v=a._rv;
         if(v&&v.downed&&v.alive){
@@ -849,6 +1129,9 @@
     function dawn(){
       for(const a of G.agents) if(a.downed&&a.alive) die(a,'bled',a.killedBy);
       G.t=0;
+      /* 天亮：没修完的故障随夜结束一起消失，不扣分（规则只罚“夜里超时”） */
+      G.dmg=[];
+      G.sabTarget=null;
       if(checkWin())return;
       openMeeting('day',null,null);
     }
@@ -1263,7 +1546,7 @@
       if(G.over)return;
       releaseDrag(true);
       closeBodyCard();
-      closeCams(true);closePipePick(true);
+      closeCams(true);closePipePick(true);closeSabPick(true);
       const vp=victim?bodyPos(victim):null;
       const vx=vp?vp[0]:(victim?victim.x:0), vy=vp?vp[1]:(victim?victim.y:0);
       const r=victim?roomAt(vx,vy):null;
@@ -1411,6 +1694,7 @@
       for(const a of G.agents){
         a.knife=1;a.path=null;a.doing=0;a.target=null;a.reported=false;
         a._doing=null;a.sabUsed=false;a.detained=false;a.detainedT=0;
+        a._pipeCD=0;a._rv=null;a.sabRoom=null;a._fix=null;a._fixGo=null;
         /* 节奏控制：错峰开工 + 修完歇一会儿；异形更早开始活动，但不会开局贴脸 */
         a.act=null;a._rest=0;a._delay=a.alien?4+Math.random()*14:8+Math.random()*58;a._fxT=0;
         a.nRoom=roomIdAt(a.x,a.y);a.nSeen={};a.nTask=null;a.nTaskRoom=null;
@@ -1418,9 +1702,13 @@
       }
       G.trackT=0;G.medbotUsed=false;G.medbotT=0;G.secbotUsed=false;G.secbotT=0;G.pendingCrime=null;
       G.medbotDead=false;G.secbotDead=false;G.powerFixed=false;
+      /* 新的一夜：故障与破坏目标全部清空（上夜没修完的故障不跨夜追罚） */
+      G.dmg=[];G.sabTarget=null;
       resetBots();
+      const alienIds=G.agents.filter(a=>a.alien&&a.alive&&a.i!==0).map(a=>a.i);
+      G.breakerSaboteur=alienIds.length?alienIds[Math.floor(Math.random()*alienIds.length)]:null;
       G.lightState=0;G.waves=[];G.fx=[];
-      closeCams(true);closePipePick(true);
+      closeCams(true);closePipePick(true);closeSabPick(true);
       refreshLight();
       toast('第 '+G.night+' 夜开始');
       runInvariants('night');
@@ -1457,7 +1745,7 @@
     const WX=x=>(x-VIEW.ox)/VIEW.s, WY=y=>(y-VIEW.oy)/VIEW.s;
     
     cv.addEventListener('click',e=>{
-      if(DEAD||!G||G.paused||G.over||G.meet||G.inspect||G.camView||G.pipePick)return;
+      if(DEAD||!G||G.paused||G.over||G.meet||G.inspect||G.camView||G.pipePick||G.sabPick)return;
       const me=G.me;
       if(!me.alive&&!me.ghost)return;
       if(me.downed)return;
@@ -1477,10 +1765,20 @@
       if(k==='f2'){e.preventDefault();toggleDev();return;}
       if(k==='escape'){
         if(G.inspect){closeBodyCard();return;}
+        if(G.sabPick){closeSabPick();return;}
         if(G.pipePick){closePipePick();return;}
         if(G.camView){closeCams();return;}
         if(G.meet||G.over)return;
         togglePause();return;
+      }
+      /* 破坏选择：数字键直达，其余按键屏蔽 */
+      if(G.sabPick){
+        if(k==='m'){SND.setOn(!SND.isOn());toast(SND.isOn()?'音效：开':'音效：关');return;}
+        if(/^[1-9]$/.test(k)){
+          const rid=G.sabPick.rooms[+k-1];
+          if(rid)pickSabRoom(rid);
+        }
+        return;
       }
       /* 地道选择：数字键直达，其余按键屏蔽（避免误触移动/攻击） */
       if(G.pipePick){
@@ -1517,15 +1815,20 @@
       const me=G.me; if(!me.alive&&!me.ghost)return;
       if(me.doing>0)return;
       const ghost=!me.alive;
-      if(ghost){ // 幽灵只能维修自己的任务点，耗时 1.6×
+      if(ghost){ // 幽灵不能破坏，但可以参与故障抢修；任务维修仍是 1.6×
+        const gd=nearDmg(me);
+        if(gd){startFix(me,gd);return;}
         const gp=nearPoint(me);
         if(gp&&me.tasks.slice(me.tIdx).includes(M.points.indexOf(gp))){
           me.doing=gp.dur*1.6; me._dur=me.doing; me._doing='task';
           toast('幽灵维修「'+gp.label+'」 '+me.doing.toFixed(1)+'s');
-        }else toast('幽灵只能维修任务点');
+        }else toast('幽灵只能维修任务点或故障');
         return;
       }
       if(me.downed||me.detained)return;
+      /* 故障抢修优先于管道/监控/任务：60 秒不修要扣 3 分 */
+      const fd=nearDmg(me);
+      if(fd){startFix(me,fd);return;}
       // 管道：只有异形能用；按 E 打开目的地选择（不再随机传送）
       const pipe=nearPipe(me);
       if(pipe){
@@ -1566,7 +1869,9 @@
     }
     function sabotage(){
       const me=G.me;
-      if(!me.alive||me.downed){ toast('幽灵无法破坏'); return; }
+      /* 幽灵不能施展破坏 —— 异形死后仍能维修，但破坏技只属于活着的异形 */
+      if(!me.alive){ toast('幽灵无法破坏'); return; }
+      if(me.downed||me.detained){ toast('当前状态无法破坏'); return; }
       if(!me.alien){ toast('你做不到'); return; }
       if(me.sabUsed){ toast('今晚已经破坏过了'); return; }
       /* 贴着机器人按 F：让这台机器今晚停摆（仍然消耗本夜唯一一次破坏技）
@@ -1580,7 +1885,7 @@
         if(d<td){td=d;target=f;tp=p;}
       }
       if(target){
-        me.sabUsed=true;
+        me.sabUsed=true;G.sabTarget=null;
         if(target.kind==='secbot')G.secbotDead=true; else G.medbotDead=true;
         G.fx.push({type:'spark',x:tp.x,y:tp.y,t:1.4,dur:1.4});
         hear(tp.x,tp.y,'power',0.9);
@@ -1589,14 +1894,9 @@
         runInvariants('sabotageBot');
         return;
       }
-      const p=nearPoint(me);
-      if(!p){ toast('要站在任务点上才能破坏'); return; }
-      me.sabUsed=true;
-      G.prog=Math.max(0,G.prog-2);
-      G.fx.push({type:'spark',x:p.x,y:p.y,t:1.2});
-      hear(p.x,p.y,'power',0.8);
-      SND.sabotage();
-      toast('破坏成功：进度 -2（电流闪烁，全房可见）');
+      /* 其余情况打开舱室选择（取代旧的“站在任务点上 -2”破坏） */
+      if(G.sabPick)return;
+      if(openSabPick())return;
     }
 
     function rescue(){
@@ -1630,6 +1930,41 @@
       knife(me,best);
       toast('出刀：'+best.name+' 濒死');
     }
+    /* 开枪的公共结算：玩家与 AI 共用一套射程 / 遮挡 / 声纹 / 目击逻辑，
+       AI 开枪同样要留下 pendingCrime，保安机器人才能按规则抓人 */
+    function fireShot(shooter,target){
+      if(!shooter||!target||!target.alive||target.downed)return false;
+      if(shooter.bullet<1)return false;
+      if(target===G.me&&G.dev){
+        const ang=Math.atan2(target.y-shooter.y,target.x-shooter.x);
+        setAct(shooter,'shoot',0.5,{ang});
+        G.fx.push({type:'shield',x:target.x,y:target.y,t:0.6,dur:0.6});
+        if(shooter!==G.me){shooter.target=null;shooter.path=null;}
+        toast('DEV 无敌：这一枪没有生效');
+        return false;
+      }
+      shooter.bullet--;
+      G.pendingCrime=shooter.i;
+      const ang=Math.atan2(target.y-shooter.y,target.x-shooter.x);
+      setAct(shooter,'shoot',0.55,{ang});
+      setAct(target,'hurt',0.55,{ang});
+      G.fx.push({type:'tracer',x1:shooter.x,y1:shooter.y,x2:target.x,y2:target.y,t:0.45,dur:0.45,ang});
+      G.fx.push({type:'muzzle',x:shooter.x+Math.cos(ang)*0.55,y:shooter.y+Math.sin(ang)*0.55,t:0.2,dur:0.2,ang});
+      G.fx.push({type:'impact',x:target.x,y:target.y,t:0.55,dur:0.55});
+      G.fx.push({type:'blood',x:target.x,y:target.y,t:0.9,dur:0.9,ang});
+      SND.shot();
+      hear(shooter.x,shooter.y,'shot',1.15);
+      target.downed=true; target.downAt=G.t; target.path=null; target.doing=0;
+      target._doing=null; target._sv=null;
+      target.downX=target.x; target.downY=target.y; target.killedBy=shooter.i;
+      for(const w of G.agents){
+        if(w.alien||!w.alive||w.downed||w===target||w===shooter)continue;
+        if(Math.hypot(w.x-shooter.x,w.y-shooter.y)<7&&los(w.x,w.y,shooter.x,shooter.y)) w.suspect=shooter.i;
+      }
+      if(target===G.me){closeSabPick(true);G.sabTarget=null;toast('你被击中，濒死');}
+      else if(shooter===G.me) toast('开枪击中 '+target.name);
+      return true;
+    }
     function shoot(){
       const me=G.me;
       if(!me.alive||me.downed||me.detained)return;
@@ -1638,29 +1973,11 @@
       for(const a of G.agents){
         if(a===me||!a.alive||a.downed)continue;
         const d=Math.hypot(a.x-me.x,a.y-me.y);
-        if(d<9&&los(me.x,me.y,a.x,a.y)&&d<bd){bd=d;best=a;}
+        /* 射程=视野：暗处看不见的人不能隔空打中（visibleAt 已含手电锥/亮房/遮挡） */
+        if(d<9&&los(me.x,me.y,a.x,a.y)&&visibleAt(a.x,a.y)&&d<bd){bd=d;best=a;}
       }
       if(!best){toast('视野内没有目标');return;}
-      me.bullet--;
-      G.pendingCrime=me.i;
-      const ang=Math.atan2(best.y-me.y,best.x-me.x);
-      setAct(me,'shoot',0.55,{ang});
-      setAct(best,'hurt',0.55,{ang});
-      G.fx.push({type:'tracer',x1:me.x,y1:me.y,x2:best.x,y2:best.y,t:0.45,dur:0.45,ang});
-      G.fx.push({type:'muzzle',x:me.x+Math.cos(ang)*0.55,y:me.y+Math.sin(ang)*0.55,t:0.2,dur:0.2,ang});
-      G.fx.push({type:'impact',x:best.x,y:best.y,t:0.55,dur:0.55});
-      G.fx.push({type:'blood',x:best.x,y:best.y,t:0.9,dur:0.9,ang});
-      SND.shot();
-      hear(me.x,me.y,'shot',1.15);
-      best.downed=true; best.downAt=G.t; best.path=null; best.doing=0;
-      best._doing=null; best._sv=null;
-      best.downX=best.x; best.downY=best.y; best.killedBy=me.i;
-      for(const w of G.agents){
-        if(w.alien||!w.alive||w.downed||w===best||w===me)continue;
-        if(Math.hypot(w.x-me.x,w.y-me.y)<7&&los(w.x,w.y,me.x,me.y)) w.suspect=me.i;
-      }
-      if(best===G.me) toast('你被击中，濒死');
-      else toast('开枪击中 '+best.name);
+      fireShot(me,best);
     }
 
     /* ---------------- 搜尸 / 拖拽 ---------------- */
@@ -1993,7 +2310,6 @@
         }
       }
     }
-    /* 设施：电闸 / 监控台 / 医疗机器人 / 保安机器人 / 拘留区 */
     /* 人形机器人：脚在 (x,y)，总高约 1.15 格（与船员视觉同高）。
        自绘而不用船员素材：设施要能随时改配色/停摆态，且机器人没有 4 向行走图。 */
     function drawRobotBody(T,x,y,s,o){
@@ -2152,7 +2468,6 @@
         ctx.restore();
       }
     }
-    /* 地道口：紫色格栅 + 呼吸光环 */
     /* 地道口：紫色格栅 + 呼吸光环 */
     function drawPipes(T){
       const s=VIEW.s;
@@ -2707,9 +3022,45 @@
           ctx.restore();
         }
       }
+      /* 被破坏的设备：红色脉冲 + 倒计时，所有人都看得到（这是全船警报） */
+      for(const dm of G.dmg){
+        const a=0.42+0.4*(0.5+0.5*Math.sin(T*6.5));
+        ctx.save();
+        ctx.strokeStyle='rgba(255,90,78,'+a.toFixed(2)+')';ctx.lineWidth=2.4;
+        ctx.setLineDash([5,4]);ctx.lineDashOffset=-T*20;
+        ctx.beginPath();ctx.arc(SX(dm.x),SY(dm.y),1.7*VIEW.s,0,7);ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.beginPath();ctx.arc(SX(dm.x),SY(dm.y),0.55*VIEW.s,0,7);
+        ctx.fillStyle='rgba(255,70,58,'+a.toFixed(2)+')';ctx.fill();
+        ctx.restore();
+        ctx.font='600 12px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';
+        ctx.lineWidth=3;ctx.strokeStyle='rgba(22,4,4,.9)';
+        const s='故障 '+Math.max(0,Math.ceil(dm.left))+'s';
+        ctx.strokeText(s,SX(dm.x),SY(dm.y)-2.2*VIEW.s);
+        ctx.fillStyle='#FF9A90';ctx.fillText(s,SX(dm.x),SY(dm.y)-2.2*VIEW.s);
+      }
+      /* 玩家异形的破坏目标：紫色虚线指引到舱室 */
+      if(me.alien&&me.alive&&!me.sabUsed&&G.sabTarget){
+        const t=G.sabTarget;
+        ctx.save();
+        ctx.strokeStyle='rgba(168,150,255,'+(0.4+0.3*Math.sin(T*4)).toFixed(2)+')';
+        ctx.lineWidth=2;ctx.setLineDash([7,6]);ctx.lineDashOffset=-T*16;
+        ctx.beginPath();ctx.arc(SX(t.x),SY(t.y),1.9*VIEW.s,0,7);ctx.stroke();
+        ctx.restore();
+        ctx.font='600 12px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';
+        ctx.lineWidth=3;ctx.strokeStyle='rgba(10,6,20,.85)';
+        ctx.strokeText('目标 · '+roomNameById(t.room),SX(t.x),SY(t.y)-2.3*VIEW.s);
+        ctx.fillStyle='#C9BCFF';ctx.fillText('目标 · '+roomNameById(t.room),SX(t.x),SY(t.y)-2.3*VIEW.s);
+      }
       // 靠近可交互物：中性提示（不暴露身份，不区分成败文案）
       if(me.alive&&!me.downed&&!me.detained&&me.doing<=0&&!G.meet&&!G.over){
         const cands=[];
+        const fd=nearDmg(me);
+        if(fd){
+          cands.push({d:Math.hypot(fd.x-me.x,fd.y-me.y),x:fd.x,y:fd.y,
+            label:'[E] 维修故障 '+fd.label+'  10s · 剩余 '+Math.max(0,Math.ceil(fd.left))+'s',
+            accent:'rgba(255,107,97,.8)',fg:'#FFB3AC'});
+        }
         const np=nearPoint(me);
         const npMine=!!(np&&myLeft.indexOf(M.points.indexOf(np))>=0);
         if(np&&npMine){
@@ -2999,6 +3350,14 @@
         ctx.strokeStyle='rgba(255,255,255,.85)';ctx.lineWidth=.8;
         ctx.beginPath();ctx.arc(x+p.x*k,my+p.y*k,2.9,0,7);ctx.stroke();
       }
+      /* 故障：小地图上也给红点，跑图时不用记房间 */
+      for(const dm of G.dmg){
+        const pu=0.55+0.35*(0.5+0.5*Math.sin(T*6));
+        ctx.fillStyle='rgba(255,90,78,'+pu.toFixed(2)+')';
+        ctx.beginPath();ctx.arc(x+dm.x*k,my+dm.y*k,2.4,0,7);ctx.fill();
+        ctx.strokeStyle='rgba(255,190,180,.9)';ctx.lineWidth=.8;
+        ctx.beginPath();ctx.arc(x+dm.x*k,my+dm.y*k,3.6,0,7);ctx.stroke();
+      }
       /* DEV 可见的其他席位 */
       if(G.dev){
         for(const a of G.agents){
@@ -3136,6 +3495,16 @@
         pwr.classList.toggle('full',!off&&G.powerFixed);
       }
       renderTaskList();
+      const dl=document.getElementById('dmgline');
+      if(dl){
+        if(!G.dmg.length){if(!dl.classList.contains('hide'))dl.classList.add('hide');}
+        else{
+          dl.classList.remove('hide');
+          const dtxt='<b>故障</b> '+G.dmg.map(d=>
+            roomNameById(d.room)+'「'+d.label+'」 '+Math.max(0,Math.ceil(d.left))+'s').join(' · ');
+          if(dl.__txt!==dtxt){dl.__txt=dtxt;dl.innerHTML=dtxt;}
+        }
+      }
       const roleEl=document.getElementById('role');
       if(roleEl){
         const txt=(G.me.alien?'异形':'人类')+(!G.me.alive?' · 幽灵':(G.me.downed?' · 濒死':
@@ -3144,17 +3513,21 @@
       }
       const tip=document.getElementById('tip');
       if(tip){
-        const t=G.pipePick
-          ?'地道选择：点击出口按钮或按 1–3 直达 · ESC 取消 · 异形专用'
-          :(G.camView
-            ?'监控台：E / V / ESC 退出 · 配电室拉闸会切断全部 9 路信号'
-            :(!G.me.alive
-              ?'幽灵态：点击穿墙移动 · E 维修任务（1.6×）· 不能报告/投票/搜尸 · F2 DEV'
-              :(G.me.downed
-                ?'你已濒死：等队友 F 施救，或被拖进医疗间 · F2 DEV'
-                :(G.me.detained
-                  ?'被保安机器人锁住：'+Math.max(0,Math.ceil(G.me.detainedT||0))+' 秒后自动释放 · 不能移动'
-                  :'点击地面移动 · E 交互 · V 监控 · R 报告 · F 施救/破坏 · Q 出刀/开枪 · X 搜尸 · G 拖拽 · ESC 暂停 · T 视野 · C 相机 · F2 DEV'))));
+        const t=G.sabPick
+          ?'破坏选择：点击舱室按钮或按 1–8 直达 · ESC 取消 · 每夜一次'
+          :(G.pipePick
+            ?'地道选择：点击出口按钮或按 1–3 直达 · ESC 取消 · 异形专用'
+            :(G.camView
+              ?'监控台：E / V / ESC 退出 · 配电室拉闸会切断全部 9 路信号'
+              :(G.sabTarget&&G.me.alien&&!G.me.sabUsed
+                ?'破坏目标：'+roomNameById(G.sabTarget.room)+'「'+G.sabTarget.label+'」· 进入舱室自动下手 · 60 秒内可被修复'
+                :(!G.me.alive
+                  ?'幽灵态：点击穿墙移动 · E 维修任务（1.6×）/故障 · 不能报告/投票/搜尸 · 不能破坏 · F2 DEV'
+                  :(G.me.downed
+                    ?'你已濒死：等队友 F 施救，或被拖进医疗间 · F2 DEV'
+                    :(G.me.detained
+                      ?'被保安机器人锁住：'+Math.max(0,Math.ceil(G.me.detainedT||0))+' 秒后自动释放 · 不能移动'
+                      :'点击地面移动 · E 交互 · V 监控 · R 报告 · F 施救/破坏 · Q 出刀/开枪 · X 搜尸 · G 拖拽 · ESC 暂停 · T 视野 · C 相机 · F2 DEV'))))));
         if(tip.textContent!==t)tip.textContent=t;
       }
     }
@@ -3179,11 +3552,16 @@
     if(camClose)camClose.onclick=()=>closeCams();
     const pipeCancel=document.getElementById('pipe-cancel');
     if(pipeCancel)pipeCancel.onclick=()=>closePipePick();
+    const sabCancel=document.getElementById('sabot-cancel');
+    if(sabCancel)sabCancel.onclick=()=>closeSabPick();
     document.getElementById('cam').addEventListener('click',e=>{
       if(e.target&&e.target.id==='cam')closeCams();
     });
     document.getElementById('pipe').addEventListener('click',e=>{
       if(e.target&&e.target.id==='pipe')closePipePick();
+    });
+    document.getElementById('sabot').addEventListener('click',e=>{
+      if(e.target&&e.target.id==='sabot')closeSabPick();
     });
     document.getElementById('body').addEventListener('click',e=>{
       if(e.target&&e.target.id==='body')closeBodyCard();
@@ -3213,7 +3591,12 @@
       finishMeeting:()=>finishMeeting(),
       aiTick:(i,steps,dt)=>{const a=G.agents[i];if(!a)return null;
         for(let n=0;n<(steps||1);n++)aiHuman(a,dt||0.05);
-        return {tIdx:a.tIdx,doing:a.doing,do:a._doing,rest:a._rest,delay:a._delay};},
+        return {tIdx:a.tIdx,doing:a.doing,do:a._doing,rest:a._rest,delay:a._delay,
+          bullet:a.bullet,qual:a.qual,medkit:a.medkit};},
+      aiTickAlien:(i,steps,dt)=>{const a=G.agents[i];if(!a)return null;
+        for(let n=0;n<(steps||1);n++)aiAlien(a,dt||0.05);
+        return {doing:a.doing,do:a._doing,sab:a.sabUsed,x:a.x,y:a.y,
+          bullet:a.bullet,knife:a.knife};},
       aiInfo:i=>{const a=G.agents[i];if(!a)return null;
         return {tIdx:a.tIdx,doing:a.doing,do:a._doing,rest:a._rest,delay:a._delay,
           room:a.nRoom,task:a.nTask,seen:a.nSeen,accuse:a.accuse,lie:a._lie};},
@@ -3259,6 +3642,27 @@
       pickPipe:i=>pickPipe(i),
       closePipe:()=>{closePipePick(true);return !G.pipePick;},
       pipes:()=>M.pipes.map((q,i)=>({i,x:q.x,y:q.y,room:q.room,name:roomNameById(q.room)})),
+      sabSpot:rid=>sabSpot(rid),
+      dmg:()=>G.dmg.map(d=>({room:d.room,x:d.x,y:d.y,label:d.label,left:d.left,by:d.by})),
+      dmgTick:(dt)=>{dmgTick(dt==null?0.2:dt);return G.dmg.length;},
+      damageRoom:(i,rid)=>damageRoom(G.agents[i],rid),
+      sabTick:()=>{sabTick();return G.dmg.length;},
+      nearDmg:(i,maxD)=>nearDmg(G.agents[i],maxD),
+      startFix:(i,room)=>{
+        const a=G.agents[i];
+        const d=room?G.dmg.find(q=>q.room===room):nearDmg(a,9);
+        return startFix(a,d||G.dmg[0]);
+      },
+      fixing:()=>G.agents.filter(a=>a._doing==='fix').map(a=>({i:a.i,t:a.doing,room:a._fix?a._fix.room:null})),
+      openSab:()=>openSabPick(),
+      sabPick:()=>G.sabPick?{open:true,rooms:G.sabPick.rooms.slice()}:{open:false,rooms:[]},
+      pickSab:rid=>pickSabRoom(rid),
+      closeSab:()=>{closeSabPick(true);return !G.sabPick;},
+      sabTarget:()=>G.sabTarget?{room:G.sabTarget.room,x:G.sabTarget.x,y:G.sabTarget.y,
+        label:G.sabTarget.label}:null,
+      setTarget:rid=>{G.sabTarget=sabSpot(rid);return G.sabTarget?G.sabTarget.room:null;},
+      sabotage:()=>{sabotage();return {open:!!G.sabPick,target:G.sabTarget?G.sabTarget.room:null,msg:G.msg};},
+      interact:()=>{interact();return {doing:G.me.doing,do:G.me._doing};},
       robots:()=>({
         sec:{used:!!G.secbotUsed,dead:!!G.secbotDead,t:G.secbotT||0},
         med:{used:!!G.medbotUsed,dead:!!G.medbotDead,t:G.medbotT||0}}),

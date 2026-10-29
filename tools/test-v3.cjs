@@ -3,10 +3,12 @@
  * 用法： node tools/test-v3.cjs
  * 依赖： playwright-core（优先本地 node_modules；找不到时可用
  *        PLAYWRIGHT_CORE 指定安装目录）
- * 覆盖： 2.5D 底图、地图全连通/管道/任务点、搜尸、拖拽、幽灵态、DEV 无敌/全知、报告会议、
+ * 覆盖： 2.5D 底图、搜尸、拖拽、幽灵态、DEV 无敌/全知、报告会议、
  *        不变量断言（SKInvariants）、监控室/电闸、地道选择、驱逐公布身份、
- *        音效日志/声纹、维修 10s 无限制、保安/医疗机器人（4 点巡逻 / 停摆 / 运行时坐标）、
- *        HUD 存活人数、暂停/退出、控制台零报错、帧率。
+ *        音效日志/声纹、维修 10s 无限制、保安/医疗机器人、HUD 存活人数、
+ *        AI 夜间能力（拉闸/停摆机器人/破坏舱室/钻管道/开枪/救人/补给）、
+ *        破坏技选舱/60 秒故障/-3 进度/连续 10 秒维修、幽灵不可破坏、
+ *        暗处不可隔空开枪、暂停/退出、控制台零报错、帧率。
  * 产出： tools/screenshots/*.png（可用 SHOT_DIR 覆盖）
  */
 const path = require('path');
@@ -1091,6 +1093,370 @@ function section(t) { console.log('\n== ' + t); }
   });
   await page.waitForTimeout(140);
   await shot('45_医疗机器人施救.png');
+
+  section('AI 异形 · 拉闸 / 停摆机器人 / 破坏舱室 / 钻管道');
+  await fresh(false);
+  const AIK0 = await T(() => {
+    const t = SKV3._t, g = t.G();
+    g.noReport = true;
+    const freeNear = (x, y, minD, maxD) => {
+      for (let r = minD; r <= maxD; r += 0.2)
+        for (let i = 0; i < 24; i++) {
+          const a = i / 24 * Math.PI * 2, px = x + Math.cos(a) * r, py = y + Math.sin(a) * r;
+          if (t.free(px, py)) return [px, py];
+        }
+      return [x, y];
+    };
+    for (const h of g.agents) if (!h.alien && h.alive) t.tp(h.i, 30, 10);
+    const k = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
+    for (const a of g.agents) if (a.alien && a !== k) a.sabUsed = true;
+    g.breakerSaboteur = k.i;
+    const p = freeNear(50.8, 32.1, 2.2, 3.8);
+    t.tp(k.i, p[0], p[1]);
+    k._delay = 0; k._rest = 0; k.doing = 0; k._doing = null;
+    k.sabUsed = false; k.knife = 1; k.path = null; k.target = null; k._pipeCD = 0;
+    const before = t.lights().state;
+    const r = t.aiTickAlien(k.i, 120, 0.05);
+    return { i: k.i, p, before, after: t.lights().state, sab: r.sab,
+      fx: t.fx(), msg: g.msg, inv: t.inv() };
+  });
+  ok(AIK0.before !== 2 && AIK0.after === 2,
+    'AI 异形走到电闸拉闸：真正断电（' + AIK0.before + '→' + AIK0.after + '）');
+  ok(AIK0.sab && AIK0.fx.includes('power') && AIK0.msg.indexOf('电闸已拉下') >= 0,
+    '拉闸反馈：全船断电 + 电闸特效 + 播报');
+  ok(AIK0.inv && AIK0.inv.fails.length === 0, 'AI 拉闸后不变量全过');
+  const AIK1 = await T(o => {
+    const t = SKV3._t, g = t.G();
+    t.breaker(); /* 先恢复照明，避免拉闸分支抢在停摆机器人前面 */
+    const freeNear = (x, y, minD, maxD) => {
+      for (let r = minD; r <= maxD; r += 0.2)
+        for (let i = 0; i < 24; i++) {
+          const a = i / 24 * Math.PI * 2, px = x + Math.cos(a) * r, py = y + Math.sin(a) * r;
+          if (t.free(px, py)) return [px, py];
+        }
+      return [x, y];
+    };
+    const k = g.agents[o.i];
+    g.breakerSaboteur = -1; /* 恢复照明后仍要单独验证“停摆机器人”分支 */
+    for (const h of g.agents) if (!h.alien && h.alive) t.tp(h.i, 30, 10);
+    const sp = t.setBot('secbot', 80, 53);
+    const p = freeNear(sp[0], sp[1], 2.4, 3.6);
+    t.tp(k.i, p[0], p[1]);
+    k.sabUsed = false; k.path = null; k.target = null; k.doing = 0; k._doing = null;
+    const r = t.aiTickAlien(k.i, 100, 0.05);
+    return { p, sp, dead: t.robots().sec.dead, sab: r.sab, fx: t.fx(),
+      prog: g.prog, inv: t.inv() };
+  }, AIK0);
+  ok(AIK1.dead && AIK1.sab, 'AI 异形贴近巡逻中的保安机器人：当晚停摆');
+  ok(AIK1.fx.includes('spark'), 'AI 停摆机器人留下火花特效');
+  ok(AIK1.inv && AIK1.inv.fails.length === 0, 'AI 停摆机器人后不变量全过');
+  const AIK2 = await T(o => {
+    const t = SKV3._t, g = t.G();
+    const freeNear = (x, y, minD, maxD) => {
+      for (let r = minD; r <= maxD; r += 0.2)
+        for (let i = 0; i < 24; i++) {
+          const a = i / 24 * Math.PI * 2, px = x + Math.cos(a) * r, py = y + Math.sin(a) * r;
+          if (t.free(px, py)) return [px, py];
+        }
+      return [x, y];
+    };
+    const k = g.agents[o.i];
+    g.breakerSaboteur = -1; /* 单独验证“破坏舱室”，不让拉闸分支抢先 */
+    for (const h of g.agents) if (!h.alien && h.alive) t.tp(h.i, 30, 10);
+    g.dmg = [];
+    const sp = t.sabSpot('engine');
+    const p = freeNear(sp.x, sp.y, 0.8, 1.6);
+    t.tp(k.i, p[0], p[1]);
+    k.sabUsed = false; k.path = null; k.target = null; k.doing = 0; k._doing = null;
+    k.sabRoom = 'engine'; k._delay = 0; k._pipeCD = 0;
+    const first = t.aiTickAlien(k.i, 1, 0.05);
+    const r = t.aiTickAlien(k.i, 30, 0.05);
+    return { first, sp, dmg: t.dmg(), sab: r.sab, fx: t.fx(), msg: g.msg, inv: t.inv() };
+  }, AIK0);
+  ok(AIK2.dmg.length === 1 && AIK2.dmg[0].room === 'engine' &&
+    Math.abs(AIK2.dmg[0].left - 60) < 0.01 && AIK2.sab,
+    'AI 异形抵达引擎舱后损毁设备：60 秒故障倒计时，消耗本夜破坏技');
+  ok(AIK2.dmg[0] && AIK2.dmg[0].label === AIK2.sp.label &&
+    AIK2.fx.includes('spark') && AIK2.fx.includes('alarm') &&
+    AIK2.msg.indexOf('被损毁') >= 0,
+    '破坏落点是该舱室设备（带名字）：火花 + 警报特效 + 全船播报');
+  ok(AIK2.inv && AIK2.inv.fails.length === 0, 'AI 破坏舱室后不变量全过');
+  const AIK3 = await T(o => {
+    const t = SKV3._t, g = t.G();
+    for (const h of g.agents) if (!h.alien && h.alive) t.tp(h.i, 85, 55);
+    const k = g.agents[o.i];
+    t.tp(k.i, 12.2, 35.2);
+    k.sabUsed = true; k.knife = 1; k.path = null; k.target = null;
+    k.doing = 0; k._doing = null; k._pipeCD = 0;
+    const r = t.aiTickAlien(k.i, 1, 0.05);
+    return { r, fx: t.fx(), pipe: t.pipes(), cd: k._pipeCD };
+  }, AIK0);
+  const armPipe = AIK3.pipe.find(p => p.name.indexOf('军械库') >= 0);
+  ok(Math.abs(AIK3.r.x - armPipe.x) < 0.01 && Math.abs(AIK3.r.y - armPipe.y) < 0.01 &&
+    AIK3.cd === 20, 'AI 异形钻管道：瞬移到离目标最近的出口（20s 冷却）');
+  ok(AIK3.fx.includes('pipefx'), '钻管道留下管道口特效');
+
+  section('AI 人类 · 开枪 / 救人 / 补给');
+  await fresh(false);
+  const AHC0 = await T(() => {
+    const t = SKV3._t, g = t.G();
+    g.noReport = true;
+    const k = g.agents.find(a => a.alien && a.i !== 0 && a.alive && !a.downed);
+    const h = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
+    t.tp(h.i, 56, 51); t.tp(k.i, 57.2, 51);
+    h.bullet = 1; h.medkit = 0; h.suspect = k.i;
+    h.doing = 0; h._doing = null; h.path = null; h._delay = 0; h._rest = 0;
+    const r = t.aiTick(h.i, 1, 0.05);
+    return { k: k.i, h: h.i, downed: g.agents[k.i].downed, rest: g.agents[h.i]._rest,
+      bullet: r.bullet, crime: g.pendingCrime, suspect: g.agents[h.i].suspect,
+      fx: t.fx(), inv: t.inv() };
+  });
+  ok(AHC0.downed && AHC0.bullet === 0 && AHC0.rest > 0,
+    'AI 人类对目击凶手开枪：命中濒死 + 消耗子弹 + 进入冷却');
+  ok(AHC0.crime === AHC0.h && AHC0.fx.includes('tracer') && AHC0.fx.includes('blood'),
+    'AI 开枪同样留犯罪记录 + 完整弹道/血雾特效');
+  ok(AHC0.inv && AHC0.inv.fails.length === 0, 'AI 开枪后不变量全过');
+  await fresh(false);
+  const AHC1 = await T(() => {
+    const t = SKV3._t, g = t.G();
+    const v = g.agents.find(a => !a.alien && a.i !== 0 && a.alive && !a.downed);
+    const h = g.agents.find(a => !a.alien && a.i !== 0 && a.alive && a !== v);
+    t.tp(h.i, 56, 51); t.tp(v.i, 57.2, 51);
+    v.downed = true; v.downAt = g.t; v.path = null; v.doing = 0; v._doing = null;
+    h.medkit = 1; h.bullet = 0; h.suspect = null;
+    h.doing = 0; h._doing = null; h.path = null; h._delay = 0; h._rest = 0;
+    const first = t.aiTick(h.i, 1, 0.05);
+    const r = t.aiTick(h.i, 110, 0.05);
+    return { v: v.i, h: h.i, first, downed: g.agents[v.i].downed,
+      med: r.medkit, fx: t.fx(), inv: t.inv() };
+  });
+  ok(AHC1.first.do === 'revive' && !AHC1.downed && AHC1.med === 0,
+    'AI 人类用医疗包救起身边濒死者（医疗包 -1）');
+  ok(AHC1.fx.includes('heal'), 'AI 施救留下治疗环特效');
+  ok(AHC1.inv && AHC1.inv.fails.length === 0, 'AI 施救后不变量全过');
+  const AHC2 = await T(() => {
+    const t = SKV3._t, g = t.G();
+    const h = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
+    const room = t.rooms().find(r => r.id === 'armory');
+    t.tp(h.i, room.x, room.y);
+    h.bullet = 0; h.qual = 1; h.suspect = null; h.medkit = 0;
+    h.doing = 0; h._doing = null; h.path = null; h._delay = 0; h._rest = 0;
+    const first = t.aiTick(h.i, 1, 0.05);
+    const r = t.aiTick(h.i, 210, 0.05);
+    return { h: h.i, first, bullet: r.bullet, qual: r.qual,
+      fx: t.fx(), inv: t.inv() };
+  });
+  ok(AHC2.first.do === 'ammo' && AHC2.bullet === 1 && AHC2.qual === 0,
+    'AI 人类在军械库用资格换子弹（10s，子弹 +1 / 资格 -1）');
+  ok(AHC2.fx.includes('pickup'), 'AI 领取补给留下拾取光柱');
+  ok(AHC2.inv && AHC2.inv.fails.length === 0, 'AI 领取补给后不变量全过');
+
+  section('破坏技 · 选舱 / 60 秒 / 连续 10 秒维修');
+  await fresh(false);
+  const SAB0 = await T(() => {
+    const t = SKV3._t, g = t.G();
+    g.noReport = true;
+    const swap = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
+    swap.alien = false; /* 保持 4 异形 / 11 人类，不触发不变量 */
+    g.me.alien = true; g.me.sabUsed = false;
+    g.me.doing = 0; g.me._doing = null; g.me.path = null;
+    g.dmg = []; g.sabTarget = null;
+    t.tp(0, 30, 10);
+    const open = t.openSab();
+    return { open, pick: t.sabPick(), msg: g.msg, inv: t.inv() };
+  });
+  await page.waitForTimeout(150);
+  const SAB0b = await T(() => ({
+    ui: !document.getElementById('sabot').classList.contains('hide'),
+    buttons: document.querySelectorAll('#sabot-list button').length,
+    tip: document.getElementById('tip').textContent
+  }));
+  ok(SAB0.open && SAB0.pick.rooms.length === 8 && SAB0.pick.rooms.indexOf('bridge') < 0,
+    '玩家异形按 F 打开舱室列表：8 个舱室，中央会议室被排除');
+  ok(SAB0b.ui && SAB0b.buttons === 8 && SAB0b.tip.indexOf('破坏选择') >= 0,
+    '破坏面板：8 个按钮 + 提示栏切换到破坏说明');
+  ok(SAB0.inv && SAB0.inv.fails.length === 0, '打开破坏面板后不变量全过');
+  await shot('46_破坏选舱.png');
+  const SAB1 = await T(() => {
+    const t = SKV3._t, g = t.G();
+    const sp = t.sabSpot('power');
+    const picked = t.pickSab('power');
+    const target = t.sabTarget();
+    t.tp(0, sp.x, sp.y);
+    t.sabTick();
+    return { picked, target, after: t.sabTarget(), sp, dmg: t.dmg(), sab: g.me.sabUsed,
+      fx: t.fx(), msg: g.msg, inv: t.inv() };
+  });
+  ok(SAB1.picked && SAB1.target && SAB1.target.room === 'power',
+    '选择配电室后生成目标：进入舱室自动下手');
+  ok(SAB1.dmg.length === 1 && SAB1.dmg[0].room === 'power' &&
+    SAB1.dmg[0].label === SAB1.sp.label && SAB1.sab && !SAB1.after,
+    '抵达目标舱室损毁对应设备：消耗本夜破坏技并清除目标');
+  ok(SAB1.fx.includes('spark') && SAB1.fx.includes('alarm') &&
+    SAB1.msg.indexOf('60 秒') >= 0, '破坏反馈：火花 + 警报环 + 60 秒维修窗口播报');
+  ok(SAB1.inv && SAB1.inv.fails.length === 0, '破坏舱室后不变量全过');
+  await page.waitForTimeout(180);
+  const SAB1b = await T(() => ({
+    dmg: SKV3._t.dmg(),
+    hud: document.getElementById('dmgline').textContent,
+    show: !document.getElementById('dmgline').classList.contains('hide'),
+    room: SKV3._t.roomName('power')
+  }));
+  ok(SAB1b.show && SAB1b.hud.indexOf('故障') >= 0 && SAB1b.hud.indexOf(SAB1b.room) >= 0 &&
+    SAB1b.dmg[0] && SAB1b.dmg[0].left < 60,
+    'HUD 故障条显示舱室/设备/剩余秒数，倒计时随时间下降');
+  await shot('46b_故障倒计时.png');
+  const SAB2 = await T(() => {
+    const t = SKV3._t, g = t.G();
+    t.sabotage();
+    return { open: !!g.sabPick, msg: g.msg, inv: t.inv() };
+  });
+  ok(!SAB2.open && SAB2.msg.indexOf('今晚已经破坏过了') >= 0,
+    '破坏技每夜一次：用过后再按 F 被拒绝');
+  await T(() => {
+    const g = SKV3._t.G();
+    g.prog = 10;
+    g.dmg[0].left = 0.05;
+  });
+  await page.waitForTimeout(340);
+  const SAB3 = await T(() => ({ prog: SKV3._t.G().prog, dmg: SKV3._t.dmg().length,
+    msg: SKV3._t.G().msg, inv: SKV3._t.inv() }));
+  ok(SAB3.prog === 7 && SAB3.dmg === 0 && SAB3.msg.indexOf('维修进度 -3') >= 0,
+    '60 秒内未修复且仍在天黑：维修进度 -3');
+  ok(SAB3.inv && SAB3.inv.fails.length === 0, '超时扣分后不变量全过');
+
+  await fresh(false);
+  const SAB4 = await T(() => {
+    const t = SKV3._t, g = t.G();
+    g.noReport = true; g.dmg = [];
+    const k = g.agents.find(a => a.alien && a.i !== 0 && a.alive && !a.downed);
+    k.sabUsed = false; k.doing = 0; k._doing = null;
+    const made = t.damageRoom(k.i, 'med');
+    const d = t.dmg().find(q => q.room === 'med');
+    t.tp(0, d.x, d.y);
+    g.me.doing = 0; g.me._doing = null; g.me.path = null;
+    const first = t.interact();
+    const fixing = t.fixing();
+    t.finishDoing(0);
+    return { made, d, first, fixing, dmg: t.dmg(), fx: t.fx(), msg: g.msg, inv: t.inv() };
+  });
+  ok(SAB4.made && SAB4.first.do === 'fix' && Math.abs(SAB4.first.doing - 10) < 0.001 &&
+    SAB4.fixing.length === 1 && Math.abs(SAB4.fixing[0].t - 10) < 0.001,
+    '人类按 E 维修故障：连续 10 秒计时，维修者状态可查');
+  ok(SAB4.dmg.length === 0 && SAB4.fx.includes('heal') && SAB4.msg.indexOf('故障已修复') >= 0,
+    '修满 10 秒后故障消失：治疗环特效 + 播报');
+  ok(SAB4.inv && SAB4.inv.fails.length === 0, '维修故障后不变量全过');
+  const SAB5 = await T(() => {
+    const t = SKV3._t, g = t.G();
+    const k = g.agents.find(a => a.alien && a.i !== 0 && a.alive && !a.downed);
+    k.sabUsed = false; g.dmg = [];
+    t.damageRoom(k.i, 'fun');
+    const d = t.dmg()[0];
+    t.tp(0, d.x, d.y);
+    g.me.path = null; g.me.doing = 0; g.me._doing = null;
+    t.interact();
+    g.me.path = [[d.x + 2, d.y]];
+    return { dmg: t.dmg().length, doing: g.me.doing, do: g.me._doing };
+  });
+  await page.waitForTimeout(180);
+  const SAB5b = await T(() => ({ doing: SKV3._t.G().me.doing, do: SKV3._t.G().me._doing,
+    msg: SKV3._t.G().msg, dmg: SKV3._t.dmg().length }));
+  ok(SAB5.doing > 9 && SAB5.do === 'fix' && SAB5b.doing === 0 && SAB5b.do === null &&
+    SAB5b.msg.indexOf('移动打断') >= 0 && SAB5b.dmg === 1,
+    '维修必须连续：移动会打断计时，故障保留');
+  const SAB6 = await T(() => {
+    const t = SKV3._t, g = t.G();
+    const swap = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
+    swap.alien = false; g.me.alien = true;
+    g.me.sabUsed = false; g.me.doing = 0; g.me._doing = null;
+    t.kill(0, 'knife');
+    t.sabotage();
+    return { ghost: !g.me.alive && !!g.me.ghost, open: !!g.sabPick,
+      msg: g.msg, inv: t.inv() };
+  });
+  ok(SAB6.ghost && !SAB6.open && SAB6.msg.indexOf('幽灵无法破坏') >= 0,
+    '幽灵不能施展破坏：按 F 被明确拒绝');
+  ok(SAB6.inv && SAB6.inv.fails.length === 0, '幽灵拒绝破坏后不变量全过');
+
+  await fresh(false);
+  const SAB7 = await T(() => {
+    const t = SKV3._t, g = t.G();
+    g.noReport = true; g.dmg = [];
+    const k = g.agents.find(a => a.alien && a.i !== 0 && a.alive && !a.downed);
+    k.sabUsed = false;
+    t.damageRoom(k.i, 'engine');
+    const d = g.dmg[0];
+    const h = g.agents.find(a => !a.alien && a.i !== 0 && a.alive && !a.downed);
+    t.tp(h.i, d.x, d.y);
+    h._delay = 0; h._rest = 0; h.path = null; h.doing = 0; h._doing = null;
+    h.medkit = 0; h.suspect = null;
+    const first = t.aiTick(h.i, 1, 0.05);
+    const mid = t.fixing();
+    const r = t.aiTick(h.i, 230, 0.05);
+    return { h: h.i, first, mid, dmg: t.dmg().length, fx: t.fx(), msg: g.msg, inv: t.inv() };
+  });
+  ok(SAB7.first.do === 'fix' && SAB7.mid.some(x => x.i === SAB7.h),
+    'AI 人类自动响应故障：抵达后开始连续维修');
+  ok(SAB7.dmg === 0 && SAB7.fx.includes('heal'), 'AI 人类修满 10 秒后故障清除');
+  ok(SAB7.inv && SAB7.inv.fails.length === 0, 'AI 抢修后不变量全过');
+  const SAB8 = await T(() => {
+    const t = SKV3._t, g = t.G();
+    const swap = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
+    swap.alien = false; g.me.alien = true;
+    g.me.sabUsed = false; g.me.doing = 0; g.me._doing = null; g.me.path = null;
+    g.noReport = true;
+    const k = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
+    k.sabUsed = false; g.dmg = [];
+    t.damageRoom(k.i, 'armory');
+    const d = g.dmg[0];
+    t.tp(0, d.x, d.y);
+    const first = t.interact();
+    t.finishDoing(0);
+    return { first, dmg: t.dmg().length, msg: g.msg, inv: t.inv() };
+  });
+  ok(SAB8.first.do === 'fix' && SAB8.dmg === 0 && SAB8.msg.indexOf('故障已修复') >= 0,
+    '异形同样可以维修故障：人类/异形共用连续 10 秒规则');
+  ok(SAB8.inv && SAB8.inv.fails.length === 0, '异形维修后不变量全过');
+
+  await fresh(false);
+  const SAB9 = await T(() => {
+    const t = SKV3._t, g = t.G();
+    g.dmg = []; g.prog = 10;
+    const k = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
+    k.sabUsed = false;
+    t.damageRoom(k.i, 'transit');
+    g.dmg[0].left = 0.01;
+    g.t = 0;
+    t.dmgTick(1);
+    return { prog: g.prog, dmg: t.dmg().length };
+  });
+  ok(SAB9.prog === 10 && SAB9.dmg === 0, '天亮前未修完的故障不扣分：随夜晚结束清除');
+  await fresh(false);
+
+  section('视野 · 暗处不能隔空开枪');
+  await fresh(false);
+  const VIS0 = await T(() => {
+    const t = SKV3._t, g = t.G();
+    const k = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
+    for (const a of g.agents) if (a !== g.me && a !== k) t.tp(a.i, 30, 10);
+    t.tp(0, 56, 51); t.tp(k.i, 60, 51);
+    g.me.bullet = 1;
+    t.breaker(); /* 断电后只能靠 7 格手电锥 */
+    g.aimX = g.me.x - 1; g.aimY = g.me.y;
+    t.shoot();
+    const dark = { bullet: g.me.bullet, downed: g.agents[k.i].downed, msg: g.msg,
+      light: t.lights().state };
+    g.aimX = g.me.x + 1; g.aimY = g.me.y;
+    t.shoot();
+    const lit = { bullet: g.me.bullet, downed: g.agents[k.i].downed, msg: g.msg };
+    return { dark, lit, inv: t.inv() };
+  });
+  ok(VIS0.dark.light === 2 && VIS0.dark.bullet === 1 && !VIS0.dark.downed &&
+    VIS0.dark.msg.indexOf('视野内没有目标') >= 0,
+    '暗处背对目标：子弹不消耗、目标不受伤');
+  ok(VIS0.lit.bullet === 0 && VIS0.lit.downed,
+    '同一距离把手电转向目标：正常命中');
+  ok(VIS0.inv && VIS0.inv.fails.length === 0, '视野射击判定后不变量全过');
 
   section('声纹 · 附近多声源同时可见');
   await fresh(false);

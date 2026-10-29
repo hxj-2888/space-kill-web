@@ -94,6 +94,10 @@
   .pipe-list .pr{color:#DDE3EC;font-size:13px}
   .pipe-list .pd{margin-left:auto;color:#6D7C8D;font-size:10.5px}
   .pipe-card .sub{margin-bottom:2px}
+  #sabot .pipe-list .pn{color:#FF9A90}
+  #dmgline{margin-top:8px;border-top:1px solid #4A2320;padding-top:6px;
+    font-size:11.5px;color:#FF9A90;line-height:1.55;max-width:236px}
+  #dmgline b{color:#FF6B61;font-weight:500}
   .inp{display:flex;gap:8px;margin-top:10px}
   .inp input{flex:1;background:#0D1117;border:1px solid #313B4B;border-radius:8px;
     color:#DDE3EC;padding:8px 10px;font-size:13px;font-family:inherit;outline:none}
@@ -146,6 +150,7 @@
   <div>你是 <b id="role">人类</b> · 濒死 <b id="dn">0</b> 人</div>
   <div>任务 <b id="tk">0</b>/4 · 资格 <b id="ql">0</b> · 弹 <b id="bl">0</b> · 包 <b id="md">0</b></div>
   <div id="tasks"></div>
+  <div id="dmgline" class="hide"></div>
   <div id="devline" class="hide">DEV <b>无敌 · 全知</b> · 断言 <b id="inv">0</b> 失败</div>
 </div>
 <div id="tip">点击地面移动 · E 交互 · V 监控 · R 报告 · F 施救/破坏 · Q 出刀/开枪 · X 搜尸 · G 拖拽 · ESC 暂停 · T 视野 · C 相机 · F2 DEV</div>
@@ -168,6 +173,12 @@
   <h2>地道 · 选择出口</h2><div class="sub" id="pipe-sub">异形专用 · 选择要去的那一端</div>
   <div class="pipe-list" id="pipe-list"></div>
   <div class="btns"><button id="pipe-cancel">取消 (Esc)</button></div>
+</div></div>
+
+<div id="sabot" class="ov hide"><div class="card pipe-card">
+  <h2>破坏 · 选择目标舱室</h2><div class="sub" id="sabot-sub">每夜一次 · 抵达目标舱室后损毁设备 · 60 秒内未修复则维修进度 -3</div>
+  <div class="pipe-list" id="sabot-list"></div>
+  <div class="btns"><button id="sabot-cancel">取消 (Esc)</button></div>
 </div></div>
 
 <div id="cam" class="ov hide"><div class="cam-panel">
