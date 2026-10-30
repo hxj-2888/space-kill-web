@@ -51,7 +51,7 @@
 | `js/game.js` | 编排 | 状态、AI、动作结算、会议/投票、渲染、输入（`window.SKV3`） |
 | `js/main.js` | 入口 | 开始页按钮绑定 + `[data-version]` 填充 |
 | `tools/serve.cjs` | 工具 | 零依赖静态服务器 |
-| `tools/test-v3.cjs` | 门禁 | Playwright 浏览器断言（456 条） |
+| `tools/test-v3.cjs` | 门禁 | Playwright 浏览器断言（470 条） |
 | `tools/blender-ship.py` | 美术工具 | 2.5D 底图烘焙（需 Blender，读 `js/data/map.js`） |
 | `tools/gen-materials.py` | 美术工具 | 家具/掩体表面材质生成（本地 SDXL 流式上卡；`--mode reuse` 为无显卡兜底） |
 | `assets/` · `audio/` | 素材 | 许可与署名见各子目录 `LICENSE*` 与 `audio/CREDITS.md` |
@@ -87,6 +87,9 @@
   `G.spectMode` 关掉。新增玩家能力时必须同时判断 `G.spectMode`。
   唯一例外是会议里的**「跳过讨论（旁观）」**按钮：只快进讨论（有投票则进投票，否则直接入夜），
   仍不允许发言、投票或做任何局内动作。
+  **`G.spectMode` 下 0 号星尘是完整 AI**：发言池、投票、行动、被构陷/被攻击都必须按普通 AI 处理；
+  所有 `a===G.me` 的玩家专属过滤（发言、投票、DEV 标注、击杀/拖拽提示）必须写成
+  `a!==G.me||G.spectMode` 或加 `!G.spectMode`，DEV 名单把 0 号标成「AI」而不是「你」。
 - **设置**：`#settings` 在 `index.html`（z-index 10010，高于 `#v3-root`），由 `js/main.js` 的
   `window.SKSettings` 托管，只写 `localStorage('sk.settings.v1')`；游戏侧只暴露
   `SKV3.setSfxVolume / getSfxVolume / togglePauseGame / isPaused / playSfx`。
@@ -133,6 +136,11 @@
   `heard_frame` 传闻嫌疑（0.14），**绝不写 `mind.known`**，真目击者仍由 `bestKnownTarget()`
   锁定指控与投票。听众若用 `saw_agent` 记忆抓到说谎者假口供与自己的时间线冲突，
   会写 `contradiction_lie` 反向怀疑说谎者。不要为了“让谎话生效”去改 known 或伪造证据事件。
+- **会议模板与玩家直接证据**：`#m-tpl-btns` 的 8 个模板由 `meetTemplateText()` 生成标准句，
+  必须与 `parseSpeech()` 保持同步；玩家直接证据走 `m.ctx.playerClaims` + `heard_claim`
+  （按类型 0.12–0.30 嫌疑，**绝不写 `known`**），有确证的听众公开站队；
+  若玩家声称的案发舱室与听众 `saw_agent` 记忆冲突，写 `contradiction_claim` 到玩家。
+  新增模板或词槽必须同批补 `parseSpeech` 与门禁。
 - **AI 认知与证据链**：每个 AI 的 `mind` 只记录自己看见/听见/搜查到的事实
   （`saw_* / heard_* / env_* / saw_body / search_result`），并换算成 `sus` 嫌疑分；
   **禁止读取 `alien` 身份**。新增动作或环境提示必须调用 `noticeAction()` / `aiHear()` / `envNotice()`，
@@ -142,13 +150,15 @@
   写入后 `sus=1`、会议必指控、投票必投、开枪/追击距离放宽（10 / 14 格）。
   **开枪、拖尸、拘留、拉闸**这些人类也会做的事只能加 `sus`，不得写成 `known`；
   新增「异形专属」判定必须同时确认人类无法执行，否则会把人类误判成异形。
-  `known` 随 `mindReset()` 每夜清空（与「无跨夜记忆」一致），但同一夜的会议与天亮会议都能用。
+  `known` **跨夜保留**（`mindReset()` 只保留 `known`，普通 `mem / sus` 仍每夜清空），
+  因此后续每一场会议都能继续锁定同一个确证目标。
 - **AI 报告与会议**：每夜最多 1 次 AI 报告（`G.aiReportUsed`）；AI 异形也允许报告；
   「跟票」只给自身有动静（`mind.alert ≥ 0.25`）的人类 AI，零证据的人类 AI 必须弃权，
   不允许会议叙事替没有证据的人凭空定罪；
-  玩家自由发言由 `parseSpeech()` 拆成槽位（人 / 舱室 / 指控 / 投票 / 否认 / 自述位置）后进入
-  `m.ctx.playerSays`：谎报位置会被目击者用 `saw_agent` 记忆对质并 `susAdd(w,0,…)`，
-  新增发言意图必须走槽位，不要在台词里另写一套正则；
+  玩家自由发言由 `parseSpeech()` 拆成槽位（人 / 舱室 / 指控 / 投票 / 支持 / 否认 / 自述位置 / 直接证据）后进入
+  `m.ctx.playerSays`：谎报位置会被目击者用 `saw_agent` 记忆对质并 `susAdd(w,0,…)`；
+  **自述位置只认第一人称**（我今晚在 / 我当时在 / 我整晚都在 / 我在…），不要把「我看见 X 在配电室」
+  误判成玩家在配电室；新增发言意图必须走槽位，不要在台词里另写一套正则；
   人类发现濒死先搜尸，未检查的 `searched=false` 尸体不能被当作已取证；
   没有证据的 AI 人类会议投票必须弃权（-1），异形保持独立随机投票，不得按阵营过滤。
 - **身体状态**：刀/枪必须写入 `woundCause` 与 `downRoom`；搜尸必须置 `searched=true`；
@@ -205,7 +215,7 @@
 
 ## 六、当前基线（返航录V2）
 
-- 门禁：`node tools/test-v3.cjs` —— **456 通过 / 0 失败**（2026-10-30 实跑，Edge headless）。
+- 门禁：`node tools/test-v3.cjs` —— **470 通过 / 0 失败**（2026-10-30 实跑，Edge headless）。
 - 门禁覆盖：地图全连通 / 4 管道口 / 25 任务点（中转间 102 格 / 配电室 148 格 / 引擎 216 格 / 会议室管道右上角）、
   22 扇自动门开合与视线/移动阻挡、机器人 4 点巡逻与运行时判定、
   AI 夜间能力（拉闸 / 停摆机器人 / 破坏舱室 / 钻管道 / 开枪 / 救人 / 补给）、
@@ -223,8 +233,9 @@
   搜尸取物资（玩家 / AI 人类 / AI 异形、二次搜尸拒绝、背包容量）、确证跨夜长期记忆与锁定投票、
   AI 回场报告（离开→返回→拉铃）与快速报告嫌疑、AI 异形避开旁人目击（退开/冒险）与直接报案、
   异形会议反咬/构陷（真目击者投票不被带偏、传闻嫌疑不写 known、时间线拆谎）、
+  会议模板一键发言（8 个模板均被 parseSpeech 识别）、玩家直接证据 heard_claim 与 contradiction_claim、
   亮房整间可见 / 暗房视野受限、断电后逐门扫描 2 秒（会议室三扇门豁免、离开重新上锁、恢复供电解除）、
-  旁观者跳过讨论、故障修好立即松手、
+  旁观者跳过讨论与 0 号星尘独立 AI（发言/投票/DEV 标注）、故障修好立即松手、
   WASD 主操作 / 尸体交互轮盘 / 设置面板音量与暂停 / 门顶面视角 / 异形同款手电锥 + 近身视野 ×4/3 / 旁观者模式、
   E/H 交互轮盘多项选择、人类管道禁用、AI 拐角寻路不卡死、异形投票目标不统一、
   任务乱序维修按实际点位结算、幽灵乱序任务/故障维修/2 分额度、AI 认知/证据链/搜尸/伤口状态/报告上限/异形自报/证据投票/

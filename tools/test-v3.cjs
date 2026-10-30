@@ -1075,7 +1075,7 @@ function section(t) { console.log('\n== ' + t); }
   await fresh(false);
   const SLOT = await T(() => {
     const t = SKV3._t;
-    const p1 = t.parseSpeech('我怀疑 03 北极，他一直在配电室');
+    const p1 = t.parseSpeech('我怀疑 03 北极，我当时在配电室');
     const p2 = t.parseSpeech('我投 05，我在医疗间修东西');
     const p3 = t.parseSpeech('不是我，我整晚都在引擎');
     return { p1, p2, p3 };
@@ -1113,6 +1113,102 @@ function section(t) { console.log('\n== ' + t); }
     '拆穿台词同时引用「玩家声称的舱室」与「真实目击地点」：' + SLOT3.claim);
   ok(SLOT3.says.length === 1 && SLOT3.says[0].where === 'med',
     '发言槽位进入会议上下文（where=med，可供后续追问与投票引用）');
+
+  section('会议模板 · 一键发言与扩展词库');
+  await fresh(false);
+  const TPL = await T(() => {
+    const t = SKV3._t; t.newGame();
+    const g = t.G();
+    const target = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
+    const txt = {};
+    for (const k of ['accuse', 'vote', 'support', 'pipe', 'red', 'knife', 'where', 'deny'])
+      txt[k] = t.tplText(k, target.i, 'med');
+    const P = {};
+    for (const k in txt) P[k] = t.parseSpeech(txt[k]);
+    const free = {
+      neg: t.parseSpeech('北极不是异形'),
+      seat: t.parseSpeech('我投3号'),
+      claimRoom: t.parseSpeech('我看见北极在配电室钻管道')
+    };
+    return { target: target.i, txt, P, free };
+  });
+  ok(TPL.P.accuse.accuse === TPL.target && TPL.P.vote.vote === TPL.target,
+    '模板「怀疑 / 投他」可被解析为对应玩家');
+  ok(TPL.P.support.support === TPL.target, '模板「作证」可被解析为支持对象');
+  ok(TPL.P.pipe.claim && TPL.P.pipe.claim.kind === 'saw_pipe' &&
+    TPL.P.pipe.claim.target === TPL.target, '模板「看见钻管道」生成可解析的直接证据');
+  ok(TPL.P.red.claim && TPL.P.red.claim.kind === 'saw_red' &&
+    TPL.P.knife.claim && TPL.P.knife.claim.kind === 'saw_knife',
+    '模板「看见红光 / 出刀」可被解析');
+  ok(TPL.P.where.where === 'med' && TPL.P.deny.deny === true && TPL.P.deny.where === 'med',
+    '模板「我在… / 不是我」带上舱室，可被当作自述位置');
+  ok(TPL.free.neg.accuse == null && TPL.free.neg.support === 2,
+    '否定词：北极不是异形 → 不指控，而是支持');
+  ok(TPL.free.seat.vote === 2, '席位格式：3号 → 03 北极');
+  ok(TPL.free.claimRoom.claim && TPL.free.claimRoom.claim.kind === 'saw_pipe' &&
+    TPL.free.claimRoom.claim.room === 'power' && TPL.free.claimRoom.where == null,
+    '「我看见X在配电室钻管道」：证据房间与玩家自述位置分开，不再误判玩家在配电室');
+
+  await fresh(false);
+  const TPL2 = await T(() => {
+    const t = SKV3._t; t.newGame();
+    const g = t.G(); g.paused = true; g.noReport = true;
+    const target = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
+    const listener = g.agents.find(a => !a.alien && a.i !== 0 && a.alive && a !== target);
+    for (const a of g.agents) if (a !== target && a !== listener) t.tp(a.i, 30, 32);
+    t.tp(target.i, 56, 51); t.tp(listener.i, 57, 51);
+    for (const a of g.agents) if (a.mind) {
+      a.mind.known = {}; a.mind.mem = []; a.mind.sus = {}; a.mind.why = {}; a.mind.alert = 0;
+      a.suspect = null; a.accuse = null;
+    }
+    t.openMeeting('pre', null, null);
+    const visible = !document.getElementById('m-tpl').classList.contains('hide');
+    const nBtn = document.querySelectorAll('#m-tpl-btns button').length;
+    document.getElementById('m-tpl-target').value = String(target.i);
+    [...document.querySelectorAll('#m-tpl-btns button')]
+      .find(b => b.dataset.tpl === 'pipe').click();
+    const ctx = t.meetCtx();
+    const claim = (ctx.playerClaims || [])[0];
+    const sus = (t.mind(listener.i).sus || {})[target.i] || 0;
+    const line = t.meetLines().slice(-1)[0];
+    const known = t.knownOf(listener.i);
+    t.finishMeeting();
+    return { visible, nBtn, claim, sus, known,
+      text: line ? line.text : '', target: target.i, listener: listener.i };
+  });
+  ok(TPL2.visible && TPL2.nBtn === 8, '人类会议显示模板栏与 8 个默认发言');
+  ok(TPL2.claim && TPL2.claim.target === TPL2.target && TPL2.claim.kind === 'saw_pipe' &&
+    /钻管道/.test(TPL2.text), '点击「看见钻管道」会以玩家身份发出并解析成直接证据');
+  ok(TPL2.sus >= 0.2 && Object.keys(TPL2.known).length === 0,
+    'AI 只把玩家的话记成传闻嫌疑（' + TPL2.sus.toFixed(2) + '），绝不写成 known');
+
+  await fresh(false);
+  const TPL3 = await T(() => {
+    const t = SKV3._t; t.newGame();
+    const g = t.G(); g.paused = true; g.noReport = true;
+    const target = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
+    const listener = g.agents.find(a => !a.alien && a.i !== 0 && a.alive && a !== target);
+    for (const a of g.agents) if (a !== target && a !== listener) t.tp(a.i, 30, 32);
+    t.tp(target.i, 56, 51); t.tp(listener.i, 57, 51);
+    for (const a of g.agents) if (a.mind) {
+      a.mind.known = {}; a.mind.mem = []; a.mind.sus = {}; a.mind.why = {}; a.mind.alert = 0;
+      a.suspect = null; a.accuse = null;
+    }
+    listener.mind.mem.push({kind: 'saw_agent', subj: target.i, room: 'engine',
+      night: g.night, t: 0, conf: 0.8, src: 'sight'});
+    t.openMeeting('pre', null, null);
+    document.getElementById('m-text').value =
+      '我看见 ' + g.agents[target.i].name + ' 在配电室钻管道';
+    document.getElementById('m-send').click();
+    const s0 = (t.mind(listener.i).sus || {})[0] || 0;
+    const st = (t.mind(listener.i).sus || {})[target.i] || 0;
+    const line = t.meetLines().slice(-1)[0];
+    t.finishMeeting();
+    return { s0, st, text: line ? line.text : '', target: target.i, listener: listener.i };
+  });
+  ok(TPL3.s0 >= 0.2 && TPL3.st === 0,
+    '玩家构陷与听众时间线冲突：反过来怀疑玩家（' + TPL3.s0.toFixed(2) +
+    '），不把嫌疑加到被构陷者（' + TPL3.st.toFixed(2) + '）');
 
   section('开局讨论 · 时间覆盖');
   const PACE = await T(() => {
@@ -3404,6 +3500,13 @@ function section(t) { console.log('\n== ' + t); }
     'HUD 切成旁观者：隐藏个人任务与背包');
   ok(SP1.dev && SP1.tip.indexOf('旁观者') >= 0,
     '旁观者强制显示全知总览面板与专属提示');
+  const SP1b = await T(() => {
+    const star = SKV3._t.G().agents[0].name;
+    const row = [...document.querySelectorAll('#dev-rows .dr')]
+      .map(e => e.textContent).find(s => s.indexOf(star) >= 0) || '';
+    return { row, hasAI: row.indexOf('（AI）') >= 0, hasYou: row.indexOf('（你）') >= 0 };
+  });
+  ok(SP1b.hasAI && !SP1b.hasYou, '旁观模式下 0 号星尘标注为 AI，而不是“你”');
   ok(SP1.inv.fails.length === 0, '旁观者开局不变量全过');
   /* 先把相机幽灵放到地图中央（相机不贴边），再点屏幕右侧 5 格处 */
   const SP2 = await T(() => { SKV3._t.spectTo(49, 30); return { before: [49, 30] }; });
@@ -3431,7 +3534,16 @@ function section(t) { console.log('\n== ' + t); }
   });
   ok(!SP6.do && !SP6.wheel && !SP6.drag && SP6.inspect === null,
     '旁观者不能交互 / 搜尸 / 收尸（按键全部无效）');
-  await T(() => { SKV3._t.openMeeting('day'); });
+  await T(() => { SKV3._t.openMeeting('day', 0, null); });
+  await page.waitForTimeout(900);
+  const SP6b = await T(() => {
+    const g = SKV3._t.G(), t = SKV3._t;
+    const star = g.agents[0].name;
+    return { star, aiCands: t.meetCtx().aiCands,
+      lines: t.meetLines().map(l => l.who) };
+  });
+  ok(SP6b.aiCands.indexOf(0) >= 0 && SP6b.lines.indexOf(SP6b.star) >= 0,
+    '0 号星尘进入 AI 发言池并实际发言');
   const SP7 = await T(() => ({
     input: document.getElementById('m-text').disabled,
     skipHidden: document.getElementById('m-skip').classList.contains('hide'),
@@ -3445,10 +3557,11 @@ function section(t) { console.log('\n== ' + t); }
   const SP8 = await T(() => ({
     phase: SKV3._t.G().meet ? SKV3._t.G().meet.phase : null,
     input: document.getElementById('m-text').disabled,
-    who: document.querySelectorAll('#m-who button').length
+    who: document.querySelectorAll('#m-who button').length,
+    starVote: SKV3._t.G().meet ? SKV3._t.G().meet.votes[0] : undefined
   }));
-  ok(SP8.phase === 'vote' && SP8.input && SP8.who === 0,
-    '旁观者点「跳过讨论」后进入投票：仍然不能发言 / 投票');
+  ok(SP8.phase === 'vote' && SP8.input && SP8.who === 0 && SP8.starVote !== undefined,
+    '旁观者跳过讨论后进入投票：星尘作为 AI 独立投票，旁观者仍只读');
   await T(() => SKV3._t.finishMeeting());
   await T(() => { SKV3.stop(); SKV3.start('human'); });
   await page.waitForFunction(() => window.SKV3 && SKV3._t && SKV3._t.assets().base, null, { timeout: 30000 });
