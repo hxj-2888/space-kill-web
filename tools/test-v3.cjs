@@ -1136,7 +1136,8 @@ function section(t) { console.log('\n== ' + t); }
     '模板「怀疑 / 投他」可被解析为对应玩家');
   ok(TPL.P.support.support === TPL.target, '模板「作证」可被解析为支持对象');
   ok(TPL.P.pipe.claim && TPL.P.pipe.claim.kind === 'saw_pipe' &&
-    TPL.P.pipe.claim.target === TPL.target, '模板「看见钻管道」生成可解析的直接证据');
+    TPL.P.pipe.claim.target === TPL.target && TPL.P.pipe.claim.room === 'med',
+    '模板「看见钻管道」生成可解析的直接证据，并带上选中舱室');
   ok(TPL.P.red.claim && TPL.P.red.claim.kind === 'saw_red' &&
     TPL.P.knife.claim && TPL.P.knife.claim.kind === 'saw_knife',
     '模板「看见红光 / 出刀」可被解析');

@@ -3396,9 +3396,10 @@
       if(kind==='accuse')return '我怀疑 '+tag;
       if(kind==='vote')return '我投 '+tag;
       if(kind==='support')return '我可以为 '+tag+' 作证';
-      if(kind==='pipe')return '我亲眼看见 '+tag+' 钻管道';
-      if(kind==='red')return '我亲眼看见 '+tag+' 身上有红光';
-      if(kind==='knife')return '我亲眼看见 '+tag+' 出刀';
+      const at=rn?('，就在'+rn):'';
+      if(kind==='pipe')return '我亲眼看见 '+tag+' 钻管道'+at;
+      if(kind==='red')return '我亲眼看见 '+tag+' 身上有红光'+at;
+      if(kind==='knife')return '我亲眼看见 '+tag+' 出刀'+at;
       return '';
     }
     function syncMeetTemplates(){
