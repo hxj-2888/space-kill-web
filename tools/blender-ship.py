@@ -88,7 +88,7 @@ try:
     scene.view_settings.look = 'AgX - Medium High Contrast'
 except Exception:
     pass
-scene.view_settings.exposure = 1.05
+scene.view_settings.exposure = 1.34
 
 if not FORCE_CYCLES:
     for eng in ('BLENDER_EEVEE_NEXT', 'BLENDER_EEVEE'):
@@ -98,7 +98,7 @@ if not FORCE_CYCLES:
         except Exception:
             continue
     try:
-        scene.eevee.taa_render_samples = 64
+        scene.eevee.taa_render_samples = int(argval('--samples', '64'))
     except Exception:
         pass
     try:
@@ -221,8 +221,9 @@ def mat_plain(name, color, metallic=0.4, rough=0.5, emit=None, strength=0.0, alp
 
 TEX = {
     'bridge': 'floor-carpet.png', 'cam': 'floor-steel.png', 'ecosys': 'floor-eco.png',
-    'power': 'floor-grate.png', 'transit': 'floor-steel.png', 'fun': 'floor-steel.png',
+    'power': 'floor-grate.png', 'transit': 'cafeteria-floor.png', 'fun': 'floor-steel.png',
     'engine': 'floor-grate.png', 'med': 'floor-lab.png', 'armory': 'floor-hazard.png',
+    'warehouse': 'warehouse-floor.png',
 }
 FLOOR_SCALE = {'bridge': 1 / 3.4, 'armory': 1 / 3.2, 'med': 1 / 3.0}
 FLOOR_TINT = {'armory': (0.72, 0.72, 0.72), 'bridge': (0.85, 0.85, 0.85)}
@@ -280,6 +281,12 @@ FABRIC_TEX = mat_tex('fabric_weave', 'fabric-weave.png', scale=(1 / 1.5, 1 / 1.5
 TOPPLATE = mat_tex('table_composite', 'table-composite.png', scale=(1 / 3.0, 1 / 3.0, 1.0),
                    metallic=0.24, rough=0.44, emit_mul=0.16, tint=(0.92, 0.96, 1.04),
                    fallback=((0.10, 0.11, 0.13), 0.24, 0.44))
+CAFETERIA_TOP = mat_tex('cafeteria_top', 'cafeteria-top.png', scale=(1 / 2.4, 1 / 2.4, 1.0),
+                        metallic=0.20, rough=0.50, emit_mul=0.12, tint=(1.02, 0.98, 0.92),
+                        fallback=((0.12, 0.12, 0.11), 0.20, 0.50))
+WAREHOUSE_RACK = mat_tex('warehouse_rack', 'warehouse-rack.png', scale=(1 / 2.0, 1 / 2.0, 1.0),
+                         metallic=0.62, rough=0.48, emit_mul=0.16, tint=(1.00, 0.98, 0.92),
+                         fallback=((0.16, 0.16, 0.15), 0.62, 0.48))
 MEDWHITE = mat_tex('panel_white', 'panel-white.png', scale=(1 / 2.4, 1 / 2.4, 1 / 1.2),
                    metallic=0.16, rough=0.42, emit_mul=0.10, tint=(0.96, 0.99, 1.03),
                    fallback=((0.60, 0.66, 0.70), 0.16, 0.42))
@@ -505,7 +512,7 @@ def furniture(c):
     x, y, w, h, k = c['x'], c['y'], c['w'], c['h'], c['kind']
     cx, cy = x + w / 2, y + h / 2
     tag = 'f_%s_%s' % (k, c.get('label', ''))
-    if k != 'pond':
+    if k not in ('pond', 'plate_stack', 'pot'):
         shadow_decal(tag + '_ao', cx, cy, w, h, grow=1.9)
     if k == 'table' and c.get('label') == '圆桌':
         R = min(w, h) / 2
@@ -523,9 +530,10 @@ def furniture(c):
             rr = R * 0.73
             box('f_round_table_tick_%d' % i, cx + math.cos(a) * rr, cy + math.sin(a) * rr,
                 0.34, 0.05, 0.8405, 0.8435, TABLE_RING, rot=a)
-    elif k == 'table':
-        # 台面用磨砂复合板材质，边缘留暗色包边与琥珀细线，桌腿带地脚垫
-        box(tag + '_top', cx, cy, w, h, 0.72, 0.82, TOPPLATE, bevel=0.03)
+    elif k in ('table', 'counter'):
+        # 台面用磨砂复合板材质；食堂配餐台/餐桌额外使用 cafeteria-top 贴图
+        topmat = CAFETERIA_TOP if k == 'counter' else TOPPLATE
+        box(tag + '_top', cx, cy, w, h, 0.72, 0.82, topmat, bevel=0.03)
         box(tag + '_rim', cx, cy, w + 0.05, h + 0.05, 0.70, 0.735, TRIM, bevel=0.02)
         for side in (-1, 1):
             box(tag + '_edge_x', cx, cy + side * (h / 2 - 0.02), w, 0.04, 0.80, 0.83, AMBER)
@@ -669,10 +677,11 @@ def furniture(c):
         vent(tag + '_vent', cx, cy + h * 0.5, w * 0.66, h * 0.16, 1.24, n=4)
         led_strip(tag + '_led', cx, cy - h * 0.5, w * 0.5, 0.05, CYAN, n=3)
         floor_frame(tag + '_hzf', cx, cy, w, h, bar=0.10, gap=0.16)
-    elif k == 'rack':
+    elif k in ('rack', 'warehouse_rack'):
+        side_mat = WAREHOUSE_RACK if k == 'warehouse_rack' else PANEL
         box(tag + '_frame', cx, cy, w, h, 0.0, 1.46, DARK, bevel=0.03)
         for sx in (-1, 1):
-            box(tag + '_side%d' % sx, cx + sx * (w / 2 - 0.04), cy, 0.08, h * 1.01, 0.02, 1.44, PANEL)
+            box(tag + '_side%d' % sx, cx + sx * (w / 2 - 0.04), cy, 0.08, h * 1.01, 0.02, 1.44, side_mat)
         for i in range(4):
             z = 0.22 + i * 0.30
             box(tag + '_slot%d' % i, cx, cy - h * 0.36 + i * h * 0.24, w * 0.74, h * 0.10,
@@ -683,12 +692,26 @@ def furniture(c):
         vent(tag + '_vent', cx, cy + h * 0.44, w * 0.6, h * 0.12, 1.30, n=4)
         pipe_run(tag + '_cable', cx, cy + h / 2, cx - w * 0.4, cy + h / 2 + 1.0, 0.06, 0.05, DARK)
         floor_frame(tag + '_hzf', cx, cy, w, h, bar=0.10, gap=0.16)
+    elif k == 'plate_stack':
+        # 餐具：叠放的浅盘，直接放在桌面高度
+        for i, rr in enumerate((0.34, 0.30, 0.26)):
+            cyl(tag + '_plate%d' % i, cx, cy, rr, 0.84 + i * 0.025, 0.855 + i * 0.025,
+                WHITE, verts=24, bevel=0.008)
+        cyl(tag + '_rim', cx, cy, 0.38, 0.838, 0.846, METAL, verts=24)
+    elif k == 'pot':
+        # 电子锅：锅体 + 盖 + 指示灯，放在桌面上
+        cyl(tag + '_body', cx, cy, min(w, h) * 0.32, 0.84, 1.08, PANEL_LIGHT, verts=20)
+        cyl(tag + '_lid', cx, cy, min(w, h) * 0.33, 1.08, 1.12, METAL, verts=20)
+        cyl(tag + '_knob', cx, cy, min(w, h) * 0.07, 1.12, 1.20, CYAN, verts=12)
+        led_strip(tag + '_led', cx, cy + min(w, h) * 0.30, min(w, h) * 0.34, 0.94, AMBER, n=2)
     else:
         box(tag + '_body', cx, cy, w, h, 0.0, 0.7, PANEL, bevel=0.03)
         box(tag + '_cap', cx, cy, w * 0.96, h * 0.96, 0.70, 0.74, PANEL_LIGHT, bevel=0.02)
 
 
 for c in M['cover']:
+    furniture(c)
+for c in M.get('decor', []):
     furniture(c)
 
 # ---------------- 灯光 ----------------
@@ -713,9 +736,9 @@ area('rim', W * 0.15, H * 0.85, 6.0, 16.0, 650.0, (0.55, 0.75, 1.0))
 ROOM_LIGHT = {
     'bridge': ((0.78, 0.86, 1.0), 1.00), 'cam': ((0.72, 0.82, 1.0), 0.85),
     'ecosys': ((0.62, 0.95, 0.72), 0.90), 'power': ((0.68, 0.76, 1.0), 0.92),
-    'transit': ((0.85, 0.88, 1.0), 0.88), 'fun': ((1.0, 0.80, 0.55), 0.88),
+    'transit': ((1.0, 0.88, 0.74), 0.92), 'fun': ((1.0, 0.80, 0.55), 0.88),
     'engine': ((1.0, 0.66, 0.50), 0.95), 'med': ((0.82, 0.94, 1.0), 1.00),
-    'armory': ((1.0, 0.76, 0.45), 0.90),
+    'armory': ((1.0, 0.76, 0.45), 0.90), 'warehouse': ((0.88, 0.94, 1.0), 0.95),
 }
 for r in M['rooms']:
     x0, y0, rw, rh = r['rect']
@@ -747,17 +770,25 @@ cam.rotation_euler = (-THETA, 0, 0)
 scene.camera = cam
 
 # 合成器：只做一次垂直翻转（正交 2.5D 相机的 Y 轴与画布 Y 轴方向相反）
-# Blender 5.x 的合成器已改为 node group：scene.compositing_node_group
+# Blender 5.x 的合成器已改为 node group（scene.compositing_node_group）；
+# 4.x 仍然是 scene.node_tree + CompositorNodeComposite，两条路都要能跑。
 scene.use_nodes = True
-nt = bpy.data.node_groups.new('ShipComp', 'CompositorNodeTree')
-scene.compositing_node_group = nt
-nt.interface.new_socket(name='Image', in_out='OUTPUT', socket_type='NodeSocketColor')
+if hasattr(scene, 'compositing_node_group'):
+    nt = bpy.data.node_groups.new('ShipComp', 'CompositorNodeTree')
+    scene.compositing_node_group = nt
+    nt.interface.new_socket(name='Image', in_out='OUTPUT', socket_type='NodeSocketColor')
+    go = nt.nodes.new('NodeGroupOutput')
+    out_socket = go.inputs[0]
+else:
+    nt = scene.node_tree
+    nt.nodes.clear()
+    go = nt.nodes.new('CompositorNodeComposite')
+    out_socket = go.inputs['Image']
 rl = nt.nodes.new('CompositorNodeRLayers')
 flip = nt.nodes.new('CompositorNodeFlip')
 flip.inputs['Flip Y'].default_value = True
-go = nt.nodes.new('NodeGroupOutput')
 nt.links.new(rl.outputs['Image'], flip.inputs['Image'])
-nt.links.new(flip.outputs['Image'], go.inputs[0])
+nt.links.new(flip.outputs['Image'], out_socket)
 
 # 材质贴图需要 Object 坐标 = 世界坐标：统一清空物体变换
 bpy.context.view_layer.update()

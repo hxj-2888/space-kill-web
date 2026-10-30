@@ -1,5 +1,5 @@
 /* =============================================================
- * SKUITemplates · 游戏界面样式与结构模板（返航录V2 · 2026-10-29）
+ * SKUITemplates · 游戏界面样式与结构模板（返航录V3 · 2026-10-29）
  * -------------------------------------------------------------
  * 职责：   集中存放 `#v3-root` 的 CSS 与 HTML 字符串，供 js/game.js 注入页面。
  * 不变量： · 纯字符串常量，不读 DOM、不执行逻辑；
@@ -213,7 +213,7 @@
 
 <div id="cam" class="ov hide"><div class="cam-panel">
   <div class="cam-head">
-    <div><span class="cam-title">全船监控</span> <span class="cam-sub">CCTV · 9 路画面</span></div>
+    <div><span class="cam-title">全船监控</span> <span class="cam-sub">CCTV · 10 路画面</span></div>
     <div class="cam-right"><span id="cam-state">● 信号正常</span><span id="cam-meta"></span></div>
   </div>
   <canvas id="camcv" width="1080" height="620"></canvas>
@@ -271,7 +271,7 @@
   <h2>已暂停</h2><div class="sub">单机模式 · 夜里的倒计时和 AI 都已冻结</div>
   <div class="row"><span>继续游戏</span><b>ESC / P</b></div>
   <div class="row"><span>当前进度</span><b id="p-info">—</b></div>
-  <div class="row"><span>版本</span><b data-version>返航录V2</b></div>
+  <div class="row"><span>版本</span><b data-version>返航录V3</b></div>
   <div class="btns">
     <button class="p" id="p-resume">继续</button>
     <button id="p-set">设置</button>

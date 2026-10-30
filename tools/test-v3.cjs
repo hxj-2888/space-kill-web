@@ -73,14 +73,14 @@ function section(t) { console.log('\n== ' + t); }
     return { a: t.assets(), n: t.state().length, inv: t.inv(), role: document.getElementById('role').textContent,
       tip: document.getElementById('tip').textContent, meet: !document.getElementById('meet').classList.contains('hide') };
   });
-  ok(A.a.base && A.a.w === 4704 && A.a.h === 2817, 'Blender 2.5D 底图已加载 ' + A.a.w + '×' + A.a.h);
+  ok(A.a.base && A.a.w === 4704 && A.a.h === 3850, 'Blender 2.5D 底图已加载 ' + A.a.w + '×' + A.a.h);
   ok(A.n === 15, '15 个席位');
   ok(A.inv && A.inv.fails.length === 0 && A.inv.checks > 200, '不变量基线 ' + (A.inv && A.inv.checks) + ' 项检查全过');
   ok(A.role.indexOf('人类') >= 0, 'HUD 显示人类');
   ok(A.tip.indexOf('S 搜尸') >= 0 && A.tip.indexOf('D 收尸') >= 0 && A.tip.indexOf('W 交互') >= 0,
     '提示栏改为 WASD 主操作键：W 交互 / S 搜尸 / D 收尸');
   ok(!A.meet, '?test 跳过开局会议，直接进夜');
-  await T(() => { SKV3._t.tp(0, 34.8, 11.8); });
+  await T(() => { SKV3._t.tp(0, 34.8,33.8); });
   await page.waitForTimeout(300);
   await shot('24_2.5D底图_跟随.png');
 
@@ -107,21 +107,31 @@ function section(t) { console.log('\n== ' + t); }
     return { rs, ps, pts, bad, pipeFree: ps.every(p => t.free(p.x, p.y)),
       pipeRooms: ps.map(p => p.room).sort() };
   });
-  ok(MAPA.rs.length === 9 && MAPA.bad.length === 0,
-    '9 间房两两 A* 可达' + (MAPA.bad.length ? ' :: ' + MAPA.bad.join(',') : ''));
+  ok(MAPA.rs.length === 10 && MAPA.bad.length === 0,
+    '10 间房两两 A* 可达' + (MAPA.bad.length ? ' :: ' + MAPA.bad.join(',') : ''));
   const powerR = MAPA.rs.find(r => r.id === 'power'), engineR = MAPA.rs.find(r => r.id === 'engine'),
     transitR = MAPA.rs.find(r => r.id === 'transit');
   ok(powerR.area === 148 && powerR.cls === '小' && engineR.area === 216 && engineR.cls === '中',
     '配电室 148 格（小型）/ 引擎 216 格（中型）');
   ok(transitR.area === 102 && transitR.cls === '小',
-    '中转间缩为小型：102 格');
-  ok(MAPA.ps.length === 4 && MAPA.pipeFree && MAPA.pipeRooms.join(',') === 'armory,bridge,cam,engine',
-    '4 个管道口全部可站立：engine / cam / armory / bridge（配电室已移除）');
-  const bridgePipe = MAPA.ps.find(p => p.room === 'bridge');
-  ok(bridgePipe && bridgePipe.x > 56 && bridgePipe.y < 9,
-    '中央会议室管道移到右上角（' + (bridgePipe ? bridgePipe.x + ',' + bridgePipe.y : '缺') + '）');
-  ok(MAPA.pts.length === 25 && MAPA.pts.every(p => p.d <= 2.6),
-    '25 个任务点全部能被 nearPoint 命中');
+    '食堂仍为小型：102 格');
+  ok(MAPA.ps.length === 4 && MAPA.pipeFree && MAPA.pipeRooms.join(',') === 'armory,cam,engine,warehouse',
+    '4 个管道口全部可站立：engine / cam / armory / warehouse（会议室管道已移除）');
+  const whPipe = MAPA.ps.find(p => p.room === 'warehouse');
+  ok(whPipe && whPipe.x > 50 && whPipe.y < 15,
+    '仓库管道位于新舱室（' + (whPipe ? whPipe.x + ',' + whPipe.y : '缺') + '）');
+  ok(MAPA.pts.length === 26 && MAPA.pts.every(p => p.d <= 2.6),
+    '26 个任务点全部能被 nearPoint 命中（高难 8 / 普通 18）');
+  const whRoom = MAPA.rs.find(r => r.id === 'warehouse');
+  ok(whRoom && whRoom.area === 504 && whRoom.cls === '大' && whRoom.doors.length === 1,
+    '仓库是 42×12 大型单门舱室（504 格）');
+  const hardN = MAPA.pts.filter(p => p.kind === 'hard').length;
+  const normalN = MAPA.pts.filter(p => p.kind === 'normal').length;
+  ok(hardN === 8 && normalN === 18 &&
+    MAPA.pts.filter(p => p.room === 'power' && p.kind === 'normal').length === 0 &&
+    MAPA.pts.filter(p => p.room === 'engine' && p.kind === 'normal').length === 3 &&
+    MAPA.pts.filter(p => p.room === 'warehouse' && p.kind === 'normal').length === 3,
+    '任务点重排：高难 8 / 普通 18，配电室无普通点，引擎/仓库各 3 个普通点');
 
   section('搜尸');
   await fresh(false);
@@ -130,13 +140,13 @@ function section(t) { console.log('\n== ' + t); }
     g.noReport = true;
     /* 测试隔离：本节只验搜尸/拖拽，先卸掉异形 AI 的刀，避免它把测试玩家击倒 */
     for (const a of g.agents) if (a.alien) { a.knife = 0; a.target = null; a.path = null; }
-    t.tp(1, 28.2, 22.0);
+    t.tp(1, 28.2,44);
     t.kill(1, 'knife');
     const b = t.bodyOf(1);
     t.tp(0, b[0] + 0.5, b[1] + 0.5);
     return { b, st: t.state()[1], dur: t.inv() };
   });
-  ok(S.b && Math.abs(S.b[0] - 28.2) < 0.01 && Math.abs(S.b[1] - 22.0) < 0.01, '尸体留在死亡点 (28.2,22.0)');
+  ok(S.b && Math.abs(S.b[0] - 28.2) < 0.01 && Math.abs(S.b[1] - 44.0) < 0.01, '尸体留在死亡点 (28.2,44.0)');
   ok(!S.st.alive && S.st.ghost && S.st.cause === 'knife', '死亡 → 幽灵态，死因刀伤');
   ok(S.dur && S.dur.fails.length === 0, '死亡后不变量仍全过');
   await page.keyboard.press('x');
@@ -170,7 +180,7 @@ function section(t) { console.log('\n== ' + t); }
   ok(D.tag, '拖拽提示条显示');
   ok(D.inv && D.inv.fails.length === 0, '拖拽起始不变量全过');
   const before = D.st.body;
-  await T(() => { SKV3._t.tp(0, 28.3, 19.7); });
+  await T(() => { SKV3._t.tp(0, 28.3,41.7); });
   await page.waitForTimeout(450);
   const D2 = await T(() => {
     const t = SKV3._t; const me = t.pos(); const st = t.state()[1];
@@ -196,9 +206,9 @@ function section(t) { console.log('\n== ' + t); }
     for (const a of g.agents) if (a.alien) { a.knife = 0; a.target = null; a.path = null; }
     const v = g.agents[1];
     v.bullet = 1; v.medkit = 1; v.qual = 2;
-    t.tp(v.i, 28.2, 22.0);
+    t.tp(v.i, 28.2,44);
     t.kill(v.i, 'knife');
-    t.tp(0, 28.4, 22.4);
+    t.tp(0, 28.4,44.4);
     g.me.bullet = 0; g.me.medkit = 0; g.me.qual = 0;
     return { v: v.i, before: t.bodyItems(v.i), vname: v.name };
   });
@@ -218,7 +228,7 @@ function section(t) { console.log('\n== ' + t); }
   ok(/取得/.test(LOOT2.msg) && LOOT2.card === '银翼',
     '搜尸播报列出取得的物资，并打开尸检卡：' + LOOT2.msg);
   ok(LOOT2.searched === true && LOOT2.inv.fails.length === 0, '搜尸同时完成取证，不变量全过');
-  await T(() => { SKV3._t.tp(0, 28.4, 22.4); SKV3._t.G().msg = ''; });
+  await T(() => { SKV3._t.tp(0, 28.4,44.4); SKV3._t.G().msg = ''; });
   await page.keyboard.press('Escape');   /* 先关掉上一步自动打开的尸检卡 */
   await page.waitForTimeout(120);
   await page.keyboard.press('s');
@@ -235,10 +245,10 @@ function section(t) { console.log('\n== ' + t); }
     const g = t.G(); g.paused = true; g.noReport = true;
     const v = g.agents.find(a => !a.alien && a.i !== 0);
     const h = g.agents.find(a => !a.alien && a.i !== 0 && a !== v);
-    for (const a of g.agents) if (a !== v && a !== h) t.tp(a.i, 30, 10);
+    for (const a of g.agents) if (a !== v && a !== h) t.tp(a.i, 30,32);
     v.bullet = 1; v.qual = 1;
-    t.tp(v.i, 28.2, 22.0); t.kill(v.i, 'knife');
-    t.tp(h.i, 28.4, 22.4);
+    t.tp(v.i, 28.2,44); t.kill(v.i, 'knife');
+    t.tp(h.i, 28.4,44.4);
     h.bullet = 0; h.qual = 0; h.doing = 0; h._doing = null; h.path = null; h._delay = 0;
     t.aiScan(h.i, 0.6);
     const do0 = g.agents[h.i]._doing;
@@ -257,10 +267,10 @@ function section(t) { console.log('\n== ' + t); }
     const g = t.G(); g.paused = true; g.noReport = true;
     const v = g.agents.find(a => !a.alien && a.i !== 0);
     const k = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
-    for (const a of g.agents) if (a !== v && a !== k) t.tp(a.i, 30, 10);
+    for (const a of g.agents) if (a !== v && a !== k) t.tp(a.i, 30,32);
     v.bullet = 1;
-    t.tp(v.i, 28.2, 22.0); t.kill(v.i, 'knife');
-    t.tp(k.i, 28.4, 22.4);
+    t.tp(v.i, 28.2,44); t.kill(v.i, 'knife');
+    t.tp(k.i, 28.4,44.4);
     k.bullet = 0; k.doing = 0; k._doing = null; k.path = null; k._delay = 0; k.sabUsed = true;
     t.aiScan(k.i, 0.6);
     const do0 = g.agents[k.i]._doing;
@@ -275,7 +285,7 @@ function section(t) { console.log('\n== ' + t); }
   await fresh(false);
   const G0 = await T(() => {
     const t = SKV3._t;
-    t.tp(0, 28.2, 22.0);
+    t.tp(0, 28.2,44);
     t.kill(0, 'knife');
     return { st: t.state()[0], fog: t.fog(), role: document.getElementById('role').textContent,
       tip: document.getElementById('tip').textContent, inv: t.inv() };
@@ -300,7 +310,7 @@ function section(t) { console.log('\n== ' + t); }
   await page.keyboard.press('e');
   await page.waitForTimeout(200);
   const GD = await T(() => ({ doing: SKV3._t.G().me.doing, prog: SKV3._t.G().prog }));
-  ok(GD.doing > 25 && GD.doing <= 28.9, '幽灵维修耗时 1.6×（' + GD.doing.toFixed(1) + 's）');
+  ok(GD.doing > 22 && GD.doing <= 26, '幽灵维修耗时 1.6×（' + GD.doing.toFixed(1) + 's）');
   await T(() => { SKV3._t.G().me.doing = 0.03; });
   await page.waitForTimeout(300);
   const GR2 = await T(() => ({ prog: SKV3._t.G().prog, tIdx: SKV3._t.G().me.tIdx, inv: SKV3._t.inv() }));
@@ -322,7 +332,7 @@ function section(t) { console.log('\n== ' + t); }
   ok(GCAP.pts === 2 && GCAP2.pts === 2, '幽灵任务额度：修满 2 分');
   ok(GCAP2.do === null && GCAP2.tIdx === GCAP.tIdx && GCAP2.msg.indexOf('2 分') >= 0,
     '幽灵额度用尽后不再开始新任务（' + GCAP.spot + '）');
-  await T(() => { SKV3._t.tp(0, 28.2, 21.1); });
+  await T(() => { SKV3._t.tp(0, 28.2,43.1); });
   await page.waitForTimeout(350);
   await page.keyboard.press('x');
   await page.waitForTimeout(600);
@@ -333,7 +343,7 @@ function section(t) { console.log('\n== ' + t); }
   await fresh(false);
   const GO = await T(() => {
     const t = SKV3._t, g = t.G();
-    t.tp(0, 28.2, 22); t.kill(0, 'knife');
+    t.tp(0, 28.2,44); t.kill(0, 'knife');
     g.me.tasks = [0, 4, 11, 8]; g.me.tIdx = 0; g.me.progress = 0;
     g.me.doing = 0; g.me._doing = null; g.me.path = null;
     const P = t.points()[11];
@@ -429,7 +439,7 @@ function section(t) { console.log('\n== ' + t); }
   await fresh(false);
   const R = await T(() => {
     const t = SKV3._t;
-    t.tp(2, 28.2, 22.0);
+    t.tp(2, 28.2,44);
     t.kill(2, 'shot');
     const b = t.bodyOf(2);
     t.tp(0, b[0] + 0.5, b[1] + 0.5);
@@ -463,7 +473,7 @@ function section(t) { console.log('\n== ' + t); }
     const t = SKV3._t, g = t.G();
     const k = g.agents.find(a => a.alien && a !== g.me && a.alive);
     const v = g.agents.find(a => !a.alien && a !== g.me && a.alive);
-    t.tp(k.i, 34.8, 11.8); t.tp(v.i, 35.75, 11.8); t.tp(0, 33.4, 11.8);
+    t.tp(k.i, 34.8,33.8); t.tp(v.i, 35.75,33.8); t.tp(0, 33.4,33.8);
     k.knife = 1;
     t.knife(k.i, v.i);
     return { fx: t.fx(), acts: t.acts(), downed: t.state()[v.i].downed,
@@ -483,10 +493,10 @@ function section(t) { console.log('\n== ' + t); }
     const t = SKV3._t, g = t.G();
     const k = g.agents[o.k], v = g.agents[o.v];
     const v2 = g.agents.find(a => !a.alien && a !== g.me && a.alive && a !== v);
-    for (const a of g.agents) if (a !== g.me && a !== k && a !== v2) { a.path = null; a.x = 28.2; a.y = 22.0; }
-    t.tp(0, 33.4, 11.8);
-    t.tp(k.i, 34.8, 11.8); k.knife = 1; k.detained = false; k.path = null;
-    t.tp(v2.i, 35.75, 11.8);
+    for (const a of g.agents) if (a !== g.me && a !== k && a !== v2) { a.path = null; a.x = 28.2; a.y = 44.0; }
+    t.tp(0, 33.4,33.8);
+    t.tp(k.i, 34.8,33.8); k.knife = 1; k.detained = false; k.path = null;
+    t.tp(v2.i, 35.75,33.8);
     t.knife(k.i, v2.i);
   }, KN);
   await page.waitForTimeout(90);
@@ -501,9 +511,9 @@ function section(t) { console.log('\n== ' + t); }
     const k = g.agents.find(a => a.alien && a !== g.me && a.alive);
     const v = g.agents.find(a => !a.alien && a !== g.me && a.alive);
     for (const a of g.agents) if (a !== g.me && a !== k && a !== v) {
-      a.knife = 0; a.path = null; a.x = 28.2; a.y = 22.0;
+      a.knife = 0; a.path = null; a.x = 28.2; a.y = 44.0;
     }
-    t.tp(k.i, 34.8, 11.8); t.tp(v.i, 35.7, 11.8); t.tp(0, 33.2, 11.8);
+    t.tp(k.i, 34.8,33.8); t.tp(v.i, 35.7,33.8); t.tp(0, 33.2,33.8);
     k.knife = 1; k.sabUsed = true; k._delay = 999; v._delay = 999;
     t.knife(k.i, v.i);
     const st = t.state();
@@ -540,9 +550,9 @@ function section(t) { console.log('\n== ' + t); }
   await fresh(false);
   const SH = await T(() => {
     const t = SKV3._t, g = t.G();
-    t.tp(0, 34.8, 11.8);
-    for (const a of g.agents) if (a !== g.me) { a.path = null; a.x = 28.2; a.y = 22.0; }
-    t.tp(2, 30.5, 11.8);
+    t.tp(0, 34.8,33.8);
+    for (const a of g.agents) if (a !== g.me) { a.path = null; a.x = 28.2; a.y = 44.0; }
+    t.tp(2, 30.5,33.8);
     g.me.bullet = 1;
     t.shoot();
     return { fx: t.fx(), acts: t.acts(), bullet: g.me.bullet, downed: t.state()[2].downed,
@@ -551,7 +561,7 @@ function section(t) { console.log('\n== ' + t); }
       impact: !!g.fx.find(f => f.type === 'impact'),
       blood: !!g.fx.find(f => f.type === 'blood') };
   });
-  ok(SH.tracer && Math.abs(SH.tracer.x2 - 30.5) < 0.01 && Math.abs(SH.tracer.y2 - 11.8) < 0.01,
+  ok(SH.tracer && Math.abs(SH.tracer.x2 - 30.5) < 0.01 && Math.abs(SH.tracer.y2 - 33.8) < 0.01,
     '开枪：弹道从枪口连到目标');
   ok(SH.muzzle && SH.impact && SH.blood, '开枪：枪口火光 + 命中环 + 血雾');
   ok(SH.acts.includes('shoot') && SH.acts.includes('hurt'), '开枪：后坐 + 受击动作');
@@ -569,13 +579,17 @@ function section(t) { console.log('\n== ' + t); }
   section('专属动画 · 维修 / 领取物资申请单 / 领取补给');
   await fresh(false);
   const DURS = await T(() => SKV3._t.taskDurs());
-  ok(DURS.length === 25 && DURS.every(d => d.kind !== 'normal' || d.dur === 10),
-    '16 个普通任务全部 10 秒（高难仍为 15–20 秒）');
+  ok(DURS.length === 26 && DURS.every(d => d.kind !== 'normal' || d.dur === 10),
+    '18 个普通任务全部 10 秒（高难 15 秒 / 电路维修 18 秒）');
   const W0 = await T(() => {
     const t = SKV3._t, g = t.G();
-    for (const a of g.agents) if (a !== g.me) { a.path = null; a.x = 28.2; a.y = 22.0; }
-    t.tp(0, 60.6, 47.4);
-    g.me.tasks = [16, 17, 18, 19]; g.me.tIdx = 0; g.me.progress = 2;
+    for (const a of g.agents) if (a !== g.me) { a.path = null; a.x = 28.2; a.y = 44.0; }
+    const allP = t.points();
+    const pi = allP.findIndex(p => p.label === '药柜');
+    const mp = allP[pi];
+    const normals = allP.map((p, i) => ({ p, i })).filter(x => x.p.kind === 'normal' && x.i !== pi).map(x => x.i);
+    t.tp(0, mp.x - 1.6, mp.y + 1.4);
+    g.me.tasks = [pi, normals[0], normals[1], normals[2]]; g.me.tIdx = 0; g.me.progress = 2;
     g.me.qual = 0; g.me.qualPending = 0;
     g.me.doing = 0; g.me._doing = null; g.me.path = null;
     return { room: t.state()[0].room, spot: t.taskSpot(0) };
@@ -723,25 +737,28 @@ function section(t) { console.log('\n== ' + t); }
   await fresh(false);
   const ORD = await T(() => {
     const t = SKV3._t, g = t.G();
-    const P = t.points()[11];                 // 中转间 升降台（列表第 3 个）
-    g.me.tasks = [0, 4, 11, 8]; g.me.tIdx = 0; g.me.progress = 0;
+    const allP = t.points();
+    const pi = allP.findIndex(p => p.label === '餐台清洁');
+    const P = allP[pi];
+    const rest = allP.map((p, i) => i).filter(i => i !== pi).slice(0, 3);
+    g.me.tasks = [pi].concat(rest); g.me.tIdx = 0; g.me.progress = 0;
     g.me.doing = 0; g.me._doing = null; g.me.path = null; g.me._taskPt = null;
     t.tp(0, P.x, P.y);
     const it = t.interact();                  // 只刷出任务项 → 直接开修
     const started = { do: g.me._doing, doing: g.me.doing, pt: g.me._taskPt };
     const fin = t.finishDoing(0);
-    return { P: P.label, it, started, fin,
+    return { P: P.label, pi, it, started, fin,
       tIdx: g.me.tIdx, prog: g.prog, progress: g.me.progress,
       left: g.me.tasks.slice(g.me.tIdx).map(i => t.points()[i].label) };
   });
-  ok(ORD.started.do === 'task' && ORD.started.pt === 11,
+  ok(ORD.started.do === 'task' && ORD.started.pt === ORD.pi,
     '乱序开工：记录实际任务点「' + ORD.P + '」（不是列表首个任务）');
-  ok(ORD.fin.msg.indexOf('升降台') >= 0 && ORD.fin.msg.indexOf('引擎组同步') < 0,
+  ok(ORD.fin.msg.indexOf(ORD.P) >= 0 && ORD.fin.msg.indexOf('引擎组同步') < 0,
     '结算播报按实际点位：' + ORD.fin.msg);
   ok(ORD.tIdx === 1 && ORD.prog === 1 && ORD.progress === 1,
     '乱序维修计分正确：普通任务 +1，任务索引 +1');
-  ok(ORD.left.length === 3 && ORD.left.indexOf('升降台') < 0 && ORD.left.indexOf('引擎组同步') >= 0,
-    '任务列表：已修的升降台移除，未修的引擎组同步保留');
+  ok(ORD.left.length === 3 && ORD.left.indexOf(ORD.P) < 0 && ORD.left.indexOf('引擎组同步') >= 0,
+    '任务列表：已修的餐台清洁移除，未修的引擎组同步保留');
 
   section('AI 节奏 · 慢工 + 夜间可连修');
   await fresh(false);
@@ -794,8 +811,8 @@ function section(t) { console.log('\n== ' + t); }
     const aliens = g.agents.filter(a => a.alien && a.alive);
     const humans = g.agents.filter(a => !a.alien && a.alive && a !== g.me);
     const k = aliens[0], v = humans[0], w1 = humans[1], w2 = humans[2];
-    t.tp(k.i, 56, 51); t.tp(v.i, 57.2, 51); t.tp(w1.i, 55, 51); t.tp(w2.i, 56, 53);
-    t.tp(0, 58.5, 51.2);
+    t.tp(k.i, 56,73); t.tp(v.i, 57.2,73); t.tp(w1.i, 55,73); t.tp(w2.i, 56,75);
+    t.tp(0, 58.5,73.2);
     k.knife = 1;
     t.knife(k.i, v.i);
     const sawNear = g.agents[w1.i].suspect === k.i || g.agents[w2.i].suspect === k.i;
@@ -917,8 +934,8 @@ function section(t) { console.log('\n== ' + t); }
     const demote = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
     demote.alien = false; g.me.alien = true;
     const w = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
-    const pipe = t.pipes().find(p => p.room === 'bridge');
-    t.tp(w.i, 57.8, 6.2);
+    const pipe = t.pipes().find(p => p.room === 'warehouse');
+    t.tp(w.i, pipe.x - 1.7, pipe.y);
     t.tp(0, pipe.x, pipe.y);
     const before = t.knownOf(w.i);
     t.openPipe();
@@ -946,7 +963,7 @@ function section(t) { console.log('\n== ' + t); }
     const g = t.G(); g.paused = true; g.noReport = true;
     const k = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
     const w = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
-    t.tp(k.i, 56, 51); t.tp(w.i, 57.2, 51);
+    t.tp(k.i, 56,73); t.tp(w.i, 57.2,73);
     k.redT = 3;                       /* 模拟刚出刀后的 3 秒红身 */
     t.track();
     const know = t.knownOf(w.i);
@@ -962,8 +979,8 @@ function section(t) { console.log('\n== ' + t); }
     const g = t.G(); g.paused = true; g.noReport = true;
     const k = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
     const w = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
-    t.tp(k.i, 56, 51); t.tp(w.i, 57.2, 51);
-    t.notice(k.i, 56, 51, 6, 'shot', null);   /* 开枪人类也会做 */
+    t.tp(k.i, 56,73); t.tp(w.i, 57.2,73);
+    t.notice(k.i, 56, 73, 6, 'shot', null);   /* 开枪人类也会做 */
     return { know: t.knownOf(w.i), sus: (t.mind(w.i).sus || {})[k.i] || 0, k: k.i };
   });
   ok(Object.keys(CERT3.know).length === 0 && CERT3.sus > 0.3,
@@ -974,8 +991,8 @@ function section(t) { console.log('\n== ' + t); }
     const g = t.G(); g.paused = true; g.noReport = true;
     const k = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
     const w = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
-    t.tp(k.i, 56, 51); t.tp(w.i, 57.2, 51);
-    t.notice(k.i, 56, 51, 6, 'sabotage', null);
+    t.tp(k.i, 56,73); t.tp(w.i, 57.2,73);
+    t.notice(k.i, 56, 73, 6, 'sabotage', null);
     const k1 = t.knownOf(w.i);
     t.newNight();                        /* 进入下一夜：普通认知清空 */
     const k2 = t.knownOf(w.i);
@@ -1003,9 +1020,9 @@ function section(t) { console.log('\n== ' + t); }
     const w = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
     const l1 = g.agents.find(a => !a.alien && a.i !== 0 && a.alive && a !== w);
     const l2 = g.agents.find(a => !a.alien && a.i !== 0 && a.alive && a !== w && a !== l1);
-    for (const a of g.agents) if (a !== k && a !== w && a !== l1 && a !== l2) t.tp(a.i, 30, 32);
-    t.tp(l1.i, 27, 34); t.tp(l2.i, 29, 34);
-    t.tp(k.i, 56, 51); t.tp(w.i, 57.2, 51);
+    for (const a of g.agents) if (a !== k && a !== w && a !== l1 && a !== l2) t.tp(a.i, 30,54);
+    t.tp(l1.i, 27,56); t.tp(l2.i, 29,56);
+    t.tp(k.i, 56,73); t.tp(w.i, 57.2,73);
     k.redT = 3; t.track();                 /* w 亲眼看见红光，拿到确证 */
     for (const a of g.agents) {
       if (a === w || !a.mind) continue;
@@ -1058,7 +1075,7 @@ function section(t) { console.log('\n== ' + t); }
     const p = pipes.find(x => x.room === 'engine') || pipes[0];
     const k = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
     const w = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
-    for (const a of g.agents) if (a !== k && a !== w) t.tp(a.i, 30, 32);
+    for (const a of g.agents) if (a !== k && a !== w) t.tp(a.i, 30,54);
     t.tp(k.i, p.x, p.y); t.tp(w.i, p.x + 1.2, p.y);
     w.nRoom = 'med';                        /* 证人的自述位置不在管道房 */
     t.notice(k.i, p.x, p.y, 6, 'pipe');     /* w 亲眼看见钻管道 → known */
@@ -1121,10 +1138,10 @@ function section(t) { console.log('\n== ' + t); }
     const t = SKV3._t; t.newGame();
     const g = t.G(); g.paused = true; g.noReport = true;
     const h = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
-    g.me.x = 8; g.me.y = 30; h.x = 9; h.y = 30; h.nRoom = 'engine';
+    g.me.x = 8; g.me.y = 52; h.x = 9; h.y = 52; h.nRoom = 'engine';
     h.mind.mem = [];
     t.track();                        /* h 记住：玩家在引擎舱 */
-    t.tp(0, 55, 50);                  /* 玩家随后跑到医疗间 */
+    t.tp(0, 55,72);                  /* 玩家随后跑到医疗间 */
     for (const a of g.agents) if (a !== g.me) a._delay = 999;
     t.openMeeting('day');
     const s0 = (t.mind(h.i).sus || {})[0] || 0;
@@ -1193,8 +1210,8 @@ function section(t) { console.log('\n== ' + t); }
     const g = t.G(); g.paused = true; g.noReport = true;
     const target = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
     const listener = g.agents.find(a => !a.alien && a.i !== 0 && a.alive && a !== target);
-    for (const a of g.agents) if (a !== target && a !== listener) t.tp(a.i, 30, 32);
-    t.tp(target.i, 56, 51); t.tp(listener.i, 57, 51);
+    for (const a of g.agents) if (a !== target && a !== listener) t.tp(a.i, 30,54);
+    t.tp(target.i, 56,73); t.tp(listener.i, 57,73);
     for (const a of g.agents) if (a.mind) {
       a.mind.known = {}; a.mind.mem = []; a.mind.sus = {}; a.mind.why = {}; a.mind.alert = 0;
       a.suspect = null; a.accuse = null;
@@ -1226,8 +1243,8 @@ function section(t) { console.log('\n== ' + t); }
     const g = t.G(); g.paused = true; g.noReport = true;
     const target = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
     const listener = g.agents.find(a => !a.alien && a.i !== 0 && a.alive && a !== target);
-    for (const a of g.agents) if (a !== target && a !== listener) t.tp(a.i, 30, 32);
-    t.tp(target.i, 56, 51); t.tp(listener.i, 57, 51);
+    for (const a of g.agents) if (a !== target && a !== listener) t.tp(a.i, 30,54);
+    t.tp(target.i, 56,73); t.tp(listener.i, 57,73);
     for (const a of g.agents) if (a.mind) {
       a.mind.known = {}; a.mind.mem = []; a.mind.sus = {}; a.mind.why = {}; a.mind.alert = 0;
       a.suspect = null; a.accuse = null;
@@ -1254,8 +1271,8 @@ function section(t) { console.log('\n== ' + t); }
     const g = t.G(); g.paused = true; g.noReport = true;
     const target = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
     const listener = g.agents.find(a => !a.alien && a.i !== 0 && a.alive && a !== target);
-    for (const a of g.agents) if (a !== target && a !== listener) t.tp(a.i, 30, 32);
-    t.tp(target.i, 56, 51); t.tp(listener.i, 57, 51);
+    for (const a of g.agents) if (a !== target && a !== listener) t.tp(a.i, 30,54);
+    t.tp(target.i, 56,73); t.tp(listener.i, 57,73);
     for (const a of g.agents) if (a.mind) {
       a.mind.known = {}; a.mind.mem = []; a.mind.sus = {}; a.mind.why = {}; a.mind.alert = 0;
       a.suspect = null; a.accuse = null;
@@ -1314,7 +1331,7 @@ function section(t) { console.log('\n== ' + t); }
   const MT = await T(() => {
     const t = SKV3._t, g = t.G();
     const v = g.agents.find(a => a.i !== 0 && !a.alien && a.alive);
-    t.tp(v.i, 28.4, 22);
+    t.tp(v.i, 28.4,44);
     t.kill(v.i, 'knife');
     const rep = g.agents.find(a => a.i !== 0 && a.alive && a !== v);
     t.openMeeting('night', rep, v);
@@ -1358,7 +1375,7 @@ function section(t) { console.log('\n== ' + t); }
   });
   ok(L1.r.state === 2 && L1.r.corr === false && L1.l.corr === false && L1.nOn === 1 && L1.l.lit.bridge,
     '拉闸：走廊灯全熄，只有会议室保持照明');
-  await T(() => { SKV3._t.tp(0, 30.4, 45.0); });
+  await T(() => { SKV3._t.tp(0, 30.4,67); });
   await page.keyboard.press('c');
   await page.waitForTimeout(350);
   await shot('37_拉闸全船变暗.png');
@@ -1375,16 +1392,16 @@ function section(t) { console.log('\n== ' + t); }
       const p = t.astar(a[0], a[1], b[0], b[1]);
       return p ? { n: p.length, len: plen(p), ratio: plen(p) / Math.hypot(b[0] - a[0], b[1] - a[1]) } : null;
     };
-    const rMed = ratio([34.8, 11.8], [56.5, 49]);
-    const rArm = ratio([34.8, 11.8], [83.5, 48]);
-    const rTable = ratio([39, 15.5], [39, 6.5]);
-    const outside = t.astar(34.8, 11.8, 0.5, 0.5);
-    const outsideMap = t.astar(34.8, 11.8, -20, -20);
-    t.tp(0, 34.8, 6);
+    const rMed = ratio([34.8, 33.8], [56.5, 71]);
+    const rArm = ratio([34.8, 33.8], [83.5, 70]);
+    const rTable = ratio([39, 37.5], [39, 27.5]);
+    const outside = t.astar(34.8, 33.8, 0.5, 0.5);
+    const outsideMap = t.astar(34.8, 33.8, -20, -20);
+    t.tp(0, 34.8,50);
     const p = t.stepTo(34.8, 0.5);
     return { rMed, rArm, rTable, outside, outsideMap, p, pfree: t.free(p[0], p[1]),
       outFree: t.free(0.5, 0.5), room: t.state()[0].room,
-      tableFree: t.free(41, 10.8), consoleFree: t.free(27, 4), audit: t.coverAudit() };
+      tableFree: t.free(41, 32.8), consoleFree: t.free(27, 26), audit: t.coverAudit() };
   });
   ok(PF.rMed && PF.rMed.ratio < 1.35, '会议室→医疗间绕行比 ' + (PF.rMed && PF.rMed.ratio.toFixed(2)));
   ok(PF.rArm && PF.rArm.ratio < 1.45, '会议室→军械库绕行比 ' + (PF.rArm && PF.rArm.ratio.toFixed(2)));
@@ -1402,7 +1419,7 @@ function section(t) { console.log('\n== ' + t); }
   const DR0 = await T(() => {
     const t = SKV3._t, g = t.G();
     g.noReport = true;
-    for (const a of g.agents) { a.path = null; a.x = 34.8; a.y = 11.8; a._delay = 9e9; }
+    for (const a of g.agents) { a.path = null; a.x = 34.8; a.y = 33.8; a._delay = 9e9; }
     const doors = t.doors();
     for (const dr of doors) t.setDoor(dr.id, 0);
     t.doorTick(0.1);
@@ -1445,7 +1462,7 @@ function section(t) { console.log('\n== ' + t); }
   await page.waitForTimeout(220);
   await shot('49_自动门.png');
 
-  section('配电室 · 断电后每扇非会议室门扫描 2 秒');
+  section('配电室 · 断电后所有门扫描 2 秒');
   await fresh(false);
   const LOCK = await T(() => {
     const t = SKV3._t; t.newGame();
@@ -1455,22 +1472,28 @@ function section(t) { console.log('\n== ' + t); }
     const br = ds.find(d => /:bridge$/.test(d.id));
     const cross = d => d.horiz ? [d.x, d.y - 0.6, d.x, d.y + 0.6] : [d.x - 0.6, d.y, d.x + 0.6, d.y];
     /* 其他人远离门口；玩家站到非会议室门内侧 1.6 格 */
-    for (const a of g.agents) if (a.i !== 0) t.tp(a.i, 30, 32);
+    for (const a of g.agents) if (a.i !== 0) t.tp(a.i, 30,54);
     t.tp(0, nb.horiz ? nb.x : nb.x - 1.6, nb.horiz ? nb.y - 1.6 : nb.y);
     t.setDoor(nb.id, 1); t.setDoor(br.id, 1);
-    t.breaker();                            /* 断电：非会议室门进入逐门扫描 */
+    t.breaker();                            /* 断电：所有门进入逐门扫描 */
     const c1 = cross(nb), c2 = cross(br);
     t.doorTick(1.0);
     const half = t.doors().find(d => d.id === nb.id);
-    const bridgeHalf = t.doors().find(d => d.id === br.id);
     const blockedHalf = t.doorBlock(c1[0], c1[1], c1[2], c1[3]);
     t.doorTick(1.1);
     const full = t.doors().find(d => d.id === nb.id);
     const blockedFull = t.doorBlock(c1[0], c1[1], c1[2], c1[3]);
+    /* 会议室门同样要扫描：把玩家移到 bridge 门内侧再看 2 秒 */
+    t.tp(0, br.horiz ? br.x : br.x - 1.6, br.horiz ? br.y - 1.6 : br.y);
     t.setDoor(br.id, 1);
+    t.doorTick(1.0);
+    const bridgeHalf = t.doors().find(d => d.id === br.id);
+    const bridgeBlockedHalf = t.doorBlock(c2[0], c2[1], c2[2], c2[3]);
+    t.doorTick(1.1);
+    const bridgeFull = t.doors().find(d => d.id === br.id);
     const bridgeBlocked = t.doorBlock(c2[0], c2[1], c2[2], c2[3]);
     /* 离开门口 → 重新上锁；再次靠近又要重新扫描 */
-    t.tp(0, 30, 32);
+    t.tp(0, 30,54);
     t.doorTick(0.2);
     const away = t.doors().find(d => d.id === nb.id);
     t.tp(0, nb.horiz ? nb.x : nb.x - 1.6, nb.horiz ? nb.y - 1.6 : nb.y);
@@ -1484,16 +1507,17 @@ function section(t) { console.log('\n== ' + t); }
     const restored = t.doors().find(d => d.id === nb.id);
     const blockedRestored = t.doorBlock(c1[0], c1[1], c1[2], c1[3]);
     return { nb: nb.id, br: br.id, bridgeDoors: ds.filter(d => /:bridge$/.test(d.id)).length,
-      half, bridgeHalf, blockedHalf, full, blockedFull, bridgeBlocked,
+      half, blockedHalf, full, blockedFull, bridgeHalf, bridgeBlockedHalf, bridgeFull, bridgeBlocked,
       away, again, blockedAgain, restored, blockedRestored };
   });
   ok(LOCK.half.scanT > 0.8 && LOCK.half.scanT < 1.2 && LOCK.half.scanning && LOCK.blockedHalf,
     '断电后靠近非会议室门：先扫描，1 秒时仍不能通过');
   ok(LOCK.full.scanT >= 1.9 && LOCK.full.locked === false && !LOCK.blockedFull,
     '扫描满 2 秒才放行：' + LOCK.nb);
-  ok(LOCK.bridgeHalf.scanT === 0 && !LOCK.bridgeHalf.scanning &&
-    !LOCK.bridgeBlocked && LOCK.bridgeDoors === 3,
-    '会议室三扇门不受断电扫描影响（' + LOCK.bridgeDoors + ' 扇）');
+  ok(LOCK.bridgeHalf.scanT > 0.5 && LOCK.bridgeBlockedHalf,
+    '会议室门同样要扫描：1 秒时仍不能通过');
+  ok(LOCK.bridgeFull.scanT >= 1.9 && !LOCK.bridgeBlocked && LOCK.bridgeDoors === 4,
+    '会议室 4 扇门扫描满 2 秒才放行');
   ok(LOCK.away.scanT === 0 && LOCK.again.scanT > 0.5 && LOCK.again.scanT < 0.8 &&
     LOCK.blockedAgain,
     '人离开后重新上锁：再次靠近仍需重新扫描 2 秒');
@@ -1506,12 +1530,12 @@ function section(t) { console.log('\n== ' + t); }
     const t = SKV3._t, g = t.G();
     g.noReport = true;
     const a = g.agents.find(x => !x.alien && x.i !== 0 && x.alive);
-    t.tp(a.i, 34.8, 11.8);
-    a.path = t.astar(34.8, 11.8, 58, 23);
+    t.tp(a.i, 34.8,33.8);
+    a.path = t.astar(34.8, 33.8, 58, 45);
     const r = t.walkAgent(a.i, 260, 0.05);
     return { i: a.i, r, inv: t.inv() };
   });
-  ok(CW0.r && CW0.r.left === 0 && Math.hypot(CW0.r.x - 58, CW0.r.y - 23) < 3,
+  ok(CW0.r && CW0.r.left === 0 && Math.hypot(CW0.r.x - 58, CW0.r.y - 45) < 3,
     'AI 拐角寻路 260 步不卡死（终点 ' + CW0.r.x.toFixed(1) + ',' + CW0.r.y.toFixed(1) + '）');
   ok(CW0.inv && CW0.inv.fails.length === 0, '拐角寻路后不变量全过');
 
@@ -1520,9 +1544,12 @@ function section(t) { console.log('\n== ' + t); }
   const WH0 = await T(() => {
     const t = SKV3._t, g = t.G();
     g.noReport = true;
-    g.me.tasks = [8, 9, 10, 21]; g.me.tIdx = 0;
+    const all = t.points();
+    const pi = all.findIndex(p => p.label === '药柜');
+    const p = all[pi];
+    g.me.tasks = [pi, 0, 1, 2]; g.me.tIdx = 0;
     g.me.doing = 0; g.me._doing = null; g.me.path = null;
-    const p = t.points()[8];
+    g.dmg = [{ room: p.room, x: p.x, y: p.y, label: '测试故障', left: 60, dur: 60, by: 0 }];
     t.tp(0, p.x, p.y);
     const opened = t.openWheel();
     return { opened, wheel: t.wheel(),
@@ -1544,6 +1571,10 @@ function section(t) { console.log('\n== ' + t); }
   const WH2 = await T(() => {
     const t = SKV3._t, g = t.G();
     g.me.doing = 0; g.me._doing = null; g.me.path = null;
+    g.dmg = [];
+    const pi = t.points().findIndex(p => p.label === '电路维修');
+    g.me.tasks = [pi, 0, 1, 2]; g.me.tIdx = 0;
+    t.tp(0, 49, 55.4);
     t.openWheel();
     const w = t.wheel();
     const i = w.items.findIndex(x => x.id === 'breaker');
@@ -1557,10 +1588,10 @@ function section(t) { console.log('\n== ' + t); }
   const AR = await T(() => {
     const t = SKV3._t, g = t.G();
     const v = g.agents.find(a => a.i !== 0 && !a.alien && a.alive);
-    t.tp(v.i, 28.4, 22.0);
+    t.tp(v.i, 28.4,44);
     t.kill(v.i, 'knife');
     const rep = g.agents.find(a => a.i !== 0 && !a.alien && a.alive && a !== v);
-    t.tp(rep.i, 28.4, 24.6);
+    t.tp(rep.i, 28.4,46.6);
     const s1 = t.aiScan(rep.i, 0.6);
     const s2 = t.aiScan(rep.i, 5);
     const out = {
@@ -1587,8 +1618,8 @@ function section(t) { console.log('\n== ' + t); }
     const k = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
     const v = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
     const w = g.agents.find(a => !a.alien && a.i !== 0 && a.alive && a !== v);
-    for (const a of g.agents) if (a !== k && a !== v && a !== w) t.tp(a.i, 30, 10);
-    t.tp(k.i, 56, 51); t.tp(v.i, 57.2, 51); t.tp(w.i, 55.5, 51);
+    for (const a of g.agents) if (a !== k && a !== v && a !== w) t.tp(a.i, 30,32);
+    t.tp(k.i, 56,73); t.tp(v.i, 57.2,73); t.tp(w.i, 55.5,73);
     k.knife = 1; k.sabUsed = true; k._delay = 0; k.doing = 0;
     k._doing = null; k.path = null; k.target = null;
     t.knife(k.i, v.i);
@@ -1628,28 +1659,29 @@ function section(t) { console.log('\n== ' + t); }
     const v1 = humans[0], v2 = humans[1];
     const r1 = g.agents.find(a => !a.alien && a.i !== 0 && a.alive && a !== v1 && a !== v2);
     const r2 = g.agents.find(a => !a.alien && a.i !== 0 && a.alive && a !== v1 && a !== v2 && a !== r1);
-    for (const a of g.agents) if (a !== v1 && a !== v2 && a !== r1 && a !== r2) t.tp(a.i, 30, 10);
-    t.tp(v1.i, 28.4, 22); t.kill(v1.i, 'knife'); t.tp(r1.i, 28.4, 24.6);
+    for (const a of g.agents) if (a !== v1 && a !== v2 && a !== r1 && a !== r2) t.tp(a.i, 30,32);
+    t.tp(v1.i, 28.4,44); t.kill(v1.i, 'knife'); t.tp(r1.i, 28.4,46.6);
     r1._delay = 0; r1.doing = 0; r1._doing = null; r1.path = null;
     let m1 = null; for (let i = 0; i < 100; i++) { m1 = t.aiScan(r1.i, 0.1); if (m1.meet) break; }
     const used1 = t.aiReportUsed();
     t.finishMeeting();
-    t.tp(v2.i, 28.4, 22); t.kill(v2.i, 'knife'); t.tp(r2.i, 28.4, 24.6);
+    t.tp(v2.i, 28.4,44); t.kill(v2.i, 'knife'); t.tp(r2.i, 28.4,46.6);
     r2._delay = 0; r2.doing = 0; r2._doing = null; r2.path = null;
     let m2 = null; for (let i = 0; i < 100; i++) { m2 = t.aiScan(r2.i, 0.1); if (m2.meet) break; }
     return { meet1: !!(m1 && m1.meet), used1, used2: t.aiReportUsed(), meet2: !!t.G().meet };
   });
-  ok(RPT.meet1 && RPT.used1, '第一次 AI 尸体报告成功，并置位本夜报告上限');
-  ok(!RPT.meet2 && RPT.used2, '同一夜第二次 AI 报告被夜上限拦住（不再吞第二次 30 秒）');
+  ok(RPT.meet1 && RPT.used1, '第一次 AI 尸体报告成功');
+  ok(RPT.meet2, '同一夜第二具尸体也能报告（每具尸体只报道一次，不再限制每晚一次）');
 
   await fresh(false);
   const ALR = await T(() => {
     const t = SKV3._t; t.newGame();
     const g = t.G(); g.paused = true; g.noReport = false; g.aiReportUsed = false;
+    g.prog = 30;                 /* 人类进度高 → 拖时间的收益足够，异形会主动报案 */
     const k = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
     const v = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
-    for (const a of g.agents) if (a !== k && a !== v) t.tp(a.i, 85, 55);
-    t.tp(v.i, 28.4, 22); t.kill(v.i, 'knife'); t.tp(k.i, 28.4, 24.6);
+    for (const a of g.agents) if (a !== k && a !== v) t.tp(a.i, 85,77);
+    t.tp(v.i, 28.4,44); t.kill(v.i, 'knife'); t.tp(k.i, 28.4,46.6);
     k._delay = 0; k.doing = 0; k._doing = null; k.path = null; k.knife = 0;
     let scan = null; for (let i = 0; i < 120; i++) { scan = t.aiScan(k.i, 0.1); if (scan.meet) break; }
     const by = document.getElementById('m-by').textContent;
@@ -1666,8 +1698,8 @@ function section(t) { console.log('\n== ' + t); }
     const k = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
     const v = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
     const w = g.agents.find(a => !a.alien && a.i !== 0 && a.alive && a !== v);
-    for (const a of g.agents) if (a !== k && a !== v && a !== w) t.tp(a.i, 30, 10);
-    t.tp(k.i, 56, 51); t.tp(v.i, 57.2, 51); t.tp(w.i, 55.5, 51);
+    for (const a of g.agents) if (a !== k && a !== v && a !== w) t.tp(a.i, 30,32);
+    t.tp(k.i, 56,73); t.tp(v.i, 57.2,73); t.tp(w.i, 55.5,73);
     k.knife = 1; k.sabUsed = true; k._delay = 0; k.doing = 0;
     k._doing = null; k.path = null; k.target = null;
     t.knife(k.i, v.i);
@@ -1746,12 +1778,12 @@ function section(t) { console.log('\n== ' + t); }
   ok(H1.alive === '13' && H1.hum === '10' && H1.ali === '3', '有人出局后 HUD 实时更新：13 / 人类 10 / 异形 3');
   await shotClip('39_HUD存活人数.png', { x: 6, y: 6, width: 520, height: 190 });
 
-  section('监控室 · 9 路画面 / 电闸断信号');
+  section('监控室 · 10 路画面 / 电闸断信号');
   await fresh(false);
   const C0 = await T(() => {
     const t = SKV3._t, g = t.G();
     g.noReport = true;
-    t.tp(0, 84, 8.6);
+    t.tp(0, 84,30.6);
     return { room: t.state()[0].room, near: t.cams().near, inv: t.inv() };
   });
   await page.keyboard.press('e');
@@ -1763,11 +1795,11 @@ function section(t) { console.log('\n== ' + t); }
       tip: document.getElementById('tip').textContent };
   });
   ok(C0.room === 'cam' && C0.near && C0.inv.fails.length === 0, '站在监控室监控台旁，交互范围命中');
-  ok(C1.cams.open && C1.cams.room && C1.cams.feeds === 9 && C1.open,
-    'E 打开监控台：9 路画面全覆盖');
-  ok(C1.state.indexOf('9 路在线') >= 0 && C1.tip.indexOf('监控台') >= 0,
-    '状态条显示 9 路在线，提示栏切换为监控操作');
-  await shot('40_监控室9路.png');
+  ok(C1.cams.open && C1.cams.room && C1.cams.feeds === 10 && C1.open,
+    'E 打开监控台：10 路画面全覆盖');
+  ok(C1.state.indexOf('10 路在线') >= 0 && C1.tip.indexOf('监控台') >= 0,
+    '状态条显示 10 路在线，提示栏切换为监控操作');
+  await shot('40_监控室10路.png');
   const C2 = await T(() => { const t = SKV3._t; const r = t.breaker(); return { r, cams: t.cams() }; });
   await page.waitForTimeout(360);
   const C3 = await T(() => ({
@@ -1776,7 +1808,7 @@ function section(t) { console.log('\n== ' + t); }
     cls: document.getElementById('cam-state').className,
     open: !document.getElementById('cam').classList.contains('hide')
   }));
-  ok(C2.r.state === 2 && C3.cut && C3.open, '配电室拉闸：监控遮罩仍在，9 路全部断信号');
+  ok(C2.r.state === 2 && C3.cut && C3.open, '配电室拉闸：监控遮罩仍在，10 路全部断信号');
   ok(C3.state.indexOf('信号中断') >= 0 && C3.cls.indexOf('cut') >= 0, '监控状态条：信号中断 · 电闸断开');
   await shot('41_断电监控.png');
   const C4 = await T(() => { const t = SKV3._t; t.breaker(); return { cams: t.cams() }; });
@@ -1901,7 +1933,7 @@ function section(t) { console.log('\n== ' + t); }
   });
   ok(Math.hypot(PT2.p1.x - PT2.p0.x, PT2.p1.y - PT2.p0.y) < 1e-9,
     '停摆的保安机器人原地不动');
-  await T(() => SKV3._t.tp(0, 84, 50));
+  await T(() => SKV3._t.tp(0, 84,72));
   await page.waitForTimeout(220);
   await shot('47_机器人巡逻.png');
 
@@ -1927,7 +1959,7 @@ function section(t) { console.log('\n== ' + t); }
     if (sb) { sb.wps = [[sec[0], sec[1]]]; sb.wp = 0; sb.ang = Math.PI; }
     const kp = freeNear(86, 54), vp = freeNear(86, 53.2);
     t.tp(k.i, kp[0], kp[1]);
-    t.tp(v.i, vp[0], vp[1]); t.tp(h.i, 84.8, 52.2);
+    t.tp(v.i, vp[0], vp[1]); t.tp(h.i, 84.8,74.2);
     k.knife = 1;
     t.knife(k.i, v.i);
     return { k: k.i, v: v.i, h: h.i, jail: t.jail(), kp, vp, sec, inv: t.inv() };
@@ -1935,35 +1967,36 @@ function section(t) { console.log('\n== ' + t); }
   await page.waitForTimeout(200);
   const SB1 = await T(o => {
     const t = SKV3._t, g = t.G();
+    for (let i = 0; i < 6; i++) t.botTick(1.0);   /* 追捕 → 压制 → 押送完成 */
     const a = g.agents[o.k];
     return { detained: t.detained(), st: t.state()[o.k], fx: t.fx(), pos: [a.x, a.y],
-      used: t.robots().sec.used, jail: t.jail(), msg: g.msg, inv: t.inv(),
+      used: t.robots().sec.used, jail: t.jail(), msg: g.msg || '', inv: t.inv(),
       bots: t.bots(), uses: t.robots().sec.uses, sus: t.mind(o.h) ? (t.mind(o.h).sus[o.k] || 0) : 0 };
   }, SB0);
   ok(SB0.sec && Math.hypot(SB0.kp[0] - SB0.sec[0], SB0.kp[1] - SB0.sec[1]) < 6 &&
     Math.hypot(SB0.kp[0] - 80, SB0.kp[1] - 53) > 6 && SB0.inv.fails.length === 0,
     '行凶点离保安机器人初始位 >6 格：仍按巡逻坐标擒拿');
-  ok(SB1.detained.some(d => d.i === SB0.k) && SB1.st.detained && SB1.st.detainedT > 55,
+  ok(SB1.detained.some(d => d.i === SB0.k) && SB1.st.detained && SB1.st.detainedT > 29 && SB1.st.detainedT <= 31.5,
     '保安机器人擒拿凶手：拘留倒计时 ' + (SB1.st.detainedT || 0).toFixed(1) + 's');
   ok(SB1.used && SB1.uses >= 1 && SB1.st.room === 'armory' && SB1.jail &&
     Math.hypot(SB1.pos[0] - SB1.jail[0], SB1.pos[1] - SB1.jail[1]) < 0.01,
     '凶手被拽到军械库角落拘留位');
   ok(SB1.fx.includes('detain') && SB1.fx.includes('alarm'), '拘留拖拽线 + 红色警报环特效');
-  ok(SB1.msg.indexOf('保安机器人擒拿') >= 0, '播报点名说明被谁擒拿');
-  ok(SB1.sus >= 0.5, '被拘留者被附近人类优先怀疑（sus=' + SB1.sus.toFixed(2) + '）');
+  ok(String(SB1.msg || '').indexOf('保安机器人擒拿') < 0, '拘押不再公告（无全局播报）');
+  ok(SB1.sus >= 0.4, '被拘留者被附近人类优先怀疑（sus=' + SB1.sus.toFixed(2) + '）');
   ok(SB1.inv && SB1.inv.fails.length === 0, '拘留状态不变量全过');
   await T(() => {
     const t = SKV3._t, g = t.G();
     g.fx.forEach(f => { f.dur = Math.max(6, f.dur); f.t = f.dur * 0.55; });
     const p = t.jail();
-    t.tp(0, 85.2, 51.2);
+    t.tp(0, 85.2,73.2);
   });
   await page.waitForTimeout(140);
   await shot('44_保安机器人拘留.png');
   await T(o => { SKV3._t.G().agents[o.k].detainedT = 0.12; }, SB0);
   await page.waitForTimeout(420);
   const SB2 = await T(o => ({ detained: SKV3._t.detained(), st: SKV3._t.state()[o.k], inv: SKV3._t.inv() }), SB0);
-  ok(SB2.detained.length === 0 && !SB2.st.detained, '60 秒拘留结束：自动释放');
+  ok(SB2.detained.length === 0 && !SB2.st.detained, '30 秒拘留结束：自动释放');
   ok(SB2.inv && SB2.inv.fails.length === 0, '释放后不变量全过');
   await T(() => {
     const g = SKV3._t.G();
@@ -2023,7 +2056,7 @@ function section(t) { console.log('\n== ' + t); }
     robots: SKV3._t.robots(), fx: SKV3._t.fx(), msg: SKV3._t.G().msg, inv: SKV3._t.inv()
   }));
   ok(SS0.dist < 1.5 && SS1.robots.sec.dead, '异形贴近巡逻中的保安机器人按 F：当晚停摆');
-  ok(SS1.fx.includes('spark') && SS1.msg.indexOf('保安机器人今晚停摆') >= 0, '破坏反馈：火花 + 明确播报');
+  ok(SS1.fx.includes('spark') && String(SS1.msg || '').indexOf('保安机器人今晚停摆') < 0, '破坏反馈：火花保留，但不再公告机器人被毁');
   ok(SS1.inv && SS1.inv.fails.length === 0, '破坏后不变量全过');
   const SS2 = await T(() => {
     const t = SKV3._t, g = t.G();
@@ -2055,7 +2088,7 @@ function section(t) { console.log('\n== ' + t); }
     const t = SKV3._t, g = t.G(); g.noReport = true;
     g.me.alien = true; g.me.medkit = 1; g.me.sabUsed = false;
     const v = g.agents.find(a => !a.alien && a.i !== 0 && a.alive && !a.downed);
-    t.tp(v.i, 56, 51); t.tp(0, 57.1, 51);
+    t.tp(v.i, 56,73); t.tp(0, 57.1,73);
     v.downed = true; v.downAt = g.t; v.path = null;
     return { v: v.i, medkit: g.me.medkit };
   });
@@ -2074,7 +2107,7 @@ function section(t) { console.log('\n== ' + t); }
   await fresh(false);
   const BMED = await T(() => {
     const t = SKV3._t, g = t.G(); g.noReport = true; g.secbotUsed = true;
-    const med = t.setBot('medbot', 52, 46);
+    const med = t.setBot('medbot', 52, 68);
     t.tp(0, med[0] + 2, med[1]);
     g.me.bullet = 1; g.aimX = med[0]; g.aimY = med[1];
     t.shoot();
@@ -2088,7 +2121,7 @@ function section(t) { console.log('\n== ' + t); }
   await fresh(false);
   const BSEC = await T(() => {
     const t = SKV3._t, g = t.G(); g.noReport = true; g.secbotUsed = true;
-    const sec = t.setBot('secbot', 80, 53, 0);
+    const sec = t.setBot('secbot', 80, 75, 0);
     const sb = g.bots.secbot; if (sb) { sb.wps = [[sec[0], sec[1]]]; sb.wp = 0; }
     let p = [sec[0] + 1.2, sec[1]];
     for (let r = 0.8; r <= 1.6; r += 0.1)
@@ -2110,19 +2143,19 @@ function section(t) { console.log('\n== ' + t); }
   await fresh(false);
   const BSHOOTBOT = await T(() => {
     const t = SKV3._t, g = t.G(); g.noReport = true;
-    const sec = t.setBot('secbot', 80, 53, 0);
+    const sec = t.setBot('secbot', 80, 75, 0);
     const sb = g.bots.secbot; if (sb) { sb.wps = [[sec[0], sec[1]]]; sb.wp = 0; sb.ang = 0; }
-    let p = [80.8, 53];
+    let p = [80.8, 75];
     for (let r = 0.4; r <= 1.4; r += 0.1)
       for (let i = 0; i < 20; i++) {
-        const a = i / 20 * Math.PI * 2, x = 80 + Math.cos(a) * r, y = 53 + Math.sin(a) * r;
+        const a = i / 20 * Math.PI * 2, x = 80 + Math.cos(a) * r, y = 75 + Math.sin(a) * r;
         if (t.free(x, y)) { p = [x, y]; r = 99; break; }
       }
     t.tp(0, p[0], p[1]);
     g.me.bullet = 1; g.aimX = sec[0]; g.aimY = sec[1];
     t.shoot();
     const hp = t.robots().sec.hp, pending = g.pendingCrime;
-    t.botTick(0.2);
+    t.botTick(0.2); t.botTick(0.2);
     return { hp, pending, detained: g.me.detained, uses: t.robots().sec.uses,
       bullet: g.me.bullet, inv: t.inv() };
   });
@@ -2138,7 +2171,7 @@ function section(t) { console.log('\n== ' + t); }
     const demoted = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
     if (demoted) demoted.alien = false;
     g.me.alien = true; g.me.knife = 1; g.secbotUsed = false;
-    const sec = t.setBot('secbot', 80, 53, 0);
+    const sec = t.setBot('secbot', 80, 75, 0);
     const sb = g.bots.secbot; if (sb) { sb.wps = [[sec[0], sec[1]]]; sb.wp = 0; sb.ang = 0; }
     let p = [sec[0], sec[1] + 1.1];
     for (let r = 0.8; r <= 1.35; r += 0.1)
@@ -2149,7 +2182,7 @@ function section(t) { console.log('\n== ' + t); }
     t.tp(0, p[0], p[1]);
     const atk = t.attack();
     const hp = t.robots().sec.hp, pend = g.pendingCrime;
-    t.botTick(0.2);
+    t.botTick(0.2); t.botTick(0.2);
     return { hp, pend, knife: atk.knife, detained: g.me.detained,
       used: t.robots().sec.used, p, sec, inv: t.inv() };
   });
@@ -2162,13 +2195,13 @@ function section(t) { console.log('\n== ' + t); }
   const BDEV = await T(() => {
     const t = SKV3._t, g = t.G(); g.noReport = true; t.setDev(true);
     const k = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
-    const sec = t.setBot('secbot', 80, 53, 0);
+    const sec = t.setBot('secbot', 80, 75, 0);
     const sb = g.bots.secbot; if (sb) { sb.wps = [[sec[0], sec[1]]]; sb.wp = 0; sb.ang = 0; }
-    t.tp(k.i, 80.8, 53);
+    t.tp(k.i, 80.8,75);
     k.knife = 1;
     t.knife(k.i, 0);                 // DEV 免伤：不产生濒死
     const pending = g.pendingCrime;
-    t.botTick(0.2);
+    t.botTick(0.2); t.botTick(0.2);
     return { pending, downed: g.me.downed, detained: g.agents[k.i].detained,
       uses: t.robots().sec.uses, inv: t.inv() };
   });
@@ -2181,9 +2214,9 @@ function section(t) { console.log('\n== ' + t); }
   const BCAP = await T(() => {
     const t = SKV3._t, g = t.G(); g.noReport = true;
     const h = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
-    const sec = t.setBot('secbot', 80, 53, 0);
+    const sec = t.setBot('secbot', 80, 75, 0);
     const sb = g.bots.secbot; if (sb) { sb.wps = [[sec[0], sec[1]]]; sb.wp = 0; sb.ang = 0; }
-    t.tp(h.i, 80.8, 53);
+    t.tp(h.i, 80.8,75);
     g.secbotUsed = true; g.secbotUses = 3; g.pendingCrime = h.i;
     t.botTick(0.2);
     return { detained: t.detained(), uses: t.robots().sec.uses, inv: t.inv() };
@@ -2196,25 +2229,25 @@ function section(t) { console.log('\n== ' + t); }
   const BSHOOT = await T(() => {
     const t = SKV3._t, g = t.G(); g.noReport = true;
     const v = g.agents.find(a => !a.alien && a.i !== 0 && a.alive && !a.downed);
-    const sec = t.setBot('secbot', 80, 53, 0);
+    const sec = t.setBot('secbot', 80, 75, 0);
     const sb = g.bots.secbot; if (sb) { sb.wps = [[sec[0], sec[1]]]; sb.wp = 0; sb.ang = 0; }
-    let p = [80.8, 53];
+    let p = [80.8, 75];
     for (let r = 0.4; r <= 1.4; r += 0.1)
       for (let i = 0; i < 20; i++) {
-        const a = i / 20 * Math.PI * 2, x = 80 + Math.cos(a) * r, y = 53 + Math.sin(a) * r;
+        const a = i / 20 * Math.PI * 2, x = 80 + Math.cos(a) * r, y = 75 + Math.sin(a) * r;
         if (t.free(x, y)) { p = [x, y]; r = 99; break; }
       }
     t.tp(0, p[0], p[1]);
-    let vp = [80.4, 54.3];
+    let vp = [80.4, 76.3];
     for (let r = 0.2; r <= 1.2; r += 0.1)
       for (let i = 0; i < 20; i++) {
-        const a = i / 20 * Math.PI * 2, x = 80.4 + Math.cos(a) * r, y = 54.3 + Math.sin(a) * r;
+        const a = i / 20 * Math.PI * 2, x = 80.4 + Math.cos(a) * r, y = 76.3 + Math.sin(a) * r;
         if (t.free(x, y)) { vp = [x, y]; r = 99; break; }
       }
     t.tp(v.i, vp[0], vp[1]);
     g.me.bullet = 1; g.aimX = vp[0]; g.aimY = vp[1];
     t.shoot();
-    t.botTick(0.2);
+    t.botTick(0.2); t.botTick(0.2);
     return { v: v.i, downed: g.agents[v.i].downed, detained: g.me.detained,
       uses: t.robots().sec.uses, inv: t.inv() };
   });
@@ -2228,32 +2261,32 @@ function section(t) { console.log('\n== ' + t); }
     const t = SKV3._t, g = t.G();
     g.noReport = true;
     const v = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
-    /* 医疗机器人推到医疗间西北角：离初始坞位 (58,53.5) 约 10 格，验证按运行时坐标施救 */
-    const med = t.setBot('medbot', 52, 46);
-    let p = [52.5, 47.5];
+    /* 医疗机器人推到医疗间中北部：离初始坞位 (51.6,77) 约 10 格，验证按运行时坐标施救 */
+    const med = t.setBot('medbot', 52, 68);
+    let p = [49.6, 69.6];
     for (let r = 0.4; r <= 2.4; r += 0.2)
       for (let i = 0; i < 20; i++) {
-        const a = i / 20 * Math.PI * 2, x = 52.5 + Math.cos(a) * r, y = 47.5 + Math.sin(a) * r;
+        const a = i / 20 * Math.PI * 2, x = 49.6 + Math.cos(a) * r, y = 69.6 + Math.sin(a) * r;
         if (t.free(x, y)) { p = [x, y]; r = 99; break; }
       }
     t.tp(v.i, p[0], p[1]);
     v.downed = true; v.downAt = g.t; v.path = null; v.doing = 0; v._doing = null;
-    const b = t.botTick(3.05);
+    const b = t.botTick(5.05);
     return { v: v.i, p, med, b, st: t.state()[v.i], fx: t.fx(), msg: g.msg, inv: t.inv(),
       room: t.state()[v.i].room };
   });
-  ok(MB0.room === 'med' && !MB0.st.downed, '濒死者躺在医疗间：医疗机器人 3 秒后救起');
+  ok(MB0.room === 'med' && !MB0.st.downed, '濒死者躺在医疗间：医疗机器人 5 秒后救起');
   ok(Math.hypot(MB0.p[0] - MB0.med[0], MB0.p[1] - MB0.med[1]) < 7 &&
-    Math.hypot(MB0.p[0] - 58, MB0.p[1] - 53.5) > 7,
+    Math.hypot(MB0.p[0] - 51.6, MB0.p[1] - 77) > 7,
     '施救按巡逻坐标判定：离初始坞位 >7 格仍能救人');
   ok(MB0.b.med === true && MB0.fx.includes('healBeam') && MB0.fx.includes('heal'),
     '施救特效：机械臂光束 + 治疗环');
-  ok(MB0.msg.indexOf('医疗机器人救起了') >= 0, '播报点名说明获救者');
+  ok(String(MB0.msg || '').indexOf('医疗机器人救起了') >= 0, '播报点名说明获救者');
   ok(MB0.inv && MB0.inv.fails.length === 0, '施救后不变量全过');
   await fresh(false);
   const MB1 = await T(() => {
     const t = SKV3._t, g = t.G(); g.noReport = true;
-    t.setBot('medbot', 52, 46);
+    t.setBot('medbot', 52, 68);
     const freeNear = (x, y) => {
       for (let r = 0.4; r <= 2.4; r += 0.2)
         for (let i = 0; i < 20; i++) {
@@ -2263,23 +2296,23 @@ function section(t) { console.log('\n== ' + t); }
       return [x, y];
     };
     const vs = g.agents.filter(a => !a.alien && a.i !== 0 && a.alive && !a.downed).slice(0, 3);
-    const ps = vs.map((a, n) => { const p = freeNear(51.5 + n * 1.2, 47.5); t.tp(a.i, p[0], p[1]); return p; });
+    const ps = vs.map((a, n) => { const p = freeNear(51.5 + n * 1.2, 69.5); t.tp(a.i, p[0], p[1]); return p; });
     for (const v of vs) { v.downed = true; v.downAt = g.t; v.path = null; }
-    const b1 = t.botTick(3.05);
-    const b2 = t.botTick(3.05);
-    const b3 = t.botTick(3.05);
+    const b1 = t.botTick(5.05);
+    const b2 = t.botTick(5.05);
+    const b3 = t.botTick(5.05);
     return { vs: vs.map(v => v.i), ps, b1, b2, b3, left: t.robots().med.left,
       used: t.robots().med.used, downed: vs.map(v => v.downed), inv: t.inv() };
   });
-  ok(MB1.b1.medLeft === 1 && MB1.b2.medLeft === 0 && MB1.used,
-    '医疗机器人每夜可救 2 人（第二次后电量 0）');
-  ok(MB1.downed[0] === false && MB1.downed[1] === false && MB1.downed[2] === true && MB1.left === 0,
-    '电量耗尽后第三个濒死者不会被继续施救');
-  ok(MB1.inv && MB1.inv.fails.length === 0, '两次施救后不变量全过');
+  ok(MB1.b1.medLeft === 0 && MB1.b2.medLeft === 0 && MB1.used,
+    '医疗机器人每夜只救 1 人（第一次后电量 0）');
+  ok(MB1.downed[0] === false && MB1.downed[1] === true && MB1.downed[2] === true && MB1.left === 0,
+    '电量耗尽后第二/第三个濒死者不会被继续施救');
+  ok(MB1.inv && MB1.inv.fails.length === 0, '一次施救后不变量全过');
   await T(() => {
     const t = SKV3._t, g = t.G();
     g.fx.forEach(f => { f.dur = Math.max(6, f.dur); f.t = f.dur * 0.4; });
-    t.tp(0, 53.2, 48.6);
+    t.tp(0, 53.2,70.6);
   });
   await page.waitForTimeout(140);
   await shot('45_医疗机器人施救.png');
@@ -2297,11 +2330,11 @@ function section(t) { console.log('\n== ' + t); }
         }
       return [x, y];
     };
-    for (const h of g.agents) if (!h.alien && h.alive) t.tp(h.i, 30, 10);
+    for (const h of g.agents) if (!h.alien && h.alive) t.tp(h.i, 30,32);
     const k = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
     for (const a of g.agents) if (a.alien && a !== k) a.sabUsed = true;
     g.breakerSaboteur = k.i;
-    const p = freeNear(50.8, 32.1, 2.2, 3.8);
+    const p = freeNear(50.8, 54.1, 2.2, 3.8);
     t.tp(k.i, p[0], p[1]);
     k._delay = 0; k._rest = 0; k.doing = 0; k._doing = null;
     k.sabUsed = false; k.knife = 1; k.path = null; k.target = null; k._pipeCD = 0;
@@ -2329,7 +2362,7 @@ function section(t) { console.log('\n== ' + t); }
     };
     const k = g.agents[o.i];
     g.breakerSaboteur = -1; /* 恢复照明后仍要单独验证“停摆机器人”分支 */
-    for (const h of g.agents) if (!h.alien && h.alive) t.tp(h.i, 30, 10);
+    for (const h of g.agents) if (!h.alien && h.alive) t.tp(h.i, 30,32);
     const sp = t.setBot('secbot', 80, 53);
     const p = freeNear(sp[0], sp[1], 2.4, 3.6);
     t.tp(k.i, p[0], p[1]);
@@ -2356,7 +2389,7 @@ function section(t) { console.log('\n== ' + t); }
     };
     const k = g.agents[o.i];
     g.breakerSaboteur = -1; /* 单独验证“破坏舱室”，不让拉闸分支抢先 */
-    for (const h of g.agents) if (!h.alien && h.alive) t.tp(h.i, 30, 10);
+    for (const h of g.agents) if (!h.alien && h.alive) t.tp(h.i, 30,32);
     g.dmg = [];
     const sp = t.sabSpot('engine');
     const p = freeNear(sp.x, sp.y, 0.8, 1.6);
@@ -2378,10 +2411,10 @@ function section(t) { console.log('\n== ' + t); }
   ok(AIK2.inv && AIK2.inv.fails.length === 0, 'AI 破坏舱室后不变量全过');
   const AIK3 = await T(o => {
     const t = SKV3._t, g = t.G();
-    for (const h of g.agents) if (!h.alien && h.alive) t.tp(h.i, 85, 55);
+    for (const h of g.agents) if (!h.alien && h.alive) t.tp(h.i, 85,77);
     const k = g.agents[o.i];
-    for (const a of g.agents) if (a.alien && a !== k) t.tp(a.i, 85, 55);
-    t.tp(k.i, 12.2, 35.2);
+    for (const a of g.agents) if (a.alien && a !== k) t.tp(a.i, 85,77);
+    t.tp(k.i, 12.2,57.2);
     k.sabUsed = true; k.knife = 1; k.path = null; k.target = null;
     k.doing = 0; k._doing = null; k._pipeCD = 0;
     t.clearDrags(); t.resetAiState(k.i); k.sabUsed = true; k.knife = 1;
@@ -2398,10 +2431,10 @@ function section(t) { console.log('\n== ' + t); }
     const t = SKV3._t; t.newGame();
     const g = t.G(); g.paused = true; g.noReport = true;
     const k = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
-    for (const a of g.agents) if (a !== k) { a.knife = 0; t.tp(a.i, 30, 10); }
+    for (const a of g.agents) if (a !== k) { a.knife = 0; t.tp(a.i, 30,32); }
     g.breakerSaboteur = -1;
     t.clearDrags(); t.resetAiState(k.i);
-    const sec = t.setBot('secbot', 80, 53, 0);
+    const sec = t.setBot('secbot', 80, 75, 0);
     const sb = g.bots.secbot; sb.wps = [[sec[0], sec[1]]]; sb.wp = 0; sb.ang = Math.PI;
     let p = null;
     for (let r = 0.8; r <= 1.6 && !p; r += 0.1)
@@ -2452,7 +2485,7 @@ function section(t) { console.log('\n== ' + t); }
     g.noReport = true;
     const k = g.agents.find(a => a.alien && a.i !== 0 && a.alive && !a.downed);
     const h = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
-    t.tp(h.i, 56, 51); t.tp(k.i, 57.2, 51);
+    t.tp(h.i, 56,73); t.tp(k.i, 57.2,73);
     h.bullet = 1; h.medkit = 0; h.suspect = k.i;
     h.doing = 0; h._doing = null; h.path = null; h._delay = 0; h._rest = 0;
     const r = t.aiTick(h.i, 1, 0.05);
@@ -2470,8 +2503,8 @@ function section(t) { console.log('\n== ' + t); }
     const t = SKV3._t, g = t.G(); g.noReport = true;
     const h = g.agents.find(a => !a.alien && a.i !== 0 && a.alive && !a.downed);
     const k = g.agents.find(a => a.alien && a.i !== 0 && a.alive && !a.downed);
-    for (const a of g.agents) if (a !== h && a !== k) t.tp(a.i, 30, 10);
-    t.tp(h.i, 56, 51); t.tp(k.i, 62, 51);
+    for (const a of g.agents) if (a !== h && a !== k) t.tp(a.i, 30,32);
+    t.tp(h.i, 56,73); t.tp(k.i, 62,73);
     h.bullet = 1; h.suspect = k.i; h.medkit = 0;
     h.doing = 0; h._doing = null; h.path = null; h._delay = 0; h._rest = 0;
     t.breaker(); /* 全船断电：医疗间也变暗，AI 只剩近身视野 */
@@ -2486,7 +2519,7 @@ function section(t) { console.log('\n== ' + t); }
     const t = SKV3._t, g = t.G(); g.noReport = true;
     const h = g.agents.find(a => !a.alien && a.i !== 0 && a.alive && !a.downed);
     const v = g.agents.find(a => !a.alien && a.i !== 0 && a.alive && !a.downed && a !== h);
-    t.tp(h.i, 56, 51); t.tp(v.i, 57.2, 51);
+    t.tp(h.i, 56,73); t.tp(v.i, 57.2,73);
     h.bullet = 1; h.suspect = v.i; h.medkit = 0;
     h.doing = 0; h._doing = null; h.path = null; h._delay = 0; h._rest = 0;
     const r = t.aiTick(h.i, 1, 0.05);
@@ -2499,7 +2532,7 @@ function section(t) { console.log('\n== ' + t); }
   const ADV = await T(() => {
     const t = SKV3._t, g = t.G(); g.noReport = true;
     const h = g.agents.find(a => !a.alien && a.i !== 0 && a.alive && !a.downed);
-    t.tp(0, 57.2, 51); t.tp(h.i, 56, 51);
+    t.tp(0, 57.2,73); t.tp(h.i, 56,73);
     h.bullet = 1; h.suspect = 0;
     h.doing = 0; h._doing = null; h.path = null; h._delay = 0; h._rest = 0;
     const r = t.aiTick(h.i, 1, 0.05);
@@ -2513,7 +2546,7 @@ function section(t) { console.log('\n== ' + t); }
     const t = SKV3._t, g = t.G();
     const v = g.agents.find(a => !a.alien && a.i !== 0 && a.alive && !a.downed);
     const h = g.agents.find(a => !a.alien && a.i !== 0 && a.alive && a !== v);
-    t.tp(h.i, 56, 51); t.tp(v.i, 57.2, 51);
+    t.tp(h.i, 56,73); t.tp(v.i, 57.2,73);
     v.downed = true; v.downAt = g.t; v.path = null; v.doing = 0; v._doing = null;
     h.medkit = 1; h.bullet = 0; h.suspect = null;
     h.doing = 0; h._doing = null; h.path = null; h._delay = 0; h._rest = 0;
@@ -2587,7 +2620,7 @@ function section(t) { console.log('\n== ' + t); }
     const k = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
     const v = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
     const h = g.agents.find(a => !a.alien && a.i !== 0 && a.alive && a !== v);
-    for (const a of g.agents) if (a !== k && a !== v && a !== h) t.tp(a.i, 30, 10);
+    for (const a of g.agents) if (a !== k && a !== v && a !== h) t.tp(a.i, 30,32);
     t.clearDrags();
     [k, v, h].forEach(a => {
       t.resetAiState(a.i);
@@ -2595,7 +2628,7 @@ function section(t) { console.log('\n== ' + t); }
       a.qual = 0; a.qualPending = 0; a.suspect = null; a.tIdx = a.tasks.length;
     });
     k.knife = 1;
-    t.tp(v.i, 58, 41); t.tp(h.i, 58.4, 40.4);
+    t.tp(v.i, 58,63); t.tp(h.i, 58.4,62.4);
     t.knife(k.i, v.i);
     k.knife = 0;
     const first = t.aiTick(h.i, 2, 0.05);
@@ -2626,7 +2659,7 @@ function section(t) { console.log('\n== ' + t); }
     return { downed: st.downed, alive: st.alive, left: t.robots().med.left, inv: t.inv() };
   }, ADR);
   ok(ADR3.alive && !ADR3.downed, '医疗机器人把 AI 拖来的伤者救活');
-  ok(ADR3.left === 1, '医疗机器人电量按次扣减（剩 ' + ADR3.left + '/2）');
+  ok(ADR3.left === 0, '医疗机器人电量按次扣减（剩 ' + ADR3.left + '/1）');
   ok(ADR3.inv.fails.length === 0, 'AI 拖尸→医疗间复活链路不变量全过');
 
   section('AI 异形 · 藏尸');
@@ -2636,12 +2669,12 @@ function section(t) { console.log('\n== ' + t); }
     const g = t.G(); g.paused = true; g.noReport = true;
     const k = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
     const v = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
-    for (const a of g.agents) if (a !== k && a !== v) t.tp(a.i, 30, 10);
+    for (const a of g.agents) if (a !== k && a !== v) t.tp(a.i, 30,32);
     t.clearDrags(); t.resetAiState(k.i);
     g.secbotDead = true;
     k.knife = 0; k.sabUsed = true; k._delay = 0; k._rest = 0;
-    t.tp(v.i, 84, 32); t.kill(v.i, 'knife');
-    t.tp(k.i, 84.6, 32.6);
+    t.tp(v.i, 84,54); t.kill(v.i, 'knife');
+    t.tp(k.i, 84.6,54.6);
     const b0 = t.bodyOf(v.i);
     let dragSeen = false, last = null;
     for (let i = 0; i < 900; i++) {
@@ -2690,18 +2723,18 @@ function section(t) { console.log('\n== ' + t); }
     const g = t.G(); g.paused = true; g.noReport = true;
     const k = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
     const v = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
-    for (const a of g.agents) if (a !== k && a !== v) t.tp(a.i, 30, 10);
+    for (const a of g.agents) if (a !== k && a !== v) t.tp(a.i, 30,32);
     t.clearDrags(); t.resetAiState(k.i);
     const sec = t.setBot('secbot', 66, 32, 0);
     const sb = g.bots.secbot; sb.wps = [[sec[0], sec[1]]]; sb.wp = 0; sb.ang = 0;
-    t.tp(k.i, 69, 32); t.tp(v.i, 70, 32);
+    t.tp(k.i, 69,32); t.tp(v.i, 70,32);
     k.knife = 1; k.sabUsed = true; k._delay = 0; k._rest = 0;
     k._botCD = 999;              /* 本节只验"保安扇形回避"，机器人砍击另有 AIKB 用例 */
     const seen = t.secWouldSee(69, 32);
     const r1 = t.aiTickAlien(k.i, 20, 0.05);
     const blocked = { downed: t.state()[v.i].downed, avoid: r1.secAvoid, knife: k.knife };
     t.setBot('secbot', sec[0], sec[1], Math.PI);
-    t.tp(k.i, 69, 32); t.tp(v.i, 70, 32);   /* 回避阶段可能走开：复位后再验补刀 */
+    t.tp(k.i, 69,32); t.tp(v.i, 70,32);   /* 回避阶段可能走开：复位后再验补刀 */
     k._secAvoidT = 0; k.path = null; k.target = null;
     t.aiTickAlien(k.i, 40, 0.05);
     return { seen, blocked, after: { downed: t.state()[v.i].downed, knife: k.knife },
@@ -2723,20 +2756,20 @@ function section(t) { console.log('\n== ' + t); }
     const w1 = g.agents.find(a => !a.alien && a.i !== 0 && a.alive && vs.indexOf(a) < 0);
     const w2 = g.agents.find(a => !a.alien && a.i !== 0 && a.alive && vs.indexOf(a) < 0 && a !== w1);
     const keep = [k, w1, w2].concat(vs);
-    for (const a of g.agents) if (keep.indexOf(a) < 0) t.tp(a.i, 30, 32);
+    for (const a of g.agents) if (keep.indexOf(a) < 0) t.tp(a.i, 30,54);
     g.secbotDead = true; g.medbotDead = true;
     t.clearDrags(); t.resetAiState(k.i);
     for (const a of keep) { a._delay = 0; a._rest = 0; a.path = null; a.target = null; }
     k.knife = 1; k.sabUsed = true;
     /* 引擎舱是暗舱：旁观者在 1~1.5 格内一定能看见 */
     const setup = (v, two) => {
-      for (const u of vs) if (u !== v) t.tp(u.i, 30, 32);
-      t.tp(k.i, 8, 31); t.tp(v.i, 9, 31); t.tp(w1.i, 10, 31);
-      t.tp(w2.i, two ? 8 : 30, two ? 30 : 32);
+      for (const u of vs) if (u !== v) t.tp(u.i, 30,54);
+      t.tp(k.i, 8,53); t.tp(v.i, 9,53); t.tp(w1.i, 10,53);
+      t.tp(w2.i, two ? 8 : 30, two ? 52 : 32);
       k.path = null; k.target = v; v.path = null; k.knife = 1;
     };
     setup(vs[0], false);
-    const seen = t.witnessesAt(k.i, 9, 31, 6, vs[0].i);
+    const seen = t.witnessesAt(k.i, 9, 53, 6, vs[0].i);
     const oldRandom = Math.random;
     /* 1 个非队友目击者 + 冒险 → 直接出刀 */
     Math.random = () => 0;
@@ -2764,7 +2797,7 @@ function section(t) { console.log('\n== ' + t); }
     /* 目击者是已认出的队友 → 不算风险，高随机数也照常出刀 */
     clearAlienMind();
     k.mates[w1.i] = { t: 0, kind: 'saw_red' };
-    setup(vs[3], false); t.tp(w2.i, 30, 32);
+    setup(vs[3], false); t.tp(w2.i, 30,54);
     k.target = vs[3]; Math.random = () => 0.999;
     t.aiTickAlien(k.i, 1, 0.05);
     const mate = { downed: t.state()[vs[3].i].downed };
@@ -2788,19 +2821,19 @@ function section(t) { console.log('\n== ' + t); }
     const al = g.agents.filter(a => a.alien && a.i !== 0 && a.alive).slice(0, 2);
     const k = al[0], m = al[1];
     const v = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
-    for (const a of g.agents) if (a !== k && a !== m && a !== v) t.tp(a.i, 30, 32);
+    for (const a of g.agents) if (a !== k && a !== m && a !== v) t.tp(a.i, 30,54);
     t.resetAiState(k.i); t.resetAiState(m.i);
     k.mates = {}; m.mates = {};
     g.secbotDead = true; g.medbotDead = true;
-    t.tp(k.i, 8, 31); t.tp(m.i, 9, 31); t.tp(v.i, 8, 29);
+    t.tp(k.i, 8,53); t.tp(m.i, 9,53); t.tp(v.i, 8,51);
     for (const a of [k, m, v]) { a._delay = 0; a._rest = 0; a.path = null; a.target = null; }
-    t.notice(m.i, 9, 31, 6, 'pipe', null);
+    t.notice(m.i, 9, 53, 6, 'pipe', null);
     const pipeMate = t.mind(k.i).mates[m.i] || null;
     m.redT = 3; t.track();
     const redMate = t.mind(k.i).mates[m.i] || null;
     t.breaker();
-    t.tp(k.i, 48, 32); t.tp(m.i, 47, 32);
-    t.notice(m.i, 47, 32, 6, 'breaker', null);
+    t.tp(k.i, 48,54); t.tp(m.i, 47,54);
+    t.notice(m.i, 47, 54, 6, 'breaker', null);
     const brMate = t.mind(k.i).mates[m.i] || null;
     k.knife = 1; k.sabUsed = true; k._botCD = 999; k._delay = 0;
     k.target = null; k.path = null;
@@ -2826,12 +2859,12 @@ function section(t) { console.log('\n== ' + t); }
     const al = g.agents.filter(a => a.alien && a.i !== 0 && a.alive).slice(0, 2);
     const k = al[0], m = al[1];
     const v = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
-    for (const a of g.agents) if (a !== k && a !== m && a !== v) t.tp(a.i, 30, 32);
+    for (const a of g.agents) if (a !== k && a !== m && a !== v) t.tp(a.i, 30,54);
     t.resetAiState(k.i); t.resetAiState(m.i);
     k.mates = {}; m.mates = {};
     k.mates[m.i] = { t: 0, kind: 'pipe' };
     m.mates[k.i] = { t: 0, kind: 'pipe' };
-    t.tp(k.i, 56, 51); t.tp(m.i, 57, 51); t.tp(v.i, 55, 51);
+    t.tp(k.i, 56,73); t.tp(m.i, 57,73); t.tp(v.i, 55,73);
     const oldRandom = Math.random;
     Math.random = () => 0;
     t.openMeeting('day', null, null);
@@ -2855,8 +2888,8 @@ function section(t) { console.log('\n== ' + t); }
     const g = t.G(); g.paused = true; g.noReport = true;
     const h = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
     const k = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
-    for (const a of g.agents) if (a !== h && a !== k) t.tp(a.i, 30, 32);
-    t.tp(h.i, 30, 11); t.tp(k.i, 34, 11);
+    for (const a of g.agents) if (a !== h && a !== k) t.tp(a.i, 30,54);
+    t.tp(h.i, 30,33); t.tp(k.i, 34,33);
     h._delay = 0; h._rest = 0; h.doing = 8; h._doing = 'task'; h._taskPt = h.tasks[0];
     h.path = null; h.mind.known[k.i] = { t: 0, kind: 'saw_pipe', room: 'bridge', conf: 0.95 };
     k.moving = true; k.path = [[31, 11]];
@@ -2872,9 +2905,9 @@ function section(t) { console.log('\n== ' + t); }
     const g = t.G(); g.paused = true; g.noReport = true;
     const h = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
     const k = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
-    for (const a of g.agents) if (a !== h && a !== k) t.tp(a.i, 30, 32);
-    t.tp(h.i, 8, 31); t.tp(k.i, 30, 32);
-    g.dmg = [{ room: 'engine', x: 6, y: 31, label: '测试故障', left: 60, dur: 60, by: k.i }];
+    for (const a of g.agents) if (a !== h && a !== k) t.tp(a.i, 30,54);
+    t.tp(h.i, 8,53); t.tp(k.i, 30,54);
+    g.dmg = [{ room: 'engine', x: 6, y: 51, label: '测试故障', left: 60, dur: 60, by: k.i }];
     h._delay = 0; h._rest = 0; h._fixGo = null; h.path = null;
     h.doing = 0; h._doing = null; h._lightGo = false;
     t.aiTick(h.i, 1, 0.05);
@@ -2933,9 +2966,9 @@ function section(t) { console.log('\n== ' + t); }
     const k = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
     const v1 = g.agents.find(a => !a.alien && a.i !== 0 && a.alive && a !== h);
     const v2 = g.agents.find(a => !a.alien && a.i !== 0 && a.alive && a !== h && a !== v1);
-    for (const a of g.agents) if ([h, k, v1, v2].indexOf(a) < 0) t.tp(a.i, 30, 32);
-    t.tp(h.i, 30, 11); t.tp(v1.i, 34, 11);
-    t.tp(k.i, 8, 31); t.tp(v2.i, 10, 31);
+    for (const a of g.agents) if ([h, k, v1, v2].indexOf(a) < 0) t.tp(a.i, 30,54);
+    t.tp(h.i, 30,33); t.tp(v1.i, 34,33);
+    t.tp(k.i, 8,53); t.tp(v2.i, 10,53);
     for (const a of [h, k, v1, v2]) { a._delay = 0; a._rest = 0; a.path = null; a.target = null; }
     t.kill(v1.i, 'knife'); v1.bullet = 1; v1.qual = 1; v1.medkit = 0;
     t.kill(v2.i, 'knife'); v2.bullet = 1; v2.medkit = 1; v2.qual = 0;
@@ -2959,14 +2992,14 @@ function section(t) { console.log('\n== ' + t); }
     const g = t.G(); g.paused = true; g.noReport = true; g.dmg = [];
     const k = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
     const v = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
-    for (const a of g.agents) if (a !== k && a !== v) t.tp(a.i, 30, 32);
+    for (const a of g.agents) if (a !== k && a !== v) t.tp(a.i, 30,54);
     t.resetAiState(k.i);
     g.secbotDead = true; g.medbotDead = true;
     k.knife = 0; k.bullet = 0; k.medkit = 0; k.qual = 0; k.qualPending = 0;
     k.sabUsed = true; k._hides = 2; k._hideCD = 999; k._delay = 0; k._rest = 0;
     v.downed = true; v.alive = true; v.downAt = g.t; v.downX = 56; v.downY = 51;
     v.bullet = 0; v.medkit = 0; v.qual = 0; v.qualPending = 1;
-    t.tp(k.i, 56.8, 51); t.tp(v.i, 56, 51);
+    t.tp(k.i, 56.8,73); t.tp(v.i, 56,73);
     for (let i = 0; i < 12; i++) t.aiScan(k.i, 0.06);
     const start = { do: k._doing, sv: k._sv };
     t.aiTickAlien(k.i, 40, 0.05);
@@ -2984,7 +3017,7 @@ function section(t) { console.log('\n== ' + t); }
     const g = t.G(); g.paused = true; g.noReport = true; g.dmg = [];
     const h = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
     const v = g.agents.find(a => !a.alien && a.i !== 0 && a.alive && a !== h);
-    for (const a of g.agents) if (a !== h && a !== v) t.tp(a.i, 30, 32);
+    for (const a of g.agents) if (a !== h && a !== v) t.tp(a.i, 30,54);
     h.bullet = 0; h.medkit = 0; h.qual = 0; h.qualPending = 0;
     h.tIdx = h.tasks.length; h._delay = 0; h._rest = 0; h.path = null;
     h.doing = 0; h._doing = null; h._lootMem = {};
@@ -3036,15 +3069,16 @@ function section(t) { console.log('\n== ' + t); }
     const g = t.G(); g.paused = true; g.noReport = true;
     const k = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
     const w = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
-    for (const a of g.agents) if (a !== k && a !== w) t.tp(a.i, 30, 32);
+    for (const a of g.agents) if (a !== k && a !== w) t.tp(a.i, 30,54);
     t.resetAiState(k.i);
-    t.tp(k.i, 7.5, 31); t.tp(w.i, 9, 31);
+    t.tp(k.i, 7.5,53); t.tp(w.i, 9,53);
     k.knife = 0; k.sabUsed = true; k._alienTaskN = g.night;
     k._fakeN = 0; k._supportGoal = null; k.target = null;
     k._delay = 0; k._rest = 0;
-    g.dmg = [{ room: 'engine', x: 6, y: 31, label: '测试故障', left: 60, dur: 60, by: k.i }];
+    g.dmg = [{ room: 'engine', x: 6, y: 51, label: '测试故障', left: 60, dur: 60, by: k.i }];
     const old = Math.random; Math.random = () => 0;
-    t.aiTickAlien(k.i, 2, 0.05);
+    t.aiTickAlien(k.i, 2, 0.05);      /* 决定假装维修 */
+    t.aiTickAlien(k.i, 30, 0.05);     /* 走到故障旁开始站桩 */
     Math.random = old;
     const out = { do: k._doing, doing: k.doing, dmg: g.dmg.length, fake: k._fakeN };
     t.aiTickAlien(k.i, 140, 0.05);
@@ -3062,7 +3096,7 @@ function section(t) { console.log('\n== ' + t); }
     const g = t.G(); g.paused = true; g.noReport = true; g.dmg = [];
     const k = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
     const w = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
-    for (const a of g.agents) if (a !== k && a !== w) t.tp(a.i, 30, 32);
+    for (const a of g.agents) if (a !== k && a !== w) t.tp(a.i, 30,54);
     t.resetAiState(k.i);
     const pts = t.points();
     let spot = null;
@@ -3112,7 +3146,7 @@ function section(t) { console.log('\n== ' + t); }
     const t = SKV3._t; t.newGame();
     const g = t.G(); g.paused = true; g.noReport = true; g.dmg = [];
     const k = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
-    for (const a of g.agents) if (a !== k) t.tp(a.i, 30, 32);
+    for (const a of g.agents) if (a !== k) t.tp(a.i, 30,54);
     t.resetAiState(k.i);
     const pts = t.points();
     let kp = null;
@@ -3151,17 +3185,17 @@ function section(t) { console.log('\n== ' + t); }
     const g = t.G(); g.paused = true; g.noReport = true; g.dmg = [];
     const k = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
     const h = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
-    for (const a of g.agents) if (a !== k && a !== h) t.tp(a.i, 30, 32);
+    for (const a of g.agents) if (a !== k && a !== h) t.tp(a.i, 30,54);
     t.resetAiState(k.i);
     g.secbotDead = true; g.medbotDead = true;
     k.qual = 1; k.bullet = 0; k.medkit = 0; k.knife = 1;
     k.sabUsed = true; k._delay = 0; k._rest = 0;
-    t.tp(k.i, 78.2, 54.6);
+    t.tp(k.i, 78.2,76.6);
     t.aiTickAlien(k.i, 1, 0.05);
     const start = { do: k._doing, doing: k.doing };
     t.aiTickAlien(k.i, 220, 0.05);
     const got = { bullet: k.bullet, qual: k.qual };
-    t.tp(k.i, 56, 51); t.tp(h.i, 61, 51);
+    t.tp(k.i, 56,73); t.tp(h.i, 61,73);
     k.bullet = 1; k.knife = 1; k.target = h;
     k._supportGoal = null; k._fakeN = g.night; k._alienTaskN = g.night;
     const old = Math.random; Math.random = () => 0;
@@ -3180,12 +3214,12 @@ function section(t) { console.log('\n== ' + t); }
     const g = t.G(); g.paused = true; g.noReport = true; g.dmg = [];
     const al = g.agents.filter(a => a.alien && a.i !== 0 && a.alive).slice(0, 2);
     const k = al[0], m = al[1];
-    for (const a of g.agents) if (a !== k && a !== m) t.tp(a.i, 30, 32);
+    for (const a of g.agents) if (a !== k && a !== m) t.tp(a.i, 30,54);
     t.resetAiState(k.i);
     k.mates = {}; k.mates[m.i] = { t: 0, kind: 'pipe' };
     k.medkit = 1; k.knife = 0; k.sabUsed = true; k._delay = 0; k._rest = 0;
     m.downed = true; m.alive = true; m.downX = 56; m.downY = 51; m.downAt = g.t;
-    t.tp(k.i, 56.6, 51); t.tp(m.i, 56, 51);
+    t.tp(k.i, 56.6,73); t.tp(m.i, 56,73);
     t.aiTickAlien(k.i, 1, 0.05);
     const start = { do: k._doing, doing: k.doing };
     t.aiTickAlien(k.i, 120, 0.05);
@@ -3204,8 +3238,8 @@ function section(t) { console.log('\n== ' + t); }
     const w = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
     const a = g.agents.find(x => x.i !== 0 && x !== w && x.alive);
     const v = g.agents.find(x => !x.alien && x.i !== 0 && x.alive && x !== w && x !== a);
-    for (const x of g.agents) if (x !== w && x !== a && x !== v) t.tp(x.i, 30, 32);
-    t.tp(w.i, 30, 11); t.tp(a.i, 10, 31); t.tp(v.i, 56, 51);
+    for (const x of g.agents) if (x !== w && x !== a && x !== v) t.tp(x.i, 30,54);
+    t.tp(w.i, 30,33); t.tp(a.i, 10,53); t.tp(v.i, 56,73);
     t.kill(v.i, 'knife');
     const deathEv = 120 - Math.max(0, v.alive ? v.downAt : v.deathAt);
     a.nRoom = 'engine';
@@ -3228,12 +3262,12 @@ function section(t) { console.log('\n== ' + t); }
     const w2 = g.agents.find(a => !a.alien && a.i !== 0 && a.alive && a !== w);
     const h = g.agents.find(a => !a.alien && a.i !== 0 && a.alive && a !== w && a !== w2);
     const v = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
-    for (const x of g.agents) if ([w, w2, h, v].indexOf(x) < 0) t.tp(x.i, 30, 32);
-    t.tp(w.i, 56, 51); t.tp(w2.i, 57, 51); t.tp(h.i, 58, 51); t.tp(v.i, 59, 51);
+    for (const x of g.agents) if ([w, w2, h, v].indexOf(x) < 0) t.tp(x.i, 30,54);
+    t.tp(w.i, 56,73); t.tp(w2.i, 57,73); t.tp(h.i, 58,73); t.tp(v.i, 59,73);
     w.mind.known[v.i] = { t: 0, kind: 'saw_pipe', room: 'med', conf: 0.95 };
     const b1 = (t.mind(w.i).sus || {})[h.i] || 0;
     const b2 = (t.mind(w2.i).sus || {})[h.i] || 0;
-    t.notice(h.i, 58, 51, 7, 'shot', v.i);
+    t.notice(h.i, 58, 73, 7, 'shot', v.i);
     return { b1, b2, a1: (t.mind(w.i).sus || {})[h.i] || 0,
       a2: (t.mind(w2.i).sus || {})[h.i] || 0,
       s1: g.agents[w.i].suspect, s2: g.agents[w2.i].suspect, h: h.i };
@@ -3248,8 +3282,8 @@ function section(t) { console.log('\n== ' + t); }
     const g = t.G(); g.paused = true; g.noReport = true;
     const w = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
     const k = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
-    for (const x of g.agents) if (x !== w && x !== k) t.tp(x.i, 30, 32);
-    t.tp(w.i, 56, 51); t.tp(k.i, 57, 51);
+    for (const x of g.agents) if (x !== w && x !== k) t.tp(x.i, 30,54);
+    t.tp(w.i, 56,73); t.tp(k.i, 57,73);
     const before = (t.mind(w.i).sus || {})[k.i] || 0;
     t.openMeeting('day', null, null);
     const after = (t.mind(w.i).sus || {})[k.i] || 0;
@@ -3266,9 +3300,9 @@ function section(t) { console.log('\n== ' + t); }
     const g = t.G(); g.paused = true; g.noReport = false; g.aiReportUsed = false;
     const k = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
     const v = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
-    for (const a of g.agents) if (a !== k && a !== v) t.tp(a.i, 30, 10);
+    for (const a of g.agents) if (a !== k && a !== v) t.tp(a.i, 30,32);
     t.clearDrags(); t.resetAiState(k.i);
-    t.tp(v.i, 56, 51); t.kill(v.i, 'knife'); t.tp(k.i, 56.6, 51);
+    t.tp(v.i, 56,73); t.kill(v.i, 'knife'); t.tp(k.i, 56.6,73);
     k.knife = 0; k.sabUsed = true; k._delay = 0; k._rest = 0;
     k._killBody = v.i; k._killAt = 0; k._killDecided = false;
     const oldRandom = Math.random;
@@ -3295,9 +3329,9 @@ function section(t) { console.log('\n== ' + t); }
     const g = t.G(); g.paused = true; g.noReport = false; g.aiReportUsed = false;
     const k = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
     const v = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
-    for (const a of g.agents) if (a !== k && a !== v) t.tp(a.i, 30, 10);
-    t.tp(v.i, 56, 51); t.kill(v.i, 'knife');
-    t.tp(k.i, 56.6, 51);
+    for (const a of g.agents) if (a !== k && a !== v) t.tp(a.i, 30,32);
+    t.tp(v.i, 56,73); t.kill(v.i, 'knife');
+    t.tp(k.i, 56.6,73);
     k.knife = 0; k.sabUsed = true; k._delay = 0;
     t.planReport(k.i, v.i, 0);
     t.aiTickAlien(k.i, 20, 0.05);
@@ -3315,9 +3349,9 @@ function section(t) { console.log('\n== ' + t); }
     const g = t.G(); g.paused = true; g.noReport = false; g.aiReportUsed = false;
     const k = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
     const v = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
-    for (const a of g.agents) if (a !== k && a !== v) t.tp(a.i, 30, 10);
-    t.tp(v.i, 56, 51); t.kill(v.i, 'knife');
-    t.tp(k.i, 56.6, 51);
+    for (const a of g.agents) if (a !== k && a !== v) t.tp(a.i, 30,32);
+    t.tp(v.i, 56,73); t.kill(v.i, 'knife');
+    t.tp(k.i, 56.6,73);
     k.knife = 0; k.sabUsed = true; k._delay = 0;
     t.planReport(k.i, v.i, 4);
     t.aiTickAlien(k.i, 20, 0.05);
@@ -3340,9 +3374,9 @@ function section(t) { console.log('\n== ' + t); }
     const k = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
     const v = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
     const w = g.agents.find(a => !a.alien && a.i !== 0 && a.alive && a !== v);
-    for (const a of g.agents) if (a !== k && a !== v && a !== w) t.tp(a.i, 30, 10);
-    t.tp(v.i, 56, 51); t.kill(v.i, 'knife');
-    t.tp(w.i, 57.4, 51);
+    for (const a of g.agents) if (a !== k && a !== v && a !== w) t.tp(a.i, 30,32);
+    t.tp(v.i, 56,73); t.kill(v.i, 'knife');
+    t.tp(w.i, 57.4,73);
     t.aiScan(w.i, 0.6);                    /* w 看到尸体（没看到凶手） */
     const s0 = (t.mind(w.i).sus || {})[k.i] || 0;
     t.openMeeting('night', k.i, v.i);      /* 凶手本人报告 */
@@ -3362,10 +3396,10 @@ function section(t) { console.log('\n== ' + t); }
     const k = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
     const v = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
     const w = g.agents.find(a => !a.alien && a.i !== 0 && a.alive && a !== v);
-    for (const a of g.agents) if (a !== k && a !== v && a !== w) t.tp(a.i, 30, 10);
-    t.tp(v.i, 56, 51); t.kill(v.i, 'knife');
+    for (const a of g.agents) if (a !== k && a !== v && a !== w) t.tp(a.i, 30,32);
+    t.tp(v.i, 56,73); t.kill(v.i, 'knife');
     v.deathAt = g.t + 30;                  /* 死了 30 秒才被报 */
-    t.tp(w.i, 57.4, 51);
+    t.tp(w.i, 57.4,73);
     t.aiScan(w.i, 0.6);
     const s0 = (t.mind(w.i).sus || {})[k.i] || 0;
     t.openMeeting('night', k.i, v.i);
@@ -3388,8 +3422,8 @@ function section(t) { console.log('\n== ' + t); }
     const g = t.G(); g.paused = true; g.noReport = true;
     const a1 = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
     const a2 = g.agents.find(a => !a.alien && a.i !== 0 && a.alive && a !== a1);
-    t.tp(a1.i, 56, 51); t.tp(a2.i, 57.2, 51);
-    g.dmg = [{room: 'med', x: 56.5, y: 51, label: '测试设备', left: 60, dur: 60, by: 0}];
+    t.tp(a1.i, 56,73); t.tp(a2.i, 57.2,73);
+    g.dmg = [{room: 'med', x: 56.1, y: 71.4, label: '测试设备', left: 60, dur: 60, by: 0}];
     t.startFix(a1.i, 'med'); t.startFix(a2.i, 'med');
     const before = { d1: g.agents[a1.i]._doing, d2: g.agents[a2.i]._doing };
     g.agents[a1.i].doing = 0.01;
@@ -3408,15 +3442,15 @@ function section(t) { console.log('\n== ' + t); }
     const g = t.G(); g.paused = true; g.noReport = true;
     const a1 = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
     const a2 = g.agents.find(a => !a.alien && a.i !== 0 && a.alive && a !== a1);
-    t.tp(a1.i, 56, 51); t.tp(a2.i, 70, 30);
-    g.dmg = [{room: 'med', x: 56.5, y: 51, label: '测试设备', left: 60, dur: 60, by: 0}];
+    t.tp(a1.i, 56,73); t.tp(a2.i, 30,54);
+    g.dmg = [{room: 'med', x: 56.1, y: 71.4, label: '测试设备', left: 60, dur: 60, by: 0}];
     a2._fixGo = g.dmg[0];
-    a2.path = [[56.5, 51]];
+    a2.path = [[56.1, 71.4]];
     g.dmg = [];
     t.aiTick(a2.i, 1, 0.05);
     const end = a2.path && a2.path.length ? a2.path[a2.path.length - 1] : null;
     return { fixGo: a2._fixGo, end,
-      atFault: !!(end && Math.hypot(end[0] - 56.5, end[1] - 51) < 0.6), inv: t.inv() };
+      atFault: !!(end && Math.hypot(end[0] - 56.1, end[1] - 71.4) < 0.6), inv: t.inv() };
   });
   ok(!SFIX2.fixGo && !SFIX2.atFault, '赶往故障途中故障被修好：立刻改道，不再往旧设备跑');
   ok(SFIX2.inv.fails.length === 0, '改道后不变量全过');
@@ -3427,7 +3461,7 @@ function section(t) { console.log('\n== ' + t); }
     const t = SKV3._t; t.newGame();
     const g = t.G(); g.paused = true; g.noReport = true; g.dmg = [];
     const h = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
-    for (const a of g.agents) if (a !== h) { a.knife = 0; t.tp(a.i, 30, 10); }
+    for (const a of g.agents) if (a !== h) { a.knife = 0; t.tp(a.i, 30,32); }
     t.clearDrags(); t.resetAiState(h.i);
     h.medkit = 0; h.bullet = 0; h.qual = 0; h.qualPending = 0; h.suspect = null;
     h.tIdx = h.tasks.length; h._delay = 0; h._rest = 0;
@@ -3436,7 +3470,7 @@ function section(t) { console.log('\n== ' + t); }
     let hp = null;
     for (let r = 0.4; r <= 3.2 && !hp; r += 0.2)
       for (let i = 0; i < 24 && !hp; i++) {
-        const a = i / 24 * Math.PI * 2, x = 50.8 + Math.cos(a) * r, y = 32.1 + Math.sin(a) * r;
+        const a = i / 24 * Math.PI * 2, x = 50.8 + Math.cos(a) * r, y = 54.1 + Math.sin(a) * r;
         if (t.free(x, y)) hp = [x, y];
       }
     t.tp(h.i, hp[0], hp[1]);
@@ -3458,16 +3492,16 @@ function section(t) { console.log('\n== ' + t); }
     const g = t.G(); g.paused = true; g.noReport = true;
     const k = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
     const v = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
-    for (const a of g.agents) if (a !== k && a !== v) t.tp(a.i, 30, 10);
+    for (const a of g.agents) if (a !== k && a !== v) t.tp(a.i, 30,32);
     t.clearDrags(); t.resetAiState(k.i);
     k.knife = 1; k.sabUsed = true; k._delay = 0; k._rest = 0; k._pipeCD = 0;
     let kp = null;
     for (let r = 0; r <= 3.2 && !kp; r += 0.2)
       for (let i = 0; i < 24 && !kp; i++) {
-        const a = i / 24 * Math.PI * 2, x = 8 + Math.cos(a) * r, y = 30 + Math.sin(a) * r;
+        const a = i / 24 * Math.PI * 2, x = 8 + Math.cos(a) * r, y = 52 + Math.sin(a) * r;
         if (t.free(x, y)) kp = [x, y];
       }
-    t.tp(k.i, kp[0], kp[1]); t.tp(v.i, 84, 9);
+    t.tp(k.i, kp[0], kp[1]); t.tp(v.i, 84,31);
     k.target = v;                    /* 目标锁定监控室的人：验证它会规划到管道口 */
     let last = null;
     for (let i = 0; i < 600; i++) {
@@ -3490,14 +3524,14 @@ function section(t) { console.log('\n== ' + t); }
     const g = t.G(); g.paused = true; g.noReport = true;
     const k = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
     const v = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
-    for (const a of g.agents) if (a !== k && a !== v) t.tp(a.i, 30, 10);
+    for (const a of g.agents) if (a !== k && a !== v) t.tp(a.i, 30,32);
     t.clearDrags(); t.resetAiState(k.i);
     k.knife = 0; k.bullet = 0; k.medkit = 0; k.qual = 0; k.qualPending = 0;
     k.sabUsed = true; k._delay = 0; k._rest = 0; k._pipeCD = 0;
     k._fakeN = g.night; k._alienTaskN = g.night;   /* 排除伪装/做任务分支 */
     const pipes = t.pipes();
     const pin = pipes[0];
-    t.tp(k.i, pin.x, pin.y); t.tp(v.i, 84, 9);
+    t.tp(k.i, pin.x, pin.y); t.tp(v.i, 84,31);
     k.target = v;
     let last = null;
     for (let i = 0; i < 20; i++) {
@@ -3518,12 +3552,12 @@ function section(t) { console.log('\n== ' + t); }
     const k = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
     const idle = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
     const busy = g.agents.find(a => !a.alien && a.i !== 0 && a.alive && a !== idle);
-    for (const a of g.agents) if (a !== k && a !== idle && a !== busy) t.tp(a.i, 30, 32);
+    for (const a of g.agents) if (a !== k && a !== idle && a !== busy) t.tp(a.i, 30,54);
     t.clearDrags(); t.resetAiState(k.i);
     g.secbotDead = true; g.medbotDead = true;
     k.knife = 1; k.bullet = 0; k.sabUsed = true; k._delay = 0; k._rest = 0;
     k._pipeCD = 0;
-    t.tp(k.i, 30, 30); t.tp(idle.i, 33, 30); t.tp(busy.i, 40, 30);
+    t.tp(k.i, 30,52); t.tp(idle.i, 33,52); t.tp(busy.i, 40,52);
     idle.doing = 0; idle._doing = null;
     busy.doing = 5; busy._doing = 'task';
     t.aiTickAlien(k.i, 1, 0.05);
@@ -3542,7 +3576,7 @@ function section(t) { console.log('\n== ' + t); }
     g.me.alien = true; g.me.sabUsed = false;
     g.me.doing = 0; g.me._doing = null; g.me.path = null;
     g.dmg = []; g.sabTarget = null;
-    t.tp(0, 30, 10);
+    t.tp(0, 30,32);
     const open = t.openSab();
     return { open, pick: t.sabPick(), msg: g.msg, inv: t.inv() };
   });
@@ -3552,10 +3586,10 @@ function section(t) { console.log('\n== ' + t); }
     buttons: document.querySelectorAll('#sabot-list button').length,
     tip: document.getElementById('tip').textContent
   }));
-  ok(SAB0.open && SAB0.pick.rooms.length === 8 && SAB0.pick.rooms.indexOf('bridge') < 0,
-    '玩家异形按 F 打开舱室列表：8 个舱室，中央会议室被排除');
-  ok(SAB0b.ui && SAB0b.buttons === 8 && SAB0b.tip.indexOf('破坏选择') >= 0,
-    '破坏面板：8 个按钮 + 提示栏切换到破坏说明');
+  ok(SAB0.open && SAB0.pick.rooms.length === 9 && SAB0.pick.rooms.indexOf('bridge') < 0,
+    '玩家异形按 F 打开舱室列表：9 个舱室，中央会议室被排除');
+  ok(SAB0b.ui && SAB0b.buttons === 9 && SAB0b.tip.indexOf('破坏选择') >= 0,
+    '破坏面板：9 个按钮 + 提示栏切换到破坏说明');
   ok(SAB0.inv && SAB0.inv.fails.length === 0, '打开破坏面板后不变量全过');
   await shot('46_破坏选舱.png');
   const SAB1 = await T(() => {
@@ -3735,8 +3769,8 @@ function section(t) { console.log('\n== ' + t); }
   const VIS0 = await T(() => {
     const t = SKV3._t, g = t.G();
     const k = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
-    for (const a of g.agents) if (a !== g.me && a !== k) t.tp(a.i, 30, 10);
-    t.tp(0, 56, 51); t.tp(k.i, 61, 51);
+    for (const a of g.agents) if (a !== g.me && a !== k) t.tp(a.i, 30,32);
+    t.tp(0, 56,73); t.tp(k.i, 61,73);
     g.me.bullet = 1;
     t.breaker(); /* 断电后只有 4.2 格近身视野 + 7 格手电锥；目标在 5 格背后 */
     g.aimX = g.me.x - 1; g.aimY = g.me.y;
@@ -3767,8 +3801,8 @@ function section(t) { console.log('\n== ' + t); }
     const actor = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
     const human = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
     /* 同一处亲眼目击一次异形专属破坏：只有人类写入 suspect */
-    t.tp(actor.i, 57.2, 51);
-    t.tp(human.i, 58.1, 51.5);
+    t.tp(actor.i, 57.2,73);
+    t.tp(human.i, 58.1,73.5);
     actor.sabUsed = false; g.dmg = [];
     const okDmg = t.damageRoom(actor.i, 'med');
     return { okDmg, actor: actor.i, human: human.i,
@@ -3777,7 +3811,7 @@ function section(t) { console.log('\n== ' + t); }
       role: document.getElementById('role').textContent,
       tip: document.getElementById('tip').textContent, inv: t.inv() };
   });
-  ok(AB.speed === 5, '全场统一移动速度常量 = ' + AB.speed + ' 格/秒');
+  ok(AB.speed === 4, '全场统一移动速度常量 = ' + AB.speed + ' 格/秒');
   ok(AB.range === 14, '保安机器人行凶识别半径 = ' + AB.range + ' 格');
   ok(AB.okDmg && AB.humanSuspect === AB.actor, '人类目击异形专属破坏 → 写入嫌疑人');
   ok(AB.humanAllies == null, '人类不会被写入盟友表（只有 suspect）');
@@ -3787,8 +3821,8 @@ function section(t) { console.log('\n== ' + t); }
     const t = SKV3._t, g = t.G();
     const k = g.agents.find(a => a.alien && a.i !== 0 && a.alive && !a.downed);
     const mate = g.agents.find(a => a.alien && a.i !== 0 && a.alive && a !== k);
-    for (const a of g.agents) if (a !== k && a !== mate) { a.path = null; a.x = 28.2; a.y = 22.0; }
-    t.tp(k.i, 34, 12); t.tp(mate.i, 36, 12);
+    for (const a of g.agents) if (a !== k && a !== mate) { a.path = null; a.x = 28.2; a.y = 44.0; }
+    t.tp(k.i, 34,34); t.tp(mate.i, 36,34);
     k.target = null; k.sabUsed = true; k._delay = 0; k.doing = 0;
     k._doing = null; k.path = null; k.knife = 1; k.detained = false;
     t.aiTickAlien(k.i, 1, 0.05);
@@ -3822,8 +3856,8 @@ function section(t) { console.log('\n== ' + t); }
     demoted.alien = false;
     g.me.alien = true; g.me.bullet = 1; g.me.knife = 1;
     const v = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
-    for (const a of g.agents) if (a !== g.me && a !== v) { a.path = null; a.x = 28.2; a.y = 22.0; }
-    t.tp(0, 34.8, 11.8); t.tp(v.i, 32.0, 11.8);
+    for (const a of g.agents) if (a !== g.me && a !== v) { a.path = null; a.x = 28.2; a.y = 44.0; }
+    t.tp(0, 34.8,33.8); t.tp(v.i, 32.0,33.8);
     g.aimX = 32; g.aimY = 11.8;
     return { v: v.i, bullet: g.me.bullet, knife: g.me.knife };
   });
@@ -3841,8 +3875,8 @@ function section(t) { console.log('\n== ' + t); }
     demoted.alien = false;
     g.me.alien = true; g.me.bullet = 1; g.me.knife = 1;
     const v = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
-    for (const a of g.agents) if (a !== g.me && a !== v) { a.path = null; a.x = 28.2; a.y = 22.0; }
-    t.tp(0, 34.8, 11.8); t.tp(v.i, 35.6, 11.8);
+    for (const a of g.agents) if (a !== g.me && a !== v) { a.path = null; a.x = 28.2; a.y = 44.0; }
+    t.tp(0, 34.8,33.8); t.tp(v.i, 35.6,33.8);
     g.aimX = 35.6; g.aimY = 11.8;
     return { v: v.i };
   });
@@ -3857,27 +3891,27 @@ function section(t) { console.log('\n== ' + t); }
     const t = SKV3._t, g = t.G();
     const h = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
     h._delay = 999; h._rest = 0; h.doing = 0; h._doing = null; h.detained = false;
-    t.tp(h.i, 30.4, 11.8); h.path = [[33.4, 11.8]];
+    t.tp(h.i, 30.4,33.8); h.path = [[33.4, 11.8]];
     const h0 = [h.x, h.y];
     t.aiTick(h.i, 4, 0.05);
     const humanD = Math.hypot(h.x - h0[0], h.y - h0[1]);
     const k = g.agents.find(a => a.alien && a.i !== 0 && a.alive && !a.detained);
     k._delay = 999; k.doing = 0; k._doing = null; k.detained = false;
-    t.tp(k.i, 30.4, 13.4); k.path = [[33.4, 13.4]];
+    t.tp(k.i, 30.4,35.4); k.path = [[33.4, 13.4]];
     const k0 = [k.x, k.y];
     t.aiTickAlien(k.i, 4, 0.05);
     const alienD = Math.hypot(k.x - k0[0], k.y - k0[1]);
     return { humanD, alienD, inv: t.inv() };
   });
-  ok(Math.abs(SPD.humanD - 1) < 0.06 && Math.abs(SPD.alienD - 1) < 0.06,
-    '玩家 / AI 人类 / AI 异形同速：0.2 秒位移 ' + SPD.humanD.toFixed(2) + ' / ' + SPD.alienD.toFixed(2) + ' 格');
+  ok(Math.abs(SPD.humanD - 0.8) < 0.06 && Math.abs(SPD.alienD - 0.8) < 0.06,
+    '玩家 / AI 人类 / AI 异形同速（4 格/秒）：0.2 秒位移 ' + SPD.humanD.toFixed(2) + ' / ' + SPD.alienD.toFixed(2) + ' 格');
   ok(SPD.inv && SPD.inv.fails.length === 0, '统一移速后不变量全过');
   const ST = await T(() => {
     const t = SKV3._t, g = t.G();
     const v = g.agents.find(a => a.alien && a.i !== 0 && a.alive && !a.downed && !a.detained);
-    for (const a of g.agents) if (a !== g.me && a !== v) { a.path = null; a.x = 28.2; a.y = 22.0; }
-    t.tp(0, 34.8, 11.8);
-    t.tp(v.i, 35.55, 11.8);
+    for (const a of g.agents) if (a !== g.me && a !== v) { a.path = null; a.x = 28.2; a.y = 44.0; }
+    t.tp(0, 34.8,33.8);
+    t.tp(v.i, 35.55,33.8);
     g.me.knife = 1; g.me.doing = 0; g.me._doing = null; g.me.path = null;
     v._delay = 999; v.path = null; v.doing = 0; v._doing = null; v.detained = false;
     const r = t.attack();
@@ -3892,24 +3926,26 @@ function section(t) { console.log('\n== ' + t); }
     g.noReport = true;
     const k = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
     const v = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
-    const sec = t.setBot('secbot', 80, 53);
+    const sec = t.setBot('secbot', 80, 75);
     const sb = g.bots && g.bots.secbot;
     if (sb) { sb.wps = [[sec[0], sec[1]]]; sb.wp = 0; sb.ang = 0; }
     let spot = null;
     for (let r = 0.4; r <= 2.4 && !spot; r += 0.2)
       for (let i = 0; i < 24 && !spot; i++) {
-        const a = i / 24 * Math.PI * 2, x = 86.5 + Math.cos(a) * r, y = 54.5 + Math.sin(a) * r;
+        const a = i / 24 * Math.PI * 2, x = 86.5 + Math.cos(a) * r, y = 76.5 + Math.sin(a) * r;
         if (t.free(x, y)) spot = [x, y];
       }
     t.tp(k.i, spot[0], spot[1]);
-    t.tp(v.i, 86.0, 53.6);
+    t.tp(v.i, 86.0,75.6);
     k.knife = 1;
     t.knife(k.i, v.i);
     return { k: k.i, sec, dist: Math.hypot(spot[0] - sec[0], spot[1] - sec[1]), inv: t.inv() };
   });
   await page.waitForTimeout(220);
-  const SR1 = await T(o => ({ detained: SKV3._t.detained(),
-    used: SKV3._t.robots().sec.used, inv: SKV3._t.inv() }), SR0);
+  const SR1 = await T(o => {
+    SKV3._t.botTick(2.0);          /* 追捕 → 压制：新动画需要时间推进 */
+    return { detained: SKV3._t.detained(), used: SKV3._t.robots().sec.used, inv: SKV3._t.inv() };
+  }, SR0);
   ok(SR0.dist > 6 && SR0.dist < 9 && SR1.detained.some(d => d.i === SR0.k) && SR1.used,
     '保安识别范围增强：' + SR0.dist.toFixed(1) + ' 格外行凶仍被拘留');
   ok(SR1.inv && SR1.inv.fails.length === 0, '远距离拘留后不变量全过');
@@ -3922,8 +3958,8 @@ function section(t) { console.log('\n== ' + t); }
     const sec = t.setBot('secbot', 75, 53);
     const sb = g.bots && g.bots.secbot;
     if (sb) { sb.wps = [[sec[0], sec[1]]]; sb.wp = 0; sb.ang = 0; }
-    t.tp(k.i, 90.5, 53);
-    t.tp(v.i, 89.9, 52.5);
+    t.tp(k.i, 90.5,75);
+    t.tp(v.i, 89.9,74.5);
     k.knife = 1;
     t.knife(k.i, v.i);
     t.botTick(0.2);
@@ -3939,8 +3975,8 @@ function section(t) { console.log('\n== ' + t); }
     const k = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
     const h1 = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
     const h2 = g.agents.find(a => !a.alien && a.i !== 0 && a.alive && a !== h1);
-    for (const a of g.agents) if (a !== k && a !== h1 && a !== h2) t.tp(a.i, 28.2, 22);
-    t.tp(k.i, 34, 12); t.tp(h1.i, 36, 12); t.tp(h2.i, 36, 14);
+    for (const a of g.agents) if (a !== k && a !== h1 && a !== h2) t.tp(a.i, 28.2,44);
+    t.tp(k.i, 34,34); t.tp(h1.i, 36,34); t.tp(h2.i, 36,36);
     h1.detained = true; h1.detainedT = 60;
     k.target = null; k.knife = 1; k.sabUsed = true; k._delay = 0;
     k.doing = 0; k._doing = null; k.path = null;
@@ -3953,7 +3989,7 @@ function section(t) { console.log('\n== ' + t); }
     const t = SKV3._t, g = t.G(); g.noReport = true;
     const k = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
     const v = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
-    const sec = t.setBot('secbot', 80, 53, 0);
+    const sec = t.setBot('secbot', 80, 75, 0);
     const sb = g.bots.secbot; if (sb) { sb.wps = [[sec[0], sec[1]]]; sb.wp = 0; sb.ang = 0; }
     const freeNear = (x, y) => {
       for (let r = 0.4; r <= 2.4; r += 0.2)
@@ -3963,7 +3999,7 @@ function section(t) { console.log('\n== ' + t); }
         }
       return [x, y];
     };
-    const kp = freeNear(76.5, 53), vp = freeNear(76.5, 54);
+    const kp = freeNear(76.5, 75), vp = freeNear(76.5, 76);
     t.tp(k.i, kp[0], kp[1]); t.tp(v.i, vp[0], vp[1]);
     k.knife = 1; t.knife(k.i, v.i); t.botTick(0.2);
     return { dist: Math.hypot(kp[0] - sec[0], kp[1] - sec[1]),
@@ -4093,22 +4129,22 @@ function section(t) { console.log('\n== ' + t); }
     const g = t.G(); g.paused = true; g.noReport = true;
     const k = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
     const h = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
-    for (const a of g.agents) if (a !== k && a !== h && a !== g.me) t.tp(a.i, 30, 10);
-    t.tp(k.i, 64, 10); t.tp(h.i, 64, 10);
-    const alienFar = t.aiSee(k.i, 74, 10, 8);   /* 10 格，同一走廊：双方都超出 8 格 */
-    const humanFar = t.aiSee(h.i, 74, 10, 8);
+    for (const a of g.agents) if (a !== k && a !== h && a !== g.me) t.tp(a.i, 30,32);
+    t.tp(k.i, 64,32); t.tp(h.i, 64,32);
+    const alienFar = t.aiSee(k.i, 74, 32, 8);   /* 10 格，同一走廊：双方都超出 8 格 */
+    const humanFar = t.aiSee(h.i, 74, 32, 8);
     const light = t.breaker();                  /* 断电：走廊灯熄灭，只剩近身视野 */
-    const alienNear = t.aiSee(k.i, 69, 10, 8);  /* 5 格：异形 5.6 内可见 */
-    const humanNear = t.aiSee(h.i, 69, 10, 8);  /* 5 格：人类 4.2 外不可见 */
-    t.tp(0, 70, 10);
-    g.me.alien = false; g.aimX = 72; g.aimY = 10;
-    const humanCone = t.visible(75, 10);        /* 手电朝东 5 格 */
-    const humanBack = t.visible(67, 10);        /* 背后 3 格：人类近身 4.2 内 */
-    const humanBackFar = t.visible(65, 10);     /* 背后 5 格：人类看不见 */
+    const alienNear = t.aiSee(k.i, 69, 32, 8);  /* 5 格：异形 5.6 内可见 */
+    const humanNear = t.aiSee(h.i, 69, 32, 8);  /* 5 格：人类 4.2 外不可见 */
+    t.tp(0, 70,32);
+    g.me.alien = false; g.aimX = 72; g.aimY = 32;
+    const humanCone = t.visible(75, 32);        /* 手电朝东 5 格 */
+    const humanBack = t.visible(67, 32);        /* 背后 3 格：人类近身 4.2 内 */
+    const humanBackFar = t.visible(65, 32);     /* 背后 5 格：人类看不见 */
     g.me.alien = true;
-    const alienCone = t.visible(75, 10);        /* 同款手电锥 */
-    const alienBack = t.visible(65, 10);        /* 背后 5 格：异形近身 5.6 内 */
-    const alienBackFar = t.visible(63.5, 10);   /* 背后 6.5 格：异形也看不见 */
+    const alienCone = t.visible(75, 32);        /* 同款手电锥 */
+    const alienBack = t.visible(65, 32);        /* 背后 5 格：异形近身 5.6 内 */
+    const alienBackFar = t.visible(63.5, 32);   /* 背后 6.5 格：异形也看不见 */
     return { alienFar, humanFar, alienNear, humanNear, light,
       humanCone, humanBack, humanBackFar, alienCone, alienBack, alienBackFar };
   });
@@ -4129,16 +4165,16 @@ function section(t) { console.log('\n== ' + t); }
     const t = SKV3._t; t.newGame();
     const g = t.G(); g.paused = true; g.noReport = true;
     const h = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
-    for (const a of g.agents) if (a !== h && a !== g.me) t.tp(a.i, 30, 32);
+    for (const a of g.agents) if (a !== h && a !== g.me) t.tp(a.i, 30,54);
     /* 中央会议室是亮房：圆桌挡在中间，旧逻辑会因家具挡视线而看不到人 */
-    t.tp(0, 30, 11); t.tp(h.i, 54, 11);
-    const litRoom = { vis: t.visible(h.x, h.y), los: t.los(30, 11, 54, 11),
+    t.tp(0, 30,33); t.tp(h.i, 54,33);
+    const litRoom = { vis: t.visible(h.x, h.y), los: t.los(30, 33, 54, 33),
       room: t.state()[0].room };
     /* 引擎舱是暗房：同房间 9 格外的目标超出视野，不可见 */
     const v2 = g.agents.find(a => a.i !== 0 && a.i !== h.i && a.alive && !a.alien);
-    t.tp(v2.i, 14, 31); t.tp(0, 5, 31);
-    const darkRoom = { vis: t.visible(14, 31), room: t.state()[0].room,
-      dist: +Math.hypot(14 - 5, 31 - 31).toFixed(1) };
+    t.tp(v2.i, 14,53); t.tp(0, 5,53);
+    const darkRoom = { vis: t.visible(14, 53), room: t.state()[0].room,
+      dist: +Math.hypot(14 - 5, 53 - 53).toFixed(1) };
     return { litRoom, darkRoom };
   });
   ok(VIS3.litRoom.room === 'bridge' && VIS3.litRoom.vis && !VIS3.litRoom.los,

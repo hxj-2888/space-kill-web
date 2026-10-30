@@ -1,9 +1,9 @@
 {
   "name": "xin-fan-hang-lu",
   "displayName": "新返航录",
-  "version": "2.0.0",
-  "gameVersion": "返航录V2",
-  "description": "《新返航录》网页试玩版 · 返航录V2——11 人类 vs 4 异形的实时太空船对抗游戏（零依赖前端，file:// 可直接运行）",
+  "version": "3.0.0",
+  "gameVersion": "返航录V3",
+  "description": "《新返航录》网页试玩版 · 返航录V3——11 人类 vs 4 异形的实时太空船对抗游戏（零依赖前端，file:// 可直接运行）",
   "author": "hxj-2888",
   "license": "MIT",
   "private": true,

@@ -55,6 +55,22 @@ SPECS = {
         'seamless tileable texture, white medical equipment panel, clean matte plastic with '
         'fine grain, subtle grey seam lines, slight scuffs, sci-fi hospital surface, '
         'flat even lighting, no text'),
+    'cafeteria-floor': (
+        'seamless tileable texture, dark spacecraft cafeteria deck flooring, warm charcoal '
+        'terrazzo with fine steel flecks and subtle amber inlay lines, worn but clean, '
+        'flat even lighting, no text, no logo, no perspective'),
+    'warehouse-floor': (
+        'seamless tileable texture, dark industrial spacecraft warehouse floor, reinforced '
+        'gunmetal deck plates with worn edges, scuffs and faint amber hazard markings, '
+        'flat even lighting, no text, no logo, no perspective'),
+    'cafeteria-top': (
+        'seamless tileable texture, dark warm composite cafeteria counter top, subtle '
+        'speckled stone and brushed metal edge, faint tray rings, matte finish, '
+        'flat even lighting, no text, no logo'),
+    'warehouse-rack': (
+        'seamless tileable texture, heavy industrial warehouse shelving steel, dark graphite '
+        'rack uprights with worn amber labels and bolt heads, scratched powder coat, '
+        'flat even lighting, no text, no logo'),
 }
 # reuse 模式：家具直接派生自场景已有素材，天然同风格、同精度、同明度层级
 REUSE = {
@@ -64,6 +80,10 @@ REUSE = {
     'fabric-weave': ('floor-carpet.png', (0.90, 1.02, 1.12), 0.92, 0.020),
     'table-composite': ('floor-steel.png', (1.00, 1.04, 1.10), 1.00, 0.018),
     'panel-white': ('floor-lab.png', (0.92, 0.97, 1.03), 0.98, 0.012),
+    'cafeteria-floor': ('floor-steel.png', (1.10, 1.00, 0.88), 1.00, 0.020),
+    'warehouse-floor': ('floor-grate.png', (1.04, 1.02, 0.98), 1.02, 0.024),
+    'cafeteria-top': ('table-composite.png', (1.10, 1.02, 0.90), 1.00, 0.016),
+    'warehouse-rack': ('panel-metal.png', (1.02, 0.96, 0.86), 1.04, 0.028),
 }
 NEG = ('text, letters, watermark, logo, photograph of a room, furniture object, '
        'strong perspective, glossy reflection, bright saturated color, blur, noise bands')
