@@ -992,6 +992,85 @@ function section(t) { console.log('\n== ' + t); }
   ok(CERT4.acc === CERT4.k && CERT4.vote === CERT4.k,
     '下一夜的会议指控与投票继续锁定这个人');
 
+  section('会议 · 异形反咬与构陷');
+  await fresh(false);
+  const FRAME = await T(() => {
+    const t = SKV3._t; t.newGame();
+    const g = t.G(); g.paused = true; g.noReport = true;
+    const k = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
+    const w = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
+    const l1 = g.agents.find(a => !a.alien && a.i !== 0 && a.alive && a !== w);
+    const l2 = g.agents.find(a => !a.alien && a.i !== 0 && a.alive && a !== w && a !== l1);
+    for (const a of g.agents) if (a !== k && a !== w && a !== l1 && a !== l2) t.tp(a.i, 30, 32);
+    t.tp(l1.i, 27, 34); t.tp(l2.i, 29, 34);
+    t.tp(k.i, 56, 51); t.tp(w.i, 57.2, 51);
+    k.redT = 3; t.track();                 /* w 亲眼看见红光，拿到确证 */
+    for (const a of g.agents) {
+      if (a === w || !a.mind) continue;
+      a.mind.known = {}; a.mind.mem = []; a.mind.sus = {}; a.mind.why = {};
+      a.mind.alert = 0; a.suspect = null; a.accuse = null; a.accuseWhy = null;
+    }
+    /* l2 的时间线记忆：今晚在引擎舱见过异形 → 能拆穿它的假口供 */
+    l2.mind.mem.push({kind: 'saw_agent', subj: k.i, room: 'engine', night: g.night,
+      t: 0, conf: 0.8, src: 'sight'});
+    const oldRandom = Math.random;
+    Math.random = () => 0;                 /* 必反咬、必构陷证人 */
+    t.openMeeting('night', w.i, null);
+    Math.random = oldRandom;
+    const ctx = t.meetCtx();
+    const f = ctx.frames[0];
+    t.startVote();
+    const out = { k: k.i, w: w.i, l1: l1.i, l2: l2.i, frame: f,
+      liarName: f ? g.agents[f.by].name : null,
+      targetName: f ? g.agents[f.target].name : null,
+      knownW: t.knownOf(w.i), knownL1: t.knownOf(l1.i), knownL2: t.knownOf(l2.i),
+      susL1: (t.mind(l1.i).sus || {})[w.i] || 0,
+      susL2: (t.mind(l2.i).sus || {})[k.i] || 0,
+      votes: { witness: g.meet.votes[w.i], liar: g.meet.votes[k.i],
+        l1: g.meet.votes[l1.i], l2: g.meet.votes[l2.i] } };
+    t.finishMeeting();
+    return out;
+  });
+  ok(FRAME.frame && FRAME.frame.kind === 'saw_red' && FRAME.frame.by === FRAME.k &&
+    FRAME.frame.target === FRAME.w && /红光/.test(FRAME.frame.text) &&
+    FRAME.frame.text.indexOf(FRAME.frame.ownRoom) >= 0,
+    '被确证的异形会先反驳，再反咬证人"带红光"，并带上自己的假口供');
+  ok(FRAME.frame && FRAME.frame.reaffirm && /亲眼/.test(FRAME.frame.reaffirm) &&
+    FRAME.frame.reaffirm.indexOf(FRAME.liarName) >= 0,
+    '真目击者当场顶回去：不认可反咬，重申自己看见的是谁');
+  ok(FRAME.knownW[FRAME.k] && FRAME.knownW[FRAME.k].kind === 'saw_red' &&
+    FRAME.votes.witness === FRAME.k && FRAME.votes.liar === FRAME.w,
+    '确证与投票都不受构陷影响：证人仍投真凶，异形反投证人');
+  ok(Object.keys(FRAME.knownL1).length === 0 && FRAME.susL1 > 0.1 && FRAME.susL1 < 0.5 &&
+    FRAME.votes.l1 === -1,
+    '构陷只制造少量传闻嫌疑（' + FRAME.susL1.toFixed(2) + '），不写 known，没证据仍弃权');
+  ok(FRAME.frame && FRAME.frame.caught && FRAME.frame.caught.i === FRAME.l2 &&
+    FRAME.susL2 >= 0.2 && Object.keys(FRAME.knownL2).length === 0,
+    '时间线记忆能拆谎：' + (FRAME.frame && FRAME.frame.caught ? FRAME.frame.caught.text : '—'));
+
+  await fresh(false);
+  const PRO = await T(() => {
+    const t = SKV3._t; t.newGame();
+    const g = t.G(); g.paused = true; g.noReport = true;
+    for (const a of g.agents) if (a.mind) {
+      a.mind.known = {}; a.mind.mem = []; a.mind.sus = {}; a.mind.why = {}; a.mind.alert = 0;
+    }
+    const oldRandom = Math.random;
+    Math.random = () => 0;
+    t.openMeeting('day', null, null);
+    Math.random = oldRandom;
+    const f = t.meetCtx().frames[0];
+    const out = { n: t.meetCtx().frames.length, f: f || null,
+      byAlien: f ? g.agents[f.by].alien : null,
+      targetAlive: f ? (g.agents[f.target].alive && !g.agents[f.target].downed) : false,
+      hasResponse: !!(f && f.response), hasReaffirm: !!(f && f.reaffirm) };
+    t.startVote(); t.finishMeeting();
+    return out;
+  });
+  ok(PRO.n === 1 && PRO.f && PRO.byAlien === true && PRO.targetAlive &&
+    PRO.hasResponse && !PRO.hasReaffirm,
+    '没有被确证时异形也会偶尔主动构陷：点名一个活人，被点名者当场反问');
+
   section('玩家发言 · 槽位解析与时间线对质');
   await fresh(false);
   const SLOT = await T(() => {
@@ -1203,6 +1282,61 @@ function section(t) { console.log('\n== ' + t); }
   });
   await page.waitForTimeout(220);
   await shot('49_自动门.png');
+
+  section('配电室 · 断电后每扇非会议室门扫描 2 秒');
+  await fresh(false);
+  const LOCK = await T(() => {
+    const t = SKV3._t; t.newGame();
+    const g = t.G(); g.paused = true; g.noReport = true;
+    const ds = t.doors();
+    const nb = ds.find(d => !/:bridge$/.test(d.id));
+    const br = ds.find(d => /:bridge$/.test(d.id));
+    const cross = d => d.horiz ? [d.x, d.y - 0.6, d.x, d.y + 0.6] : [d.x - 0.6, d.y, d.x + 0.6, d.y];
+    /* 其他人远离门口；玩家站到非会议室门内侧 1.6 格 */
+    for (const a of g.agents) if (a.i !== 0) t.tp(a.i, 30, 32);
+    t.tp(0, nb.horiz ? nb.x : nb.x - 1.6, nb.horiz ? nb.y - 1.6 : nb.y);
+    t.setDoor(nb.id, 1); t.setDoor(br.id, 1);
+    t.breaker();                            /* 断电：非会议室门进入逐门扫描 */
+    const c1 = cross(nb), c2 = cross(br);
+    t.doorTick(1.0);
+    const half = t.doors().find(d => d.id === nb.id);
+    const bridgeHalf = t.doors().find(d => d.id === br.id);
+    const blockedHalf = t.doorBlock(c1[0], c1[1], c1[2], c1[3]);
+    t.doorTick(1.1);
+    const full = t.doors().find(d => d.id === nb.id);
+    const blockedFull = t.doorBlock(c1[0], c1[1], c1[2], c1[3]);
+    t.setDoor(br.id, 1);
+    const bridgeBlocked = t.doorBlock(c2[0], c2[1], c2[2], c2[3]);
+    /* 离开门口 → 重新上锁；再次靠近又要重新扫描 */
+    t.tp(0, 30, 32);
+    t.doorTick(0.2);
+    const away = t.doors().find(d => d.id === nb.id);
+    t.tp(0, nb.horiz ? nb.x : nb.x - 1.6, nb.horiz ? nb.y - 1.6 : nb.y);
+    t.doorTick(0.6);
+    const again = t.doors().find(d => d.id === nb.id);
+    const blockedAgain = t.doorBlock(c1[0], c1[1], c1[2], c1[3]);
+    /* 恢复供电 → 立即解除扫描 */
+    t.breaker();
+    t.setDoor(nb.id, 1);
+    t.doorTick(0.1);
+    const restored = t.doors().find(d => d.id === nb.id);
+    const blockedRestored = t.doorBlock(c1[0], c1[1], c1[2], c1[3]);
+    return { nb: nb.id, br: br.id, bridgeDoors: ds.filter(d => /:bridge$/.test(d.id)).length,
+      half, bridgeHalf, blockedHalf, full, blockedFull, bridgeBlocked,
+      away, again, blockedAgain, restored, blockedRestored };
+  });
+  ok(LOCK.half.scanT > 0.8 && LOCK.half.scanT < 1.2 && LOCK.half.scanning && LOCK.blockedHalf,
+    '断电后靠近非会议室门：先扫描，1 秒时仍不能通过');
+  ok(LOCK.full.scanT >= 1.9 && LOCK.full.locked === false && !LOCK.blockedFull,
+    '扫描满 2 秒才放行：' + LOCK.nb);
+  ok(LOCK.bridgeHalf.scanT === 0 && !LOCK.bridgeHalf.scanning &&
+    !LOCK.bridgeBlocked && LOCK.bridgeDoors === 3,
+    '会议室三扇门不受断电扫描影响（' + LOCK.bridgeDoors + ' 扇）');
+  ok(LOCK.away.scanT === 0 && LOCK.again.scanT > 0.5 && LOCK.again.scanT < 0.8 &&
+    LOCK.blockedAgain,
+    '人离开后重新上锁：再次靠近仍需重新扫描 2 秒');
+  ok(LOCK.restored.scanT === 0 && !LOCK.blockedRestored,
+    '电力恢复立即解除扫描：门恢复正常通行');
   await fresh(false);
 
   section('AI 拐角寻路 · 不卡死');
@@ -2398,6 +2532,71 @@ function section(t) { console.log('\n== ' + t); }
     '保安转向背后后 AI 异形立刻补刀（同一判定，换个朝向就动手）');
   ok(SEC.detained === 0 && SEC.inv.fails.length === 0, '回避判定没有触发拘留，不变量全过');
 
+  section('AI 异形 · 避开旁人目击再出手');
+  await fresh(false);
+  const WIT = await T(() => {
+    const t = SKV3._t; t.newGame();
+    const g = t.G(); g.paused = true; g.noReport = true;
+    const k = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
+    const v = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
+    const w = g.agents.find(a => !a.alien && a.i !== 0 && a.alive && a !== v);
+    for (const a of g.agents) if (a !== k && a !== v && a !== w) t.tp(a.i, 30, 10);
+    g.secbotDead = true; g.medbotDead = true;
+    t.clearDrags(); t.resetAiState(k.i);
+    /* 引擎舱是暗舱：只有 4.2 格近身视野，旁观者站在 1 格外一定能看见 */
+    t.tp(k.i, 8, 31); t.tp(v.i, 9, 31); t.tp(w.i, 10, 31);
+    for (const a of [k, v, w]) { a._delay = 0; a._rest = 0; a.path = null; a.target = null; }
+    k.knife = 2; k.sabUsed = true;
+    const seen = t.witnessesAt(k.i, 9, 31, 6, v.i);
+    const oldRandom = Math.random;
+    Math.random = () => 0;                 /* 强制走“先退开”分支 */
+    t.aiTickAlien(k.i, 1, 0.05);
+    const hold = { downed: t.state()[v.i].downed, ambush: +k._ambushT.toFixed(1),
+      target: k.target ? k.target.i : null };
+    Math.random = () => 0.999;             /* 强制走“冒险出刀”分支 */
+    k._ambushT = 0; k._ambushSpot = null; k._avoid = null; k.path = null; k.target = null;
+    t.tp(k.i, 8, 31); t.tp(v.i, 9, 31);
+    t.aiTickAlien(k.i, 1, 0.05);
+    Math.random = oldRandom;
+    return { k: k.i, v: v.i, w: w.i, seen, hold,
+      risk: { downed: t.state()[v.i].downed, knife: k.knife }, inv: t.inv() };
+  });
+  ok(WIT.seen.indexOf(WIT.w) >= 0, '旁观者识别：能看见出手点的活人被算作目击者');
+  ok(!WIT.hold.downed && WIT.hold.ambush > 0 && WIT.hold.target === null,
+    '贴脸时旁边有人看着：先退开等机会（' + WIT.hold.ambush + ' 秒），不直接出刀');
+  ok(WIT.risk.downed && WIT.risk.knife === 1,
+    '偶尔冒险：高随机值下无视旁观者出刀，消耗 1 把刀');
+  ok(WIT.inv.fails.length === 0, '避目击判定后不变量全过');
+
+  section('AI 异形 · 偶尔直接报案');
+  await fresh(false);
+  const DIR = await T(() => {
+    const t = SKV3._t; t.newGame();
+    const g = t.G(); g.paused = true; g.noReport = false; g.aiReportUsed = false;
+    const k = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
+    const v = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
+    for (const a of g.agents) if (a !== k && a !== v) t.tp(a.i, 30, 10);
+    t.clearDrags(); t.resetAiState(k.i);
+    t.tp(v.i, 56, 51); t.kill(v.i, 'knife'); t.tp(k.i, 56.6, 51);
+    k.knife = 0; k.sabUsed = true; k._delay = 0; k._rest = 0;
+    k._killBody = v.i; k._killAt = 0; k._killDecided = false;
+    const oldRandom = Math.random;
+    Math.random = () => 0;                 /* 报案概率 + 直接报案都命中 */
+    t.aiTickAlien(k.i, 1, 0.05);
+    Math.random = oldRandom;
+    const plan = t.reportPlan(k.i);
+    t.aiTickAlien(k.i, 4, 0.5);            /* 短暂停顿后原地拉铃，不绕去做不在场 */
+    const out = { plan, meet: !!t.G().meet, used: t.aiReportUsed(),
+      by: document.getElementById('m-by').textContent,
+      tag: String(k.i + 1).padStart(2, '0') + ' ' + k.name };
+    if (t.G().meet) t.finishMeeting();
+    return out;
+  });
+  ok(DIR.plan && DIR.plan.direct && DIR.plan.wait > 0,
+    '杀完人偶尔直接报案：计划标记 direct，原地短暂停顿');
+  ok(DIR.meet && DIR.used && DIR.by === DIR.tag,
+    '直接报案同样能开会：' + DIR.by);
+
   section('AI 异形 · 杀完人绕一圈回来报告');
   await fresh(false);
   const RP = await T(() => {
@@ -3166,6 +3365,29 @@ function section(t) { console.log('\n== ' + t); }
   ok(VIS2.alienBack && !VIS2.alienBackFar,
     '异形近身 5.6 格：背后 5 格可见、6.5 格不可见');
 
+  section('视野 · 亮房整间可见 / 暗房才受视野限制');
+  await fresh(false);
+  const VIS3 = await T(() => {
+    const t = SKV3._t; t.newGame();
+    const g = t.G(); g.paused = true; g.noReport = true;
+    const h = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
+    for (const a of g.agents) if (a !== h && a !== g.me) t.tp(a.i, 30, 32);
+    /* 中央会议室是亮房：圆桌挡在中间，旧逻辑会因家具挡视线而看不到人 */
+    t.tp(0, 30, 11); t.tp(h.i, 54, 11);
+    const litRoom = { vis: t.visible(h.x, h.y), los: t.los(30, 11, 54, 11),
+      room: t.state()[0].room };
+    /* 引擎舱是暗房：同房间 9 格外的目标超出视野，不可见 */
+    const v2 = g.agents.find(a => a.i !== 0 && a.i !== h.i && a.alive && !a.alien);
+    t.tp(v2.i, 14, 31); t.tp(0, 5, 31);
+    const darkRoom = { vis: t.visible(14, 31), room: t.state()[0].room,
+      dist: +Math.hypot(14 - 5, 31 - 31).toFixed(1) };
+    return { litRoom, darkRoom };
+  });
+  ok(VIS3.litRoom.room === 'bridge' && VIS3.litRoom.vis && !VIS3.litRoom.los,
+    '亮房整间可见：隔着圆桌也能看到 24 格外的队友（旧逻辑被家具挡住）');
+  ok(VIS3.darkRoom.room === 'engine' && !VIS3.darkRoom.vis,
+    '暗房仍受视野限制：同房间 ' + VIS3.darkRoom.dist + ' 格外的目标不可见');
+
   section('旁观者模式 · 第 16 人');
   await T(() => { SKV3.stop(); SKV3.start('spect'); });
   await page.waitForFunction(() => window.SKV3 && SKV3._t && SKV3._t.assets().base, null, { timeout: 30000 });
@@ -3212,10 +3434,21 @@ function section(t) { console.log('\n== ' + t); }
   await T(() => { SKV3._t.openMeeting('day'); });
   const SP7 = await T(() => ({
     input: document.getElementById('m-text').disabled,
-    skip: document.getElementById('m-skip').classList.contains('hide'),
+    skipHidden: document.getElementById('m-skip').classList.contains('hide'),
+    skipText: document.getElementById('m-skip').textContent,
     who: document.querySelectorAll('#m-who button').length
   }));
-  ok(SP7.input && SP7.skip && SP7.who === 0, '会议对旁观者只读：不能发言 / 跳过 / 投票');
+  ok(SP7.input && !SP7.skipHidden && /跳过讨论/.test(SP7.skipText) && SP7.who === 0,
+    '旁观者会议只读，但保留「跳过讨论」按键');
+  await T(() => document.getElementById('m-skip').click());
+  await page.waitForTimeout(160);
+  const SP8 = await T(() => ({
+    phase: SKV3._t.G().meet ? SKV3._t.G().meet.phase : null,
+    input: document.getElementById('m-text').disabled,
+    who: document.querySelectorAll('#m-who button').length
+  }));
+  ok(SP8.phase === 'vote' && SP8.input && SP8.who === 0,
+    '旁观者点「跳过讨论」后进入投票：仍然不能发言 / 投票');
   await T(() => SKV3._t.finishMeeting());
   await T(() => { SKV3.stop(); SKV3.start('human'); });
   await page.waitForFunction(() => window.SKV3 && SKV3._t && SKV3._t.assets().base, null, { timeout: 30000 });
