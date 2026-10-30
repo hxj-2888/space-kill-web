@@ -101,7 +101,7 @@
         drag:null,redT:0,_dragSnd:0,_dragAiT:0,_hideSpot:null,_hideRoom:null,_hideCD:0,_hides:0,
         _lightGo:false,_pipePlan:null,_pipeSeeks:0,_secAvoidT:0,_botCD:0,
         _killBody:null,_killAt:0,_killDecided:true,_reportPlan:null,
-        _avoid:{},_fleeT:0,_fleeFrom:null,_pathCD:0,
+        _avoid:{},_fleeT:0,_fleeFrom:null,_pathCD:0,_fakeN:0,_alienTaskN:0,_supportGoal:null,
         /* 表现层：动作 / 工作计时 / 夜间见闻（会议发言要用真实事实） */
         act:null,_rest:0,_delay:2+Math.random()*6,_fxT:0,
         nRoom:null,nSeen:{},nTask:null,nTaskRoom:null,accuse:null,_lie:null,
@@ -194,6 +194,14 @@
       const r=M.rooms.find(q=>q.id===id); return r?r.name:'未知位置';
     }
     function roomNameAt(x,y){ return roomNameById(roomIdAt(x,y)); }
+    /* 全船只在这 4 个舱室有管道口：任何“在 X 钻管道”的说法都必须落在这些房间，
+       否则就是物理上不可能的口供（生成端不编、解析端要能拆穿）。 */
+    function pipeRoomIds(){
+      const out=[];
+      for(const q of M.pipes)if(out.indexOf(q.room)<0)out.push(q.room);
+      return out;
+    }
+    function isPipeRoom(id){ return !!id&&M.pipes.some(q=>q.room===id); }
     function causeName(c){
       return {knife:'刀伤',shot:'枪伤',bled:'失血过多',vote:'被驱逐出舱'}[c]||'未知';
     }
@@ -655,8 +663,10 @@
     }
     function supplyTargetFor(a){
       if(!a||!a.qual||a.qual<1)return null;
-      if(a.bullet<1&&a.suspect!=null)return 'ammo';
+      /* 有人濒死时医疗包优先；否则只要没有子弹就用申请单备弹。
+         不再要求“当前已有嫌疑人”——AI 会先武装自己，再去找人。 */
       if(a.medkit<1&&G.agents.some(v=>v!==a&&v.alive&&v.downed))return 'med';
+      if(a.bullet<1)return 'ammo';
       return null;
     }
     function qualDesk(){ return roundTableClaimSpot(); }
@@ -794,6 +804,7 @@
     function startFix(a,d){
       if(!a||!d||G.dmg.indexOf(d)<0)return false;
       if(!a.alive&&!a.ghost)return false;
+      if(a.ghost&&a.alien){if(a===G.me&&!G.spectMode)toast('异形幽灵不能维修');return false;}
       const dur=a.ghost?FIX_TIME*1.6:FIX_TIME;
       a.doing=dur;a._dur=dur;a._doing='fix';a._fix=d;
       a.path=null;a.moving=false;a._fixGo=null;
@@ -928,7 +939,7 @@
         lastBody:null,tone:(a.i||0)%3,
         /* known：亲眼确认「这个人就是异形」（钻管道 / 出刀 / 破坏 / 停摆机器人 /
            身上带着刚出刀的红光）。不是嫌疑分，是不再动摇的身份结论。 */
-        known:keepKnown,redSeen:{}};
+        known:keepKnown,redSeen:{},alibi:{}};
     }
     function evPush(a,ev){
       if(!a||!G)return;
@@ -955,6 +966,17 @@
         t:ev?ev.t:evNow(),x:ev&&ev.x!=null?ev.x:null,y:ev&&ev.y!=null?ev.y:null,
         room:ev?ev.room:null});
       if(arr.length>8)arr.shift();
+    }
+    /* 反向证据：目击到某人案发时在别处，降低普通嫌疑；但不会抹掉自己的确证。 */
+    function susCut(a,i,w,reason,ev){
+      if(!a||i==null||i===a.i||!G)return;
+      if(!a.mind)mindReset(a);
+      if(a.mind.known&&a.mind.known[i])return;
+      const old=a.mind.sus[i]||0;
+      if(old<=0)return;
+      const cut=Math.min(old,w);
+      a.mind.sus[i]=Math.max(0,old-cut);
+      a.mind.alibi[i]={t:ev?ev.t:evNow(),room:ev?ev.room:null,reason:reason||''};
     }
     function topSus(a,min){
       if(!a||!a.mind)return null;
@@ -1051,9 +1073,14 @@
         if(!aiCanSee(w,x,y,rad))continue;
         const ev={kind:'saw_'+kind,x,y,room:roomIdAt(x,y),subj:actor.i,
           victim:victim?victim.i:null,conf:0.95,src:'sight'};
+        /* 如果目击者自己已经确证被害者是异形，这枪是处决，不是凶手证据 */
+        const justified=kind==='shot'&&victim&&w.mind.known&&w.mind.known[victim.i];
+        if(justified)ev.justified=1;
         evPush(w,ev);
-        susAdd(w,actor.i,wt,'saw_'+kind,ev);
-        if(alienAct||kind==='shot'||kind==='detain')w.suspect=actor.i;
+        if(!justified){
+          susAdd(w,actor.i,wt,'saw_'+kind,ev);
+          if(alienAct||kind==='shot'||kind==='detain')w.suspect=actor.i;
+        }
         /* 异形专属行为（出刀 / 钻管道 / 破坏设备 / 停摆机器人）是身份级证据：
            直接看见就等于确证，不再只是加一点嫌疑分。开枪与拘留人类也会做，不算确证。 */
         if(alienAct){
@@ -1109,7 +1136,7 @@
        背包满了就留在尸体上，下一个人还能再来搜（见 bodyHasLoot）。 */
     function bodyHasLoot(b){
       if(!b)return false;
-      return (b.bullet|0)>0||(b.medkit|0)>0||(b.qual|0)>0;
+      return (b.bullet|0)>0||(b.medkit|0)>0||(b.qual|0)>0||(b.qualPending|0)>0;
     }
     function lootBody(a,b){
       if(!a||!b)return {bullet:0,medkit:0,qual:0,none:true};
@@ -1117,7 +1144,16 @@
       if((a.bullet|0)<1&&(b.bullet|0)>0){got.bullet=1;b.bullet=(b.bullet|0)-1;a.bullet=1;}
       if((a.medkit|0)<1&&(b.medkit|0)>0){got.medkit=1;b.medkit=(b.medkit|0)-1;a.medkit=1;}
       const cap=2-(a.qual|0);
-      if(cap>0&&(b.qual|0)>0){const n=Math.min(cap,b.qual|0);got.qual=n;b.qual=(b.qual|0)-n;a.qual=(a.qual|0)+n;}
+      /* 死者身上已领到的申请单优先，未领取的也一并继承，避免“人死了票就作废” */
+      const pool=(b.qual|0)+(b.qualPending|0);
+      if(cap>0&&pool>0){
+        const n=Math.min(cap,pool);
+        const fromQual=Math.min(n,b.qual|0);
+        b.qual=(b.qual|0)-fromQual;
+        b.qualPending=Math.max(0,(b.qualPending|0)-(n-fromQual));
+        got.qual=n;
+        a.qual=(a.qual|0)+n;
+      }
       got.none=!(got.bullet||got.medkit||got.qual);
       return got;
     }
@@ -1126,7 +1162,8 @@
       const p=[];
       if((b.bullet|0)>0)p.push('子弹 ×'+b.bullet);
       if((b.medkit|0)>0)p.push('医疗包 ×'+b.medkit);
-      if((b.qual|0)>0)p.push('申请单 ×'+b.qual);
+      const q=(b.qual|0)+(b.qualPending|0);
+      if(q>0)p.push('申请单 ×'+q);
       return p.join(' · ');
     }
     function lootText(got,b){
@@ -1140,10 +1177,12 @@
     }
     /* AI 判断值不值得为物资停下来搜一次（只在真正的尸体上摸） */
     function aiWantsLoot(a,b){
-      if(!a||!b||b.alive)return false;
+      if(!a||!b)return false;
+      if(a.alien&&isMate(a,b.i))return false;
+      if(b.alive&&!b.downed)return false;
       if((a.bullet|0)<1&&(b.bullet|0)>0)return true;
       if((a.medkit|0)<1&&(b.medkit|0)>0)return true;
-      if((a.qual|0)<2&&(b.qual|0)>0)return true;
+      if((a.qual|0)<2&&((b.qual|0)>0||(b.qualPending|0)>0))return true;
       return false;
     }
     function bodyInfo(b){
@@ -1285,6 +1324,8 @@
     /* 人类 AI 幽灵：优先修故障，其次做剩余任务；
        任务进度严格受 ghostPts 额度限制（每只幽灵最多 2 分），超过就只飘不修。 */
     function aiGhost(a,dt){
+      /* 异形幽灵对维修/任务没有任何帮助，也不应该继续推进人类进度：直接待机。 */
+      if(a.alien){a.moving=false;return;}
       if(a._pathCD>0)a._pathCD-=dt;
       if(a.doing>0){a.doing-=dt;if(a.doing<=0)finishDoing(a);return;}
       if(G.dmg.length){
@@ -1431,14 +1472,14 @@
       }
       if(!best){a._sawBody=null;return;}
       observeBody(a,best);
-      /* 人类先搜查取证；任何 AI 看到尸体上有自己缺的物资都会停下来搜一次。
-         濒死（还活着）的伤者不摸物资，只做伤情检查。 */
+      /* 人类先搜查取证；任何 AI 看到伤者/尸体上有自己缺的物资都会停下来搜一次。
+         濒死者（还活着）也可以被搜走物资——否则异形永远等不到天亮尸体就被清场。 */
       const rescue=a.medkit>0&&best.alive&&best.downed;
       const busySearch=G.agents.some(x=>x!==a&&x._doing==='search'&&x._sv===best.i);
       const wantEvidence=!a.alien&&!best.searched;
-      const wantLoot=!best.alive&&aiWantsLoot(a,best);
-      if(!rescue&&!busySearch&&bd<2.2&&a.doing<=0&&!a._fixGo&&!a._lightGo&&
-        (wantEvidence||wantLoot)){
+      const wantLoot=aiWantsLoot(a,best);
+      if(!rescue&&!busySearch&&!a.drag&&best.draggedBy==null&&bd<2.2&&
+        a.doing<=0&&!a._fixGo&&!a._lightGo&&(wantEvidence||wantLoot)){
         a.path=null;a.moving=false;
         a.doing=1.2;a._dur=1.2;a._doing='search';a._sv=best.i;
         return;
@@ -1476,6 +1517,36 @@
         if(d<bd&&aiCanSee(a,v.x,v.y,maxD)){bd=d;best=v;}
       }
       return best;
+    }
+    /* 谁会去翻尸体/伤者：人类需要证据/物资，异形需要子弹/医疗包/申请单。
+       先走到目标旁，再由 search 结算；活着且没倒下的不搜。 */
+    function nearestLootBody(a,maxD){
+      let best=null,bd=maxD;
+      for(const v of G.agents){
+        if(v===a)continue;
+        const bp=bodyPos(v); if(!bp||(v.alive&&!v.downed))continue;
+        if(a.alien&&isMate(a,v.i))continue;
+        if(v.draggedBy!=null||!bodyHasLoot(v))continue;
+        const d=Math.hypot(bp[0]-a.x,bp[1]-a.y);
+        if(d<bd&&aiCanSee(a,bp[0],bp[1],maxD)){bd=d;best=v;}
+      }
+      return best;
+    }
+    function lootRun(a,dt){
+      if(!a||a.doing>0||a.drag!=null||a._fixGo||a._lightGo)return false;
+      if(!((a.bullet|0)<1||(a.medkit|0)<1||(a.qual|0)<2))return false;
+      const v=nearestLootBody(a,12);
+      if(!v)return false;
+      if(a.alien&&G.simMode&&G.simStats)G.simStats.alienLootTries++;
+      if(G.agents.some(x=>x!==a&&x._doing==='search'&&x._sv===v.i))return false;
+      const bp=bodyPos(v); const d=Math.hypot(bp[0]-a.x,bp[1]-a.y);
+      if(d<2.2){
+        a.path=null;a.moving=false;
+        a.doing=1.2;a._dur=1.2;a._doing='search';a._sv=v.i;
+        return true;
+      }
+      if(!a.path||!a.path.length)walkTo(a,bp[0],bp[1]);
+      stepMove(a,dt,moveSpeed(a));return true;
     }
     /* 医疗间复活调度：AI 人类没有医疗包时，会把濒死者拖到医疗间交给医疗机器人 */
     let MED_DROP=null;
@@ -1601,7 +1672,7 @@
           if(!s||s===a||!s.alive||s.downed){a.suspect=null;si=null;}
         }
         if(si==null){
-          const bs=bestSusTarget(a,0.62);
+          const bs=bestSusTarget(a,0.5);
           if(bs)si=bs.i;
         }
         if(si!=null){
@@ -1672,6 +1743,8 @@
           stepMove(a,dt,moveSpeed(a));return;
         }
       }
+      /* 尸体上有自己缺的子弹/医疗包/申请单 → 主动去翻尸（人类同样会搜尸取证） */
+      if(lootRun(a,dt))return;
       /* 听到尖叫/枪声/刀声：高警觉且手头没有更急的事时，去现场看一眼 */
       if(a.mind&&a.mind.alert>=0.7&&a.mind.noise&&!a._look){
         const n=a.mind.noise;
@@ -1783,6 +1856,8 @@
         if(v===a)continue;
         const bp=bodyPos(v); if(!bp)continue;
         if(v.draggedBy!=null)continue;
+        /* 尸体上还有自己缺的物资：先搜尸再藏，别把子弹/医疗包一起埋了 */
+        if(aiWantsLoot(a,v))continue;
         const d=Math.hypot(bp[0]-a.x,bp[1]-a.y);
         if(d<bd&&aiCanSee(a,bp[0],bp[1],3.6)){bd=d;best=v;}
       }
@@ -1823,12 +1898,201 @@
       if(!cands.length)return null;
       return randIn(cands[Math.floor(Math.random()*cands.length)]);
     }
+    /* 异形的“伪装/补给”支持：拿申请单、换子弹、翻尸、偶尔做任务换弹、假装维修。
+       目标：异形也能使用规则，只是动机不同——做任务通常是为了继续杀人。 */
+    function alienFakeSpot(a){
+      if(G.dmg.length){
+        let best=null,bd=1e9;
+        for(const d of G.dmg){
+          const dd=Math.hypot(d.x-a.x,d.y-a.y);
+          if(dd<bd){bd=dd;best=d;}
+        }
+        if(best)return {x:best.x,y:best.y};
+      }
+      const p=M.points[a.tasks[a.tIdx]];
+      return p?{x:p.x,y:p.y}:null;
+    }
+    function alienSupport(a,dt){
+      if(!a||!a.alien||a.doing>0||a.drag!=null)return false;
+      /* 贴脸有人可杀时先处理人；没刀时才搞伪装/补给 */
+      if(a.knife>0&&a.target&&a.target.alive&&!a.target.downed&&
+        Math.hypot(a.target.x-a.x,a.target.y-a.y)<5)return false;
+      let close=1e9;
+      for(const w of G.agents){
+        if(w===a||!w.alive||w.downed||w.detained||isMate(a,w.i))continue;
+        const d=Math.hypot(w.x-a.x,w.y-a.y);
+        if(d<close)close=d;
+      }
+      /* 自己刀倒的人如果已经失血死亡，记得回去收走物资 / 藏尸（不是杀完就永远不管） */
+      if(a._killBody!=null&&evNow()-(a._killAt||0)<45){
+        const kv=G.agents[a._killBody];
+        const kp=kv?bodyPos(kv):null;
+        if(kp&&!kv.alive&&kv.draggedBy==null&&aiWantsLoot(a,kv)){
+          const d=Math.hypot(kp[0]-a.x,kp[1]-a.y);
+          if(d<2.2){
+            a.path=null;a.moving=false;
+            a.doing=1.2;a._dur=1.2;a._doing='search';a._sv=kv.i;
+            return true;
+          }
+          if(!a.path||!a.path.length)walkTo(a,kp[0],kp[1]);
+          stepMove(a,dt,moveSpeed(a));return true;
+        }
+      }
+      /* 已锁定的伪装/任务目标：持续走过去，到了就装忙/做任务 */
+      if(a._supportGoal){
+        const g=a._supportGoal;
+        if(g.kind==='task'&&a._alienTaskN===G.night)a._supportGoal=null;
+        else if(g.kind==='fake'&&a._fakeN===G.night)a._supportGoal=null;
+        else{
+          if(Math.hypot(g.x-a.x,g.y-a.y)<2.0){
+            a._supportGoal=null;a.path=null;a.moving=false;
+            if(g.kind==='task'){
+              a._alienTaskN=G.night;a.doing=g.dur;a._dur=g.dur;
+              a._doing='task';a._taskPt=g.pt;
+            }else{
+              a._fakeN=G.night;a.doing=g.dur;a._dur=g.dur;a._doing='fake';
+            }
+            return true;
+          }
+          if(!a.path||!a.path.length)walkTo(a,g.x,g.y);
+          stepMove(a,dt,moveSpeed(a));return true;
+        }
+      }
+      /* 有申请单先回圆桌领取 */
+      if(a.qualPending>0){
+        const qd=roundTableClaimSpot();
+        if(qd){
+          if(Math.hypot(qd.x-a.x,qd.y-a.y)<1.8){
+            a.path=null;a.moving=false;a.doing=3;a._dur=3;a._doing='qual';return true;
+          }
+          if(!a.path||!a.path.length)walkTo(a,qd.x,qd.y);
+          stepMove(a,dt,moveSpeed(a));return true;
+        }
+      }
+      /* 有申请单且缺子弹 → 军械补给点（与人类同一条补给规则） */
+      if(a.qual>0&&a.bullet<1){
+        const sp=supplyPoints().find(q=>q.item==='ammo');
+        if(sp){
+          if(Math.hypot(sp.x-a.x,sp.y-a.y)<1.7){
+            a.path=null;a.moving=false;a.doing=10;a._dur=10;a._doing='ammo';return true;
+          }
+          if(!a.path||!a.path.length)walkTo(a,sp.x,sp.y);
+          stepMove(a,dt,moveSpeed(a));return true;
+        }
+      }
+      /* 翻尸体拿子弹/医疗包/申请单 */
+      if(lootRun(a,dt))return true;
+      /* 没刀没弹：偶尔真做一次任务换申请单，再去换子弹 */
+      if(!a._supportGoal&&Math.random()<dt*0.25){
+        if(a.knife<=0&&a.bullet<1&&a.qual<1&&a._alienTaskN!==G.night){
+          const p=M.points[a.tasks[a.tIdx]];
+          if(p){a._supportGoal={kind:'task',x:p.x,y:p.y,dur:p.dur,pt:a.tasks[a.tIdx]};return true;}
+        }
+        if((a.knife<=0||close>8)&&a._fakeN!==G.night){
+          const audience=G.agents.some(w=>w!==a&&w.alive&&!w.downed&&
+            Math.hypot(w.x-a.x,w.y-a.y)<8&&aiCanSee(a,w.x,w.y,8));
+          if(audience){
+            const sp=alienFakeSpot(a);
+            if(sp){a._supportGoal={kind:'fake',x:sp.x,y:sp.y,dur:5+Math.random()*4};return true;}
+          }
+        }
+      }
+      return false;
+    }
+    function alienMateRevive(a,dt){
+      if(!a||!a.alien||a.medkit<1||a.doing>0)return false;
+      let v=null,bd=8;
+      for(const w of G.agents){
+        if(w===a||!w.alive||!w.downed||!isMate(a,w.i))continue;
+        const d=Math.hypot(w.x-a.x,w.y-a.y);
+        if(d<bd&&aiCanSee(a,w.x,w.y,8)){bd=d;v=w;}
+      }
+      if(!v)return false;
+      if(bd<1.7){
+        a.path=null;a.moving=false;
+        a.doing=5;a._dur=5;a._doing='revive';a._rv=v;return true;
+      }
+      if(!a.path||!a.path.length)walkTo(a,v.x,v.y);
+      stepMove(a,dt,moveSpeed(a));return true;
+    }
+    /* 管道机动：目标远、自己不在管道口时，先规划到能显著缩短距离的入口；
+       站在口上就直接钻到离目标最近的出口。每夜最多 2 次、20 秒冷却。
+       这是异形的核心位移能力，必须排在“没刀就游荡/补给”之前。 */
+    function alienPipeMove(a,dt,tgt,td){
+      if(!tgt||td<=15||a._pipeCD>0||a.drag!=null){a._pipePlan=null;return false;}
+      const from=nearPipe(a);
+      if(from){
+        let best=null,bd=1e9;
+        for(const q of M.pipes){
+          if(q===from)continue;
+          const d=Math.hypot(q.x-tgt.x,q.y-tgt.y);
+          if(d<bd){bd=d;best=q;}
+        }
+        if(best&&bd<td-4){
+          a.x=best.x;a.y=best.y;a.path=null;a._pipeCD=20;a._pipePlan=null;
+          a._pipeSeeks=(a._pipeSeeks||0)+1;
+          if(G.simMode&&G.simStats)G.simStats.alienPipes++;
+          G.fx.push({type:'pipefx',x:best.x,y:best.y,t:0.8,dur:0.8});
+          hear(best.x,best.y,'pipe',0.9);
+          witnessAlienAction(a,from.x,from.y,6,'pipe');
+          witnessAlienAction(a,best.x,best.y,6,'pipe');
+          aiHear('pipe',best.x,best.y,12,{actor:a});
+          return true;
+        }
+      }
+      if((a._pipeSeeks||0)<2){
+        if(!a._pipePlan){
+          let plan=null,gain=5;
+          for(const pin of M.pipes){
+            let out=null,bd=1e9;
+            for(const q of M.pipes){
+              if(q===pin)continue;
+              const d=Math.hypot(q.x-tgt.x,q.y-tgt.y);
+              if(d<bd){bd=d;out=q;}
+            }
+            if(!out)continue;
+            const g=td-(Math.hypot(pin.x-a.x,pin.y-a.y)+bd);
+            if(g>gain){gain=g;plan={in:pin,out};}
+          }
+          if(plan&&G.simMode&&G.simStats)G.simStats.alienPipePlans++;
+          a._pipePlan=plan;
+        }
+        if(a._pipePlan){
+          const pin=a._pipePlan.in;
+          if(Math.hypot(a.x-pin.x,a.y-pin.y)<1.2){
+            const out=a._pipePlan.out;
+            a.x=out.x;a.y=out.y;a.path=null;a._pipeCD=20;a._pipePlan=null;
+            a._pipeSeeks=(a._pipeSeeks||0)+1;
+            if(G.simMode&&G.simStats)G.simStats.alienPipes++;
+            G.fx.push({type:'pipefx',x:out.x,y:out.y,t:0.8,dur:0.8});
+            hear(out.x,out.y,'pipe',0.9);
+            witnessAlienAction(a,pin.x,pin.y,6,'pipe');
+            witnessAlienAction(a,out.x,out.y,6,'pipe');
+            aiHear('pipe',out.x,out.y,12,{actor:a});
+            return true;
+          }
+          if(!a.path||!a.path.length)walkTo(a,pin.x,pin.y);
+          stepMove(a,dt,moveSpeed(a));return true;
+        }
+      }
+      return false;
+    }
     function aiAlien(a,dt){
       if(G.meet||G.over)return;
       if(a.detained)return;
       if(a._pathCD>0)a._pathCD-=dt;
       dropStaleFix(a);
-      if(a.doing>0){a.doing-=dt;if(a.doing<=0)finishDoing(a);return;}
+      if(a.doing>0){
+        a.doing-=dt;
+        if(a.doing<=0){
+          if(a._doing==='fake'){
+            a._doing=null;a.doing=0;
+            if(G.simMode&&G.simStats)G.simStats.fakeRepairs++;
+          }
+          else finishDoing(a);
+        }
+        return;
+      }
       /* 开局全员同舱：异形也必须遵守错峰延迟，否则一进夜就贴脸出刀 */
       if(a._delay>0){
         a._delay-=dt;
@@ -1868,6 +2132,12 @@
           const bp=bodyPos(v);
           const d=Math.hypot(bp[0]-a.x,bp[1]-a.y);
           if(d<2.6&&losNow(a.x,a.y,bp[0],bp[1])){
+            /* 回到自己做的尸体旁：四周没人时先把死者身上的物资摸走，再拉铃报案 */
+            if(aiWantsLoot(a,v)&&!watchersAt(a,bp[0],bp[1],7,v).length){
+              a.path=null;a.moving=false;
+              a.doing=1.2;a._dur=1.2;a._doing='search';a._sv=v.i;
+              return;
+            }
             v.reported=true;G.aiReportUsed=true;a._reportPlan=null;
             openMeeting('night',a,v);
             return;
@@ -1894,6 +2164,8 @@
           }
         }
       }
+      /* 已认出队友倒下且手里有医疗包：优先救队友，别把他当尸体拖走 */
+      if(alienMateRevive(a,dt))return;
       if(a._pipeCD>0)a._pipeCD-=dt;
       if(a._botCD>0)a._botCD-=dt;
       if(!a.target||!a.target.alive||a.target.downed){
@@ -1937,6 +2209,11 @@
       }
       const tgt=a.target;
       const td=tgt?Math.hypot(tgt.x-a.x,tgt.y-a.y):1e9;
+      /* 异形有子弹也会开枪：远距离/没刀时优先用枪，而不是永远只贴脸出刀 */
+      if(a.bullet>0&&tgt&&!isMate(a,tgt.i)&&(td>1.4||a.knife<=0)&&td<9&&
+        aiCanSee(a,tgt.x,tgt.y,9)&&Math.random()<0.7){
+        fireShot(a,tgt);a._rest=1.5;return;
+      }
       /* 保安扇形内动手会被拘留：先退开，过几秒再找机会 */
       if(a._secAvoidT>0){
         a._secAvoidT-=dt;
@@ -2059,67 +2336,18 @@
           }
         }
       }
-      if(a.knife<=0){ // 没刀了就游荡
+      if(a.knife<=0&&alienSupport(a,dt))return;
+      /* 有刀但附近没有可下手的目标：也会顺手翻尸/补给/装忙，
+         不是“有刀就只会直线追人”的单一行为。 */
+      if(a.knife>0&&td>12&&alienSupport(a,dt))return;
+      /* 管道是核心位移能力：排在补给/伪装之后、没刀游荡之前，
+         否则刀用完后永远走不到管道口。 */
+      if(alienPipeMove(a,dt,tgt,td))return;
+      if(a.knife<=0){ // 没刀了就游荡（先尝试补给/翻尸/假装维修/做任务换弹）
         if(!a.path||!a.path.length){const r=M.rooms[Math.floor(Math.random()*M.rooms.length)];const p=randIn(r);walkTo(a,p[0],p[1]);}
         stepMove(a,dt,moveSpeed(a)); return;
       }
       if(!tgt)return;
-      /* 管道：目标远且自己正好站在管道口，钻到离目标最近的出口（20 秒冷却）。
-         不在管道口时，先主动寻路到能显著缩短距离的入口；每夜最多两次。 */
-      if(td>15&&a._pipeCD<=0&&a.drag==null){
-        const from=nearPipe(a);
-        if(from){
-          let best=null,bd=1e9;
-          for(const q of M.pipes){
-            if(q===from)continue;
-            const d=Math.hypot(q.x-tgt.x,q.y-tgt.y);
-            if(d<bd){bd=d;best=q;}
-          }
-          if(best&&bd<td-4){
-            a.x=best.x;a.y=best.y;a.path=null;a._pipeCD=20;a._pipePlan=null;
-            a._pipeSeeks=(a._pipeSeeks||0)+1;
-            G.fx.push({type:'pipefx',x:best.x,y:best.y,t:0.8,dur:0.8});
-            hear(best.x,best.y,'pipe',0.9);
-            witnessAlienAction(a,from.x,from.y,6,'pipe');
-            witnessAlienAction(a,best.x,best.y,6,'pipe');
-            aiHear('pipe',best.x,best.y,12,{actor:a});
-            return;
-          }
-        }
-        if((a._pipeSeeks||0)<2){
-          if(!a._pipePlan){
-            let plan=null,gain=5;
-            for(const pin of M.pipes){
-              let out=null,bd=1e9;
-              for(const q of M.pipes){
-                if(q===pin)continue;
-                const d=Math.hypot(q.x-tgt.x,q.y-tgt.y);
-                if(d<bd){bd=d;out=q;}
-              }
-              if(!out)continue;
-              const g=td-(Math.hypot(pin.x-a.x,pin.y-a.y)+bd);
-              if(g>gain){gain=g;plan={in:pin,out};}
-            }
-            a._pipePlan=plan;
-          }
-          if(a._pipePlan){
-            const pin=a._pipePlan.in;
-            if(Math.hypot(a.x-pin.x,a.y-pin.y)<1.2){
-              const out=a._pipePlan.out;
-              a.x=out.x;a.y=out.y;a.path=null;a._pipeCD=20;a._pipePlan=null;
-              a._pipeSeeks=(a._pipeSeeks||0)+1;
-              G.fx.push({type:'pipefx',x:out.x,y:out.y,t:0.8,dur:0.8});
-              hear(out.x,out.y,'pipe',0.9);
-              witnessAlienAction(a,pin.x,pin.y,6,'pipe');
-              witnessAlienAction(a,out.x,out.y,6,'pipe');
-              aiHear('pipe',out.x,out.y,12,{actor:a});
-              return;
-            }
-            if(!a.path||!a.path.length)walkTo(a,pin.x,pin.y);
-            stepMove(a,dt,moveSpeed(a));return;
-          }
-        }
-      }else if(td<=15||a._pipeCD>0)a._pipePlan=null;
       if(td<1.3){
         if(secbotWouldSee(a.x,a.y)){
           a._secAvoidT=2.5;a.target=null;a.path=null;return;
@@ -2273,6 +2501,16 @@
               y:bi.pos?bi.pos[1]:b.y,room:bi.room,victim:b.i,conf:1,src:'search',body:bi});
           }
           if(actor){openBodyCard(b);toast(lootText(got,b));}
+          if(G.simMode&&G.simStats){
+            G.simStats.searches++;
+            if(a.alien)G.simStats.alienLoots++; else G.simStats.humanLoots++;
+            if(!got.none){
+              G.simStats.loots++;
+              G.simStats.bulletsLooted+=got.bullet;
+              G.simStats.medkitsLooted+=got.medkit;
+              G.simStats.qualsLooted+=got.qual;
+            }
+          }
         }
         return;
       }
@@ -2321,6 +2559,7 @@
           G.fx.push({type:'heal',x:v.x,y:v.y,t:1.2,dur:1.2});
           setAct(v,'heal',0.7,{ang:0});
           if(actor){toast('救起 '+v.name);SND.revive();}
+          if(G.simMode&&G.simStats)G.simStats.revives++;
         }
         a._rv=null;a._doing=null;return;
       }
@@ -2351,6 +2590,7 @@
       G.prog=Math.min(40,G.prog+v);
       if(a.ghost)a.ghostPts=(a.ghostPts||0)+v;
       a.tIdx++; a.progress+=v;
+      if(G.simMode&&G.simStats&&a.alien)G.simStats.alienTasks++;
       a.nTask=p.label; a.nTaskRoom=roomIdAt(a.x,a.y);
       let gotQual=false;
       if(a.progress>=3&&!a._q3){a._q3=true;a.qualPending=(a.qualPending||0)+1;gotQual=true;}
@@ -2658,6 +2898,24 @@
           }
         }
       }
+      /* 反向洗清：如果目击者在案发时间附近在另一个舱室看见某人，
+         这个人的普通嫌疑降低；自己的确证不受影响。 */
+      if(kind==='night'&&victim&&vi){
+        const deathEv=NIGHT-Math.max(0,victim.alive?(victim.downAt||0):(victim.deathAt||0));
+        const bodyRoom=vi.roomId;
+        for(const w of G.agents){
+          if(w.alien||!w.alive||w.downed||!w.mind)continue;
+          for(const a of G.agents){
+            if(a===w||!a.alive||a.downed)continue;
+            for(const e of w.mind.mem.slice(-24)){
+              if(e.kind!=='saw_agent'||e.subj!==a.i||!e.room||e.night!==G.night)continue;
+              if(Math.abs(e.t-deathEv)>8||e.room===bodyRoom)continue;
+              susCut(w,a.i,0.25,'alibi_clear',e);
+              break;
+            }
+          }
+        }
+      }
       for(const a of G.agents){
         a.accuse=null;a.accuseWhy=null;a._abstain=false;
         if(a.alien&&a.alive&&!a.downed&&(a!==G.me||G.spectMode)){
@@ -2689,6 +2947,18 @@
               reason:'确证异形',known:true}:
               (evidenceReason(a,si)||(a.suspect!=null?
                 {kind:'saw_alien',room:null,reason:'亲眼目击'}:null));
+          }
+        }
+      }
+      /* 零证据指控会损耗发言者可信度：人类听众给空口指控者记一笔小嫌疑 */
+      for(const w of G.agents){
+        if(w.alien||!w.alive||w.downed||!w.mind)continue;
+        for(const a of G.agents){
+          if(a===w||!a.alive||a.downed||a.accuse==null)continue;
+          const noEvidence=!a.accuseWhy&&a.suspect==null&&!bestKnownTarget(a)&&!topSus(a,0.5);
+          if(noEvidence){
+            const ev={kind:'empty_accuse',x:0,y:0,room:null,conf:0.25,src:'speech',subj:a.accuse};
+            susAdd(w,a.i,0.05,'empty_accuse',ev);
           }
         }
       }
@@ -2916,7 +3186,15 @@
       /* 已经认出队友时，队友帮腔共同诬陷 */
       const ally=pool.find(x=>x.alien&&x!==liar&&x!==tgt&&isMate(x,liar.i));
       if(ally&&((ally.accuse==null)||isMate(ally,ally.accuse)))ally.accuse=tgt.i;
-      const own=alibiOf(liar), tf=alibiOf(tgt), room=tf.room||'走廊';
+      const own=alibiOf(liar), tf=alibiOf(tgt);
+      /* 管道只存在 4 个舱室：构陷目标自述的房间如果没有管道口，
+         就换一间真有管道的舱室，不能凭空在医疗间/走廊“钻管道”。 */
+      let room=tf.room||null;
+      if(kind==='saw_pipe'){
+        const names=pipeRoomIds().map(roomNameById);
+        if(names.indexOf(room)<0)room=names.length?names[Math.floor(Math.random()*names.length)]:null;
+      }
+      if(!room)room='走廊';
       const claim=kind==='saw_pipe'
         ?'我亲眼看见'+tgt.name+'在'+room+'钻进了管道'
         :'我亲眼看见'+tgt.name+'身上带着刚出刀的红光';
@@ -2932,6 +3210,11 @@
       if(ally){
         frame.allyText='我今晚在'+alibiOf(ally).room+'，我也看见了：'+tgt.name+
           (kind==='saw_pipe'?'钻进了管道':'身上带着刚出刀的红光')+'。'+liar.name+'没撒谎。';
+        /* 为已被自己确证的异形辩护，会引来“你是不是同伙”的怀疑 */
+        for(const w of G.agents){
+          if(w.alien||!w.alive||w.downed||!w.mind)continue;
+          if(w.mind.known&&w.mind.known[tgt.i])susAdd(w,ally.i,0.1,'defended_suspect');
+        }
       }
       /* 反咬目标如果不是证人，让它自己回应（不读阵营，谁被点名谁说话） */
       if(tgt!==sureAcc&&(tgt!==G.me||G.spectMode)){
@@ -2942,7 +3225,8 @@
       }
       /* 真目击者不吃这一套：重申自己看见的是谁 */
       if(counter&&sureAcc&&(sureAcc!==G.me||G.spectMode)&&sureAcc.alive&&!sureAcc.downed){
-        const wRoom=alibiOf(sureAcc).room;
+        const knownRoom=sureKn&&sureKn.known&&sureKn.known.room;
+        const wRoom=kind==='saw_pipe'&&knownRoom?roomNameById(knownRoom):alibiOf(sureAcc).room;
         const act=kind==='saw_pipe'?'钻管道':'带着红光';
         frame.reaffirm='我没看错，'+liar.name+'。我今晚在'+wRoom+'，亲眼看见'+act+'的就是你'+
           (tgt===sureAcc?'。':'，不是'+tgt.name+'。');
@@ -3110,6 +3394,10 @@
             const accuser=cands.find(x=>x!==mate&&x.accuse===mate.i);
             if(accuser&&!defended.has(mate.i)){
               defended.add(mate.i);
+              for(const w of G.agents){
+                if(w.alien||!w.alive||w.downed||!w.mind)continue;
+                if(w.mind.known&&w.mind.known[mate.i])susAdd(w,def.i,0.1,'defended_suspect');
+              }
               push(()=>say(def.name,'我今晚在'+alibiOf(def).room+'，'+mate.name+
                 '不是异形，别投他。'));
               break;
@@ -3336,6 +3624,25 @@
       if(sl.claim){
         const t=G.agents[sl.claim.target];
         if(!t||!t.alive||t.downed)return;
+        /* “在医疗间/走廊钻管道”是物理上不可能的口供：那里没有管道口。
+           不把它算成目标的证据，反过来怀疑编造者（玩家也适用）。 */
+        if(sl.claim.kind==='saw_pipe'&&sl.claim.room&&!isPipeRoom(sl.claim.room)){
+          const rn=roomNameById(sl.claim.room);
+          const ev={kind:'impossible_claim',x:G.me.x,y:G.me.y,room:sl.claim.room,
+            t:evNow(),conf:0.3,src:'speech'};
+          for(const w of cands){
+            if(w.alien||!w.mind)continue;
+            susAdd(w,0,0.22,'impossible_claim',ev);
+          }
+          const speaker=cands.find(w=>!w.alien&&w.mind);
+          if(speaker)meetLater(m,650+Math.random()*400,()=>say(speaker.name,
+            pickLine(speaker,[
+              rn+'没有管道口，怎么可能在那儿看见人钻管道？',
+              rn+'根本没有管道，你这个说法不成立。',
+              '等等，'+rn+'没有管道口。你再想想是在哪儿看见的？'
+            ],32)));
+          return;
+        }
         m.ctx.playerClaims.push({t:evNow(),target:t.i,kind:sl.claim.kind,
           room:sl.claim.room||null});
         m.ctx.playerAccuse=t.i;
@@ -3529,8 +3836,11 @@
       if(kind==='accuse')return '我怀疑 '+tag;
       if(kind==='vote')return '我投 '+tag;
       if(kind==='support')return '我可以为 '+tag+' 作证';
+      if(kind==='pipe'){
+        const at=rn&&isPipeRoom(roomId)?('，就在'+rn):'';
+        return '我亲眼看见 '+tag+' 钻管道'+at;
+      }
       const at=rn?('，就在'+rn):'';
-      if(kind==='pipe')return '我亲眼看见 '+tag+' 钻管道'+at;
       if(kind==='red')return '我亲眼看见 '+tag+' 身上有红光'+at;
       if(kind==='knife')return '我亲眼看见 '+tag+' 出刀'+at;
       return '';
@@ -3771,7 +4081,7 @@
         a._hideSpot=null;a._hideRoom=null;a._hideCD=0;a._hides=0;
         a._lightGo=false;a._pipePlan=null;a._pipeSeeks=0;a._secAvoidT=0;a._botCD=0;
         a._killBody=null;a._killAt=0;a._killDecided=true;a._reportPlan=null;
-        a._avoid={};a._fleeT=0;a._fleeFrom=null;a._pathCD=0;
+        a._avoid={};a._fleeT=0;a._fleeFrom=null;a._pathCD=0;a._fakeN=0;a._alienTaskN=0;a._supportGoal=null;
         /* 节奏控制：错峰开工 + 修完歇一会儿；异形更早开始活动，但不会开局贴脸 */
         a.act=null;a._rest=0;a._delay=2+Math.random()*6;a._fxT=0;
         a.nRoom=roomIdAt(a.x,a.y);a.nSeen={};a.nTask=null;a.nTaskRoom=null;
@@ -3948,6 +4258,7 @@
     function ghostTaskAllowed(a,p){return !a||!a.ghost||((a.ghostPts||0)+ghostTaskPts(p)<=2);}
     function startTask(me,p,ghost){
       me.path=null;me.moving=false;
+      if(me.ghost&&me.alien){if(me===G.me&&!G.spectMode)toast('异形幽灵不能执行维修');return false;}
       if(me.ghost&&!ghostTaskAllowed(me,p)){
         if(me===G.me&&!G.spectMode)toast('幽灵最多维修 2 分的剩余任务');return false;
       }
@@ -3961,7 +4272,7 @@
     function collectInteractions(me){
       const out=[],ghost=!me.alive,ml=me.tasks.slice(me.tIdx);
       const fd=nearDmg(me);
-      if(fd)out.push({id:'fix',x:fd.x,y:fd.y,short:'维修故障',
+      if(fd&&(!ghost||!me.alien))out.push({id:'fix',x:fd.x,y:fd.y,short:'维修故障',
         pill:'[E] 维修故障 '+fd.label+' 10s · 剩余 '+Math.max(0,Math.ceil(fd.left))+'s',
         accent:'rgba(255,107,97,.8)',fg:'#FFB3AC',run:()=>startFix(me,fd)});
       if(!ghost){
@@ -4181,7 +4492,10 @@
       if(!shooter||!target||!target.alive||target.downed)return false;
       if(shooter.bullet<1)return false;
       shooter.bullet--;
-      if(G.simMode&&G.simStats)G.simStats.shots++;
+      if(G.simMode&&G.simStats){
+        G.simStats.shots++;
+        if(shooter.alien)G.simStats.alienShots++; else G.simStats.humanShots++;
+      }
       G.pendingCrime=shooter.i;
       if(!G.spectMode&&target===G.me&&G.dev){
         const ang=Math.atan2(target.y-shooter.y,target.x-shooter.x);
@@ -4274,7 +4588,10 @@
       if(!losNow(shooter.x,shooter.y,p.x,p.y))return false;
       if(shooter===G.me&&!visibleAt(p.x,p.y))return false;
       shooter.bullet--;
-      if(G.simMode&&G.simStats)G.simStats.shots++;
+      if(G.simMode&&G.simStats){
+        G.simStats.shots++;
+        if(shooter.alien)G.simStats.alienShots++; else G.simStats.humanShots++;
+      }
       G.pendingCrime=shooter.i;
       const ang=Math.atan2(p.y-shooter.y,p.x-shooter.x);
       setAct(shooter,'shoot',0.55,{ang});
@@ -5200,7 +5517,7 @@
       drawIcon(st.icon,st.icon==='wrench'?'#FFE8B0':st.c,tx,ty,0.66*VIEW.s,-0.5+Math.sin(T*4.5)*0.28,3.2);
       ctx.restore();
       /* 工具接触点的连续火花，比一次性粒子更能读出「正在修」 */
-      if(a._doing==='task'||a._doing==='breaker'){
+      if(a._doing==='task'||a._doing==='breaker'||a._doing==='fake'){
         const hx=x+0.72*VIEW.s,hy=y-0.48*VIEW.s;
         ctx.lineCap='round';
         for(let i=0;i<7;i++){
@@ -5225,10 +5542,11 @@
       const stabAct=!!(a.act&&a.act.kind==='stab');
       const shootAct=!!(a.act&&a.act.kind==='shoot');
       const showGun=a.bullet>0||shootAct;
-      if(a.alien&&(stabAct||!showGun)){
-        if(a.knife<1&&!isMe&&!G.dev&&!acting)return;
+      /* 外观与人类完全一致：异形空闲时不亮刀，只有真实出刀动作才画刀；
+         有子弹的人/异形都画同一把枪；空手时都空手。 */
+      if(a.alien&&stabAct){
         let ang=dirAng(a);
-        if(a.act&&a.act.kind==='stab')ang=a.act.ang+(a.act.t/a.act.dur-0.5)*1.8;
+        if(a.act)ang=a.act.ang+(a.act.t/a.act.dur-0.5)*1.8;
         const hx=x+Math.cos(ang)*0.32*VIEW.s,hy=y+Math.sin(ang)*0.32*VIEW.s-0.20*VIEW.s;
         ctx.save();ctx.lineCap='round';
         ctx.strokeStyle='#E9EDF4';ctx.lineWidth=2.4;
@@ -5236,8 +5554,7 @@
         ctx.strokeStyle='#8A94A3';ctx.lineWidth=1;
         ctx.beginPath();ctx.moveTo(hx,hy);ctx.lineTo(hx+Math.cos(ang)*0.36*VIEW.s,hy+Math.sin(ang)*0.36*VIEW.s);ctx.stroke();
         ctx.restore();
-      }else{
-        if(!showGun&&!isMe&&!G.dev&&!acting)return;
+      }else if(showGun||shootAct){
         let ang=dirAng(a);
         if(a.act&&a.act.kind==='shoot')ang=a.act.ang;
         const hx=x+Math.cos(ang)*0.28*VIEW.s,hy=y+Math.sin(ang)*0.28*VIEW.s-0.16*VIEW.s;
@@ -6278,7 +6595,11 @@
         }
         G.simMode=true;G.simT=NIGHT;G.t=NIGHT;G.phase=null;G.paused=true;
         G.simStats={meetings:0,knives:0,shots:0,sabotages:0,
-          exiles:0,humanExiles:0,alienExiles:0};
+          exiles:0,humanExiles:0,alienExiles:0,
+          searches:0,loots:0,bulletsLooted:0,medkitsLooted:0,qualsLooted:0,
+          humanLoots:0,alienLoots:0,humanShots:0,alienShots:0,
+          fakeRepairs:0,alienTasks:0,revives:0,alienLootTries:0,
+          alienPipes:0,alienPipePlans:0};
         const dt=Math.min(0.2,Math.max(0.05,opts.dt||0.1));
         const maxNights=opts.maxNights||15;
         const maxSteps=opts.maxSteps||Math.ceil(maxNights*NIGHT/dt)+6000;
@@ -6302,7 +6623,15 @@
           humans,aliens,downed,meetings:G.simStats.meetings,knives:G.simStats.knives,
           shots:G.simStats.shots,sabotages:G.simStats.sabotages,
           exiles:G.simStats.exiles,humanExiles:G.simStats.humanExiles,
-          alienExiles:G.simStats.alienExiles};
+          alienExiles:G.simStats.alienExiles,
+          searches:G.simStats.searches,loots:G.simStats.loots,
+          bulletsLooted:G.simStats.bulletsLooted,medkitsLooted:G.simStats.medkitsLooted,
+          qualsLooted:G.simStats.qualsLooted,
+          humanLoots:G.simStats.humanLoots,alienLoots:G.simStats.alienLoots,
+          humanShots:G.simStats.humanShots,alienShots:G.simStats.alienShots,
+          fakeRepairs:G.simStats.fakeRepairs,alienTasks:G.simStats.alienTasks,
+          revives:G.simStats.revives,alienLootTries:G.simStats.alienLootTries,
+          alienPipes:G.simStats.alienPipes,alienPipePlans:G.simStats.alienPipePlans};
       } finally {
         Math.random=oldRandom; SIM_RUN=oldSim;
         if(G){G.simMode=false;G.simDebug=false;G.paused=true;}
@@ -6354,7 +6683,7 @@
         a._hideSpot=null;a._hideRoom=null;a._hideCD=0;a._hides=0;
         a._pipePlan=null;a._pipeSeeks=0;a._secAvoidT=0;a._lightGo=false;a._botCD=0;
         a._killBody=null;a._killAt=0;a._killDecided=true;a._reportPlan=null;
-        a._avoid={};a._fleeT=0;a._fleeFrom=null;a._pathCD=0;
+        a._avoid={};a._fleeT=0;a._fleeFrom=null;a._pathCD=0;a._fakeN=0;a._alienTaskN=0;a._supportGoal=null;
         a.mates={};
         a._look=null;a._fixGo=null;a.path=null;a.doing=0;a._doing=null;a.target=null;
         return a.i;},
@@ -6562,6 +6891,7 @@
           why:JSON.parse(JSON.stringify(a.mind.why)),alert:a.mind.alert,noise:a.mind.noise,
           seenBy:Object.assign({},a.mind.seenBy),
           known:JSON.parse(JSON.stringify(a.mind.known||{})),
+          alibi:JSON.parse(JSON.stringify(a.mind.alibi||{})),
           mates:Object.assign({},a.mates||{}),
           redSeen:Object.assign({},a.mind.redSeen||{})};},
       /* 门禁用：立刻跑一轮感知（正常由 update 每 0.4 秒调用） */

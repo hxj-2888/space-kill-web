@@ -240,7 +240,7 @@
         <button data-tpl="where">我在…</button>
         <button data-tpl="deny">不是我</button>
       </div>
-      <div class="tpl-hint">先选对象 / 舱室，再点模板；模板会直接发出，并按规则进入 AI 的证据与发言链。</div>
+      <div class="tpl-hint">先选对象 / 舱室，再点模板；模板会直接发出，并按规则进入 AI 的证据与发言链。「看见钻管道」只会在真正有管道口的舱室附带地点。</div>
     </div>
     <div class="inp"><input id="m-text" placeholder="自由发言，回车发送"><button id="m-send">发送</button></div>
   </div>
