@@ -85,8 +85,13 @@
     function astar(sx,sy,tx,ty){
       const s=nearestFree(sx,sy),t=nearestFree(tx,ty);
       let s0=[Math.floor(s[0]/GS),Math.floor(s[1]/GS)],t0=[Math.floor(t[0]/GS),Math.floor(t[1]/GS)];
+      /* 目标/起点可能被 nearestFree 原样返回地图外坐标：必须先越界退出，
+         否则 idx 为负，prev[负数] === undefined，重建路径会死循环。 */
+      if(s0[0]<0||s0[1]<0||s0[0]>=GW||s0[1]>=GH||
+         t0[0]<0||t0[1]<0||t0[0]>=GW||t0[1]>=GH)return null;
       if(s0[0]===t0[0]&&s0[1]===t0[1])return[[t[0],t[1]]];
       const N=GW*GH,gS=idx(s0[0],s0[1]),gT=idx(t0[0],t0[1]);
+      if(gS<0||gT<0||gS>=N||gT>=N||!walk[gS]||!walk[gT])return null;
       const g=new Float32Array(N).fill(1e9),f=new Float32Array(N).fill(1e9);
       const prev=new Int32Array(N).fill(-1),open=[gS],inOpen=new Uint8Array(N);
       g[gS]=0;f[gS]=0;inOpen[gS]=1;
@@ -109,8 +114,12 @@
         }
       }
       if(prev[gT]<0&&gT!==gS)return null;
-      const out=[];let c=gT;
-      while(c!==-1&&c!==gS){out.push([(c%GW+.5)*GS,(((c/GW)|0)+.5)*GS]);c=prev[c];}
+      const out=[];let c=gT,gr=0;
+      while(c!==-1&&c!==gS&&gr++<N){
+        out.push([(c%GW+.5)*GS,(((c/GW)|0)+.5)*GS]);
+        c=prev[c];
+      }
+      if(c!==gS)return null;
       out.reverse(); out.push(t);
       return smoothPath(out);
     }

@@ -764,8 +764,8 @@ function section(t) { console.log('\n== ' + t); }
     const steps = Math.ceil(((a.doing || 1) + 1.2) / 0.05);
     return SKV3._t.aiTick(i, steps, 0.05);
   }, AI0.i);
-  ok(AI2.tIdx === 1 && AI2.rest > 0 && AI2.rest <= 11.5 && AI2.do !== 'task',
-    'AI 完成第一个任务后进入休息（剩余 ' + (AI2.rest || 0).toFixed(1) + 's，已减半）');
+  ok(AI2.tIdx === 1 && AI2.rest === 0,
+    'AI 完成第一个任务后不再休息（rest=' + (AI2.rest || 0).toFixed(1) + 's）');
   const AI3 = await T(i => {
     const t = SKV3._t, g = t.G();
     const a = g.agents[i];
@@ -776,7 +776,7 @@ function section(t) { console.log('\n== ' + t); }
     return { spot, next };
   }, AI0.i);
   ok(AI3.next.do === 'task' && AI3.next.tIdx === 1 && Math.abs(AI3.next.doing - AI3.spot.dur) < 0.05,
-    '休息结束后能接着修下一个任务（不再限一夜一个）');
+    '完成后能立即接下一个任务（不再限一夜一个）');
   ok((await T(() => SKV3._t.G().prog)) >= 1, 'AI 维修计入全局维修进度');
   const DLY = await T(() => {
     const t = SKV3._t; t.newGame();
@@ -1316,9 +1316,10 @@ function section(t) { console.log('\n== ' + t); }
     const rArm = ratio([34.8, 11.8], [83.5, 48]);
     const rTable = ratio([39, 15.5], [39, 6.5]);
     const outside = t.astar(34.8, 11.8, 0.5, 0.5);
+    const outsideMap = t.astar(34.8, 11.8, -20, -20);
     t.tp(0, 34.8, 6);
     const p = t.stepTo(34.8, 0.5);
-    return { rMed, rArm, rTable, outside, p, pfree: t.free(p[0], p[1]),
+    return { rMed, rArm, rTable, outside, outsideMap, p, pfree: t.free(p[0], p[1]),
       outFree: t.free(0.5, 0.5), room: t.state()[0].room,
       tableFree: t.free(41, 10.8), consoleFree: t.free(27, 4), audit: t.coverAudit() };
   });
@@ -1329,7 +1330,8 @@ function section(t) { console.log('\n== ' + t); }
   ok(!PF.tableFree && !PF.consoleFree, '掩体阻挡行走：圆桌与控制台不可穿越');
   ok(PF.audit && PF.audit.gaps.length === 0 && PF.audit.dead.length === 0,
     '硬掩体布局无窄夹缝 / 无掩体死路');
-  ok(PF.outside === null && !PF.outFree, '船体外目标不可达');
+  ok(PF.outside === null && PF.outsideMap === null && !PF.outFree,
+    '船体外/地图外目标不可达（A* 遇到越界坐标安全返回，不会死循环）');
   ok(PF.pfree && PF.p[1] > 2.8 && PF.p[1] < 19, '撞墙后被兜底拉回会议室，不会走出船体');
 
   section('自动门 · 无人闭合 / 靠近开启 / 阻挡移动与视线');
@@ -2629,41 +2631,200 @@ function section(t) { console.log('\n== ' + t); }
     '保安转向背后后 AI 异形立刻补刀（同一判定，换个朝向就动手）');
   ok(SEC.detained === 0 && SEC.inv.fails.length === 0, '回避判定没有触发拘留，不变量全过');
 
-  section('AI 异形 · 避开旁人目击再出手');
+  section('AI 异形 · 目击判定与队友配合');
   await fresh(false);
   const WIT = await T(() => {
     const t = SKV3._t; t.newGame();
     const g = t.G(); g.paused = true; g.noReport = true;
     const k = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
-    const v = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
-    const w = g.agents.find(a => !a.alien && a.i !== 0 && a.alive && a !== v);
-    for (const a of g.agents) if (a !== k && a !== v && a !== w) t.tp(a.i, 30, 10);
+    const vs = g.agents.filter(a => !a.alien && a.i !== 0 && a.alive).slice(0, 4);
+    const w1 = g.agents.find(a => !a.alien && a.i !== 0 && a.alive && vs.indexOf(a) < 0);
+    const w2 = g.agents.find(a => !a.alien && a.i !== 0 && a.alive && vs.indexOf(a) < 0 && a !== w1);
+    const keep = [k, w1, w2].concat(vs);
+    for (const a of g.agents) if (keep.indexOf(a) < 0) t.tp(a.i, 30, 32);
     g.secbotDead = true; g.medbotDead = true;
     t.clearDrags(); t.resetAiState(k.i);
-    /* 引擎舱是暗舱：只有 4.2 格近身视野，旁观者站在 1 格外一定能看见 */
-    t.tp(k.i, 8, 31); t.tp(v.i, 9, 31); t.tp(w.i, 10, 31);
-    for (const a of [k, v, w]) { a._delay = 0; a._rest = 0; a.path = null; a.target = null; }
-    k.knife = 2; k.sabUsed = true;
-    const seen = t.witnessesAt(k.i, 9, 31, 6, v.i);
+    for (const a of keep) { a._delay = 0; a._rest = 0; a.path = null; a.target = null; }
+    k.knife = 1; k.sabUsed = true;
+    /* 引擎舱是暗舱：旁观者在 1~1.5 格内一定能看见 */
+    const setup = (v, two) => {
+      for (const u of vs) if (u !== v) t.tp(u.i, 30, 32);
+      t.tp(k.i, 8, 31); t.tp(v.i, 9, 31); t.tp(w1.i, 10, 31);
+      t.tp(w2.i, two ? 8 : 30, two ? 30 : 32);
+      k.path = null; k.target = v; v.path = null; k.knife = 1;
+    };
+    setup(vs[0], false);
+    const seen = t.witnessesAt(k.i, 9, 31, 6, vs[0].i);
     const oldRandom = Math.random;
-    Math.random = () => 0;                 /* 强制走“先退开”分支 */
+    /* 1 个非队友目击者 + 冒险 → 直接出刀 */
+    Math.random = () => 0;
     t.aiTickAlien(k.i, 1, 0.05);
-    const hold = { downed: t.state()[v.i].downed, ambush: +k._ambushT.toFixed(1),
-      target: k.target ? k.target.i : null };
-    Math.random = () => 0.999;             /* 强制走“冒险出刀”分支 */
-    k._ambushT = 0; k._ambushSpot = null; k._avoid = null; k.path = null; k.target = null;
-    t.tp(k.i, 8, 31); t.tp(v.i, 9, 31);
+    const oneRisk = { downed: t.state()[vs[0].i].downed };
+    /* 每一次行凶都会让异形记住目击者；分支之间清空，避免它改追目击者 */
+    const clearAlienMind = () => {
+      k.mind.seenBy = {}; k.mind.mem = []; k.mind.sus = {}; k.mind.why = {}; k.mind.alert = 0;
+      k.target = null; k.path = null; k._avoid = {};
+    };
+    /* 1 个非队友目击者 + 谨慎 → 放弃目标（不再原地等待/踱步） */
+    clearAlienMind();
+    setup(vs[1], false); Math.random = () => 0.999;
     t.aiTickAlien(k.i, 1, 0.05);
+    const oneHold = { downed: t.state()[vs[1].i].downed,
+      target: k.target ? k.target.i : null,
+      avoid: !!(k._avoid && k._avoid[vs[1].i] > 0) };
+    /* 2 个非队友目击者 → 无论随机数都放弃 */
+    clearAlienMind();
+    setup(vs[2], true); Math.random = () => 0;
+    t.aiTickAlien(k.i, 1, 0.05);
+    const two = { downed: t.state()[vs[2].i].downed,
+      target: k.target ? k.target.i : null,
+      avoid: !!(k._avoid && k._avoid[vs[2].i] > 0) };
+    /* 目击者是已认出的队友 → 不算风险，高随机数也照常出刀 */
+    clearAlienMind();
+    k.mates[w1.i] = { t: 0, kind: 'saw_red' };
+    setup(vs[3], false); t.tp(w2.i, 30, 32);
+    k.target = vs[3]; Math.random = () => 0.999;
+    t.aiTickAlien(k.i, 1, 0.05);
+    const mate = { downed: t.state()[vs[3].i].downed };
     Math.random = oldRandom;
-    return { k: k.i, v: v.i, w: w.i, seen, hold,
-      risk: { downed: t.state()[v.i].downed, knife: k.knife }, inv: t.inv() };
+    return { k: k.i, w1: w1.i, seen, oneRisk, oneHold, two, mate, inv: t.inv() };
   });
-  ok(WIT.seen.indexOf(WIT.w) >= 0, '旁观者识别：能看见出手点的活人被算作目击者');
-  ok(!WIT.hold.downed && WIT.hold.ambush > 0 && WIT.hold.target === null,
-    '贴脸时旁边有人看着：先退开等机会（' + WIT.hold.ambush + ' 秒），不直接出刀');
-  ok(WIT.risk.downed && WIT.risk.knife === 1,
-    '偶尔冒险：高随机值下无视旁观者出刀，消耗 1 把刀');
-  ok(WIT.inv.fails.length === 0, '避目击判定后不变量全过');
+  ok(WIT.seen.indexOf(WIT.w1) >= 0, '旁观者识别：能看见出手点的活人被算作目击者');
+  ok(WIT.oneRisk.downed, '只有 1 个非队友目击者：仍有一定概率直接出刀');
+  ok(!WIT.oneHold.downed && WIT.oneHold.target === null && WIT.oneHold.avoid,
+    '只有 1 个目击者但选择谨慎：直接放弃目标，不原地踱步');
+  ok(!WIT.two.downed && WIT.two.target === null && WIT.two.avoid,
+    '2 个非队友目击者：必定放弃，转而寻找落单者');
+  ok(WIT.mate.downed, '目击者是已认出的队友：不算风险，照常出刀配合');
+  ok(WIT.inv.fails.length === 0, '目击/队友判定后不变量全过');
+
+  section('AI 异形 · 队友识别与保护');
+  await fresh(false);
+  const MATE = await T(() => {
+    const t = SKV3._t; t.newGame();
+    const g = t.G(); g.paused = true; g.noReport = true;
+    const al = g.agents.filter(a => a.alien && a.i !== 0 && a.alive).slice(0, 2);
+    const k = al[0], m = al[1];
+    const v = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
+    for (const a of g.agents) if (a !== k && a !== m && a !== v) t.tp(a.i, 30, 32);
+    t.resetAiState(k.i); t.resetAiState(m.i);
+    k.mates = {}; m.mates = {};
+    g.secbotDead = true; g.medbotDead = true;
+    t.tp(k.i, 8, 31); t.tp(m.i, 9, 31); t.tp(v.i, 8, 29);
+    for (const a of [k, m, v]) { a._delay = 0; a._rest = 0; a.path = null; a.target = null; }
+    t.notice(m.i, 9, 31, 6, 'pipe', null);
+    const pipeMate = t.mind(k.i).mates[m.i] || null;
+    m.redT = 3; t.track();
+    const redMate = t.mind(k.i).mates[m.i] || null;
+    t.breaker();
+    t.tp(k.i, 48, 32); t.tp(m.i, 47, 32);
+    t.notice(m.i, 47, 32, 6, 'breaker', null);
+    const brMate = t.mind(k.i).mates[m.i] || null;
+    k.knife = 1; k.sabUsed = true; k._botCD = 999; k._delay = 0;
+    k.target = null; k.path = null;
+    t.aiTickAlien(k.i, 1, 0.05);
+    const tgt = k.target ? k.target.i : null;
+    t.openMeeting('day', null, null);
+    t.startVote();
+    const vote = g.meet ? g.meet.votes[k.i] : null;
+    if (g.meet) t.finishMeeting();
+    return { k: k.i, m: m.i, v: v.i, pipeMate, redMate, brMate, tgt, vote };
+  });
+  ok(MATE.pipeMate && MATE.pipeMate.kind === 'pipe' &&
+    MATE.redMate && MATE.redMate.kind === 'saw_red',
+    '异形目击队友钻管道 / 红光 → 记成队友');
+  ok(MATE.brMate && MATE.brMate.kind === 'breaker', '异形目击断电拉闸 → 记成队友');
+  ok(MATE.tgt !== MATE.m && MATE.vote !== MATE.m,
+    '队友不会被当作刀下目标，也不会被队友投票');
+
+  await fresh(false);
+  const ALLY = await T(() => {
+    const t = SKV3._t; t.newGame();
+    const g = t.G(); g.paused = true; g.noReport = true;
+    const al = g.agents.filter(a => a.alien && a.i !== 0 && a.alive).slice(0, 2);
+    const k = al[0], m = al[1];
+    const v = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
+    for (const a of g.agents) if (a !== k && a !== m && a !== v) t.tp(a.i, 30, 32);
+    t.resetAiState(k.i); t.resetAiState(m.i);
+    k.mates = {}; m.mates = {};
+    k.mates[m.i] = { t: 0, kind: 'pipe' };
+    m.mates[k.i] = { t: 0, kind: 'pipe' };
+    t.tp(k.i, 56, 51); t.tp(m.i, 57, 51); t.tp(v.i, 55, 51);
+    const oldRandom = Math.random;
+    Math.random = () => 0;
+    t.openMeeting('day', null, null);
+    Math.random = oldRandom;
+    const f = (t.meetCtx().frames || [])[0] || null;
+    t.startVote();
+    const vote = g.meet ? g.meet.votes[k.i] : null;
+    if (g.meet) t.finishMeeting();
+    return { k: k.i, m: m.i, v: v.i, f, vote };
+  });
+  ok(ALLY.f && ALLY.f.ally != null && ALLY.f.ally !== ALLY.f.by &&
+    ALLY.f.ally !== ALLY.f.target && /我也看见了/.test(ALLY.f.allyText || ''),
+    '异形主动构陷时，已认出的队友帮腔共同诬陷');
+  ok(ALLY.f && ALLY.f.target !== ALLY.m && ALLY.vote !== ALLY.m,
+    '联合构陷不会指向队友');
+
+  section('人类 AI · 故障优先 / 弃修逃跑');
+  await fresh(false);
+  const FLEE = await T(() => {
+    const t = SKV3._t; t.newGame();
+    const g = t.G(); g.paused = true; g.noReport = true;
+    const h = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
+    const k = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
+    for (const a of g.agents) if (a !== h && a !== k) t.tp(a.i, 30, 32);
+    t.tp(h.i, 30, 11); t.tp(k.i, 34, 11);
+    h._delay = 0; h._rest = 0; h.doing = 8; h._doing = 'task'; h._taskPt = h.tasks[0];
+    h.path = null; h.mind.known[k.i] = { t: 0, kind: 'saw_pipe', room: 'bridge', conf: 0.95 };
+    k.moving = true; k.path = [[31, 11]];
+    t.aiTick(h.i, 1, 0.05);
+    return { doing: h.doing, do: h._doing, flee: h._fleeT || 0,
+      path: !!(h.path && h.path.length) };
+  });
+  ok(FLEE.doing === 0 && FLEE.flee > 0 && FLEE.path,
+    '人类 AI 修任务时确认异形逼近：立刻弃修逃跑');
+
+  const REP = await T(() => {
+    const t = SKV3._t; t.newGame();
+    const g = t.G(); g.paused = true; g.noReport = true;
+    const h = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
+    const k = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
+    for (const a of g.agents) if (a !== h && a !== k) t.tp(a.i, 30, 32);
+    t.tp(h.i, 8, 31); t.tp(k.i, 30, 32);
+    g.dmg = [{ room: 'engine', x: 6, y: 31, label: '测试故障', left: 60, dur: 60, by: k.i }];
+    h._delay = 0; h._rest = 0; h._fixGo = null; h.path = null;
+    h.doing = 0; h._doing = null; h._lightGo = false;
+    t.aiTick(h.i, 1, 0.05);
+    return { fixGo: !!h._fixGo, doing: h._doing, path: !!(h.path && h.path.length) };
+  });
+  ok(REP.fixGo || REP.doing === 'fix' || REP.path,
+    '看到故障后人类 AI 直接前往/开始维修，不被别的事务打断');
+
+  section('人类 AI 幽灵 · 2 分额度');
+  await fresh(false);
+  const AG = await T(() => {
+    const t = SKV3._t; t.newGame();
+    const g = t.G(); g.paused = true; g.noReport = true;
+    const h = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
+    t.kill(h.i, 'knife');
+    g.dmg = [];
+    h.ghostPts = 0; h.tIdx = 0; h.doing = 0; h._doing = null; h.path = null;
+    const spot = t.taskSpot(h.i);
+    t.tp(h.i, spot.x, spot.y);
+    t.aiGhostTick(h.i, 1, 0.05);
+    const steps = Math.ceil(((h.doing || 1) + 1) / 0.05);
+    t.aiGhostTick(h.i, steps, 0.05);
+    const p1 = h.ghostPts || 0;
+    h.ghostPts = 2; h.doing = 0; h._doing = null; h.path = null;
+    const spot2 = t.taskSpot(h.i);
+    t.tp(h.i, spot2.x, spot2.y);
+    const r2 = t.aiGhostTick(h.i, 1, 0.05);
+    return { p1, doing: h.doing, do: h._doing, pts: h.ghostPts || 0, r2 };
+  });
+  ok(AG.p1 > 0 && AG.p1 <= 2, '人类 AI 幽灵做剩余任务，进度不超过 2 分');
+  ok(AG.doing === 0 && AG.do !== 'task' && AG.pts === 2,
+    '额度用尽后 AI 幽灵不再做任务');
 
   section('AI 异形 · 偶尔直接报案');
   await fresh(false);
@@ -2957,8 +3118,8 @@ function section(t) { console.log('\n== ' + t); }
   await page.waitForTimeout(340);
   const SAB3 = await T(() => ({ prog: SKV3._t.G().prog, dmg: SKV3._t.dmg().length,
     msg: SKV3._t.G().msg, inv: SKV3._t.inv() }));
-  ok(SAB3.prog === 7 && SAB3.dmg === 0 && SAB3.msg.indexOf('维修进度 -3') >= 0,
-    '60 秒内未修复且仍在天黑：维修进度 -3');
+  ok(SAB3.prog === 5 && SAB3.dmg === 0 && SAB3.msg.indexOf('维修进度 -5') >= 0,
+    '60 秒内未修复且仍在天黑：维修进度 -5');
   ok(SAB3.inv && SAB3.inv.fails.length === 0, '超时扣分后不变量全过');
 
   await fresh(false);
