@@ -2369,8 +2369,8 @@ function section(t) { console.log('\n== ' + t); }
     return { first, sp, dmg: t.dmg(), sab: r.sab, fx: t.fx(), msg: g.msg, inv: t.inv() };
   }, AIK0);
   ok(AIK2.dmg.length === 1 && AIK2.dmg[0].room === 'engine' &&
-    Math.abs(AIK2.dmg[0].left - 60) < 0.01 && AIK2.sab,
-    'AI 异形抵达引擎舱后损毁设备：60 秒故障倒计时，消耗本夜破坏技');
+    Math.abs(AIK2.dmg[0].left - 30) < 0.01 && AIK2.sab,
+    'AI 异形抵达引擎舱后损毁设备：30 秒故障倒计时，消耗本夜破坏技');
   ok(AIK2.dmg[0] && AIK2.dmg[0].label === AIK2.sp.label &&
     AIK2.fx.includes('spark') && AIK2.fx.includes('alarm') &&
     AIK2.msg.indexOf('被损毁') >= 0,
@@ -2650,19 +2650,38 @@ function section(t) { console.log('\n== ' + t); }
       if (dragSeen && last.drag === null) break;
     }
     const b1 = t.bodyOf(v.i);
+    const room = t.roomIdAt(b1[0], b1[1]);
     return { k: k.i, v: v.i, dragSeen, b0, b1,
       dist: Math.hypot(b1[0] - b0[0], b1[1] - b0[1]),
       hides: last.hides, draggedBy: t.state()[v.i].draggedBy,
-      moved: t.bodyInfo(v.i).moved, room: t.state()[v.i].room,
-      spot: t.hideSpot('fun'), inv: t.inv() };
+      moved: t.bodyInfo(v.i).moved, room,
+      spot: t.hideSpot(room), inv: t.inv() };
   });
   ok(HID.dragSeen, 'AI 异形会把尸体拖走藏起来（不必等玩家发现）');
   ok(HID.dist > 2 && HID.moved === true,
     '尸体被拖动 ' + HID.dist.toFixed(2) + ' 格并写入 bodyMoved');
   ok(HID.draggedBy === null && HID.hides === 1, '藏到角落后松手，本夜藏尸计数 +1');
-  ok(HID.room === 'fun' && HID.spot && Math.hypot(HID.b1[0] - HID.spot[0], HID.b1[1] - HID.spot[1]) < 2.2,
-    '藏尸点落在远离门与任务点的舱室角落');
+  ok(HID.room !== 'med' && HID.room !== 'bridge' && HID.spot &&
+    Math.hypot(HID.b1[0] - HID.spot[0], HID.b1[1] - HID.spot[1]) < 2.2,
+    '藏尸点落在远离门与任务点的舱室角落（当前 ' + HID.room + '）');
   ok(HID.inv.fails.length === 0, 'AI 藏尸后不变量全过');
+
+  await fresh(false);
+  const HIDFAR = await T(() => {
+    const t = SKV3._t; t.newGame();
+    const rooms = t.rooms();
+    const med = rooms.find(r => r.id === 'med');
+    const cands = rooms.filter(r => r.id !== 'med' && r.id !== 'bridge');
+    const dist = (r) => Math.hypot(r.x - med.x, r.y - med.y);
+    const near = cands.slice().sort((a, b) => dist(a) - dist(b))[0];
+    const dest = t.hideRoomFor(near.id, near.x, near.y);
+    const d = rooms.find(r => r.id === dest);
+    return { med: med.id, near: near.id, dest, nearD: dist(near),
+      destD: d ? dist(d) : -1 };
+  });
+  ok(HIDFAR.dest !== 'med' && HIDFAR.destD > HIDFAR.nearD,
+    '藏尸目的地优先远离医疗间：从 ' + HIDFAR.near + ' 改拖到 ' + HIDFAR.dest +
+    '（' + HIDFAR.nearD.toFixed(1) + ' → ' + HIDFAR.destD.toFixed(1) + ' 格）');
 
   section('AI 异形 · 避开保安扇形');
   await fresh(false);
@@ -2959,6 +2978,57 @@ function section(t) { console.log('\n== ' + t); }
     '异形会搜还活着的倒地伤员，继承其未领取的申请单（不再等到天亮尸体被清场）');
   ok(LOOTD.inv.fails.length === 0, '异形搜倒地伤员后不变量全过');
 
+  await fresh(false);
+  const LOOTM = await T(() => {
+    const t = SKV3._t; t.newGame();
+    const g = t.G(); g.paused = true; g.noReport = true; g.dmg = [];
+    const h = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
+    const v = g.agents.find(a => !a.alien && a.i !== 0 && a.alive && a !== h);
+    for (const a of g.agents) if (a !== h && a !== v) t.tp(a.i, 30, 32);
+    h.bullet = 0; h.medkit = 0; h.qual = 0; h.qualPending = 0;
+    h.tIdx = h.tasks.length; h._delay = 0; h._rest = 0; h.path = null;
+    h.doing = 0; h._doing = null; h._lootMem = {};
+    v.downed = true; v.alive = true; v.downAt = g.t; v.downX = 40; v.downY = 30;
+    v.bullet = 0; v.medkit = 0; v.qual = 0; v.qualPending = 1;
+    /* 找一处真正可站立、且有视线、彼此相隔 4 格的同房位置；
+       40,30 是墙/未知区域，旧测试会因此观察不到。 */
+    const rooms = t.rooms();
+    let hp = null, vp = null;
+    for (const r of rooms) {
+      for (let dx = -2; dx <= 2 && !hp; dx += 0.5)
+        for (let dy = -2; dy <= 2 && !hp; dy += 0.5) {
+          const x = r.x + dx, y = r.y + dy, vx = x + 4, vy = y;
+          if (!t.free(x, y) || !t.free(vx, vy) || !t.los(x, y, vx, vy)) continue;
+          hp = [x, y]; vp = [vx, vy];
+        }
+      if (hp) break;
+    }
+    if (!hp) { hp = [44, 30]; vp = [40, 30]; }
+    t.tp(h.i, hp[0], hp[1]); t.tp(v.i, vp[0], vp[1]);
+    for (let i = 0; i < 12; i++) t.aiScan(h.i, 0.06);
+    const mem = !!(h._lootMem && h._lootMem[v.i]);
+    /* 离开视野：在 12–18 格内找一处可站点（记忆半径 20），只剩记忆能指路 */
+    let far = null;
+    for (let rr = 12; rr <= 18 && !far; rr += 1)
+      for (let ai = 0; ai < 24 && !far; ai++) {
+        const a = ai / 24 * Math.PI * 2;
+        const x = vp[0] + Math.cos(a) * rr, y = vp[1] + Math.sin(a) * rr;
+        if (t.free(x, y)) far = [x, y];
+      }
+    if (!far) far = [30, 32];
+    t.tp(h.i, far[0], far[1]); h.path = null;
+    for (let i = 0; i < 500 && v.qualPending > 0 && h._doing !== 'search'; i++)
+      t.aiTick(h.i, 1, 0.05);
+    const started = h._doing === 'search';
+    if (started) t.aiTick(h.i, 40, 0.05);
+    return { mem, started, qual: h.qual, qp: h.qualPending, vqp: v.qualPending,
+      hp, vp, far, inv: t.inv() };
+  });
+  ok(LOOTM.mem && LOOTM.started && LOOTM.qp === 0 && LOOTM.qual >= 1,
+    'AI 会记住视野里见过的倒地伤员，离开后专门绕回去收尸拿资源（mem=' +
+    LOOTM.mem + ' started=' + LOOTM.started + ' qp=' + LOOTM.vqp + '）');
+  ok(LOOTM.inv.fails.length === 0, 'AI 记忆收尸后不变量全过');
+
   section('AI 异形 · 假装维修 / 补给 / 开枪');
   await fresh(false);
   const FAKE = await T(() => {
@@ -2985,6 +3055,95 @@ function section(t) { console.log('\n== ' + t); }
     '异形会在故障旁假装维修（不实际修好）');
   ok(FAKE.doAfter !== 'fake' && FAKE.dmgAfter === 1 && FAKE.prog === 0,
     '假装修完不留进度、不修复故障');
+
+  await fresh(false);
+  const FAKET = await T(() => {
+    const t = SKV3._t; t.newGame();
+    const g = t.G(); g.paused = true; g.noReport = true; g.dmg = [];
+    const k = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
+    const w = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
+    for (const a of g.agents) if (a !== k && a !== w) t.tp(a.i, 30, 32);
+    t.resetAiState(k.i);
+    const pts = t.points();
+    let spot = null;
+    for (const p of pts) {
+      for (const d of [[1.2, 0], [-1.2, 0], [0, 1.2], [0, -1.2]]) {
+        const kx = p.x + d[0], ky = p.y + d[1];
+        const wx = p.x - d[0], wy = p.y - d[1];
+        if (t.free(kx, ky) && t.free(wx, wy) && t.los(kx, ky, wx, wy)) {
+          spot = { p, kx, ky, wx, wy }; break;
+        }
+      }
+      if (spot) break;
+    }
+    if (!spot) spot = { p: pts[0], kx: pts[0].x + 1.2, ky: pts[0].y,
+      wx: pts[0].x - 1.2, wy: pts[0].y };
+    const pi = pts.indexOf(spot.p);
+    if (pi >= 0 && k.tasks) k.tasks[k.tIdx] = pi;   /* 让假任务目标就在附近 */
+    t.tp(k.i, spot.kx, spot.ky); t.tp(w.i, spot.wx, spot.wy);
+    k.knife = 0; k.bullet = 0; k.medkit = 0; k.qual = 0; k.qualPending = 0;
+    k.sabUsed = true; k._delay = 0; k._rest = 0;
+    k._fakeTaskN = 0; k._fakeN = g.night; k._supportGoal = null; k.target = null;
+    k._alienTaskN = g.night; k._alienTaskTotal = 1;   /* 排除真做任务 */
+    g.prog = 0;
+    const prog0 = g.prog, old = Math.random;
+    Math.random = () => 0;
+    let seen = false;
+    for (let i = 0; i < 200 && !seen; i++) {
+      t.aiTickAlien(k.i, 1, 0.05);
+      if (k._doing === 'fake') seen = true;
+    }
+    Math.random = old;
+    const start = { seen, do: k._doing, doing: k.doing, fakeTaskN: k._fakeTaskN };
+    t.aiTickAlien(k.i, 200, 0.05);
+    return { start, night: g.night, prog0, prog1: g.prog, fakeTaskN: k._fakeTaskN,
+      doAfter: k._doing, kind: k._fakeKind, inv: t.inv() };
+  });
+  ok(FAKET.start.seen && FAKET.start.do === 'fake' && FAKET.start.doing > 0 &&
+    FAKET.start.fakeTaskN === FAKET.night,
+    '异形会在任务点假装做任务（有目击者时进入 fake 动作；seen=' +
+    FAKET.start.seen + ' do=' + FAKET.start.do + ' n=' + FAKET.start.fakeTaskN + '）');
+  ok(FAKET.prog1 === FAKET.prog0 && FAKET.doAfter !== 'fake' && FAKET.fakeTaskN > 0,
+    '假装做任务不增加任何维修进度，也不会真的完成任务');
+  ok(FAKET.inv.fails.length === 0, '异形假装做任务后不变量全过');
+
+  await fresh(false);
+  const ASUP = await T(() => {
+    const t = SKV3._t; t.newGame();
+    const g = t.G(); g.paused = true; g.noReport = true; g.dmg = [];
+    const k = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
+    for (const a of g.agents) if (a !== k) t.tp(a.i, 30, 32);
+    t.resetAiState(k.i);
+    const pts = t.points();
+    let kp = null;
+    for (const p of pts) {
+      for (const d of [[1.2, 0], [-1.2, 0], [0, 1.2], [0, -1.2]]) {
+        if (t.free(p.x + d[0], p.y + d[1])) { kp = [p.x + d[0], p.y + d[1]]; break; }
+      }
+      if (kp) break;
+    }
+    t.tp(k.i, kp[0], kp[1]);
+    k.knife = 0; k.bullet = 0; k.medkit = 0; k.qual = 0; k.qualPending = 0;
+    k.sabUsed = true; k._delay = 0; k._rest = 0;
+    k._fakeTaskN = g.night; k._fakeN = g.night;   /* 排除假装分支 */
+    k._supportGoal = null; k.target = null;
+    k._alienTaskN = 0; k._alienTaskTotal = 0;
+    g.prog = 0;
+    const old = Math.random; Math.random = () => 0;
+    t.aiTickAlien(k.i, 3, 0.05);
+    Math.random = old;
+    const goalLow = k._supportGoal ? k._supportGoal.kind : (k._doing || null);
+    k.doing = 0; k._doing = null; k._supportGoal = null; k._taskPt = null;
+    k._alienTaskN = 0; k._alienTaskTotal = 0;
+    g.prog = 40;
+    const old2 = Math.random; Math.random = () => 0;
+    t.aiTickAlien(k.i, 20, 0.05);
+    Math.random = old2;
+    const goalHigh = k._supportGoal ? k._supportGoal.kind : (k._doing || null);
+    return { goalLow, goalHigh, total: k._alienTaskTotal };
+  });
+  ok(ASUP.goalLow === 'task' && ASUP.goalHigh !== 'task',
+    '异形真做任务只在低进度/缺弹时小概率发生；人类接近 45 分时不做任务帮人类赢');
 
   await fresh(false);
   const AGUN = await T(() => {
@@ -3352,7 +3511,28 @@ function section(t) { console.log('\n== ' + t); }
     '刀用完的异形也会钻管道（修复“没刀只会原地游荡”）');
   ok(PIP0.inv.fails.length === 0, '没刀异形钻管道后不变量全过');
 
-  section('破坏技 · 选舱 / 60 秒 / 连续 10 秒维修');
+  await fresh(false);
+  const BUSYPRI = await T(() => {
+    const t = SKV3._t; t.newGame();
+    const g = t.G(); g.paused = true; g.noReport = true; g.dmg = [];
+    const k = g.agents.find(a => a.alien && a.i !== 0 && a.alive);
+    const idle = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
+    const busy = g.agents.find(a => !a.alien && a.i !== 0 && a.alive && a !== idle);
+    for (const a of g.agents) if (a !== k && a !== idle && a !== busy) t.tp(a.i, 30, 32);
+    t.clearDrags(); t.resetAiState(k.i);
+    g.secbotDead = true; g.medbotDead = true;
+    k.knife = 1; k.bullet = 0; k.sabUsed = true; k._delay = 0; k._rest = 0;
+    k._pipeCD = 0;
+    t.tp(k.i, 30, 30); t.tp(idle.i, 33, 30); t.tp(busy.i, 40, 30);
+    idle.doing = 0; idle._doing = null;
+    busy.doing = 5; busy._doing = 'task';
+    t.aiTickAlien(k.i, 1, 0.05);
+    return { target: k.target ? k.target.i : null, idle: idle.i, busy: busy.i };
+  });
+  ok(BUSYPRI.target === BUSYPRI.busy,
+    '异形优先挑选正在做任务的人（8 格外的任务者优先于 3 格外的闲人）');
+
+  section('破坏技 · 选舱 / 30 秒 / 连续 10 秒维修');
   await fresh(false);
   const SAB0 = await T(() => {
     const t = SKV3._t, g = t.G();
@@ -3391,10 +3571,10 @@ function section(t) { console.log('\n== ' + t); }
   ok(SAB1.picked && SAB1.target && SAB1.target.room === 'power',
     '选择配电室后生成目标：进入舱室自动下手');
   ok(SAB1.dmg.length === 1 && SAB1.dmg[0].room === 'power' &&
-    SAB1.dmg[0].label === SAB1.sp.label && SAB1.sab && !SAB1.after,
-    '抵达目标舱室损毁对应设备：消耗本夜破坏技并清除目标');
+    SAB1.dmg[0].label === SAB1.sp.label && SAB1.dmg[0].dur === 30 && SAB1.sab && !SAB1.after,
+    '抵达目标舱室损毁对应设备：消耗本夜破坏技并清除目标（30 秒窗口）');
   ok(SAB1.fx.includes('spark') && SAB1.fx.includes('alarm') &&
-    SAB1.msg.indexOf('60 秒') >= 0, '破坏反馈：火花 + 警报环 + 60 秒维修窗口播报');
+    SAB1.msg.indexOf('30 秒') >= 0, '破坏反馈：火花 + 警报环 + 30 秒维修窗口播报');
   ok(SAB1.inv && SAB1.inv.fails.length === 0, '破坏舱室后不变量全过');
   await page.waitForTimeout(180);
   const SAB1b = await T(() => ({
@@ -3404,7 +3584,7 @@ function section(t) { console.log('\n== ' + t); }
     room: SKV3._t.roomName('power')
   }));
   ok(SAB1b.show && SAB1b.hud.indexOf('故障') >= 0 && SAB1b.hud.indexOf(SAB1b.room) >= 0 &&
-    SAB1b.dmg[0] && SAB1b.dmg[0].left < 60,
+    SAB1b.dmg[0] && SAB1b.dmg[0].left < 30,
     'HUD 故障条显示舱室/设备/剩余秒数，倒计时随时间下降');
   await shot('46b_故障倒计时.png');
   const SAB2 = await T(() => {
@@ -3423,7 +3603,7 @@ function section(t) { console.log('\n== ' + t); }
   const SAB3 = await T(() => ({ prog: SKV3._t.G().prog, dmg: SKV3._t.dmg().length,
     msg: SKV3._t.G().msg, inv: SKV3._t.inv() }));
   ok(SAB3.prog === 5 && SAB3.dmg === 0 && SAB3.msg.indexOf('维修进度 -5') >= 0,
-    '60 秒内未修复且仍在天黑：维修进度 -5');
+    '30 秒内未修复且仍在天黑：维修进度 -5');
   ok(SAB3.inv && SAB3.inv.fails.length === 0, '超时扣分后不变量全过');
 
   await fresh(false);
@@ -3532,6 +3712,22 @@ function section(t) { console.log('\n== ' + t); }
     return { prog: g.prog, dmg: t.dmg().length };
   });
   ok(SAB9.prog === 10 && SAB9.dmg === 0, '天亮前未修完的故障不扣分：随夜晚结束清除');
+
+  section('胜负 · 维修 45 分');
+  await fresh(false);
+  const WIN45 = await T(() => {
+    const t = SKV3._t; t.newGame();
+    const g = t.G(); g.paused = true;
+    g.prog = 44;
+    const before = t.checkWin();
+    const over44 = g.over;
+    g.prog = 45;
+    const hit = t.checkWin();
+    return { before, over44, hit, over: g.over, why: g.overWhy };
+  });
+  ok(WIN45.before === false && !WIN45.over44 && WIN45.hit === true &&
+    WIN45.over && /45/.test(WIN45.why || ''),
+    '人类维修进度必须达到 45 分才胜利（40 分不再直接结束）');
   await fresh(false);
 
   section('视野 · 暗处不能隔空开枪');

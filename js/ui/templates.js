@@ -200,7 +200,7 @@
 </div></div>
 
 <div id="sabot" class="ov hide"><div class="card pipe-card">
-  <h2>破坏 · 选择目标舱室</h2><div class="sub" id="sabot-sub">每夜一次 · 抵达目标舱室后损毁设备 · 60 秒内未修复则维修进度 -3</div>
+  <h2>破坏 · 选择目标舱室</h2><div class="sub" id="sabot-sub">每夜一次 · 抵达目标舱室后损毁设备 · 30 秒内未修复则维修进度 -5</div>
   <div class="pipe-list" id="sabot-list"></div>
   <div class="btns"><button id="sabot-cancel">取消 (Esc)</button></div>
 </div></div>

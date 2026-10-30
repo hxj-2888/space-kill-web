@@ -69,7 +69,7 @@ function summarize(results) {
   const keys = ['nights', 'prog', 'steps', 'meetings', 'knives', 'shots', 'sabotages',
     'exiles', 'humanExiles', 'alienExiles', 'searches', 'loots', 'bulletsLooted',
     'medkitsLooted', 'qualsLooted', 'humanLoots', 'alienLoots', 'humanShots',
-    'alienShots', 'fakeRepairs', 'alienTasks', 'revives', 'alienPipes',
+    'alienShots', 'fakeRepairs', 'fakeTasks', 'alienTasks', 'revives', 'alienPipes',
     'alienPipePlans', 'humans', 'aliens', 'downed'];
   const avg = {}, med = {};
   for (const k of keys) { avg[k] = +mean(results, k).toFixed(3); med[k] = +median(results, k).toFixed(3); }
@@ -99,7 +99,8 @@ function writeOut(results, finished) {
         '讨论台词不逐条播放，会议决策与传闻嫌疑在开会时同步结算。',
         '跳过渲染/HUD/音效/自动不变量；对局逻辑与正式版一致。',
         '统计口径：searches/loots 为搜尸次数与真正取到物资的次数；humanLoots/alienLoots 按阵营拆分；' +
-          'alienPipes 为实际钻管道次数，fakeRepairs/alienTasks 为异形伪装维修与真做任务次数。'
+          'alienPipes 为实际钻管道次数，fakeRepairs/fakeTasks 为异形假装维修与假装做任务次数，' +
+          'alienTasks 为真做任务次数。'
       ]
     },
     summary: summarize(results),
