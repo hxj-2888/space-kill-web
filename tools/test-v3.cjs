@@ -421,15 +421,22 @@ function section(t) { console.log('\n== ' + t); }
     const hud = document.getElementById('hud');
     const dv = dev.getBoundingClientRect(), hv = hud.getBoundingClientRect();
     const rows = [...document.querySelectorAll('#dev-rows .dr')].map(e => e.textContent);
-    return { devTop: dv.top, devH: dv.height, hudTop: hv.top, rows,
+    const cols = getComputedStyle(document.getElementById('dev-rows'))
+      .gridTemplateColumns.split(' ').filter(Boolean).length;
+    return { devTop: dv.top, devH: dv.height, hudTop: hv.top, rows, cols,
       dn: !document.getElementById('dnwrap').classList.contains('hide') };
   });
   ok(VD.devTop <= 2 && VD.devH > 30 && VD.devH < 180,
     'DEV 总览是顶部横栏（top=' + VD.devTop.toFixed(0) + ' · 高 ' + VD.devH.toFixed(0) + 'px）');
   ok(VD.hudTop >= VD.devH - 2,
     'DEV 横栏不占用左上角（HUD 顶边 ' + VD.hudTop.toFixed(0) + ' ≥ 横栏高 ' + VD.devH.toFixed(0) + '）');
-  ok(VD.rows.length === 15 && VD.rows.every(r => /弹 \d+/.test(r) && /包 \d+/.test(r) && /单 \d+/.test(r)),
+  /* 2026-10-31：卡片压到 1/8 屏宽后资源行改成紧凑写法（弹0 包0 单0），
+     正则容忍带不带空格两种排版，别让排版微调反复弄红门禁 */
+  ok(VD.rows.length === 15 &&
+    VD.rows.every(r => /弹\s*\d+/.test(r) && /包\s*\d+/.test(r) && /单\s*\d+/.test(r)),
     'DEV 卡片显示每人身上的资源（弹 / 包 / 申请单 / 任务）');
+  ok(VD.cols >= 4 && VD.rows.length === 15,
+    'DEV 卡片排成多列（' + VD.cols + ' 列 × 2 排，不再横向滚动）');
   ok(VD.dn, 'DEV 下才显示左上角濒死人数');
   const VN = await T(() => {
     SKV3._t.setDev(false);
@@ -1893,9 +1900,9 @@ function section(t) { console.log('\n== ' + t); }
   const C0 = await T(() => {
     const t = SKV3._t, g = t.G();
     g.noReport = true;
-    /* 监控台锚点 2026-10-31 从 (84,29) 挪到 (81,28.8)：贴监控墙正前方，
-       玩家站在墙下沿 y30.4 就能调画面（旧位置在墙右端外侧）。 */
-    t.tp(0, 81,30.4);
+    /* 监控台锚点 2026-10-31 从 (84,29) → (81,28.8) → (79.35,36.0)：
+       最终贴在主控台上（屏幕斜躺在台面），玩家站主控台北侧 y34.7 调画面。 */
+    t.tp(0, 79.35,34.7);
     return { room: t.state()[0].room, near: t.cams().near, inv: t.inv() };
   });
   await page.keyboard.press('e');

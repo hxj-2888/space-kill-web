@@ -802,6 +802,21 @@ def furniture(c, deco=False):
         bolts(tag + '_bolt', cx, cy, w, h, Z + 0.045, r=0.03, inset=0.10, mat=METAL)
         floor_frame(tag + '_hz', cx, cy, w, h, mat=HZM)
         pipe_run(tag + '_cable', cx, cy + h / 2, cx + w * 0.35, cy + h / 2 + 0.9, 0.05, 0.045, DARK)
+        # 斜躺的监控屏（2026-10-31）：box 只支持绕 Z 旋转，做不了真俯仰，
+        # 所以用 5 条逐级「后退 + 抬高」的薄带拼出约 20° 的坡度 —— 从 12° 俯角看，
+        # 读起来就是一块支在台面上、面向玩家的监控屏。屏幕内容用 SDXL 的 facility-screen。
+        for i in range(6):
+            t = i / 5.0
+            yoff = -h * 0.38 + t * h * 0.46
+            zt = Z + 0.06 + t * 0.40
+            box(tag + '_mtscr%d' % i, cx, cy + yoff, w * 0.66, h * 0.13,
+                zt, zt + 0.032, FAC_SCREEN)
+            box(tag + '_mtbed%d' % i, cx, cy + yoff, w * 0.70, h * 0.155,
+                zt - 0.016, zt, TRIM)
+        # 屏幕两侧的支耳（把整块屏「架」在台面上，而不是浮着）
+        for sx in (-1, 1):
+            box(tag + '_mtleg%d' % sx, cx + sx * w * 0.30, cy - h * 0.10,
+                0.06, h * 0.34, Z + 0.04, Z + 0.20, METAL)
     elif k == 'holoscreen':
         # 舱室大屏：落地薄屏 + 边框 + 底座 + 屏面分格（会议室/监控室的身份件）
         Z = 1.62 * hs
@@ -1107,6 +1122,16 @@ def furniture(c, deco=False):
         for li, (sx, sy) in enumerate(((-1, -1), (1, -1), (1, 1), (-1, 1))):
             cyl(tag + '_leg%d' % li, cx + sx * (w / 2 - 0.14), cy + sy * (h / 2 - 0.14),
                 0.045, 0.0, 0.11, METAL, verts=8)
+    elif k == 'camera':
+        # 监控摄像头（2026-10-31）：纯装饰布景，不参与视野判定、不进 M.cover。
+        # 12° 俯角下只看得到「壁装底座 + 球罩 + 镜头口 + 红点」，所以做得小而方、贴着墙。
+        Z = 1.90 * hs
+        box(tag + '_mount', cx, cy, w * 0.92, h * 0.92, Z - 0.22, Z - 0.09, DARK, bevel=0.015)
+        box(tag + '_stem', cx, cy, w * 0.34, h * 0.34, Z - 0.09, Z - 0.01, METAL)
+        box(tag + '_head', cx, cy, w * 1.06, h * 0.96, Z - 0.01, Z + 0.11, PN, bevel=0.02)
+        box(tag + '_lens', cx, cy + h * 0.44, w * 0.46, h * 0.14, Z + 0.01, Z + 0.09, SCREEN)
+        box(tag + '_led', cx - w * 0.30, cy - h * 0.10, w * 0.16, h * 0.14,
+            Z + 0.11, Z + 0.14, RED)
     elif k == 'chair':
         box(tag + '_seat', cx, cy, w, h, 0.36, 0.48, FB, bevel=0.05)
         box(tag + '_back', cx, cy - h / 2 + 0.07, w * 0.94, 0.14, 0.48, 0.94, FB, bevel=0.04)

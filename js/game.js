@@ -127,6 +127,8 @@
          medbotTarget:null,
          medbotLeft:MEDBOT_CHARGES,botHp:{secbot:2,medbot:1},secCatch:null,
          bots:null,jailPos:null,breakerSaboteur:null,
+        /* 本夜已成功拉断电闸的次数（决定下一次拉闸要站多久：3/6/9/9…），每夜重置 */
+        breakerPulls:0,
          dmg:[],sabPick:null,sabTarget:null,aiReportUsed:false,evSeq:0,
          drag:null,inspect:null,wheel:null,dev:keepDev,gfx:{coverFlashes:0,dashedBorders:0},
          spectMode:(ROLE_WANT==='spect'),spect:null,
@@ -426,8 +428,10 @@
         else if(a.moving) st='移动';
         const bp=bodyPos(a);
         const where=bp?roomNameAt(bp[0],bp[1]):roomNameAt(a.x,a.y);
-        const res='弹 '+a.bullet+' · 包 '+a.medkit+' · 单 '+a.qual+(a.qualPending>0?'(+'+a.qualPending+')':'')
-          +' · 任务 '+a.tIdx+'/'+a.tasks.length+(a.alien?' · 刀 '+a.knife:'');
+        /* 卡片会被压到 1/8 屏宽，资源行必须紧凑：空格与「·」在这里是纯浪费 */
+        const res='弹'+a.bullet+' 包'+a.medkit+' 单'+a.qual
+          +(a.qualPending>0?'+'+a.qualPending:'')
+          +' 任务'+a.tIdx+'/'+a.tasks.length+(a.alien?' 刀'+a.knife:'');
         out.push('<div class="dr'+(a.alien?' al':'')+((a===G.me&&!G.spectMode)?' me':'')+(!a.alive?' dead':'')+'">'
           +'<div class="top"><b>'+a.name+(a===G.me?(G.spectMode?'（AI）':'（你）'):'')+'</b>'
           +'<span>'+(a.alien?'异形':'人类')+'</span></div>'
@@ -484,9 +488,18 @@
       G.corrLit=(st!==2);
       G.blackout=(st===2);
     }
+    /* 合闸（恢复供电）：未修电路 4.5 秒；修好电路（powerFixed）3 秒。 */
+    function breakerOnTime(){ return G.powerFixed?3:4.5; }
+    /* 拉闸（造成断电）：本夜第 1/2/3 次 = 3/6/9 秒，第 4 次起恒 9 秒。
+       计数只在**真正断电那一刻** +1（见 pullBreaker），站桩中途被打断不消耗名额；
+       G.breakerPulls 每夜重置，所以第 2 夜重新从 3 秒起算。 */
+    function breakerOffTime(){
+      const n=Math.max(0,(G.breakerPulls||0))+1;
+      return Math.min(9,3*n);
+    }
+    /* 所有入口（玩家轮盘、AI 合闸/拉闸、UI 提示）都只读这一个函数 */
     function breakerPullTime(){
-      /* 电路维修完成后，再拉断电闸需要 6 秒；恢复电力仍是 3 秒 */
-      return G.lightState===2?3:(G.powerFixed?6:3);
+      return G.lightState===2?breakerOnTime():breakerOffTime();
     }
     /* 电闸拉杆角度：按供电状态平滑过渡（模块级变量，只在渲染里用） */
     let BREAKER_LEVER=0;
@@ -498,7 +511,10 @@
       return null;
     }
     function pullBreaker(actor){
-      G.lightState=(G.lightState===2?(G.powerFixed?1:0):2);
+      const wasOff=G.lightState===2;
+      G.lightState=(wasOff?(G.powerFixed?1:0):2);
+      /* 本夜拉闸次数只在这里累加：真正把灯拉黑的那一次才消耗名额 */
+      if(!wasOff&&G.lightState===2)G.breakerPulls=(G.breakerPulls||0)+1;
       refreshLight(); SND.breaker(); pulseHud('pwr');
       /* 断电期间每扇门单独扫描 2 秒（人离开重新上锁）；恢复供电立即清零 */
       for(const d of (G.doors||[]))d.scanT=0;
@@ -518,8 +534,9 @@
       }
       toast(G.lightState===2
         ?'电闸已拉下：全船变暗 · 走廊灯全熄 · 监控信号中断 · 所有门需扫描 2 秒才能通过'
-          +(G.powerFixed?' · 配电已修复，再拉闸要 6 秒':'')
-        :(G.powerFixed?'电闸已合上：配电已修复，全船照明恢复 · 自动门安检解除':'电闸已合上：房间与走廊灯光恢复 · 自动门安检解除'));
+          +' · 本夜第 '+G.breakerPulls+' 次，再拉要 '+breakerOffTime()+' 秒'
+        :('电闸已合上：'+(G.powerFixed?'配电已修复':'')+'全船照明恢复 · 自动门安检解除'
+          +' · 合闸耗时 '+breakerOnTime()+' 秒'));
     }
     /* 单机暂停：冻结 update 与 SKClock（恢复时整体平移相位时间），会议/搜尸中不可暂停 */
     function togglePause(){
@@ -2530,10 +2547,18 @@
          离人太近（<5 格）时先处理人，避免异形当着面无视玩家去拆设备。 */
       if(!a.sabUsed){
         const br=M.facility.find(f=>f.kind==='breaker');
-        if(a.i===G.breakerSaboteur&&br&&G.lightState!==2&&td>5){
+        if(a.i===G.breakerSaboteur&&br&&G.lightState!==2&&td>5&&a._breakerSkip!==G.night){
           const d=Math.hypot(br.x-a.x,br.y-a.y);
           if(d<1.6){
-            const bd=G.powerFixed?6:3;
+            const bd=breakerOffTime();
+            /* 拉闸暴露窗口随本夜次数拉长（3 → 6 → 9 秒）：站在配电室的每一秒都在被目击。
+               所以 AI 先做一次「风险评估」——有人在 9 格内看得见、或保安可能扫到，就放弃
+               本夜剩下的拉闸；没人时也只是降低概率（6 秒 65% / 9 秒 40%）。 */
+            const watchers=watchersAt(a,br.x,br.y,9,null).length;
+            const risky=bd>=6;
+            if(risky&&(watchers>0||secbotWouldSee(br.x,br.y))){a._breakerSkip=G.night;return;}
+            const okChance=bd<=3?1:(bd<=6?0.65:0.40);
+            if(Math.random()>okChance){a._breakerSkip=G.night;return;}
             a.sabUsed=true;a.doing=bd;a._dur=bd;a._doing='breaker';
             return;
           }
@@ -4669,6 +4694,7 @@
       resetBots();
       const alienIds=G.agents.filter(a=>a.alien&&a.alive&&a.i!==0).map(a=>a.i);
       G.breakerSaboteur=alienIds.length?alienIds[Math.floor(Math.random()*alienIds.length)]:null;
+      G.breakerPulls=0;   /* 拉闸延迟每夜重新从 3 秒起算 */
       G.lightState=0;G.waves=[];G.fx=[];
       closeCams(true);closePipePick(true);closeSabPick(true);
       refreshLight();
@@ -6318,6 +6344,39 @@
       if(a._doing==='breaker')return {c:'#7FD3F0',icon:'bolt',glow:'rgba(127,211,240,.12)'};
       return {c:'#F0C674',icon:'wrench',glow:'rgba(240,198,116,.11)'};
     }
+    /* 开口扳手（维修专用）：手柄 + C 形开口头，开口朝 +X；原点在手柄末端，
+       外层直接 rotate 就是「以握持点为轴拧动」。深色描边保证在暗房地板也读得清。 */
+    function drawWrenchShape(len,fill,edge){
+      const w=len*0.13;
+      const grip=len*0.54, headR=len*0.26;
+      ctx.lineCap='round';ctx.lineJoin='round';
+      /* 手柄（先描深色粗线，再叠亮色细线 = 免费描边） */
+      ctx.strokeStyle=edge;ctx.lineWidth=w*2.0;
+      ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(grip,0);ctx.stroke();
+      ctx.strokeStyle=fill;ctx.lineWidth=w;
+      ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(grip,0);ctx.stroke();
+      /* 开口头：缺口朝外，两段弧 + 两条直边 */
+      const hx=grip+headR*0.55;
+      ctx.strokeStyle=edge;ctx.lineWidth=w*2.0;
+      ctx.beginPath();ctx.arc(hx,0,headR,0.32*Math.PI,1.68*Math.PI);ctx.stroke();
+      ctx.strokeStyle=fill;ctx.lineWidth=w;
+      ctx.beginPath();ctx.arc(hx,0,headR,0.32*Math.PI,1.68*Math.PI);ctx.stroke();
+      /* 开口两侧的钳口短边 */
+      ctx.strokeStyle=edge;ctx.lineWidth=w*1.7;
+      for(const sgn of [-1,1]){
+        ctx.beginPath();
+        ctx.moveTo(hx+Math.cos(sgn*0.32*Math.PI)*headR,Math.sin(sgn*0.32*Math.PI)*headR);
+        ctx.lineTo(hx+headR*1.28,Math.sin(sgn*0.30*Math.PI)*headR*0.86);
+        ctx.stroke();
+      }
+      ctx.strokeStyle=fill;ctx.lineWidth=w*0.9;
+      for(const sgn of [-1,1]){
+        ctx.beginPath();
+        ctx.moveTo(hx+Math.cos(sgn*0.32*Math.PI)*headR,Math.sin(sgn*0.32*Math.PI)*headR);
+        ctx.lineTo(hx+headR*1.28,Math.sin(sgn*0.30*Math.PI)*headR*0.86);
+        ctx.stroke();
+      }
+    }
     function drawIcon(icon,c,x,y,s,ang,lw){
       ctx.save();ctx.translate(x,y);ctx.rotate(ang||0);
       ctx.strokeStyle=c;ctx.fillStyle=c;ctx.lineWidth=lw||2;ctx.lineCap='round';ctx.lineJoin='round';
@@ -6359,9 +6418,29 @@
       ctx.globalAlpha=ga*0.16;ctx.fillStyle=st.c;
       ctx.beginPath();ctx.arc(tx,ty,0.46*VIEW.s,0,7);ctx.fill();
       ctx.globalAlpha=ga;
-      ctx.save();ctx.shadowColor='rgba(8,12,16,.85)';ctx.shadowBlur=5;
-      drawIcon(st.icon,st.icon==='wrench'?'#FFE8B0':st.c,tx,ty,0.66*VIEW.s,-0.5+Math.sin(T*4.5)*0.28,3.2);
-      ctx.restore();
+      /* 维修动作＝真的握一把扳手在拧（2026-10-31 改）：
+         以前只在右上角挂一个「扳手小图标」，看不出在拧什么。现在换成
+         大号开口扳手，以手柄末端为轴做往复拧动，再沿拧动弧线补一圈虚线，
+         配合下面的火花就能读出「在拧螺丝」而不是「站在那儿不动」。 */
+      if(st.icon==='wrench'){
+        const hx=x+0.44*VIEW.s, hy=y-0.50*VIEW.s;
+        const swing=-0.58+Math.sin(T*7.2)*0.52;
+        ctx.save();ctx.shadowColor='rgba(8,12,16,.85)';ctx.shadowBlur=6;
+        ctx.translate(hx,hy);ctx.rotate(swing);
+        drawWrenchShape(0.86*VIEW.s,'#FFE8B0','#6E5522');
+        ctx.restore();
+        /* 拧动弧线：从握持点扫出去，暗示“螺纹在转” */
+        ctx.save();
+        ctx.strokeStyle='rgba(255,232,176,'+(0.22+0.16*Math.sin(T*9)).toFixed(2)+')';
+        ctx.lineWidth=2;ctx.setLineDash([0.09*VIEW.s,0.12*VIEW.s]);
+        ctx.beginPath();ctx.arc(hx,hy,0.72*VIEW.s,swing-0.46,swing+0.46);ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.restore();
+      }else{
+        ctx.save();ctx.shadowColor='rgba(8,12,16,.85)';ctx.shadowBlur=5;
+        drawIcon(st.icon,st.c,tx,ty,0.66*VIEW.s,-0.5+Math.sin(T*4.5)*0.28,3.2);
+        ctx.restore();
+      }
       /* 工具接触点的连续火花，比一次性粒子更能读出「正在修」 */
       if(a._doing==='task'||a._doing==='breaker'||a._doing==='fake'){
         const hx=x+0.72*VIEW.s,hy=y-0.48*VIEW.s;

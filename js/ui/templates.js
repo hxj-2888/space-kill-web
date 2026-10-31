@@ -134,28 +134,35 @@
   #dev{position:fixed;left:0;right:0;top:0;z-index:6;
     background:linear-gradient(180deg,rgba(8,12,18,.95),rgba(8,12,18,.80));
     border-bottom:1px solid #22303F;box-shadow:0 10px 26px rgba(0,0,0,.42);
-    padding:6px 12px 7px;display:flex;flex-direction:column;gap:4px;
-    font-size:11.5px;line-height:1.45;pointer-events:none}
+    padding:4px 10px 5px;display:flex;flex-direction:column;gap:3px;
+    font-size:11.5px;line-height:1.4;pointer-events:none}
   /* #dev 是 ID 选择器、.hide 是类选择器：只写 .hide{display:none} 会被 #dev{display:flex}
      盖掉，横栏会永远挂在顶部（2026-10-31 踩过）。这里显式补一条同 ID 优先级的隐藏规则。 */
   #dev.hide{display:none}
-  #dev .dt{color:#7FD3F0;letter-spacing:1.4px;font-size:10px;display:flex;gap:12px;align-items:baseline}
-  #dev-rows{display:flex;gap:6px;overflow-x:auto;overflow-y:hidden;padding-bottom:1px}
-  #dev-rows::-webkit-scrollbar{height:4px}
-  #dev-rows::-webkit-scrollbar-thumb{background:#243244;border-radius:2px}
-  #dev .dr{flex:0 0 auto;min-width:126px;background:rgba(16,24,34,.86);border:1px solid #1E2A38;
-    border-radius:7px;padding:4px 7px 5px;display:flex;flex-direction:column;gap:1px}
-  #dev .dr .top{display:flex;gap:6px;align-items:baseline;justify-content:space-between}
-  #dev .dr b{color:#C9D1DB;font-weight:500}
-  #dev .dr span{color:#7C8798;font-size:10px}
-  #dev .dr i{color:#5E6B7C;font-style:normal;font-size:10px;white-space:nowrap}
-  #dev .dr u{color:#8FD3F0;text-decoration:none;font-size:10px;white-space:nowrap}
+  /* 标题行必须 flex-shrink:0：两排卡会把容器压扁，第一次渲染时标题被卡片吃掉半行 */
+  #dev .dt{color:#7FD3F0;letter-spacing:1.4px;font-size:10px;display:flex;gap:12px;
+    align-items:baseline;flex:0 0 auto;min-height:15px;white-space:nowrap}
+  /* 15 张卡固定排成两排（8 + 7）：不再横向滚动 —— 横滑条既点不动（父层
+     pointer-events:none），又逼着玩家去拖一条 4px 的细条。两排直接全部可见。 */
+  #dev-rows{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));
+    gap:4px 5px;pointer-events:auto}
+  #dev .dr{min-width:0;background:rgba(16,24,34,.86);border:1px solid #1E2A38;
+    border-radius:7px;padding:3px 6px 4px;display:flex;flex-direction:column;gap:0}
+  #dev .dr .top{display:flex;gap:5px;align-items:baseline;justify-content:space-between}
+  #dev .dr b{color:#C9D1DB;font-weight:500;font-size:11px}
+  #dev .dr span{color:#7C8798;font-size:9.5px}
+  #dev .dr i{color:#5E6B7C;font-style:normal;font-size:9.5px;white-space:nowrap;
+    overflow:hidden;text-overflow:ellipsis}
+  #dev .dr u{color:#8FD3F0;text-decoration:none;font-size:9.5px;white-space:nowrap;
+    overflow:hidden;text-overflow:ellipsis}
   #dev .dr.al b{color:#E0574F}
   #dev .dr.al u{color:#FF9E96}
   #dev .dr.dead{opacity:.5}
   #dev .dr.me{border-color:#4A3C1E}
   #dev .dr.me b{color:#F0C674}
   #dev .dt2{color:#5E6B7C;font-size:10px}
+  @media (max-width:1100px){#dev-rows{grid-template-columns:repeat(5,minmax(0,1fr))}}
+  @media (max-width:760px){#dev-rows{grid-template-columns:repeat(3,minmax(0,1fr))}}
   #dragtag{position:fixed;left:50%;bottom:88px;transform:translateX(-50%);font-size:12px;
     color:#F0C674;background:rgba(10,14,20,.88);border:1px solid #4A3C1E;border-radius:8px;
     padding:4px 12px;z-index:5}
