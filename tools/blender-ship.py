@@ -330,8 +330,8 @@ FAC_PANEL = mat_tex('fac_panel', 'facility-panel.png', scale=(1 / 2.4, 1 / 2.4, 
 # 屏幕材质要「带纹理 + 会发光」：单帧只有 0.7~0.9 格宽，贴图细节会糊掉，
 # 所以用 tint 提亮 + Emission Strength 2.2 把它从「深色玻璃」拉回「在工作」
 FAC_SCREEN = mat_tex('fac_screen', 'facility-screen.png', scale=(1 / 1.7, 1 / 1.7, 1.0),
-                     metallic=0.12, rough=0.22, emit_mul=2.2,
-                     tint=(1.22, 1.34, 1.46),
+                     metallic=0.12, rough=0.22, emit_mul=3.0,
+                     tint=(1.75, 2.05, 2.30),
                      fallback=((0.02, 0.05, 0.07), 0.1, 0.15))
 METAL = mat_plain('metal', (0.22, 0.25, 0.29), metallic=0.75, rough=0.4)
 TABLE_TOP = mat_plain('table_top', (0.006, 0.008, 0.012), metallic=0.30, rough=0.55, spec=0.18)
@@ -805,13 +805,15 @@ def furniture(c, deco=False):
         # 斜躺的监控屏（2026-10-31）：box 只支持绕 Z 旋转，做不了真俯仰，
         # 所以用 5 条逐级「后退 + 抬高」的薄带拼出约 20° 的坡度 —— 从 12° 俯角看，
         # 读起来就是一块支在台面上、面向玩家的监控屏。屏幕内容用 SDXL 的 facility-screen。
-        for i in range(6):
-            t = i / 5.0
-            yoff = -h * 0.38 + t * h * 0.46
-            zt = Z + 0.06 + t * 0.40
-            box(tag + '_mtscr%d' % i, cx, cy + yoff, w * 0.66, h * 0.13,
-                zt, zt + 0.032, FAC_SCREEN)
-            box(tag + '_mtbed%d' % i, cx, cy + yoff, w * 0.70, h * 0.155,
+        # 12° 俯角会把「高度」压成几乎 0（0.4m 高只投影出 3px），所以斜屏不能靠堆高，
+        # 必须靠**占地面积**：3 条宽带铺满台面，靠逐级微抬 + 发光面读出倾斜。
+        for i in range(3):
+            t = i / 2.0
+            yoff = -h * 0.30 + t * h * 0.34
+            zt = Z + 0.05 + t * 0.10
+            box(tag + '_mtscr%d' % i, cx, cy + yoff, w * 0.72, h * 0.36,
+                zt, zt + 0.030, FAC_SCREEN)
+            box(tag + '_mtbed%d' % i, cx, cy + yoff, w * 0.76, h * 0.395,
                 zt - 0.016, zt, TRIM)
         # 屏幕两侧的支耳（把整块屏「架」在台面上，而不是浮着）
         for sx in (-1, 1):
