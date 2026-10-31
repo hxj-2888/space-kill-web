@@ -71,6 +71,24 @@ SPECS = {
         'seamless tileable texture, heavy industrial warehouse shelving steel, dark graphite '
         'rack uprights with worn amber labels and bolt heads, scratched powder coat, '
         'flat even lighting, no text, no logo'),
+    # 舱室专属地板：监控室 / 娱乐室 / 配电室 / 引擎原来两两共用同一张地板，房间读不出身份
+    'floor-monitor': (
+        'seamless tileable texture, dark spacecraft control room server deck flooring, '
+        'charcoal anti-static tile panels with thin cyan inlay seams and small perforated '
+        'vent grids, clean and slightly reflective, flat even lighting, no text, no logo, '
+        'no perspective'),
+    'floor-lounge': (
+        'seamless tileable texture, dark spacecraft recreation room flooring, deep slate '
+        'carpet tiles with warm amber geometric inlay accents and subtle foot wear patterns, '
+        'cozy sci-fi lounge surface, flat even lighting, no text, no logo, no perspective'),
+    'floor-power': (
+        'seamless tileable texture, dark high voltage electrical room dielectric flooring, '
+        'charcoal rubber matting with embossed diamond grid and faded amber caution bands, '
+        'scuffed and dusty, flat even lighting, no text, no logo, no perspective'),
+    'floor-engine': (
+        'seamless tileable texture, dark starship engine room deck, heavy steel grating '
+        'panels with oil stains, heat discolouration and bolted edge rails, industrial and '
+        'grimy, flat even lighting, no text, no logo, no perspective'),
 }
 # reuse 模式：家具直接派生自场景已有素材，天然同风格、同精度、同明度层级
 REUSE = {
@@ -84,6 +102,10 @@ REUSE = {
     'warehouse-floor': ('floor-grate.png', (1.04, 1.02, 0.98), 1.02, 0.024),
     'cafeteria-top': ('table-composite.png', (1.10, 1.02, 0.90), 1.00, 0.016),
     'warehouse-rack': ('panel-metal.png', (1.02, 0.96, 0.86), 1.04, 0.028),
+    'floor-monitor': ('floor-steel.png', (0.86, 0.98, 1.14), 1.06, 0.016),
+    'floor-lounge': ('floor-carpet.png', (1.10, 0.98, 0.90), 0.98, 0.018),
+    'floor-power': ('floor-grate.png', (0.96, 0.98, 1.04), 1.08, 0.022),
+    'floor-engine': ('floor-grate.png', (1.06, 0.96, 0.84), 1.06, 0.026),
 }
 NEG = ('text, letters, watermark, logo, photograph of a room, furniture object, '
        'strong perspective, glossy reflection, bright saturated color, blur, noise bands')

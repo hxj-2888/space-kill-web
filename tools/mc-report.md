@@ -1,56 +1,56 @@
 # 新返航录 · 蒙特卡洛对抗报告
 
-> 生成：2026-10-30T10:58:17.415Z · 局数：1000 / 1000 · seed：20261030 · dt：0.1 · 上限：15 夜
+> 生成：2026-10-31T02:01:18.059Z · 局数：1000 / 1000 · seed：20261030 · dt：0.1 · 上限：15 夜
 
 ## 胜率
 
 | 阵营 | 胜局 | 胜率 |
 |---|---:|---:|
-| 人类 | 487 | 48.7% |
-| 异形 | 512 | 51.2% |
+| 人类 | 431 | 43.1% |
+| 异形 | 568 | 56.8% |
 | 超时未决 | 1 | 0.1% |
 
-人类胜率 95% Wilson 区间：45.61% ~ 51.8%
+人类胜率 95% Wilson 区间：40.06% ~ 46.19%
 
 ## 结束原因
 
 - timeout：1
-- 人类全灭：512
-- 异形全部出局：129
-- 维修 45 分达成：358
+- 人类全灭：568
+- 异形全部出局：131
+- 维修 45 分达成：300
 
 ## 每局均值 / 中位数
 
 | 指标 | 均值 | 中位数 |
 |---|---:|---:|
-| nights | 5.608 | 5 |
-| prog | 39.774 | 42 |
-| steps | 4394.422 | 4038.5 |
-| meetings | 13.332 | 13 |
-| knives | 10.213 | 11 |
-| shots | 1.953 | 2 |
-| sabotages | 7.247 | 7 |
-| exiles | 1.958 | 2 |
-| humanExiles | 0.95 | 1 |
-| alienExiles | 1.008 | 1 |
-| searches | 5.395 | 5 |
-| loots | 3.75 | 4 |
-| bulletsLooted | 0.963 | 1 |
-| medkitsLooted | 1.133 | 1 |
-| qualsLooted | 2.336 | 2 |
-| humanLoots | 2.507 | 2 |
-| alienLoots | 2.888 | 3 |
-| humanShots | 0.532 | 0 |
-| alienShots | 1.421 | 1 |
-| fakeRepairs | 0.164 | 0 |
-| fakeTasks | 1.161 | 1 |
-| alienTasks | 0.519 | 0 |
-| revives | 0.643 | 0 |
-| alienPipes | 3.302 | 3 |
-| alienPipePlans | 5.637 | 5 |
-| humans | 2.7 | 0 |
-| aliens | 1.324 | 1 |
-| downed | 0.247 | 0 |
+| nights | 6.232 | 6 |
+| prog | 38.917 | 41 |
+| steps | 5093.335 | 4742 |
+| meetings | 14.758 | 15 |
+| knives | 11.192 | 11 |
+| shots | 2.189 | 2 |
+| sabotages | 7.822 | 8 |
+| exiles | 2.012 | 2 |
+| humanExiles | 1.087 | 1 |
+| alienExiles | 0.925 | 1 |
+| searches | 6.31 | 6 |
+| loots | 4.045 | 4 |
+| bulletsLooted | 1.053 | 1 |
+| medkitsLooted | 1.171 | 1 |
+| qualsLooted | 2.534 | 2 |
+| humanLoots | 3.076 | 3 |
+| alienLoots | 3.234 | 3 |
+| humanShots | 0.475 | 0 |
+| alienShots | 1.714 | 1.5 |
+| fakeRepairs | 0.138 | 0 |
+| fakeTasks | 1.008 | 1 |
+| alienTasks | 0.413 | 0 |
+| revives | 0.59 | 0 |
+| alienPipes | 5.616 | 5 |
+| alienPipePlans | 10.182 | 10 |
+| humans | 2.343 | 0 |
+| aliens | 1.225 | 1 |
+| downed | 0.194 | 0 |
 
 ## 方法说明
 

@@ -153,7 +153,9 @@ function writeOut(results, finished) {
     if (m.type() === 'log' && m.text().startsWith('SIM ')) console.log(m.text());
   });
   await page.goto(URL);
-  await page.click('.role.s');
+  /* 主页改成"先选身份再进入"：选中旁观者，再点「进入舱段」 */
+  await page.click('[data-role="spect"]');
+  await page.click('#home-go');
   await page.waitForFunction(() => window.SKV3 && SKV3._t && SKV3._t.assets().base,
     null, { timeout: 30000 });
   await page.waitForTimeout(400);

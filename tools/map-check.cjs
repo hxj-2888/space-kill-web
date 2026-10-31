@@ -55,17 +55,20 @@ for (let gy = 1; gy < GH - 1; gy++) for (let gx = 1; gx < GW - 1; gx++) {
   if (nb <= 1 && nearCover(x, y)) dead.push({ room: room.id, x: +x.toFixed(1), y: +y.toFixed(1), nb });
 }
 
-// 连通性：从会议室中心 BFS，检查每间房都能到
+// 连通性：从会议室附近 BFS，检查每间房都能到。
+// 必须按**整数格索引**扩展，不能像以前那样在浮点坐标上 ±GS 步进：
+// 0.6*119 = 71.3999…，从 y=71.4 再 +0.6 得 72.0，floor(72.0/0.6)=120 —— 第 119 行被整行跳过。
+// 老地图走廊都短，跳一行看不出来；走廊一拉长就会把可达的房间误报成 unreachable。
 const start = nearestFree(41, 33);
-const seen = new Set(), q = [start];
-const key = (x, y) => Math.floor(x / GS) + ',' + Math.floor(y / GS);
-seen.add(key(...start));
+const cellOf = (x, y) => [Math.floor(x / GS), Math.floor(y / GS)];
+const seen = new Set(), q = [cellOf(...start)];
+seen.add(q[0][0] + ',' + q[0][1]);
 while (q.length) {
-  const [x, y] = q.pop();
-  for (const [dx, dy] of [[GS, 0], [-GS, 0], [0, GS], [0, -GS]]) {
-    const nx = x + dx, ny = y + dy;
-    if (!free(nx, ny)) continue;
-    const k = key(nx, ny);
+  const [gx, gy] = q.pop();
+  for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+    const nx = gx + dx, ny = gy + dy;
+    if (!free((nx + .5) * GS, (ny + .5) * GS)) continue;
+    const k = nx + ',' + ny;
     if (seen.has(k)) continue;
     seen.add(k); q.push([nx, ny]);
   }

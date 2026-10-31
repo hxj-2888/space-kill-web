@@ -117,14 +117,38 @@
     if (ov) ov.addEventListener('click', function (e) { if (e.target === ov) closeSettings(); });
   }
 
+  /* 身份卡改为"先选后进"：点卡片只切换选中态（主页会同时锚亮船上对应舱室），
+     真正的开局走「进入舱段」或双击卡片。卡片没有 #home-go 时（旧页面）保持点一下就开局。 */
+  var picked = 'human';
+
+  function selectRole(el) {
+    var role = el.getAttribute('data-role');
+    if (!role) return;
+    picked = role;
+    document.querySelectorAll('[data-role]').forEach(function (x) {
+      x.classList.toggle('sel', x === el);
+    });
+  }
+
+  function startRole(role) {
+    playBgm();
+    if (window.SKV3) window.SKV3.start(role);
+    setTimeout(function () { apply(); syncSettings(); }, 0);
+  }
+
   function bindRoles() {
+    var hasGo = !!$('home-go');
     document.querySelectorAll('[data-role]').forEach(function (el) {
       el.addEventListener('click', function () {
-        playBgm();
-        if (window.SKV3) window.SKV3.start(el.getAttribute('data-role'));
-        setTimeout(function () { apply(); syncSettings(); }, 0);
+        selectRole(el);
+        if (!hasGo) startRole(el.getAttribute('data-role'));
+      });
+      el.addEventListener('dblclick', function () {
+        startRole(el.getAttribute('data-role'));
       });
     });
+    var go = $('home-go');
+    if (go) go.addEventListener('click', function () { startRole(picked); });
   }
 
   function boot() {

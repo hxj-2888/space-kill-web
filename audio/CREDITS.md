@@ -12,35 +12,37 @@
 
 ## 音效
 
-| 文件 | 原名 | 作者 | 来源 | 许可 |
-|---|---|---|---|---|
-| `sfx-click.ogg` | sfx_09a.ogg | rubberduck | 60 CC0 Sci-Fi SFX | CC0 |
-| `sfx-notify.ogg` | sfx_02a.ogg | rubberduck | 60 CC0 Sci-Fi SFX | CC0 |
-| `sfx-win.ogg` | sfx_18a.ogg | rubberduck | 60 CC0 Sci-Fi SFX | CC0 |
-| `sfx-tick.ogg` | sfx_20a.ogg | rubberduck | 60 CC0 Sci-Fi SFX | CC0 |
-| `sfx-submit.ogg` | forceField_000.ogg | Kenney | [Kenney Sci-Fi Sounds](https://kenney.nl/assets/sci-fi-sounds) | CC0 |
-| `sfx-death.ogg` | explosionCrunch_002.ogg | Kenney | 同上 | CC0 |
-| `sfx-vote.ogg` | impactMetal_003.ogg | Kenney | 同上 | CC0 |
-| `sfx-lose.ogg` | lowFrequency_explosion_000.ogg | Kenney | 同上 | CC0 |
-| `sfx-gun.ogg` | 22 Pistol.wav | [OpenGameArt「Gunshots」](https://opengameart.org/content/gunshots) | 截取首发 + 淡出，转 44.1kHz OGG | CC0 |
-| `sfx-knife-01.ogg` | blade_01.ogg | [OpenGameArt「80 CC0 RPG SFX」](https://opengameart.org/content/80-cc0-rpg-sfx) | 出刀挥砍 | CC0 |
-| `sfx-knife-02.ogg` | blade_02.ogg | 同上 | 出刀挥砍变体 | CC0 |
-| `sfx-flesh.ogg` | creature_hurt_02.ogg | 同上 | 刀/枪命中血肉 | CC0 |
-| `sfx-step-01.ogg` | sfx100v2_footstep_wood_01.ogg | [OpenGameArt「100 CC0 SFX #2」](https://opengameart.org/content/100-cc0-sfx-2) | 轻木地板脚步（2026-10-29 替换原 loud step） | CC0 |
-| `sfx-step-02.ogg` | sfx100v2_footstep_wood_02.ogg | 同上 | 轻木地板脚步变体 | CC0 |
-| `sfx-scream-01.ogg` | creature_die_01.ogg | [OpenGameArt「80 CC0 RPG SFX」](https://opengameart.org/content/80-cc0-rpg-sfx) | 被击倒喊叫 / 死亡喊声 | CC0 |
-| `sfx-scream-02.ogg` | creature_hurt_01.ogg | 同上 | 被击倒喊叫变体 | CC0 |
-| `sfx-metal.ogg` | sfx100v2_metal_hit_01.ogg | 同上 | 电闸/破坏/机器人金属撞击 | CC0 |
-| `sfx-door.ogg` | sfx100v2_door_01.ogg | 同上 | 交互/投票确认/气闸 | CC0 |
+| 文件 | 素材来源 | 处理 | 许可 |
+|---|---|---|---|
+| `sfx-knife-01.ogg` | 80 CC0 RPG SFX：`blade_03.ogg` + `misc_01.ogg` | 破风层 + 入肉层分层；短窗 RMS -13 / 峰值 -3 | CC0 |
+| `sfx-knife-02.ogg` | 80 CC0 RPG SFX：`blade_01.ogg` + `creature_hurt_01.ogg` | 更闷、更短的出刀变体 | CC0 |
+| `sfx-gun.ogg` | OpenGameArt「Gunshots」`22 Pistol.wav` + 100 CC0 SFX #2 `hit_02.ogg` | 从第一声枪响瞬态 0.115s 起（去掉 140ms 前导静音）；同一发降速 + 低通做炮口闷响，再叠一层低频冲击；短窗 RMS -11 / 峰值 -3 | CC0 |
+| `sfx-flesh.ogg` | 80 CC0 RPG SFX：`creature_hurt_02.ogg` | 降速 + 低通的血肉命中层 | CC0 |
+| `sfx-step-01/02.ogg` | 100 CC0 SFX #2：`footstep_wood_01/02.ogg` | 木地板脚步，统一到短窗 -20（旧文件的第二变体低到 -28，几乎听不见） | CC0 |
+| `sfx-door.ogg` | 100 CC0 SFX #2：`door_01.ogg` + `lock_open_01.ogg` | 气闸滑门 + 锁扣 | CC0 |
+| `sfx-metal.ogg` | 80 CC0 RPG SFX：`metal_02.ogg` + `metal_01.ogg` | 电闸 / 破坏 / 机器人金属撞击 | CC0 |
+| `sfx-ui.ogg` | 100 CC0 SFX #2：`lock_open_01.ogg` + 80 CC0 RPG SFX `item_misc_02.ogg` | 交互 / 领申请单 / 确认的短促 UI 声 | CC0 |
+| `sfx-work.ogg` | 80 CC0 RPG SFX：`metal_02.ogg` + 100 CC0 SFX #2 `metal_hit_01.ogg` | 站桩维修火花，压低到短窗 -22 | CC0 |
+| `sfx-notify.ogg` | 80 CC0 RPG SFX：`item_gem_01/02.ogg` | 双铃报告音（旧文件是纯数字静音，已替换） | CC0 |
+| `sfx-scream-01/02.ogg` | 80 CC0 RPG SFX：`creature_die_01.ogg` / `creature_hurt_02.ogg` | 被击倒喊叫双变体 | CC0 |
+| `sfx-win.ogg` | 80 CC0 RPG SFX：`item_gem_01/02/03.ogg` | 人类胜利三音上行 | CC0 |
+| `sfx-lose.ogg` | 80 CC0 RPG SFX：`creature_die_01.ogg` + `metal_02.ogg` | 异形胜利的降调丧钟 | CC0 |
+| `sfx-click.ogg` / `sfx-tick.ogg` / `sfx-submit.ogg` / `sfx-vote.ogg` / `sfx-death.ogg` | 60 CC0 Sci-Fi SFX（rubberduck）/ Kenney Sci-Fi Sounds | 旧文件留档；本版未引用（其中 click/tick/submit/vote/win/lose 实测是纯静音，已不再使用） | CC0 |
+| `music-bgm.m4a` | 用户自有录音（2026-10-06） | 仅留档，未接入游戏 | 用户自有 |
 
-（音效均为公开 CC0 素材；脚步改用更轻的木地板采样并在游戏内压低音量；新增采样经 ffmpeg 转 44.1kHz OGG，游戏内由 `<audio>` 元素池播放，加载失败自动退回 WebAudio 合成。原始下载包在 `tools/_sfx/`。）
+> 2026-10-31 重做：`sfx-gun` 旧文件从 22 Pistol 截取首发时保留了 **140ms 前导静音**，
+> 频段与出刀同落在 3~6kHz，玩家听感是“枪和刀一样”。现在改成 **低频炮口闷响（<500Hz 占 31%）+
+> 高频脆响**，并把短窗 RMS 提到 -11（出刀 -13），枪声比刀声更重更低。
+> 同时补齐交互（`sfx-ui`）、维修（`sfx-work`）、胜利 / 失败结算音，并把门 / 金属 / 血肉 / 喊叫
+> 从削顶（+0.7 ~ +1.6 dBFS）重新母带到 -3 dBFS 峰值以下。
+> 所有处理由 `tools/master-sfx.py` 完成，素材仍是公共领域采样，原始包留档在 `tools/_sfx/`。
 
 ## 游戏内映射（js/game.js `SND`）
 
-knife=出刀（双变体） · gun=开枪 · step=轻脚步（双变体，按距离衰减，AI 仅 6 格内） ·
-scream=被击倒喊叫（双变体，距离衰减） ·
-metal=电闸/破坏/机器人 · door=交互/投票/驱逐 · notify=尸体报告 ·
-其余 UI 音（维修完成、资格、治疗等）仍由 WebAudio 合成。
+knife=出刀（双变体） · gun=开枪 · flesh=刀/枪命中血肉 · step=脚步（双变体，按距离衰减） ·
+scream=被击倒喊叫（双变体） · metal=电闸/破坏/机器人 · door=自动门/投票/驱逐 ·
+ui=交互/领取申请单/合闸确认 · work=站桩维修火花 · notify=尸体报告 · win/lose=结算 ·
+其它即时提示（完成、领取、医疗包、子弹、救助、警报、搜索）仍由 WebAudio 合成，但增益已提高到可听见的一档。
 
 ## 换风格指引
 

@@ -28,6 +28,7 @@
     background:#FFB020;color:#1A1306;border-radius:4px;font-weight:700;font-size:11px;
     letter-spacing:1px;vertical-align:1px}
   #tasks{margin-top:8px;border-top:1px solid #2B3442;padding-top:7px;font-size:11.5px}
+  #qual-hint{color:#F0C674;font-weight:600}
   #tasks .th{color:#8A94A3;letter-spacing:1.5px;font-size:10.5px;margin-bottom:3px}
   #tasks .tr{display:flex;gap:6px;align-items:baseline;padding:2px 0;color:#B7C2D0;line-height:1.45}
   #tasks .tr .no{color:#5E6B7C;font-variant-numeric:tabular-nums;min-width:15px}
@@ -167,12 +168,12 @@
 
   const HTML = String.raw`<canvas id="cv"></canvas>
 <div id="hud">
-  <div>维修 <b><span id="pg">0</span> / 40</b></div>
+  <div>维修 <b><span id="pg">0</span> / <span id="pgmax">45</span></b></div>
   <div id="bar"><i id="pgi"></i></div>
   <div>剩余 <b id="tm">120</b> 秒 · 第 <b id="nt">1</b> 夜 · <b id="pwr">照明正常</b></div>
   <div class="surv">存活 <b id="alive">15</b> 人 · 人类 <b id="hum">11</b> · 异形 <b id="ali">4</b></div>
   <div>你是 <b id="role">人类</b> · 濒死 <b id="dn">0</b> 人</div>
-  <div id="personal">任务 <b id="tk">0</b>/4 · 申请单 <b id="ql">0</b> · 待领 <b id="qp">0</b> · 弹 <b id="bl">0</b> · 包 <b id="md">0</b></div>
+  <div id="personal">任务 <b id="tk">0</b>/4 · 申请单 <b id="ql">0</b> · 待领 <b id="qp">0</b> · 弹 <b id="bl">0</b> · 包 <b id="md">0</b><span id="qual-hint" class="hide"> · 回圆桌领取</span></div>
   <div id="tasks"></div>
   <div id="dmgline" class="hide"></div>
   <div id="devline" class="hide">DEV <b>无敌 · 全知</b> · 断言 <b id="inv">0</b> 失败</div>
@@ -264,7 +265,8 @@
 
 <div id="end" class="ov hide"><div class="card">
   <h2 id="e-t">结束</h2><div class="sub" id="e-s"></div>
-  <div class="btns"><button class="p" id="e-r">再来一局</button></div>
+  <div class="btns"><button class="p" id="e-r">再来一局</button>
+    <button id="e-rep">复盘</button><button id="e-save">保存回放</button></div>
 </div></div>
 
 <div id="pause" class="ov hide"><div class="card">
