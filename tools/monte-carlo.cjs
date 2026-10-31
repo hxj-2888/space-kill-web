@@ -70,7 +70,11 @@ function summarize(results) {
     'exiles', 'humanExiles', 'alienExiles', 'searches', 'loots', 'bulletsLooted',
     'medkitsLooted', 'qualsLooted', 'humanLoots', 'alienLoots', 'humanShots',
     'alienShots', 'fakeRepairs', 'fakeTasks', 'alienTasks', 'revives', 'alienPipes',
-    'alienPipePlans', 'humans', 'aliens', 'downed'];
+    'alienPipePlans', 'humans', 'aliens', 'downed',
+    /* 2026-10-31 新增：医疗无人机救治 / 医疗包施救 / 幽灵任务 / 幽灵修故障 /
+       人类辩护 / 异形质疑快速报案者 */
+    'medbotRevives', 'medkitRevives', 'ghostTasks', 'ghostFixes',
+    'humanDefends', 'reportDoubts'];
   const avg = {}, med = {};
   for (const k of keys) { avg[k] = +mean(results, k).toFixed(3); med[k] = +median(results, k).toFixed(3); }
   return {
@@ -134,6 +138,17 @@ function writeOut(results, finished) {
     '| 指标 | 均值 | 中位数 |',
     '|---|---:|---:|',
     ...Object.keys(s.avg).map(k => '| ' + k + ' | ' + s.avg[k] + ' | ' + s.median[k] + ' |'),
+    '',
+    '## 本轮新增统计（2026-10-31）',
+    '',
+    '| 指标 | 每局均值 | 说明 |',
+    '|---|---:|---|',
+    '| medbotRevives | ' + s.avg.medbotRevives + ' | 医疗无人机飞过去近身救治的次数（3 秒/次，每夜 2 次电量） |',
+    '| medkitRevives | ' + s.avg.medkitRevives + ' | 医疗包施救次数（与 revives 同源） |',
+    '| ghostTasks | ' + s.avg.ghostTasks + ' | 幽灵完成的维修任务个数（每人额度 2 分） |',
+    '| ghostFixes | ' + s.avg.ghostFixes + ' | 幽灵修好的故障次数 |',
+    '| humanDefends | ' + s.avg.humanDefends + ' | 人类 AI 公开替人辩护的次数（新行为） |',
+    '| reportDoubts | ' + s.avg.reportDoubts + ' | 异形质疑「尸体还热就报案」的次数（新行为） |',
     '',
     '## 方法说明',
     '',

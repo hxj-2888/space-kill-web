@@ -111,7 +111,7 @@
       case 'qual':
         return '<b>' + esc(a) + '</b> 在 <span class="rm">' + esc(r) + '</span> 领取物资申请单（持有 ' + (e.n || 1) + '）';
       case 'revive':
-        return (e.actor == null ? '医疗机器人' : '<b>' + esc(a) + '</b>') + ' 在 <span class="rm">' + esc(r)
+        return (e.actor == null ? '医疗无人机' : '<b>' + esc(a) + '</b>') + ' 在 <span class="rm">' + esc(r)
           + '</span> 救起 <span class="vd">' + esc(v) + '</span>';
       case 'meeting':
         return '<b>' + (e.kind === 'day' ? '天亮会议' : e.kind === 'pre' ? '开局讨论' : '紧急会议') + '</b>'

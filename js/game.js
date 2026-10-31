@@ -77,7 +77,7 @@
     /* 15 个人名（与旧数据层 SKData.NAMES 一致；新项目不引规则层，故在此内联） */
     const NAMES=['星尘','银翼','北极','磷火','铁砧','罗盘','苍鹭','玄武岩','游隼','回声','子夜','砂岩','灯塔','青霜','归零'];
     let G;
-    /* 医疗机器人每夜充电次数（每救 1 人扣 1 次）：只在这里改 */
+    /* 医疗无人机每夜充电次数（每救 1 人扣 1 次）：只在这里改 */
     const MEDBOT_CHARGES=2;
     function newGame(){
       const keepDev=G?!!G.dev:DEV0;
@@ -124,12 +124,16 @@
          lit:{},blackout:false,vis:null,fogOn:true,camMode:'follow',fx:[],waves:[],clickFx:null,lightState:0,
          corrLit:true,paused:false,pauseAt:0,taskKey:'',camView:false,pipePick:null,powerFixed:false,
          secbotUsed:false,secbotUses:0,secbotDead:false,medbotUsed:false,medbotDead:false,medbotT:0,secbotT:0,
+         medbotTarget:null,
          medbotLeft:MEDBOT_CHARGES,botHp:{secbot:2,medbot:1},secCatch:null,
          bots:null,jailPos:null,breakerSaboteur:null,
          dmg:[],sabPick:null,sabTarget:null,aiReportUsed:false,evSeq:0,
          drag:null,inspect:null,wheel:null,dev:keepDev,gfx:{coverFlashes:0,dashedBorders:0},
          spectMode:(ROLE_WANT==='spect'),spect:null,
          events:[],frames:[],playT:0,_frameAcc:0,
+        /* 局内统计（2026-10-31）：医疗无人机救治 / 医疗包施救 / 幽灵任务 / 幽灵修故障。
+           只累加、不参与任何判定，供结束页与复盘报告读取。 */
+        stats:{medbotRevives:0,medkitRevives:0,ghostTasks:0,ghostFixes:0},
          inv:{runs:0,checks:0,fails:[],warned:{},lastTag:''},invT:0,devT:0};
       G.aimX=me.x+1; G.aimY=me.y;
       logEvent('game_start',{night:1});
@@ -404,6 +408,9 @@
       return r;
     }
 
+    /* DEV 横栏：一人一张小卡（名字 / 身份 / 状态 / 舱室 + 身上的资源）。
+       资源是玩家在正常对局里看不到的信息，所以只在这里展示，不进 HUD。
+       卡片横向排开贴顶，#hud 由 syncDevUi 下移让位，绝不压住左上角。 */
     function renderDevPanel(){
       const box=document.getElementById('dev-rows');
       if(!box||!G)return;
@@ -413,18 +420,19 @@
         if(!a.alive) st=a.ghost?'幽灵':'出局';
         else if(a.downed) st='濒死';
         else if(a.detained) st='被擒';
-        else if(a.doing>0) st='行动';
+        else if(a.doing>0) st=(a._doing==='task'?'做任务':(a._doing==='fix'?'修故障':
+          (a._doing==='revive'?'施救':(a._doing==='qual'?'领申请单':(a._doing==='ammo'?'取子弹':
+          (a._doing==='med'?'取医疗包':(a._doing==='breaker'?'拉闸':(a._doing==='fake'?'假装做任务':'行动'))))))));
         else if(a.moving) st='移动';
         const bp=bodyPos(a);
         const where=bp?roomNameAt(bp[0],bp[1]):roomNameAt(a.x,a.y);
+        const res='弹 '+a.bullet+' · 包 '+a.medkit+' · 单 '+a.qual+(a.qualPending>0?'(+'+a.qualPending+')':'')
+          +' · 任务 '+a.tIdx+'/'+a.tasks.length+(a.alien?' · 刀 '+a.knife:'');
         out.push('<div class="dr'+(a.alien?' al':'')+((a===G.me&&!G.spectMode)?' me':'')+(!a.alive?' dead':'')+'">'
-          +'<b>'+a.name+(a===G.me?(G.spectMode?'（AI）':'（你）'):'')+'</b><span>'+(a.alien?'异形':'人类')+'</span>'
-          +'<i>'+st+' · '+where
-          +(a.alien?' · 刀 '+a.knife+(a.bullet?' · 弹':'')+'':'')
-          +(a.detained?' · 被保安锁住':'')
-          +(a.draggedBy!=null?' · 被拖':'')
-          +(a.drag!=null?' · 拖尸':'')
-          +'</i></div>');
+          +'<div class="top"><b>'+a.name+(a===G.me?(G.spectMode?'（AI）':'（你）'):'')+'</b>'
+          +'<span>'+(a.alien?'异形':'人类')+'</span></div>'
+          +'<i>'+st+' · '+where+(a.detained?' · 被锁':(a.draggedBy!=null?' · 被拖':(a.drag!=null?' · 拖尸':'')))+'</i>'
+          +'<u>'+res+'</u></div>');
       }
       box.innerHTML=out.join('');
     }
@@ -439,9 +447,23 @@
         dl.innerHTML=G&&G.spectMode?'旁观者 · <b>全知总览</b> · 断言 <b id="inv">0</b> 失败'
           :'DEV <b>无敌 · 全知</b> · 断言 <b id="inv">0</b> 失败';
       }
-      const dt=dev&&dev.querySelector('.dt');
+      const dt=dev&&dev.querySelector('.dt span');
       if(dt)dt.textContent=G&&G.spectMode?'旁观者 · 全知总览（不参与对局）':'DEV · 全知总览';
       if(on)renderDevPanel();
+      /* 横栏贴顶：先渲染再量高度，把 #hud 整体让下去，
+         左上角的维修进度 / 存活人数 / 个人任务永远不被遮住 */
+      const hud=document.getElementById('hud');
+      /* 横栏高度要等布局落定才量得准（首次显示时 offsetHeight 还是 0）：
+         同步一次 + 下一帧再校正一次，保证左上角的维修进度永远在横栏下方。 */
+      const place=()=>{
+        if(!hud)return;
+        hud.style.top=on?(dev?Math.max(96,dev.offsetHeight+18):96)+'px':'';
+      };
+      place();
+      if(on&&typeof requestAnimationFrame==='function')requestAnimationFrame(place);
+      /* 濒死人数是对局隐藏信息：只有 DEV / 旁观全知才显示 */
+      const dnw=document.getElementById('dnwrap');
+      if(dnw)dnw.classList.toggle('hide',!on);
     }
     function toggleDev(){
       if(!G)return;
@@ -530,9 +552,9 @@
     /* ---------------- 移动 ---------------- */
     /* 场上所有活人（玩家 / AI 人类 / AI 异形）共用同一移动速度；
        拖拽尸体与幽灵态是明确的例外，速度单独写在调用处。 */
-    const MOVE_SPEED=4;
+    const MOVE_SPEED=4.2;
     /* 拖拽统一降速到 2.5 格/秒；AI 与玩家共用同一入口，避免出现"AI 拖着尸体跑得比人快" */
-    const DRAG_SPEED=2.5;
+    const DRAG_SPEED=2.7;
     function moveSpeed(a){ return a&&a.drag!=null?DRAG_SPEED:MOVE_SPEED; }
     function walkTo(a,x,y){
       a._stuckT=0;
@@ -757,6 +779,9 @@
        故障 30 秒内没人连续修满 10 秒就扣 5 点维修进度；天亮前没修完不追罚。
        幽灵不能破坏（但可以参与维修），破坏必须在活着的异形手里。 */
     const SAB_TIME=30, FIX_TIME=10, SAB_RANGE=1.7, FIX_RANGE=2.0;
+    /* 专用补给点兑换物资的站桩时长（2026-10-31：子弹 10 → 7 秒、医疗包 6 → 5 秒）。
+       玩家与 AI 共用这两个常量，改这里即可，别在调用处再写死数字。 */
+    const SUPPLY_AMMO_TIME=7, SUPPLY_MED_TIME=5;
     function dmgOfRoom(rid){ return G.dmg.find(d=>d.room===rid)||null; }
     function sabRoomOk(rid){
       return !!rid&&rid!=='bridge'&&M.rooms.some(r=>r.id===rid)&&!dmgOfRoom(rid);
@@ -866,6 +891,9 @@
       }
       G.fx.push({type:'heal',x:d.x,y:d.y,t:1.2,dur:1.2});
       G.fx.push({type:'done',x:a.x,y:a.y,t:1.0,dur:1.0});
+      /* 局内统计：幽灵修好的故障次数（与「幽灵任务」分开记） */
+      if(a.ghost&&G.stats)G.stats.ghostFixes=(G.stats.ghostFixes||0)+1;
+      if(G.simMode&&G.simStats&&a.ghost)G.simStats.ghostFixes++;
       logEvent('fix',{actor:a.i,room:d.room,label:d.label,ghost:!!a.ghost,
         x:+d.x.toFixed(1),y:+d.y.toFixed(1)});
       if(!G.spectMode&&a===G.me)toast('故障已修复：'+roomNameById(d.room)+'「'+d.label+'」');
@@ -1413,6 +1441,31 @@
       }
     }
 
+    /* 无事可做时不要站着（2026-10-31 用户裁定）：
+       开局错峰（_delay）、硬控（濒死/被擒/被拖）与短暂恢复（_rest）之外，
+       AI 不允许出现"非任务/非维修/非领取"的呆站。任务修完后按
+       「去修亮着的故障 → 回圆桌领申请单 → 巡舱」继续移动；
+       移动不产生任何情报，站着不动才是白白浪费人类的时间窗口。 */
+    function aiIdleRoam(a,dt){
+      if(!a)return;
+      if(!a.path||!a.path.length){
+        let tg=null;
+        if(G.dmg&&G.dmg.length){
+          const d=G.dmg[Math.floor(Math.random()*G.dmg.length)];
+          tg=[d.x,d.y];
+        }else if((a.qualPending||0)>0){
+          const q=roundTableClaimSpot();
+          if(q)tg=[q.x,q.y];
+        }
+        if(!tg){
+          const r=M.rooms[Math.floor(Math.random()*M.rooms.length)];
+          const p=randIn(r); tg=[p[0],p[1]];
+        }
+        walkTo(a,tg[0],tg[1]);
+      }
+      if(a.path&&a.path.length)stepMove(a,dt,moveSpeed(a));
+      else a.moving=false;
+    }
     /* 人类 AI 幽灵：优先修故障，其次做剩余任务；
        任务进度严格受 ghostPts 额度限制（每只幽灵最多 2 分），超过就只飘不修。 */
     function aiGhost(a,dt){
@@ -1443,11 +1496,10 @@
           }
         }
       }
+      /* 幽灵额度用尽后也不再呆站：换个舱室继续飘（幽灵是 2.4 格/秒的慢速巡游） */
       if(!a.path||!a.path.length){
-        if(Math.random()<dt*0.35){
-          const r=M.rooms[Math.floor(Math.random()*M.rooms.length)];
-          const p=randIn(r); a.path=[[p[0],p[1]]];
-        }else a.moving=false;
+        const r=M.rooms[Math.floor(Math.random()*M.rooms.length)];
+        const p=randIn(r); a.path=[[p[0],p[1]]];
       }
       if(a.path) stepMove(a,dt,2.4);
     }
@@ -1714,21 +1766,24 @@
       }
       return !!(best&&startLootSearch(a,best,dt));
     }
-    /* 医疗间复活调度：AI 人类没有医疗包时，会把濒死者拖到医疗间交给医疗机器人 */
+    /* 医疗间复活调度：AI 人类没有医疗包时，会把濒死者拖到医疗间交给医疗无人机 */
     let MED_DROP=null;
     function medbotUsable(){
       return !!(G&&!G.medbotDead&&(G.medbotLeft==null?MEDBOT_CHARGES:G.medbotLeft)>0);
     }
     function inMedRoom(x,y){const r=roomAt(x,y);return !!(r&&r.id==='med');}
-    /* 拖拽目标点：医疗机器人是巡逻的，直接以它的实时位置为目标，
-       否则把人丢在医疗间门口，机器人走远了一样救不活（判定半径 7 格）。 */
+    /* 拖拽目标点：无人机固定在医疗间正中央悬停，把人丢进医疗间任意位置它都会飞过来，
+       所以目标点就是房间中心，不再追着巡逻中的机器人跑。 */
     function medDropSpot(){
       const b=medbotUsable()?botPos('medbot'):null;
       if(b&&inMedRoom(b.x,b.y))return nearestFree(b.x,b.y);
       if(!MED_DROP){const mr=M.rooms.find(r=>r.id==='med');MED_DROP=nearestFree(mr.rect[0]+mr.rect[2]/2,mr.rect[1]+mr.rect[3]/2);}
       return MED_DROP;
     }
+    /* 只要在医疗间里就算到位：无人机会自己飞过来，不再要求贴近机器人 */
     function nearMedBot(v,rad){
+      if(!v)return false;
+      if(inMedRoom(v.x,v.y))return true;
       const b=botPos('medbot');
       return !!(b&&Math.hypot(v.x-b.x,v.y-b.y)<(rad||4.5));
     }
@@ -1802,16 +1857,16 @@
         if(a.path&&a.path.length) stepMove(a,dt,moveSpeed(a));
         return;
       }
-      /* 已经在拖人：送到巡逻中的医疗机器人旁边；拖拽中状态失效就松手 */
+      /* 已经在拖人：人进了医疗间就松手（无人机会自己飞过来）；拖拽中状态失效就松手 */
       if(a.drag!=null){
         const v=G.agents[a.drag];
         if(!v||!v.alive||!v.downed){releaseDragBy(a,true);}
         else if(!medbotUsable()){releaseDragBy(a,true);a._rest=1.0;return;}
-        else if(inMedRoom(v.x,v.y)&&nearMedBot(v)){releaseDragBy(a,true);a._rest=1.0;return;}
+        else if(nearMedBot(v)){releaseDragBy(a,true);a._rest=1.0;return;}
         else{
           const m=medDropSpot();
-          if(Math.hypot(a.x-m[0],a.y-m[1])<1.0&&inMedRoom(v.x,v.y)){
-            /* 机器人刚走开：原地等一下再跟着走，不在医疗间里乱转 */
+          if(Math.hypot(a.x-m[0],a.y-m[1])<1.0){
+            /* 已经贴到无人机坞位却还没进房间：原地等一下，不在医疗间门口乱转 */
             a.moving=false;return;
           }
           if(!a.path||!a.path.length)walkTo(a,m[0],m[1]);
@@ -1856,7 +1911,7 @@
           }
         }
       }
-      /* 没有医疗包但医疗机器人可用：把视线内的濒死者拖进医疗间，交给机器人复活。
+      /* 没有医疗包但医疗无人机可用：把视线内的濒死者拖进医疗间，交给机器人复活。
          只排除"自己刚开枪打倒的人"，避免救活自己刚制服的嫌疑人。 */
       if(a.medkit<1&&medbotUsable()){
         const v=nearestDowned(a,8.5);
@@ -1943,8 +1998,8 @@
       /* 已经站在专用补给点：消耗申请单换物资 */
       const spNear=nearSupply(a);
       if(spNear&&a.qual>0){
-        if(spNear.item==='ammo'&&a.bullet<1){a.path=null;a.moving=false;a.doing=10;a._dur=10;a._doing='ammo';return;}
-        if(spNear.item==='med'&&a.medkit<1){a.path=null;a.moving=false;a.doing=6;a._dur=6;a._doing='med';return;}
+        if(spNear.item==='ammo'&&a.bullet<1){a.path=null;a.moving=false;a.doing=SUPPLY_AMMO_TIME;a._dur=SUPPLY_AMMO_TIME;a._doing='ammo';return;}
+        if(spNear.item==='med'&&a.medkit<1){a.path=null;a.moving=false;a.doing=SUPPLY_MED_TIME;a._dur=SUPPLY_MED_TIME;a._doing='med';return;}
       }
       /* 有申请单且确实需要（目击凶手缺弹 / 有人濒死缺包）→ 主动去对应补给点 */
       const need=supplyTargetFor(a);
@@ -1953,20 +2008,15 @@
         if(sp){
           if(Math.hypot(sp.x-a.x,sp.y-a.y)<1.7){
             a.path=null;a.moving=false;
-            if(need==='ammo'){a.doing=10;a._dur=10;a._doing='ammo';}
-            else{a.doing=6;a._dur=6;a._doing='med';}
+            if(need==='ammo'){a.doing=SUPPLY_AMMO_TIME;a._dur=SUPPLY_AMMO_TIME;a._doing='ammo';}
+            else{a.doing=SUPPLY_MED_TIME;a._dur=SUPPLY_MED_TIME;a._doing='med';}
             return;
           }
           walkTo(a,sp.x,sp.y);stepMove(a,dt,moveSpeed(a));return;
         }
       }
-      if(a.tIdx>=a.tasks.length){
-        if(Math.random()<dt*0.25){
-          const r=M.rooms[Math.floor(Math.random()*M.rooms.length)];
-          const p=randIn(r); walkTo(a,p[0],p[1]);
-        }else a.moving=false;
-        return;
-      }
+      /* 任务全做完：不再原地呆站（2026-10-31），改去干别的有用的事 */
+      if(a.tIdx>=a.tasks.length){ aiIdleRoam(a,dt); return; }
       const p=M.points[a.tasks[a.tIdx]];
       if(Math.hypot(p.x-a.x,p.y-a.y)<2.8){
         const th=taskThreat(a,p.dur);
@@ -2204,7 +2254,7 @@
         const sp=supplyPoints().find(q=>q.item==='ammo');
         if(sp){
           if(Math.hypot(sp.x-a.x,sp.y-a.y)<1.7){
-            a.path=null;a.moving=false;a.doing=10;a._dur=10;a._doing='ammo';return true;
+            a.path=null;a.moving=false;a.doing=SUPPLY_AMMO_TIME;a._dur=SUPPLY_AMMO_TIME;a._doing='ammo';return true;
           }
           if(!a.path||!a.path.length)walkTo(a,sp.x,sp.y);
           stepMove(a,dt,moveSpeed(a));return true;
@@ -2489,13 +2539,22 @@
         }
       }
       /* 机器人：有刀就先出刀砍装甲（消耗刀数，按保安 2 / 医疗 1 的 HP 结算，
-         与玩家 Q 完全同一条 knifeBot 入口）；刀用完了才动用每夜一次的破坏技直接停摆。 */
+         与玩家 Q 完全同一条 knifeBot 入口）；刀用完了才动用每夜一次的破坏技直接停摆。
+         2026-10-31 收紧：保安默认不碰，必须先满足 secbotRaidOk（房间里认出 2 名以上队友
+         + 有一个共同捕杀目标）才列为候选；无人机仍然是高价值目标（它挡救援）。 */
       {
         let bk=null,bp=null,bd=8;
         for(const k of ['secbot','medbot']){
-          if(k==='secbot'&&G.secbotDead)continue;
-          if(k==='medbot'&&G.medbotDead)continue;
-          const q=botPos(k); if(!q)continue;
+          if(k==='secbot'){
+            if(G.secbotDead)continue;
+            const q=botPos('secbot');
+            if(!q||!secbotRaidOk(a,q))continue;
+            const d=Math.hypot(q.x-a.x,q.y-a.y);
+            if(d<bd){bd=d;bk=k;bp=q;}
+            continue;
+          }
+          if(G.medbotDead)continue;
+          const q=botPos('medbot'); if(!q)continue;
           const d=Math.hypot(q.x-a.x,q.y-a.y);
           if(d<bd){bd=d;bk=k;bp=q;}
         }
@@ -2576,7 +2635,7 @@
       /* 藏尸：附近没有活人、没有目击者时，把尸体拖到房间角落/远离门与任务点处。
          濒死者还可能有救，只有确实没人可追（>12 格）才拖；每夜最多 2 次并有冷却；
          藏尸目的地永远排除医疗间/会议室，并尽量拖到离医疗间更远的舱室，
-         降低尸体被医疗机器人/队友发现并复活的机会。 */
+         降低尸体被医疗无人机/队友发现并复活的机会。 */
       if(!a.drag&&(a._hideCD||0)<=0&&(a._hides||0)<2&&!recentWitness(a,25)){
         const v=findHideBody(a);
         const bp=v?bodyPos(v):null;
@@ -2840,7 +2899,8 @@
           logEvent('revive',{actor:a.i,victim:v.i,method:'medkit',room:roomIdAt(v.x,v.y),
             x:+v.x.toFixed(1),y:+v.y.toFixed(1)});
           if(actor){toast('救起 '+v.name);SND.revive();}
-          if(G.simMode&&G.simStats)G.simStats.revives++;
+          if(G.stats)G.stats.medkitRevives=(G.stats.medkitRevives||0)+1;
+          if(G.simMode&&G.simStats){G.simStats.revives++;G.simStats.medkitRevives++;}
         }
         a._rv=null;a._doing=null;return;
       }
@@ -2872,6 +2932,9 @@
       if(a.ghost)a.ghostPts=(a.ghostPts||0)+v;
       a.tIdx++; a.progress+=v;
       if(G.simMode&&G.simStats&&a.alien)G.simStats.alienTasks++;
+      /* 局内统计：幽灵完成的维修任务（报告里要单列「幽灵修了几个任务」） */
+      if(a.ghost&&G.stats)G.stats.ghostTasks=(G.stats.ghostTasks||0)+1;
+      if(G.simMode&&G.simStats&&a.ghost)G.simStats.ghostTasks++;
       a.nTask=p.label; a.nTaskRoom=roomIdAt(a.x,a.y);
       logEvent('task',{actor:a.i,label:p.label,room:p.room,pts:v,ghost:!!a.ghost,
         x:+a.x.toFixed(1),y:+a.y.toFixed(1),prog:G.prog});
@@ -2942,8 +3005,12 @@
         const f=M.facility.find(q=>q.kind===kind);
         if(!f)continue;
         const p=nearestFree(f.x,f.y);
-        const wps=(f.patrol&&f.patrol.length?f.patrol:[[f.x,f.y]]).map(q=>nearestFree(q[0],q[1]));
+        /* 医疗无人机不巡逻：坞位就是医疗间正中央，航点只有它自己（它靠 medbotTick
+           主动飞向伤员，巡逻线已删除）；保安机器人仍按 facility.patrol 走 4 点巡逻。 */
+        const pts=kind==='medbot'?[[p[0],p[1]]]:(f.patrol&&f.patrol.length?f.patrol:[[f.x,f.y]]);
+        const wps=pts.map(q=>nearestFree(q[0],q[1]));
         G.bots[kind]={x:p[0],y:p[1],wp:0,ang:0,face:1,wps:wps,moving:false};
+        if(kind==='medbot')G.bots[kind].home=[p[0],p[1]];
       }
       /* 拘留位固定在军械库角落：被擒者是硬控状态，不能拖着锁链跟着机器人满地图跑 */
       const sec=M.facility.find(q=>q.kind==='secbot');
@@ -3037,47 +3104,113 @@
       }
       return true;
     }
-    /* 医疗机器人施救半径（格）：判定与绘制共用同一个数，改这里即可。
-       2026-10-30 从 7 收到 6，配合加密后的巡逻线（覆盖医疗间 100% 落点）——
-       半径就是「机器人跑得到的范围」，缩半径必须同时加密巡逻，否则房间角落救不到。 */
-    const MEDBOT_R=6;
+    /* 医疗无人机（2026-10-31 从「巡逻机器人 + 隔空 5 秒施救」整体重做）：
+       · 不再巡逻，悬停在医疗间正中央（坞位即医疗间中心，单航点）；
+       · 医疗间里出现濒死者就自己飞过去，悬停到伤员身边（MEDBOT_TOUCH_R）才开始治疗；
+       · 近身治疗满 MEDBOT_HEAL_TIME 秒才真正拉起，不再是隔空读条；
+       · 救完自动飞回房间正中央等下一个，不再靠巡逻线覆盖判定。 */
+    const MEDBOT_HEAL_TIME=3;      /* 近身治疗时长（秒）：判定、进度环、交互文案共用 */
+    const MEDBOT_TOUCH_R=1.15;     /* 悬停到多近算「贴住伤员」 */
+    const MEDBOT_FLY_SPEED=4.6;    /* 飞行速度（格/秒）：无人机不是地勤，比巡逻快 */
+    /* 覆盖半径只服务对外文案与调试读数：医疗间半对角 ≈10.8 格，取 12 表示整间覆盖。
+       真正的救援判定是 inMedRoom()（房间内即响应），不再用半径卡人。 */
+    const MEDBOT_R=12;
+    function medbotHome(){
+      const b=G&&G.bots&&G.bots.medbot;
+      if(b&&b.home)return b.home;
+      const f=M.facility.find(q=>q.kind==='medbot');
+      return f?[f.x,f.y]:[55,85.6];
+    }
+    function medbotFlyTo(b,tx,ty,dt,speed){
+      const dx=tx-b.x, dy=ty-b.y, d=Math.hypot(dx,dy);
+      if(d<1e-4){b.moving=false;return d;}
+      b.ang=Math.atan2(dy,dx);
+      if(Math.abs(dx)>0.05)b.face=dx<0?-1:1;
+      const step=Math.min(d,speed*dt);
+      b.x+=dx/d*step; b.y+=dy/d*step;
+      b.moving=step>1e-4;
+      return d;
+    }
+    /* 返回 true = 本帧由医疗逻辑接管（回坞 / 飞向伤员 / 治疗中），不跑巡逻 */
+    function medbotTick(dt,med){
+      if(!med)return false;
+      if(G.medbotDead||(G.medbotLeft==null?MEDBOT_CHARGES:G.medbotLeft)<=0){
+        G.medbotTarget=null;G.medbotT=0;med.healing=false;
+        return false;
+      }
+      const home=medbotHome();
+      /* 目标：医疗间内的濒死者。沿用上一帧的目标，避免两名伤员之间来回换人 */
+      let v=null;
+      if(G.medbotTarget!=null){
+        const cur=G.agents[G.medbotTarget];
+        if(cur&&cur.downed&&cur.alive&&inMedRoom(cur.x,cur.y))v=cur;
+        else G.medbotTarget=null;
+      }
+      if(!v){
+        let bd=1e9;
+        for(const a of G.agents){
+          if(!a.downed||!a.alive||!inMedRoom(a.x,a.y))continue;
+          const d=Math.hypot(a.x-med.x,a.y-med.y);
+          if(d<bd){bd=d;v=a;}
+        }
+        if(v)G.medbotTarget=v.i;
+      }
+      med.healing=false;
+      if(!v){
+        /* 没人可救：飞回医疗间正中央悬停 */
+        G.medbotT=0;
+        if(Math.hypot(home[0]-med.x,home[1]-med.y)>0.1)
+          medbotFlyTo(med,home[0],home[1],dt,MEDBOT_FLY_SPEED*0.75);
+        else med.moving=false;
+        return true;
+      }
+      const d=Math.hypot(v.x-med.x,v.y-med.y);
+      if(d>MEDBOT_TOUCH_R){
+        /* 飞向伤员：途中不计时，贴着伤员才开始治疗 */
+        medbotFlyTo(med,v.x,v.y,dt,MEDBOT_FLY_SPEED);
+        G.medbotT=0;
+        return true;
+      }
+      /* 近身悬停：治疗动画走满 MEDBOT_HEAL_TIME 秒才真正拉起 */
+      med.moving=false;
+      med.healing=true;
+      med.ang=Math.atan2(v.y-med.y,v.x-med.x);
+      G.medbotT=(G.medbotT||0)+dt;
+      if(G.medbotT<MEDBOT_HEAL_TIME)return true;
+      v.downed=false; v.downAt=0; v.killedBy=null;
+      const dg=draggerOf(v);
+      if(dg)releaseDragBy(dg,true);
+      v.draggedBy=null;
+      v.woundCause=null;v.downRoom=null;v.downX=null;v.downY=null;v.searched=false;
+      G.medbotUsed=true;G.medbotLeft=Math.max(0,(G.medbotLeft==null?MEDBOT_CHARGES:G.medbotLeft)-1);
+      /* 计时与目标必须一起清零：否则救完第一个后 ticks 直接 ≥MEDBOT_HEAL_TIME，
+         同一波濒死会被瞬间连带救起（门禁断言 b1.medLeft===1 && b2===0） */
+      G.medbotT=0; G.medbotTarget=null;
+      G.fx.push({type:'healBeam',x1:med.x,y1:med.y,x2:v.x,y2:v.y,t:1.1,dur:1.1});
+      G.fx.push({type:'heal',x:v.x,y:v.y,t:1.2,dur:1.2});
+      setAct(v,'heal',0.7,{ang:0});
+      /* 救治不对外报告（2026-10-31 用户裁定）：不给 toast、不写 envNotice ——
+         以前 envNotice('revive') 会让全场活人 AI 拿到一条「医疗间有人被救活」的环境证据，
+         等于把医疗无人机当成免费情报源。现在只留机器人运作声（环境音，不含受害者），
+         事件流照旧记一条（复盘是只读旁路，不是对局情报）。 */
+      hear(med.x,med.y,'robot',1.1);
+      aiHear('robot',med.x,med.y,18);
+      SND.robot();
+      logEvent('revive',{actor:null,victim:v.i,method:'medbot',room:'med',
+        x:+v.x.toFixed(1),y:+v.y.toFixed(1)});
+      if(G.stats)G.stats.medbotRevives=(G.stats.medbotRevives||0)+1;
+      if(G.simMode&&G.simStats)G.simStats.medbotRevives++;
+      runInvariants('medbot');
+      return true;
+    }
     function botTick(dt){
       if(G.meet||G.over)return;
       if(!G.bots)resetBots();
       const med=botPos('medbot');
       const sec=botPos('secbot');
-      moveBot(G.bots.medbot,dt,G.medbotDead);
+      if(!medbotTick(dt,med))moveBot(G.bots.medbot,dt,G.medbotDead);
       if(!G.secCatch)moveBot(G.bots.secbot,dt,G.secbotDead);
       if(G.secbotT>0)G.secbotT=Math.max(0,G.secbotT-dt);
-      // 医疗机器人：每夜最多救 MEDBOT_CHARGES 个「倒在医疗间里」的濒死者（拖进来也算，施救 5 秒）
-      if(med&&!G.medbotDead&&(G.medbotLeft==null?MEDBOT_CHARGES:G.medbotLeft)>0){
-        const v=G.agents.find(a=>a.downed&&a.alive&&
-          Math.hypot(a.x-med.x,a.y-med.y)<MEDBOT_R&&roomAt(a.x,a.y)&&roomAt(a.x,a.y).id==='med');
-        if(v){
-          G.medbotT=(G.medbotT||0)+dt;
-          if(G.medbotT>=5){
-            v.downed=false; v.downAt=0; v.killedBy=null;
-            const dg=draggerOf(v);
-            if(dg)releaseDragBy(dg,true);
-            v.draggedBy=null;
-            v.woundCause=null;v.downRoom=null;v.downX=null;v.downY=null;v.searched=false;
-            G.medbotUsed=true;G.medbotLeft=Math.max(0,(G.medbotLeft==null?MEDBOT_CHARGES:G.medbotLeft)-1);
-            /* 计时必须清零：否则救完第一个后 ticks 直接 ≥5，同一波濒死会被瞬间连带救起 */
-            G.medbotT=0;
-            G.fx.push({type:'healBeam',x1:med.x,y1:med.y,x2:v.x,y2:v.y,t:1.1,dur:1.1});
-            G.fx.push({type:'heal',x:v.x,y:v.y,t:1.2,dur:1.2});
-            setAct(v,'heal',0.7,{ang:0});
-            hear(med.x,med.y,'robot',1.1);
-            aiHear('robot',med.x,med.y,18);
-            envNotice('revive',v.x,v.y,0.3);
-            SND.revive(); SND.robot();
-            logEvent('revive',{actor:null,victim:v.i,method:'medbot',room:'med',
-              x:+v.x.toFixed(1),y:+v.y.toFixed(1)});
-            toast('医疗机器人救起了 '+v.name+(G.medbotLeft>0?' · 剩余电量 '+G.medbotLeft+'/'+MEDBOT_CHARGES:' · 电量耗尽'));
-            runInvariants('medbot');
-          }
-        }else G.medbotT=0;
-      }
       // 保安机器人：180° 前方扇形内行凶 ⇒ 近身压制后押送到军械库角落（30 秒）
       if(G.secCatch){
         secCatchTick(dt,sec);
@@ -3112,7 +3245,11 @@
       if(G.meet){ clearInterval(meetingTick); G.meet=null; document.getElementById('meet').classList.add('hide'); }
       document.getElementById('end').classList.remove('hide');
       document.getElementById('e-t').textContent=win?'人类胜利':'异形胜利';
-      document.getElementById('e-s').textContent=why+' · 维修 '+G.prog+'/'+WIN_PTS+' · 第 '+G.night+' 夜';
+      /* 结算摘要带上本局新增的三项统计（2026-10-31）：医疗无人机救治 / 幽灵任务 / 幽灵修故障 */
+      const st=G.stats||{};
+      document.getElementById('e-s').textContent=why+' · 维修 '+G.prog+'/'+WIN_PTS+' · 第 '+G.night+' 夜'
+        +' · 无人机救治 '+(st.medbotRevives||0)+' 次 · 幽灵任务 '+(st.ghostTasks||0)+' 个'
+        +' · 幽灵修故障 '+(st.ghostFixes||0)+' 次';
       if(win)SND.win(); else SND.lose();
       runInvariants('end');
     }
@@ -3635,6 +3772,41 @@
       const pool=fresh.length?fresh:cands;
       return pool[Math.floor(Math.random()*pool.length)];
     }
+    /* 人类互相辩护（2026-10-31）：人类也会替人说话，不只是异形护队友。
+       约束保留：手上有对该人的确证时绝不辩护（当场自相矛盾）；
+       只替「人类 + 正被普通指控」的人开口，概率 55%。
+       决策放在同步段调用，蒙特卡洛也能统计到次数。 */
+    function decideHumanDefend(cands){
+      const accusers=cands.filter(a=>a.accuse!=null&&G.agents[a.accuse]&&
+        G.agents[a.accuse].alive&&a.accuse!==a.i);
+      for(const a0 of accusers){
+        const tgt=G.agents[a0.accuse];
+        if(!tgt||tgt.alien||!tgt.alive||tgt.downed)continue;
+        const pool=cands.filter(x=>!x.alien&&x!==a0&&x!==tgt&&x.alive&&!x.downed&&
+          !(x.mind&&x.mind.known&&x.mind.known[tgt.i]));
+        if(!pool.length)continue;
+        if(Math.random()>0.55)continue;
+        const by=pool[Math.floor(Math.random()*pool.length)];
+        if(G.stats)G.stats.humanDefends=(G.stats.humanDefends||0)+1;
+        if(G.simMode&&G.simStats)G.simStats.humanDefends++;
+        return {by:by,target:tgt,accuser:a0};
+      }
+      return null;
+    }
+    /* 异形也会质疑「尸体还热就喊人」的报案者（2026-10-31）。
+       只搅浑水，不写 known、不加确证；40% 概率出手，优先自己没被确证的异形。 */
+    function decideAlienDoubt(m,cands){
+      const q=m&&m.ctx&&m.ctx.quick;
+      if(!q||q.age>10||q.reporter==null)return null;
+      const rp=G.agents[q.reporter];
+      if(!rp||!rp.alive||rp.downed)return null;
+      const pool=cands.filter(x=>x.alien&&x!==rp);
+      if(!pool.length)return null;
+      if(Math.random()>0.4)return null;
+      const by=pool[Math.floor(Math.random()*pool.length)];
+      if(G.simMode&&G.simStats)G.simStats.reportDoubts++;
+      return {by:by,reporter:rp};
+    }
     function startChatter(m){
       stopChatter();
       /* 旁观模式下 0 号星尘是独立 AI，不是"玩家席位"，必须进入发言与投票池 */
@@ -3650,6 +3822,9 @@
       const sureAcc=cands.find(a=>!a.alien&&bestKnownTarget(a));
       const deception=planAlienDeception(m,cands,sureAcc);
       if(deception.frames.length)m.ctx.frames=deception.frames;
+      /* 人类辩护 / 异形质疑报案者：都在同步段定下来（批量模拟也要统计到） */
+      const humanDefend=decideHumanDefend(cands);
+      const alienDoubt=decideAlienDoubt(m,cands);
       /* 批量模拟：不排真实台词定时器；会议决策/传闻嫌疑已在上面同步完成 */
       if(G.simMode)return;
 
@@ -3712,6 +3887,12 @@
             '我记着是'+rp.name+'喊的人。尸体那会儿刚倒下，你怎么正好在旁边？'
           ],45)));
         }
+        /* 异形也会跟着起哄：同样咬「来太快」的报案者，把水搅浑（只进传闻嫌疑，不写确证） */
+        if(alienDoubt)push(()=>say(alienDoubt.by.name,pickLine(alienDoubt.by,[
+          alienDoubt.reporter.name+'，你到得太巧了吧？尸体刚热你就喊人。',
+          '我不针对谁，但'+alienDoubt.reporter.name+'是第一个喊的，先说说你当时在哪。',
+          '报得这么快，要么运气好，要么你就在现场——'+alienDoubt.reporter.name+'，解释一下。'
+        ],46)));
         const speakers=cands.slice(0,3);
         for(const a of speakers){
           m.ctx.claims.push({a,room:alibiOf(a).room});
@@ -3766,6 +3947,13 @@
             }
           }
         }
+        /* 人类也会替人说话（2026-10-31）：只替人类、且自己手上没有对他确证的人辩护，
+           不再让「辩护」变成异形专属行为 */
+        if(humanDefend)push(()=>say(humanDefend.by.name,pickLine(humanDefend.by,[
+          '等等，'+humanDefend.target.name+'那会儿跟我在一起，投他不合理。',
+          '我这边时间和'+humanDefend.target.name+'对得上，先别急着投。',
+          humanDefend.target.name+'我保一下，他刚才一直在我视线里。'
+        ],18)));
         let supporter=null;
         if(accusers.length){
           const a0=accusers[0],tgt=G.agents[a0.accuse];
@@ -4467,7 +4655,7 @@
       }
       G.drag=null;
       G.aiReportUsed=false;G.evSeq=0;
-      G.trackT=0;G.medbotUsed=false;G.medbotT=0;G.medbotLeft=MEDBOT_CHARGES;G.botHp={secbot:2,medbot:1};G.secbotUsed=false;G.secbotUses=0;G.secbotT=0;G.pendingCrime=null;
+      G.trackT=0;G.medbotUsed=false;G.medbotT=0;G.medbotTarget=null;G.medbotLeft=MEDBOT_CHARGES;G.botHp={secbot:2,medbot:1};G.secbotUsed=false;G.secbotUses=0;G.secbotT=0;G.pendingCrime=null;
       G.medbotDead=false;G.secbotDead=false;G.powerFixed=false;G.secCatch=null;
       for(const d of (G.doors||[])){d.open=0;d.target=0;d.scanT=0;}
       /* 新的一夜：故障与破坏目标全部清空（上夜没修完的故障不跨夜追罚） */
@@ -4626,9 +4814,9 @@
       if(sp.item==='ammo'&&me.bullet>=1){toast('子弹已满');return false;}
       if(sp.item==='med'&&me.medkit>=1){toast('医疗包已满');return false;}
       me.path=null;me.moving=false;
-      const dur=sp.item==='ammo'?10:6;
+      const dur=sp.item==='ammo'?SUPPLY_AMMO_TIME:SUPPLY_MED_TIME;
       me.doing=dur;me._dur=dur;me._doing=sp.item==='ammo'?'ammo':'med';
-      toast('消耗 1 张物资申请单领取'+(sp.item==='ammo'?'子弹 10s':'医疗包 6s'));
+      toast('消耗 1 张物资申请单领取'+(sp.item==='ammo'?'子弹 '+dur+'s':'医疗包 '+dur+'s')+' · 站桩，移动会打断');
       SND.interact();
       return true;
     }
@@ -4767,7 +4955,7 @@
         }
         if(bot){
           if(bot.kind==='secbot')toast(G.secbotDead?'保安机器人：今晚已停摆':(G.secbotUses>=SEC_USES_MAX?'保安机器人：本夜 '+SEC_USES_MAX+' 次擒拿已用完':('保安机器人：在线 · 本夜 '+((G.secbotUses||0))+'/'+SEC_USES_MAX+' · '+SEC_RANGE+' 格半圆内危险行为会被押送拘留 30s')));
-          else toast(G.medbotDead?'医疗机器人：今晚已停摆':(G.medbotLeft<=0?'医疗机器人：电量耗尽':(G.medbotUsed?'医疗机器人：电量 '+G.medbotLeft+'/'+MEDBOT_CHARGES:'医疗机器人：在线 · 电量 '+MEDBOT_CHARGES+'/'+MEDBOT_CHARGES+' · 把濒死者拖进医疗间会自动施救（5 秒）')));
+          else toast(G.medbotDead?'医疗无人机：今晚已停摆':(G.medbotLeft<=0?'医疗无人机：电量耗尽':(G.medbotUsed?'医疗无人机：电量 '+G.medbotLeft+'/'+MEDBOT_CHARGES:'医疗无人机：待命 · 电量 '+MEDBOT_CHARGES+'/'+MEDBOT_CHARGES+' · 悬停在医疗间正中央，有人濒死会飞过去近身治疗 '+MEDBOT_HEAL_TIME+' 秒')));
           return;
         }
         toast(!me.alive?
@@ -4814,7 +5002,7 @@
       }
       if(target){
         const botOpt={id:'sab-bot',
-          short:'停摆'+(target.kind==='secbot'?'保安机器人':'医疗机器人'),
+          short:'停摆'+(target.kind==='secbot'?'保安机器人':'医疗无人机'),
           run:()=>sabotageBot(target,tp)};
         const roomOpt={id:'sab-room',short:'破坏舱室',run:()=>openSabPick()};
         openWheel([botOpt,roomOpt]);
@@ -4862,7 +5050,7 @@
       if(!best&&!botKind){toast('近身没有目标（1.3 格内、无遮挡）');return;}
       if(botKind){
         if(!knifeBot(me,botKind)){toast('这一刀没有砍到机器人');return;}
-        toast('出刀：'+(botKind==='secbot'?'保安机器人':'医疗机器人')+'装甲受击 · 刀数 -1');
+        toast('出刀：'+(botKind==='secbot'?'保安机器人':'医疗无人机')+'装甲受击 · 刀数 -1');
         return;
       }
       knife(me,best);
@@ -4929,6 +5117,31 @@
       if(!damageBot(kind,a,'knife')){ a.knife++; return false; }
       return true;
     }
+    /* 拆保安的前置条件（2026-10-31）：异形之间不能通信，只有「房间里已经认出多名队友 +
+       能推断出一个共同捕杀目标」时才值得冒暴露风险——落单拆保安等于白送一条
+       saw_bot 确证（会被直接锁定投票）。默认不攻击保安。 */
+    function secbotRaidOk(a,secPos){
+      if(!a||!secPos||!a.alive||a.downed)return false;
+      let mates=0;
+      for(const k in (a.mates||{})){
+        const m2=G.agents[+k];
+        if(!m2||!m2.alive||m2.downed||m2.detained)continue;
+        if(Math.hypot(m2.x-secPos.x,m2.y-secPos.y)<=8)mates++;
+      }
+      if(mates<2)return false;
+      /* 共同目标：保安 8 格内有活人（非队友），且至少一名队友也在朝他靠 */
+      for(const v of G.agents){
+        if(v===a||!v.alive||v.downed||v.detained||v.alien)continue;
+        if(Math.hypot(v.x-secPos.x,v.y-secPos.y)>8)continue;
+        for(const k in (a.mates||{})){
+          const m2=G.agents[+k];
+          if(!m2||!m2.alive||m2.downed||m2.detained)continue;
+          if(Math.hypot(m2.x-secPos.x,m2.y-secPos.y)>8)continue;
+          if(Math.hypot(m2.x-v.x,m2.y-v.y)<=7)return Math.random()<0.7;
+        }
+      }
+      return false;
+    }
     /* 机器人受击：刀/枪都可摧毁；保安存活时会面向袭击者并尝试反制拘留 */
     function damageBot(kind,attacker,cause){
       if(!G||G.over||!attacker||!attacker.alive||attacker.downed||attacker.detained)return false;
@@ -4955,7 +5168,7 @@
       aiHear(cause==='shot'?'shot':'knife',p.x,p.y,16,{actor:attacker});
       noticeAction(attacker,attacker.x,attacker.y,6,cause==='shot'?'shot':'knife',null);
       SND.sabotage();
-      const nm=kind==='secbot'?'保安机器人':'医疗机器人';
+      const nm=kind==='secbot'?'保安机器人':'医疗无人机';
       logEvent('bot_hit',{actor:attacker.i,bot:kind,method:cause||'knife',
         hp:Math.max(0,G.botHp[kind]),room:roomIdAt(p.x,p.y),
         x:+p.x.toFixed(1),y:+p.y.toFixed(1)});
@@ -4989,7 +5202,7 @@
       G.fx.push({type:'impact',x:p.x,y:p.y,t:0.55,dur:0.55});
       SND.shot();hear(shooter.x,shooter.y,'shot',1.15);
       damageBot(kind,shooter,'shot');
-      if(shooter===G.me)toast('开枪击中 '+(kind==='secbot'?'保安机器人':'医疗机器人'));
+      if(shooter===G.me)toast('开枪击中 '+(kind==='secbot'?'保安机器人':'医疗无人机'));
       return true;
     }
     function shoot(){
@@ -5302,6 +5515,13 @@
     loadImg('base','v4/base-lit.png');
     loadImg('hull','v4/hull-deck.png');
     loadImg('door','v4/tex/door-panel.png');
+    /* 设施 2.5D 贴图（tools/gen-facility-sprites.py · SDXL 出图 + 统一调色抠图）：
+       与 Blender 底图共用同一套冷暗配色；未就绪时 drawFacilities 自动回退到
+       原来的 Canvas 造型，file:// 冷启动也不会出现空白设施。 */
+    loadImg('fx_medbot','v4/facility/medbot.png');
+    loadImg('fx_secbot','v4/facility/secbot.png');
+    loadImg('fx_monitor','v4/facility/monitor.png');
+    loadImg('fx_breaker','v4/facility/breaker.png');
     const ROW={down:0,up:1,left:3,right:4};
     function ready(im){return im&&im.complete&&im.naturalWidth>0;}
     
@@ -5441,6 +5661,102 @@
       }
       ctx.restore();
     }
+    /* 医疗无人机（2026-10-31 取代原来的巡逻医疗机器人）：悬浮机身 + 四旋翼 + 医疗十字 + 推进器底光。
+       和 drawRobotBody 分开画——那台是长腿的地勤机器人，无人机不接地，
+       悬停高度、旋翼旋转、治疗光束都是独立表现；停摆时整台砸在地上、旋翼停转。 */
+    function drawMedDrone(T,x,y,s,o){
+      const dead=!!o.dead, exhausted=!!o.exhausted;
+      const hover=dead?0.24*s:(0.52*s+Math.sin(T*2.4)*0.04*s);
+      const cy=y-hover;
+      const base=dead?'#5B6572':(exhausted?'#8A6A45':'#3FBF8C');
+      const accent=dead?'#4E5663':(exhausted?'#D4B070':'#7FE3B4');
+      ctx.save();
+      /* 地面投影：悬停呼吸，飞得高时更小更淡 */
+      const sh=0.30+0.04*Math.sin(T*2.4);
+      ctx.fillStyle='rgba(0,0,0,'+(dead?0.32:0.18)+')';
+      ctx.beginPath();ctx.ellipse(x,y-0.02*s,sh*s*0.86,sh*s*0.34,0,0,7);ctx.fill();
+      /* 推进器底光 */
+      if(!dead){
+        const g=ctx.createRadialGradient(x,cy+0.20*s,0,x,cy+0.20*s,0.95*s);
+        g.addColorStop(0,exhausted?'rgba(212,176,112,.15)':'rgba(63,191,140,.20)');
+        g.addColorStop(1,'rgba(63,191,140,0)');
+        ctx.fillStyle=g;ctx.beginPath();ctx.arc(x,cy+0.20*s,0.95*s,0,7);ctx.fill();
+      }
+      /* 机体：优先用 SDXL 出的 2.5D 俯视贴图（assets/scene/v4/facility/medbot.png）。
+         贴图自带四旋翼 + 青绿医疗十字；代码只叠加「悬停浮动 + 旋翼残影 + 状态灯」，
+         贴图没加载完（file:// 冷启动）时回退到原来的矢量造型。 */
+      const img=IMG['fx_medbot'];
+      if(ready(img)){
+        const w=1.72*s, h=1.72*s;
+        if(!dead){
+          const spin=T*16;
+          for(const ax of [-1,1])for(const ay of [-1,1]){
+            ctx.strokeStyle='rgba(159,240,203,'+(0.14+0.09*Math.sin(spin+ax+ay)).toFixed(2)+')';
+            ctx.lineWidth=0.028*s;
+            ctx.beginPath();
+            ctx.ellipse(x+ax*0.40*s,cy+ay*0.22*s,0.20*s,0.085*s,spin*0.4,0,7);
+            ctx.stroke();
+          }
+        }
+        ctx.globalAlpha=dead?0.5:0.98;
+        ctx.drawImage(img,x-w/2,cy-h*0.50,w,h);
+        ctx.globalAlpha=1;
+      }else{
+        /* 四旋翼：支臂 + 高速旋转双弧（停摆后只剩静止的桨盘） */
+        const spin=T*(dead?0:16);
+        for(const ax of [-1,1])for(const ay of [-1,1]){
+          const rx=x+ax*0.36*s, ry=cy+ay*0.19*s;
+          ctx.strokeStyle=dead?'rgba(92,102,118,.6)':base;ctx.lineWidth=0.05*s;
+          ctx.beginPath();ctx.moveTo(x,cy);ctx.lineTo(rx,ry);ctx.stroke();
+          if(dead){
+            ctx.fillStyle='rgba(92,102,118,.28)';
+            ctx.beginPath();ctx.ellipse(rx,ry,0.15*s,0.06*s,0,0,7);ctx.fill();
+          }else{
+            for(let k=0;k<2;k++){
+              ctx.strokeStyle='rgba(159,240,203,'+(0.26+0.20*Math.sin(spin+k*2.1+ax+ay)).toFixed(2)+')';
+              ctx.lineWidth=0.045*s;
+              ctx.beginPath();ctx.ellipse(rx,ry,0.17*s,0.075*s,spin*0.35+k*Math.PI*0.5,0,7);ctx.stroke();
+            }
+          }
+        }
+        /* 机身 */
+        ctx.fillStyle=dead?'rgba(52,58,68,.95)':'rgba(12,20,26,.96)';
+        ctx.strokeStyle=base;ctx.lineWidth=Math.max(1.4,0.045*s);
+        ctx.beginPath();ctx.roundRect(x-0.23*s,cy-0.17*s,0.46*s,0.31*s,0.11*s);ctx.fill();ctx.stroke();
+        /* 顶盖高光 */
+        ctx.fillStyle=dead?'rgba(70,78,90,.45)':'rgba(127,227,180,.13)';
+        ctx.beginPath();ctx.roundRect(x-0.17*s,cy-0.14*s,0.34*s,0.09*s,0.045*s);ctx.fill();
+        /* 医疗十字 */
+        ctx.fillStyle=accent;
+        ctx.fillRect(x-0.035*s,cy-0.075*s,0.07*s,0.17*s);
+        ctx.fillRect(x-0.085*s,cy-0.025*s,0.17*s,0.07*s);
+      }
+      /* 侧灯：在线=呼吸绿灯，电量耗尽=琥珀慢闪 */
+      const blink=exhausted?(0.35+0.35*Math.sin(T*4)):(0.55+0.35*Math.sin(T*3));
+      ctx.fillStyle='rgba('+(exhausted?'212,176,112':'127,227,180')+','+blink.toFixed(2)+')';
+      ctx.beginPath();ctx.arc(x+0.28*s,cy-0.10*s,0.045*s,0,7);ctx.fill();
+      /* 治疗光束：悬停在伤员身边时持续拉住（不是读条瞬间才闪一下） */
+      if(o.healing&&o.target){
+        const tx=SX(o.target.x), ty=SY(o.target.y)-0.30*s;
+        const sx0=x, sy0=cy+0.16*s;
+        const flick=0.55+0.28*Math.sin(T*13);
+        const bg=ctx.createLinearGradient(sx0,sy0,tx,ty);
+        bg.addColorStop(0,'rgba(200,255,228,.78)');
+        bg.addColorStop(1,'rgba(127,227,180,'+(0.20*flick).toFixed(2)+')');
+        ctx.strokeStyle=bg;ctx.lineWidth=Math.max(2,0.085*s);ctx.lineCap='round';
+        ctx.beginPath();ctx.moveTo(sx0,sy0);ctx.lineTo(tx,ty);ctx.stroke();
+        for(let k=0;k<3;k++){
+          const p=((T*1.7+k*0.33)%1);
+          ctx.fillStyle='rgba(210,255,236,'+(0.5*(1-p)).toFixed(2)+')';
+          ctx.beginPath();
+          ctx.arc(sx0+(tx-sx0)*p,sy0+(ty-sy0)*p,0.055*s,0,7);ctx.fill();
+        }
+        ctx.strokeStyle='rgba(127,227,180,'+(0.34+0.34*Math.sin(T*9)).toFixed(2)+')';
+        ctx.lineWidth=2;
+        ctx.beginPath();ctx.ellipse(tx,ty+0.30*s,0.56*s,0.30*s,0,0,7);ctx.stroke();
+      }
+      ctx.restore();
+    }
     /* 机器人标签的唯一文案源：保安拘留次数必须读 SEC_USES_MAX，不能再写死 3 */
     function botLabelText(f,dead){
       const left=G.medbotLeft==null?MEDBOT_CHARGES:G.medbotLeft;
@@ -5463,7 +5779,7 @@
       ctx.fillStyle=dead?'rgba(170,180,195,.75)':(exhausted?'rgba(230,190,120,.9)':'rgba(225,238,248,.92)');
       ctx.fillText(text,x,ly+0.5);
     }
-    /* 设施：电闸 / 监控台 / 医疗机器人 / 保安机器人 / 拘留区 */
+    /* 设施：电闸 / 监控台 / 医疗无人机 / 保安机器人 / 拘留区 */
     function drawFacilities(T){
       const s=VIEW.s;
       for(const f of M.facility){
@@ -5479,32 +5795,49 @@
           BREAKER_LEVER+= (lever-BREAKER_LEVER)*Math.min(1,0.16);
           const ang=-0.62+BREAKER_LEVER*1.22;
           ctx.save();ctx.translate(x,y);
-          /* 柜体 */
-          ctx.fillStyle='rgba(9,13,19,.96)';
-          ctx.strokeStyle=off?'#7FD3F0':'#F0C674';ctx.lineWidth=1.6;
-          ctx.beginPath();ctx.roundRect(-0.62*s,-0.70*s,1.24*s,1.40*s,4);ctx.fill();ctx.stroke();
-          /* 危险色上下压条 */
-          ctx.fillStyle=off?'rgba(127,211,240,.16)':'rgba(240,198,116,.16)';
-          ctx.fillRect(-0.62*s,-0.70*s,1.24*s,0.10*s);
-          ctx.fillRect(-0.62*s,0.60*s,1.24*s,0.10*s);
-          /* 状态灯 + 铭牌 */
-          ctx.fillStyle=off?'#7FD3F0':'#7FE3B4';
-          ctx.beginPath();ctx.arc(-0.42*s,-0.50*s,0.075*s,0,7);ctx.fill();
-          ctx.fillStyle='rgba(205,216,230,.82)';
-          ctx.font='600 '+Math.max(8,0.17*s).toFixed(1)+'px system-ui';
-          ctx.textAlign='left';ctx.textBaseline='middle';
-          ctx.fillText(off?'断电':'供电',-0.30*s,-0.50*s);
-          /* 拉杆底座 + 拉杆 */
-          ctx.strokeStyle='rgba(120,140,165,.55)';ctx.lineWidth=2;
-          ctx.beginPath();ctx.arc(0,0.02*s,0.30*s,0,7);ctx.stroke();
-          ctx.strokeStyle=off?'#7FD3F0':'#F0C674';
-          ctx.lineWidth=Math.max(3,0.13*s);ctx.lineCap='round';
-          ctx.beginPath();ctx.moveTo(0,0.02*s);
-          ctx.lineTo(Math.sin(ang)*0.52*s,0.02*s-Math.cos(ang)*0.52*s);ctx.stroke();
-          ctx.fillStyle='#E9F1FB';
-          ctx.beginPath();ctx.arc(Math.sin(ang)*0.52*s,0.02*s-Math.cos(ang)*0.52*s,0.10*s,0,7);ctx.fill();
-          ctx.fillStyle='rgba(9,13,19,.9)';
-          ctx.beginPath();ctx.arc(0,0.02*s,0.10*s,0,7);ctx.fill();
+          /* 柜体：优先用 SDXL 出的 2.5D 俯视贴图（v4/facility/breaker.png）。
+             贴图是 3/4 俯视的整柜，拉杆造型已烘进图里；代码只叠「供电状态灯 + 拉闸进度环 +
+             断电冷调压色」，玩法读数不依赖贴图细节。 */
+          const bimg=IMG['fx_breaker'];
+          if(ready(bimg)){
+            const w=1.40*s, h=1.66*s;
+            ctx.globalAlpha=0.98;
+            ctx.drawImage(bimg,-w/2,-h*0.94,w,h);
+            ctx.globalAlpha=1;
+            if(off){ctx.fillStyle='rgba(70,150,190,.22)';ctx.fillRect(-w/2,-h*0.94,w,h);}
+            ctx.fillStyle=off?'#7FD3F0':'#7FE3B4';
+            ctx.beginPath();ctx.arc(-0.46*s,-0.52*s,0.075*s,0,7);ctx.fill();
+            ctx.fillStyle='rgba(205,216,230,.86)';
+            ctx.font='600 '+Math.max(8,0.17*s).toFixed(1)+'px system-ui';
+            ctx.textAlign='left';ctx.textBaseline='middle';
+            ctx.fillText(off?'断电':'供电',-0.34*s,-0.52*s);
+          }else{
+            ctx.fillStyle='rgba(9,13,19,.96)';
+            ctx.strokeStyle=off?'#7FD3F0':'#F0C674';ctx.lineWidth=1.6;
+            ctx.beginPath();ctx.roundRect(-0.62*s,-0.70*s,1.24*s,1.40*s,4);ctx.fill();ctx.stroke();
+            /* 危险色上下压条 */
+            ctx.fillStyle=off?'rgba(127,211,240,.16)':'rgba(240,198,116,.16)';
+            ctx.fillRect(-0.62*s,-0.70*s,1.24*s,0.10*s);
+            ctx.fillRect(-0.62*s,0.60*s,1.24*s,0.10*s);
+            /* 状态灯 + 铭牌 */
+            ctx.fillStyle=off?'#7FD3F0':'#7FE3B4';
+            ctx.beginPath();ctx.arc(-0.42*s,-0.50*s,0.075*s,0,7);ctx.fill();
+            ctx.fillStyle='rgba(205,216,230,.82)';
+            ctx.font='600 '+Math.max(8,0.17*s).toFixed(1)+'px system-ui';
+            ctx.textAlign='left';ctx.textBaseline='middle';
+            ctx.fillText(off?'断电':'供电',-0.30*s,-0.50*s);
+            /* 拉杆底座 + 拉杆 */
+            ctx.strokeStyle='rgba(120,140,165,.55)';ctx.lineWidth=2;
+            ctx.beginPath();ctx.arc(0,0.02*s,0.30*s,0,7);ctx.stroke();
+            ctx.strokeStyle=off?'#7FD3F0':'#F0C674';
+            ctx.lineWidth=Math.max(3,0.13*s);ctx.lineCap='round';
+            ctx.beginPath();ctx.moveTo(0,0.02*s);
+            ctx.lineTo(Math.sin(ang)*0.52*s,0.02*s-Math.cos(ang)*0.52*s);ctx.stroke();
+            ctx.fillStyle='#E9F1FB';
+            ctx.beginPath();ctx.arc(Math.sin(ang)*0.52*s,0.02*s-Math.cos(ang)*0.52*s,0.10*s,0,7);ctx.fill();
+            ctx.fillStyle='rgba(9,13,19,.9)';
+            ctx.beginPath();ctx.arc(0,0.02*s,0.10*s,0,7);ctx.fill();
+          }
           /* 拉闸进度环 */
           if(pull&&pull.p>0){
             const hot=pull.heavy;
@@ -5529,21 +5862,45 @@
         }else if(f.kind==='monitor'){
           const cut=G.lightState===2;
           ctx.save();ctx.translate(x,y);
-          ctx.fillStyle='rgba(10,16,24,.95)';
-          ctx.strokeStyle=cut?'#6B3A3A':'#3C4B5D';ctx.lineWidth=1.4;
-          ctx.beginPath();ctx.roundRect(-0.72*s,-0.5*s,1.44*s,0.85*s,3);ctx.fill();ctx.stroke();
-          for(let i=0;i<4;i++){
-            const sx0=(-0.58+(i%2)*0.62)*s, sy0=(-0.36+Math.floor(i/2)*0.34)*s;
-            ctx.fillStyle=cut?'rgba(255,90,80,.18)':'rgba(95,224,168,.16)';
-            ctx.fillRect(sx0,sy0,0.52*s,0.26*s);
+          /* 监控台：优先用 SDXL 2.5D 俯视贴图（v4/facility/monitor.png）；
+             信号中断时整台压红 + 红点，玩法读数仍然清楚。 */
+          const mimg=IMG['fx_monitor'];
+          if(ready(mimg)){
+            const w=1.95*s, h=1.46*s;
+            ctx.globalAlpha=0.98;
+            ctx.drawImage(mimg,-w/2,-h*0.92,w,h);
+            ctx.globalAlpha=1;
+            if(cut){ctx.fillStyle='rgba(190,60,50,.26)';ctx.fillRect(-w/2,-h*0.92,w,h);}
+            /* 屏幕自发光：贴图缩到 40~60px 屏幕细节会糊掉，
+               用一层青绿光把「这是一台在工作的监控台」读出来 */
             if(!cut){
-              const k=0.25+0.55*(0.5+0.5*Math.sin(T*3+i*1.7));
-              ctx.fillStyle='rgba(150,245,205,'+(0.25*k).toFixed(2)+')';
-              ctx.fillRect(sx0+0.05*s,sy0+0.05*s,0.42*s,0.03*s);
+              const gg=ctx.createRadialGradient(0,-0.52*s,0,0,-0.52*s,1.0*s);
+              gg.addColorStop(0,'rgba(95,224,168,.20)');
+              gg.addColorStop(1,'rgba(95,224,168,0)');
+              ctx.fillStyle=gg;ctx.beginPath();ctx.arc(0,-0.52*s,1.0*s,0,7);ctx.fill();
             }
+            /* 在线呼吸灯 / 断线红点 */
+            const blink=cut?0.55+0.35*Math.sin(T*8):0.45+0.3*Math.sin(T*2.6);
+            ctx.fillStyle=cut?'rgba(255,107,97,'+blink.toFixed(2)+')'
+              :'rgba(95,224,168,'+blink.toFixed(2)+')';
+            ctx.beginPath();ctx.arc(0.56*s,-0.42*s,0.06*s,0,7);ctx.fill();
+          }else{
+            ctx.fillStyle='rgba(10,16,24,.95)';
+            ctx.strokeStyle=cut?'#6B3A3A':'#3C4B5D';ctx.lineWidth=1.4;
+            ctx.beginPath();ctx.roundRect(-0.72*s,-0.5*s,1.44*s,0.85*s,3);ctx.fill();ctx.stroke();
+            for(let i=0;i<4;i++){
+              const sx0=(-0.58+(i%2)*0.62)*s, sy0=(-0.36+Math.floor(i/2)*0.34)*s;
+              ctx.fillStyle=cut?'rgba(255,90,80,.18)':'rgba(95,224,168,.16)';
+              ctx.fillRect(sx0,sy0,0.52*s,0.26*s);
+              if(!cut){
+                const k=0.25+0.55*(0.5+0.5*Math.sin(T*3+i*1.7));
+                ctx.fillStyle='rgba(150,245,205,'+(0.25*k).toFixed(2)+')';
+                ctx.fillRect(sx0+0.05*s,sy0+0.05*s,0.42*s,0.03*s);
+              }
+            }
+            ctx.fillStyle=cut?'#FF6B61':'#5FE0A8';
+            ctx.beginPath();ctx.arc(0.54*s,-0.40*s,0.05*s,0,7);ctx.fill();
           }
-          ctx.fillStyle=cut?'#FF6B61':'#5FE0A8';
-          ctx.beginPath();ctx.arc(0.54*s,-0.40*s,0.05*s,0,7);ctx.fill();
           ctx.restore();
         }else if(f.kind==='supply'){
           const ammo=f.item==='ammo';
@@ -5569,40 +5926,32 @@
           const b=G.bots&&G.bots.medbot;
           ctx.save();
           if(!dead&&!exhausted){
-            /* 施救范围显化：MEDBOT_R 圆 ∩ 医疗间轮廓。
-               濒死者必须同时落在圆内和医疗间里才会被自动救 —— 只画圆会让人
-               以为在走廊也能救回来，只画房间又看不出机器人够得着多远。 */
+            /* 覆盖范围显化：整间医疗间（呼吸虚线沿房间轮廓）。
+               改成无人机后不再有「以机器人为圆心的 6 格圆」——它会自己飞过去，
+               玩家只要记住一条规则：人落在医疗间里就有人来救。 */
             const mr=M.rooms.find(r=>r.id==='med');
-            ctx.save();
             if(mr){
               ctx.beginPath();
               mr.poly.forEach((p,i)=>i?ctx.lineTo(SX(p[0]),SY(p[1])):ctx.moveTo(SX(p[0]),SY(p[1])));
-              ctx.closePath();ctx.clip();
+              ctx.closePath();
+              ctx.fillStyle='rgba(63,191,140,.045)';ctx.fill();
+              ctx.setLineDash([0.22*s,0.26*s]);ctx.lineDashOffset=-T*10;
+              ctx.strokeStyle='rgba(127,227,180,'+(0.34+0.16*Math.sin(T*2.2)).toFixed(2)+')';
+              ctx.lineWidth=1.6;ctx.stroke();
+              ctx.setLineDash([]);
             }
-            ctx.beginPath();ctx.arc(x,y,MEDBOT_R*s,0,7);
-            ctx.fillStyle='rgba(63,191,140,.07)';ctx.fill();
-            ctx.setLineDash([0.24*s,0.2*s]);ctx.lineDashOffset=-T*16;
-            ctx.strokeStyle='rgba(127,227,180,.5)';ctx.lineWidth=1.8;ctx.stroke();
-            ctx.setLineDash([]);
-            ctx.restore();
-            ctx.font='500 10px system-ui';ctx.textAlign='center';ctx.textBaseline='bottom';
-            ctx.lineWidth=3;ctx.strokeStyle='rgba(6,10,14,.8)';
-            ctx.strokeText('施救范围 '+MEDBOT_R+' 格 · 需位于医疗间内',x,y-MEDBOT_R*s-2);
-            ctx.fillStyle='rgba(159,240,203,.92)';
-            ctx.fillText('施救范围 '+MEDBOT_R+' 格 · 需位于医疗间内',x,y-MEDBOT_R*s-2);
           }
-          if(!dead&&!exhausted){
-            const rad=ctx.createRadialGradient(x,y,0,x,y,1.1*s);
-            rad.addColorStop(0,'rgba(63,191,140,.20)');rad.addColorStop(1,'rgba(63,191,140,0)');
-            ctx.fillStyle=rad;ctx.beginPath();ctx.arc(x,y,1.1*s,0,7);ctx.fill();
-          }
-          drawRobotBody(T,x,y,s,{kind:'medbot',dead:dead,face:b?b.face:1,
-            moving:!!(b&&b.moving),base:exhausted?'#8A6A45':'#3FBF8C',
-            accent:exhausted?'#D4B070':'#7FE3B4'});
+          drawMedDrone(T,x,y,s,{dead:dead,exhausted:exhausted,
+            face:b?b.face:1,moving:!!(b&&b.moving),healing:!!(b&&b.healing),
+            target:G.medbotTarget!=null?G.agents[G.medbotTarget]:null});
           if(G.medbotT>0&&!dead&&!exhausted){
-            /* 施救进度环：圆心钉在运行时坐标，机器人边走环边跟着 */
-            ctx.strokeStyle='rgba(127,227,180,'+(0.35+0.35*Math.sin(T*10)).toFixed(2)+')';ctx.lineWidth=2;
-            ctx.beginPath();ctx.arc(x,y-0.6*s,(0.55+0.65*Math.min(1,G.medbotT/5))*s,0,7);ctx.stroke();
+            /* 治疗进度环：钉在无人机悬停位，按 MEDBOT_HEAL_TIME 走满才拉起 */
+            const p=Math.min(1,G.medbotT/MEDBOT_HEAL_TIME);
+            ctx.strokeStyle='rgba(200,255,228,.26)';ctx.lineWidth=1.6;
+            ctx.beginPath();ctx.arc(x,y-0.52*s,0.66*s,0,7);ctx.stroke();
+            ctx.strokeStyle='rgba(127,227,180,'+(0.42+0.34*Math.sin(T*10)).toFixed(2)+')';
+            ctx.lineWidth=2.8;ctx.lineCap='round';
+            ctx.beginPath();ctx.arc(x,y-0.52*s,0.66*s,-Math.PI/2,-Math.PI/2+Math.PI*2*p);ctx.stroke();
           }
           drawBotLabel(f,x,y,s,dead);
           ctx.restore();
@@ -5639,10 +5988,28 @@
               ctx.beginPath();ctx.arc(x,y-0.55*s,(1.1+0.8*(1.6-G.secbotT))*s,0,7);ctx.stroke();
             }
           }
-          /* 已擒拿过的当晚转琥珀色，保留原有"本夜用过"的信息 */
-          drawRobotBody(T,x,y,s,{kind:'secbot',dead:dead,face:b?b.face:1,
-            moving:!!(b&&b.moving),base:used?'#8A6A45':'#FF6B61',
-            accent:used?'#C9A46B':'#FFB4A8'});
+          /* 已擒拿过的当晚转琥珀色，保留原有"本夜用过"的信息。
+             机体优先用 SDXL 出的 2.5D 贴图（站立 3/4 视角，与 crew 立绘同一套语言） */
+          const simg=IMG['fx_secbot'];
+          if(ready(simg)){
+            const w=1.05*s, h=1.50*s;
+            ctx.globalAlpha=dead?0.42:0.98;
+            ctx.drawImage(simg,x-w/2,y-h*0.93,w,h);
+            ctx.globalAlpha=1;
+            if(dead){
+              /* 停摆：机身压暗 + 一道斜向裂纹提示，避免和在线状态混淆 */
+              ctx.strokeStyle='rgba(150,160,175,.55)';ctx.lineWidth=1.4;
+              ctx.beginPath();ctx.moveTo(x-0.26*s,y-0.35*s);ctx.lineTo(x+0.24*s,y-1.02*s);ctx.stroke();
+            }
+            if(used&&!dead){
+              ctx.fillStyle='rgba(201,164,107,.85)';
+              ctx.beginPath();ctx.arc(x+0.30*s,y-1.18*s,0.07*s,0,7);ctx.fill();
+            }
+          }else{
+            drawRobotBody(T,x,y,s,{kind:'secbot',dead:dead,face:b?b.face:1,
+              moving:!!(b&&b.moving),base:used?'#8A6A45':'#FF6B61',
+              accent:used?'#C9A46B':'#FFB4A8'});
+          }
           if(G.secCatch&&!dead){
             const cd=G.secCatch, tgt=G.agents[cd.i];
             if(tgt){
@@ -6523,7 +6890,7 @@
           }
           if(bot){
             const dead=bot.kind==='secbot'?G.secbotDead:G.medbotDead;
-            pill((bot.kind==='secbot'?'保安机器人':'医疗机器人')+(dead?' · 停摆':' · 在线'),
+            pill((bot.kind==='secbot'?'保安机器人':'医疗无人机')+(dead?' · 停摆':' · 在线'),
               SX(bp.x),SY(bp.y)-2.4*VIEW.s,
               dead?'rgba(120,130,145,.5)':'rgba(63,191,140,.7)',dead?'#8A94A3':'#9FE8C6');
           }else if(np&&!npMine){
@@ -7000,7 +7367,9 @@
       document.getElementById('alive').textContent=alive;
       document.getElementById('hum').textContent=hum;
       document.getElementById('ali').textContent=ali;
-      document.getElementById('dn').textContent=G.agents.filter(a=>a.downed&&a.alive).length;
+      /* 濒死人数只在 DEV / 旁观全知时才有值（正常对局看不到谁倒了几个） */
+      const dnEl=document.getElementById('dn');
+      if(dnEl)dnEl.textContent=(G.dev||G.spectMode)?G.agents.filter(a=>a.downed&&a.alive).length:0;
       document.getElementById('tk').textContent=G.me.tIdx;
       document.getElementById('ql').textContent=G.me.qual;
       const qpEl=document.getElementById('qp');
@@ -7160,7 +7529,10 @@
           searches:0,loots:0,bulletsLooted:0,medkitsLooted:0,qualsLooted:0,
           humanLoots:0,alienLoots:0,humanShots:0,alienShots:0,
           fakeRepairs:0,fakeTasks:0,alienTasks:0,revives:0,alienLootTries:0,
-          alienPipes:0,alienPipePlans:0};
+          alienPipes:0,alienPipePlans:0,
+          /* 2026-10-31 新增：医疗无人机救治 / 幽灵任务 / 幽灵修故障 / 人类辩护 / 异形质疑报案 */
+          medbotRevives:0,medkitRevives:0,ghostTasks:0,ghostFixes:0,
+          humanDefends:0,alienDefends:0,reportDoubts:0};
         const dt=Math.min(0.2,Math.max(0.05,opts.dt||0.1));
         const maxNights=opts.maxNights||15;
         const maxSteps=opts.maxSteps||Math.ceil(maxNights*NIGHT/dt)+6000;
@@ -7193,7 +7565,12 @@
           fakeRepairs:G.simStats.fakeRepairs,fakeTasks:G.simStats.fakeTasks,
           alienTasks:G.simStats.alienTasks,
           revives:G.simStats.revives,alienLootTries:G.simStats.alienLootTries,
-          alienPipes:G.simStats.alienPipes,alienPipePlans:G.simStats.alienPipePlans};
+          alienPipes:G.simStats.alienPipes,alienPipePlans:G.simStats.alienPipePlans,
+          /* 2026-10-31 新增统计：医疗无人机救治 / 医疗包施救 / 幽灵任务 / 幽灵修故障 /
+             人类辩护 / 异形质疑快速报案者 */
+          medbotRevives:G.simStats.medbotRevives,medkitRevives:G.simStats.medkitRevives,
+          ghostTasks:G.simStats.ghostTasks,ghostFixes:G.simStats.ghostFixes,
+          humanDefends:G.simStats.humanDefends,reportDoubts:G.simStats.reportDoubts};
       } finally {
         Math.random=oldRandom; SIM_RUN=oldSim;
         if(G){G.simMode=false;G.simDebug=false;G.paused=true;}
@@ -7208,6 +7585,10 @@
       winPts:()=>WIN_PTS,
       report:()=>{tryReport();return !!G.meet;},
       medbotR:()=>MEDBOT_R,
+      medbotHealTime:()=>MEDBOT_HEAL_TIME,
+      medbotTouchR:()=>MEDBOT_TOUCH_R,
+      medbotHome:()=>medbotHome(),
+      stats:()=>Object.assign({},(G&&G.stats)||{}),
       bodyReported:i=>!!G.agents[i]&&bodyReported(G.agents[i]),
       kill:(i,c)=>{const a=G.agents[i];if(!a)return false;return die(a,c||'knife',null);},
       knife:(k,v)=>knife(G.agents[k],G.agents[v]),
@@ -7388,13 +7769,17 @@
         return f?botLabelText(f,kind==='secbot'?!!G.secbotDead:!!G.medbotDead):null;},
       robots:()=>({
         sec:{used:!!G.secbotUsed,uses:G.secbotUses||0,left:SEC_USES_MAX-(G.secbotUses||0),dead:!!G.secbotDead,t:G.secbotT||0,hp:botHp('secbot'),range:SEC_RANGE,arc:SEC_ARC},
-        med:{used:!!G.medbotUsed,dead:!!G.medbotDead,t:G.medbotT||0,left:G.medbotLeft==null?MEDBOT_CHARGES:G.medbotLeft,hp:botHp('medbot')}}),
+        med:{used:!!G.medbotUsed,dead:!!G.medbotDead,t:G.medbotT||0,
+          left:G.medbotLeft==null?MEDBOT_CHARGES:G.medbotLeft,hp:botHp('medbot'),
+          heal:MEDBOT_HEAL_TIME,touch:MEDBOT_TOUCH_R,target:G.medbotTarget==null?null:G.medbotTarget,
+          home:medbotHome()}}),
       bots:()=>{
         const out={};
         for(const k of ['medbot','secbot']){
           const b=G.bots&&G.bots[k];
           const f=M.facility.find(q=>q.kind===k);
           out[k]=b?{x:b.x,y:b.y,wp:b.wp,face:b.face,ang:b.ang,moving:!!b.moving,
+            healing:!!b.healing,home:b.home?[b.home[0],b.home[1]]:null,
             patrol:f&&f.patrol?f.patrol:[]}:null;
         }
         return out;

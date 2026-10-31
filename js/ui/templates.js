@@ -128,19 +128,34 @@
   .ex-role.ali{color:#FF8A80}
   .ex-role.hum{color:#8FD3F0}
   #devline{color:#7FD3F0}
-  #dev{position:fixed;right:196px;top:16px;width:272px;max-height:calc(100vh - 150px);overflow-y:auto;
-    background:rgba(9,13,19,.93);border:1px solid #2E4A63;border-radius:10px;padding:10px 12px;
-    font-size:11.5px;line-height:1.5;z-index:6;box-shadow:0 8px 30px rgba(0,0,0,.45);
-    pointer-events:none}
-  #dev .dt{color:#7FD3F0;letter-spacing:1.5px;font-size:10.5px;margin-bottom:6px}
-  #dev .dr{display:grid;grid-template-columns:1fr auto;gap:0 6px;padding:3px 0;border-top:1px solid #1B2530}
+  /* DEV 总览：顶部横栏（2026-10-31 从右侧竖栏改横栏）。
+     横栏贴顶铺满，所以 #hud 在 DEV 开启时要整体下移（syncDevUi 里写 style.top），
+     不允许横栏压住左上角的维修/存活信息。 */
+  #dev{position:fixed;left:0;right:0;top:0;z-index:6;
+    background:linear-gradient(180deg,rgba(8,12,18,.95),rgba(8,12,18,.80));
+    border-bottom:1px solid #22303F;box-shadow:0 10px 26px rgba(0,0,0,.42);
+    padding:6px 12px 7px;display:flex;flex-direction:column;gap:4px;
+    font-size:11.5px;line-height:1.45;pointer-events:none}
+  /* #dev 是 ID 选择器、.hide 是类选择器：只写 .hide{display:none} 会被 #dev{display:flex}
+     盖掉，横栏会永远挂在顶部（2026-10-31 踩过）。这里显式补一条同 ID 优先级的隐藏规则。 */
+  #dev.hide{display:none}
+  #dev .dt{color:#7FD3F0;letter-spacing:1.4px;font-size:10px;display:flex;gap:12px;align-items:baseline}
+  #dev-rows{display:flex;gap:6px;overflow-x:auto;overflow-y:hidden;padding-bottom:1px}
+  #dev-rows::-webkit-scrollbar{height:4px}
+  #dev-rows::-webkit-scrollbar-thumb{background:#243244;border-radius:2px}
+  #dev .dr{flex:0 0 auto;min-width:126px;background:rgba(16,24,34,.86);border:1px solid #1E2A38;
+    border-radius:7px;padding:4px 7px 5px;display:flex;flex-direction:column;gap:1px}
+  #dev .dr .top{display:flex;gap:6px;align-items:baseline;justify-content:space-between}
   #dev .dr b{color:#C9D1DB;font-weight:500}
-  #dev .dr span{color:#7C8798;font-size:10.5px}
-  #dev .dr i{grid-column:1/3;color:#5E6B7C;font-style:normal;font-size:10.5px}
+  #dev .dr span{color:#7C8798;font-size:10px}
+  #dev .dr i{color:#5E6B7C;font-style:normal;font-size:10px;white-space:nowrap}
+  #dev .dr u{color:#8FD3F0;text-decoration:none;font-size:10px;white-space:nowrap}
   #dev .dr.al b{color:#E0574F}
+  #dev .dr.al u{color:#FF9E96}
   #dev .dr.dead{opacity:.5}
+  #dev .dr.me{border-color:#4A3C1E}
   #dev .dr.me b{color:#F0C674}
-  #dev .dt2{margin-top:6px;color:#5E6B7C;font-size:10.5px;line-height:1.6}
+  #dev .dt2{color:#5E6B7C;font-size:10px}
   #dragtag{position:fixed;left:50%;bottom:88px;transform:translateX(-50%);font-size:12px;
     color:#F0C674;background:rgba(10,14,20,.88);border:1px solid #4A3C1E;border-radius:8px;
     padding:4px 12px;z-index:5}
@@ -172,7 +187,7 @@
   <div id="bar"><i id="pgi"></i></div>
   <div>剩余 <b id="tm">120</b> 秒 · 第 <b id="nt">1</b> 夜 · <b id="pwr">照明正常</b></div>
   <div class="surv">存活 <b id="alive">15</b> 人 · 人类 <b id="hum">11</b> · 异形 <b id="ali">4</b></div>
-  <div>你是 <b id="role">人类</b> · 濒死 <b id="dn">0</b> 人</div>
+  <div>你是 <b id="role">人类</b><span id="dnwrap" class="hide"> · 濒死 <b id="dn">0</b> 人</span></div>
   <div id="personal">任务 <b id="tk">0</b>/4 · 申请单 <b id="ql">0</b> · 待领 <b id="qp">0</b> · 弹 <b id="bl">0</b> · 包 <b id="md">0</b><span id="qual-hint" class="hide"> · 回圆桌领取</span></div>
   <div id="tasks"></div>
   <div id="dmgline" class="hide"></div>
@@ -182,9 +197,8 @@
 <div id="dragtag" class="hide">拖拽中 · 按 G 放下</div>
 <div id="invfail" class="hide"></div>
 <div id="dev" class="hide">
-  <div class="dt">DEV · 全知总览</div>
+  <div class="dt"><span>DEV · 全知总览</span><span class="dt2">F2 关闭 · 攻击与驱逐对你无效 · 尸体信息显示凶手 · 每人资源见卡片</span></div>
   <div id="dev-rows"></div>
-  <div class="dt2">F2 关闭 · 攻击与驱逐对你无效<br>尸体信息里会显示凶手</div>
 </div>
 
 <div id="body" class="ov hide"><div class="card">

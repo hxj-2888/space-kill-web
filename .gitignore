@@ -2,8 +2,18 @@
 node_modules/
 tools/screenshots/
 *.log
+*.err
 
 # 系统垃圾文件
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# 安卓打包（密钥库与产物不入库）
+android/release.keystore
+android/ReturnLog.apk
+.env
+android/assets/www/
+
+# SDXL 候选原图（正式图 assets/scene/v4/facility/*.png 会入库）
+assets/scene/v4/facility/_raw/
