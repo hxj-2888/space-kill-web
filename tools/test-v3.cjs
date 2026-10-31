@@ -403,6 +403,26 @@ function section(t) { console.log('\n== ' + t); }
   ok(GF2.dmg === 0 && GF2.inv && GF2.inv.fails.length === 0,
     '幽灵修完故障：故障清除，不变量全过');
 
+  section('性格轴 · 激进/谨慎的系数差');
+  const TR8 = await T(() => {
+    const bold = { aggr: 72, caut: 28, soc: 50, cur: 50 };
+    const shy = { aggr: 28, caut: 72, soc: 50, cur: 50 };
+    const a1 = { trait: bold }, a2 = { trait: shy };
+    return {
+      boldBold: SKTrait.C.knifeBold(a1), shyBold: SKTrait.C.knifeBold(a2),
+      boldAbstain: SKTrait.C.voteAbstain(a1), shyAbstain: SKTrait.C.voteAbstain(a2),
+      boldShoot: SKTrait.C.shootSus(a1), shyShoot: SKTrait.C.shootSus(a2),
+      boldReach: SKTrait.C.knifeReach(a1), shyReach: SKTrait.C.knifeReach(a2),
+      boldFlee: SKTrait.C.fleeThreshold(a1), shyFlee: SKTrait.C.fleeThreshold(a2),
+    };
+  });
+  ok(TR8.boldBold > TR8.shyBold && TR8.boldAbstain < TR8.shyAbstain &&
+    TR8.boldShoot < TR8.shyShoot && TR8.boldReach > TR8.shyReach &&
+    TR8.boldFlee > TR8.shyFlee,
+    '激进 vs 谨慎：更敢在目击者前出刀（' + TR8.boldBold.toFixed(2) + '/' + TR8.shyBold.toFixed(2) +
+    '）· 更少弃权（' + TR8.boldAbstain.toFixed(2) + '/' + TR8.shyAbstain.toFixed(2) +
+    '）· 更低开枪门槛 · 更远收刀 · 弃修阈值更高');
+
   section('DEV 无敌 / 全知');
   await fresh(true);
   const V = await T(() => {
@@ -1090,6 +1110,10 @@ function section(t) { console.log('\n== ' + t); }
     l2.mind.mem.push({kind: 'saw_agent', subj: k.i, room: 'engine', night: g.night,
       t: 0, conf: 0.8, src: 'sight'});
     const oldRandom = Math.random;
+    /* l1/l2 固定成谨慎型：本组测「没证据 → 弃权」这条纪律。
+       2026-10-31 起投票弃权率随性格（voteAbstain），不锁性格的话
+       激进的旁观 AI 会跟着多数指控走，断言就不稳定了。 */
+    for (const a of [l1, l2]) a.trait = { aggr: 28, caut: 72, soc: 50, cur: 50 };
     Math.random = () => 0;                 /* 必反咬、必构陷证人 */
     t.openMeeting('night', w.i, null);
     Math.random = oldRandom;
@@ -1117,9 +1141,14 @@ function section(t) { console.log('\n== ' + t); }
   ok(FRAME.knownW[FRAME.k] && FRAME.knownW[FRAME.k].kind === 'saw_red' &&
     FRAME.votes.witness === FRAME.k && FRAME.votes.liar === FRAME.w,
     '确证与投票都不受构陷影响：证人仍投真凶，异形反投证人');
+  /* 2026-10-31 起没证据不再必弃权：投票改由性格决定（voteAbstain），
+     激进的 AI 会跟着场上最多的指控投 —— 这里允许「弃权」或「跟票指控真凶」两种结果，
+     但绝不允许它去投证人（那是被构陷带偏）。 */
   ok(Object.keys(FRAME.knownL1).length === 0 && FRAME.susL1 > 0.1 && FRAME.susL1 < 0.5 &&
-    FRAME.votes.l1 === -1,
-    '构陷只制造少量传闻嫌疑（' + FRAME.susL1.toFixed(2) + '），不写 known，没证据仍弃权');
+    (FRAME.votes.l1 === -1 || FRAME.votes.l1 === FRAME.k),
+    '构陷只制造少量传闻嫌疑（' + FRAME.susL1.toFixed(2) + '），不写 known；' +
+    '没证据时按性格弃权或跟票（实测 l1→' + FRAME.votes.l1 +
+    '，真凶=' + FRAME.k + '，证人=' + FRAME.w + '）');
   ok(FRAME.frame && FRAME.frame.caught && FRAME.frame.caught.i === FRAME.l2 &&
     FRAME.susL2 >= 0.2 && Object.keys(FRAME.knownL2).length === 0,
     '时间线记忆能拆谎：' + (FRAME.frame && FRAME.frame.caught ? FRAME.frame.caught.text : '—'));
@@ -2861,9 +2890,15 @@ function section(t) { console.log('\n== ' + t); }
     const h = g.agents.find(a => !a.alien && a.i !== 0 && a.alive && !a.downed);
     const sp = t.supplies().find(s => s.item === 'ammo');
     t.tp(h.i, sp.x, sp.y);
+    /* 锁成激进型（shootSus 0.36）：2026-10-31 起开枪门槛随性格，
+       不锁的话谨慎 h 可能整段不开枪，"开枪后归零"断言就随机飘。 */
+    h.trait = { aggr: 72, caut: 28, soc: 50, cur: 50 };
     h.bullet = 0; h.qual = 1; h.suspect = null; h.medkit = 0;
     h.doing = 0; h._doing = null; h.path = null; h._delay = 0; h._rest = 0;
     const a1 = t.aiTick(h.i, 210, 0.05);
+    /* 2026-10-31 起「任务全做完」的 AI 会走 aiIdleRoam 巡舱——210 秒后 h 可能
+       已经飘到别的舱室/掩体背后，玩家贴过去也未必可见。先把 h 拉回补给点再验开枪。 */
+    t.tp(h.i, sp.x, sp.y);
     t.tp(0, h.x + 1, h.y);
     h.suspect = 0; h.doing = 0; h._doing = null; h.path = null;
     const a2 = t.aiTick(h.i, 1, 0.05);
@@ -2880,6 +2915,7 @@ function section(t) { console.log('\n== ' + t); }
     + '（买后 弹' + AIAMMO.afterBuy.bullet + '/单' + AIAMMO.afterBuy.qual
     + ' · 打后 弹' + AIAMMO.afterShot.bullet + '/单' + AIAMMO.afterShot.qual
     + ' · 等待后 弹' + AIAMMO.afterWait.bullet + '/单' + AIAMMO.afterWait.qual + '）');
+  await fresh(false);  /* AIAMMO 把 0 号 tp 到过巡舱后的 h 旁边（可能不可走），重开局再测领取 */
   const AIQ = await T(() => {
     const t = SKV3._t, g = t.G();
     const h = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
@@ -3066,6 +3102,10 @@ function section(t) { console.log('\n== ' + t); }
     t.clearDrags(); t.resetAiState(k.i);
     for (const a of keep) { a._delay = 0; a._rest = 0; a.path = null; a.target = null; }
     k.knife = 1; k.sabUsed = true;
+    /* 固定成谨慎型（aggr=28 / caut=72）：本组断言测的是「目击者风险」的保守分支。
+       2026-10-31 起出刀胆量随性格（knifeBold / knifeWatcherCap），
+       不锁性格的话激进 AI 会在 2 个目击者面前照砍，测试就没法断言了。 */
+    k.trait = { aggr: 28, caut: 72, soc: 50, cur: 50 };
     /* 引擎舱是暗舱：旁观者在 1~1.5 格内一定能看见 */
     const setup = (v, two) => {
       for (const u of vs) if (u !== v) t.tp(u.i, 30,54);

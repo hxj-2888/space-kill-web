@@ -69,6 +69,18 @@
 
 ## 四、架构约定
 
+- **性格与情绪（2026-10-31，`js/ai/traits.js`）**：每个局内 AI 固定一套四轴档位
+  （`aggr / caut / soc / cur`，0~100，三档分布 28/50/72），存在 `agent.trait`。
+  所有「性格 → 行为」的映射**只写在 `SKTrait.C`**（声明层唯一真源）——
+  `knifeBold / knifeWatcherCap / knifeReach / shootSus / voteAbstain / delayScale /
+  fleeThreshold / defendChance / followChance / grudgeGain / trustGain / voteGrudgePull / voteTrustPush`。
+  业务代码（aiTickAlien / aiHuman / taskThreat / startVote / startChatter）只调用系数，**禁止再散写魔法数**；
+  新增性格化判定时先在 `SKTrait.C` 加系数、再接线，并在门禁加「激进 vs 谨慎系数差」方向断言。
+- **情绪记忆（`mind.trust` / `mind.grudge`）**：跨会议保留、每场会议 ×0.8 衰减（`mindReset` 里做）。
+  写入只有三个入口：AI 当众指控（`grudgeAdd`）、AI 当众辩护（`trustAdd`）、
+  玩家发言（`playerTalk` 里指控/投票记仇、点名"不是异形/别投他"记恩）。
+  读取：`startVote` 里 `grudge≥0.6` 优先砸票（激进更狠）、`isPatron()` 恩人不过票。
+  **不要**把情绪写进 `sus`（嫌疑分）——情绪是另一条通道，混进去会让证据链失去可审计性。
 - **输入映射**：移动只有「点击地面」；`W/A/S/D` 是主操作键（交互 / 出刀 / 搜尸 / 收尸），
   `E/Q/X/G` 保留为别名。新增按键必须同时更新 `#tip` 与 README 的操作表，
   否则玩家只能靠试键位——这一轮已经把「尸体操作」全部收进 `W/E` 的交互轮盘。

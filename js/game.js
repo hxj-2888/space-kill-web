@@ -92,6 +92,11 @@
       const normalPts=pts.filter(i=>M.points[i].kind==='normal');
       const agents=NAMES.map((n,i)=>({
         i,name:n,alien:aliens.has(i),x:0,y:0,path:null,sp:0,
+        /* 性格轴（局内固定）：激进更敢出刀/开枪/投票，谨慎更爱弃权，社交更爱辩护跟票，
+           好奇更爱搜尸。系数一律走 SKTrait.C，业务代码不写魔法数。
+           异形天生偏激进（aggr 保底 60）：它们没有投票压力，胆量就是生存方式；
+           不补偿的话性格化之后异形会被人类的「敢投票」打到 26% 胜率（实测）。 */
+        trait:(()=>{const t=SKTrait.roll();if(aliens.has(i))t.aggr=Math.max(t.aggr,60);return t;})(),
         alive:true,downed:false,downAt:0,detained:false,detainedT:0,
         tasks:[hardPts[Math.floor(Math.random()*hardPts.length)]]
           .concat(shuffle(normalPts.slice()).slice(0,3)),
@@ -1065,11 +1070,36 @@
       /* known 是**长期记忆**：亲眼确认的身份结论不随夜晚清空，
          后续每一场会议都会继续指控并投这个人（见 bestKnownTarget / startVote）。 */
       const keepKnown=(a.mind&&a.mind.known)||{};
+      /* 情绪记忆跨会议保留、每场会议衰减 20%：AI 不是只按嫌疑分投票的机器，
+         被谁咬过、被谁护过，会一直记得（衰减到 0.05 以下才忘）。 */
+      const oldM=a.mind||{};
+      const keepEmo=(o)=>{const out={};for(const k in (o||{})){if(o[k]>0.05)out[k]=o[k]*0.8;}return out;};
       a.mind={mem:[],sus:{},why:{},alert:0,noise:null,seenBy:{},seenT:{},
         lastBody:null,tone:(a.i||0)%3,
+        trust:keepEmo(oldM.trust),grudge:keepEmo(oldM.grudge),
         /* known：亲眼确认「这个人就是异形」（钻管道 / 出刀 / 破坏 / 停摆机器人 /
            身上带着刚出刀的红光）。不是嫌疑分，是不再动摇的身份结论。 */
         known:keepKnown,redSeen:{},alibi:{}};
+    }
+    /* 情绪记忆（2026-10-31）：AI 会记仇也会记恩。
+       grudge：被谁当众咬过 → 投他更容易、会上反咬他；
+       trust：被谁当众护过 → 更愿意跟他的票、替他说话。
+       强度都按性格缩放（激进记仇更狠，社交记恩更深），见 SKTrait.C。 */
+    function grudgeAdd(a,i,w){
+      if(!a||i==null||i===a.i||!G)return;
+      if(!a.mind)mindReset(a);
+      if(!a.mind.grudge)a.mind.grudge={};
+      a.mind.grudge[i]=Math.min(2,Math.max(0,(a.mind.grudge[i]||0)+w*SKTrait.C.grudgeGain(a)));
+    }
+    function trustAdd(a,i,w){
+      if(!a||i==null||i===a.i||!G)return;
+      if(!a.mind)mindReset(a);
+      if(!a.mind.trust)a.mind.trust={};
+      a.mind.trust[i]=Math.min(2,Math.max(0,(a.mind.trust[i]||0)+w*SKTrait.C.trustGain(a)));
+    }
+    /* 恩人不过票：被某人当众保过（trust≥0.8）就很难再把票投给他 */
+    function isPatron(a,i){
+      return !!(a&&a.mind&&a.mind.trust&&(a.mind.trust[i]||0)>=0.8);
     }
     function evPush(a,ev){
       if(!a||!G)return;
@@ -1831,7 +1861,8 @@
       const closing=!!(t.moving||(t.path&&t.path.length));
       if(!closing&&d>3.5)return null;
       const travel=d/Math.max(1,moveSpeed(t));
-      return (remain==null?2.5:remain)>travel-0.6?t:null;
+      /* 弃修阈值随性格：激进的人剩下 1 秒也要修完，谨慎的人早早就跑（2026-10-31） */
+      return (remain==null?2.5:remain)>(travel-0.6)*SKTrait.C.fleeThreshold(a)?t:null;
     }
     function fleeTask(a,t){
       a.doing=0;a._doing=null;a._taskPt=null;
@@ -1913,7 +1944,8 @@
           if(!s||s===a||!s.alive||s.downed){a.suspect=null;si=null;}
         }
         if(si==null){
-          const bs=bestSusTarget(a,0.5);
+          /* 开枪门槛随性格：激进 0.36 就敢打，谨慎要 0.60（中性 0.50） */
+          const bs=bestSusTarget(a,SKTrait.C.shootSus(a));
           if(bs)si=bs.i;
         }
         if(si!=null){
@@ -2499,7 +2531,10 @@
           /* 正在站桩做任务/维修/领取的人更值得下手：优先度按距离减 12 格，
              即使稍远也先挑他；被围观惩罚仍会抵消这个优先。 */
           const busy=h.doing>0;
-          const s=d+(watched?12:0)+(mateOnIt?8:0)+(busy?-12:0);
+          /* 性格进评分：激进的异形不怕被看见、更愿意扑正在做事的人；
+             谨慎的相反，被围观就换目标。系数见 SKTrait.C。 */
+          const s=d+(watched?SKTrait.C.knifeWatcherPenalty(a):0)+(mateOnIt?8:0)
+            +(busy?SKTrait.C.knifeBusyBonus(a):0);
           const until=a._avoid&&(a._avoid[h.i]||0);
           if(until&&evNow()<until){
             if(s<fs){fs=s;fallback=h;}
@@ -2697,14 +2732,16 @@
         stepMove(a,dt,moveSpeed(a)); return;
       }
       if(!tgt)return;
-      if(td<1.3){
+      if(td<SKTrait.C.knifeReach(a)){
         if(secbotWouldSee(a.x,a.y)){
           a._secAvoidT=2.5;a.target=null;a.path=null;return;
         }
-        /* 旁边有非队友目击者：只有 1 个时 55% 冒险出手；2 个以上必定放弃目标，
-           改为去找落单的人 —— 不再原地来回踱步。队友看着不算风险，可以配合出刀。 */
+        /* 旁边有非队友目击者时的胆量由性格决定（2026-10-31）：
+           中性 55% 冒险，激进最高 90% 且敢在 2 个人面前动手，
+           谨慎最低 30% 且 1 个人看着就可能放弃。队友看着不算风险。 */
         const watchers=watchersAt(a,tgt.x,tgt.y,6,tgt).filter(w=>!isMate(a,w.i));
-        if(watchers.length>=2||(watchers.length===1&&Math.random()>=0.55)){
+        if(watchers.length>=SKTrait.C.knifeWatcherCap(a)||
+          (watchers.length>=1&&Math.random()>=SKTrait.C.knifeBold(a))){
           if(!a._avoid)a._avoid={};
           a._avoid[tgt.i]=evNow()+12;
           a.target=null;a.path=null;
@@ -3816,8 +3853,10 @@
         const pool=cands.filter(x=>!x.alien&&x!==a0&&x!==tgt&&x.alive&&!x.downed&&
           !(x.mind&&x.mind.known&&x.mind.known[tgt.i]));
         if(!pool.length)continue;
-        if(Math.random()>0.55)continue;
-        const by=pool[Math.floor(Math.random()*pool.length)];
+        /* 替人辩护的意愿由性格决定（社交的人更爱开口，激进的人更敢顶嘴） */
+        const defender=pool[(Math.random()*pool.length)|0];
+        if(Math.random()>SKTrait.C.defendChance(defender))continue;
+        const by=defender;
         if(G.stats)G.stats.humanDefends=(G.stats.humanDefends||0)+1;
         if(G.simMode&&G.simStats)G.simStats.humanDefends++;
         return {by:by,target:tgt,accuser:a0};
@@ -3946,6 +3985,9 @@
           }).slice(0,2);
         for(const a of accusers){
           push(()=>{const l=accuseLine(a,m);if(l)say(a.name,l);});
+          /* 情绪写入：被当众指控的人记指控者一笔仇 —— 下次会议他大概率反咬 */
+          const tgt3=G.agents[a.accuse];
+          if(tgt3&&tgt3.alive)grudgeAdd(tgt3,a.i,0.40);
         }
         const accused=cands.find(a=>a.accuse!=null&&G.agents[a.accuse]&&G.agents[a.accuse].alive&&
           a.accuse!==a.i&&a!==accusers[0]);
@@ -3974,24 +4016,31 @@
               }
               push(()=>say(def.name,'我今晚在'+alibiOf(def).room+'，'+mate.name+
                 '不是异形，别投他。'));
+              trustAdd(mate,def.i,0.45);
               break;
             }
           }
         }
         /* 人类也会替人说话（2026-10-31）：只替人类、且自己手上没有对他确证的人辩护，
            不再让「辩护」变成异形专属行为 */
-        if(humanDefend)push(()=>say(humanDefend.by.name,pickLine(humanDefend.by,[
-          '等等，'+humanDefend.target.name+'那会儿跟我在一起，投他不合理。',
-          '我这边时间和'+humanDefend.target.name+'对得上，先别急着投。',
-          humanDefend.target.name+'我保一下，他刚才一直在我视线里。'
-        ],18)));
+        if(humanDefend){
+          push(()=>say(humanDefend.by.name,pickLine(humanDefend.by,[
+            '等等，'+humanDefend.target.name+'那会儿跟我在一起，投他不合理。',
+            '我这边时间和'+humanDefend.target.name+'对得上，先别急着投。',
+            humanDefend.target.name+'我保一下，他刚才一直在我视线里。'
+          ],18)));
+          /* 情绪写入：被当众保下的人记辩护者一笔恩 —— 之后更愿意跟他的票 */
+          trustAdd(humanDefend.target,humanDefend.by.i,0.45);
+        }
         let supporter=null;
         if(accusers.length){
           const a0=accusers[0],tgt=G.agents[a0.accuse];
           const pool=cands.filter(x=>x!==a0&&x!==tgt&&x.suspect==null&&x.accuse==null&&
             x.alive&&!x.downed&&!x.alien&&(x.mind?x.mind.alert:0)>=0.25);
-          if(pool.length&&Math.random()<0.6){
-            supporter=pool[Math.floor(Math.random()*pool.length)];
+          /* 跟票概率随性格：社交的人容易被带着走，谨慎的人更爱弃权（2026-10-31） */
+          const follower=pool[Math.floor(Math.random()*pool.length)];
+          if(pool.length&&Math.random()<SKTrait.C.followChance(follower)){
+            supporter=follower;
             supporter.accuse=tgt.i;
             push(()=>say(supporter.name,pickLine(supporter,[
               '我跟'+a0.name+'一票，'+tgt.name+'得给个说法。',
@@ -4174,6 +4223,23 @@
       if(sl.accuse!=null)m.ctx.playerAccuse=sl.accuse;
       if(sl.vote!=null)m.ctx.playerVote=sl.vote;
       if(sl.where)m.ctx.playerClaimRoom=sl.where;
+      /* 情绪层（2026-10-31）：玩家说的每句话都在 AI 心里留痕 ——
+         被你指控/投票的记你一笔仇（下次会议大概率反咬你），
+         被你点名「不是异形 / 别投他」的记你一笔恩（更愿意跟着你投）。
+         这是「发言影响 AI」的核心通道：嘴上赢不了的人，票上会输。 */
+      if(sl.accuse!=null){
+        const t=G.agents[sl.accuse];
+        if(t&&t.alive)grudgeAdd(t,0,0.45);
+      }
+      if(sl.vote!=null){
+        const t=G.agents[sl.vote];
+        if(t&&t.alive)grudgeAdd(t,0,0.30);
+      }
+      if(/不是异形|别投|我保|他没错|不可能是他/.test(text)){
+        for(const a of cands){
+          if(!a.alien&&a.alive&&a.name&&text.indexOf(a.name)>=0)trustAdd(a,0,0.40);
+        }
+      }
       const vi=m.ctx.victimInfo;
 
       /* 1) 时间线对质：玩家自称在哪，但某个 AI 记得在别处见过他 → 当场拆穿 */
@@ -4542,6 +4608,23 @@
           (m.phase==='discuss'?'讨论 ':m.phase==='vote'?'投票 ':'公布 ')+Math.max(0,m.t).toFixed(0)+'s';
       },100);
     }
+    /* 场上「最多人指控 / 最大嫌疑」的目标（不含 a 自己）：投票里的从众锚点。
+       情绪层用它实现「激进的人被带着走」，谨慎的人仍可弃权。 */
+    function leadingAccused(self){
+      const tally={};
+      for(const w of G.agents){
+        if(!w.alive||w===self)continue;
+        for(const k of [w.accuse,w.suspect]){
+          if(k==null||k===self.i)continue;
+          const t=G.agents[k];
+          if(!t||!t.alive)continue;
+          tally[k]=(tally[k]||0)+1;
+        }
+      }
+      let best=null,bn=0;
+      for(const k in tally){if(tally[k]>bn){bn=tally[k];best=+k;}}
+      return bn>=2?best:null;
+    }
     function startVote(){
       const m=G.meet; m.phase='vote'; m.t=m.voteT;
       stopChatter();
@@ -4573,15 +4656,29 @@
           const kn=bestKnownTarget(a);
           if(kn){ m.votes[a.i]=kn.i; continue; }
         }
+        /* 情绪先于从众（2026-10-31）：被某人当众咬狠了（grudge≥0.6），
+           激进的人大概率把票砸回去；被某人当众保过（trust≥0.8）就不过他的票。 */
+        let emo=null,es=0;
+        for(const k in (a.mind&&a.mind.grudge)||{}){
+          const g=a.mind.grudge[k];
+          if(g<=es)continue;
+          const t=G.agents[+k];
+          if(!t||!t.alive||t===a||isMate(a,t.i))continue;
+          es=g;emo=t;
+        }
+        if(emo&&es>=0.6&&Math.random()<SKTrait.C.voteGrudgePull(a)/10){
+          m.votes[a.i]=emo.i;continue;
+        }
+        const patron=i=>isPatron(a,i);
         const acc=(a.accuse!=null&&G.agents[a.accuse]&&G.agents[a.accuse].alive&&a.accuse!==a.i&&
-          (!a.alien||!isMate(a,a.accuse)))?a.accuse:null;
+          !patron(a.accuse)&&(!a.alien||!isMate(a,a.accuse)))?a.accuse:null;
         if(acc!=null){ m.votes[a.i]=acc; continue; }
         if(a.suspect!=null&&G.agents[a.suspect]&&G.agents[a.suspect].alive&&
-          G.agents[a.suspect]!==a&&(!a.alien||!isMate(a,a.suspect))){
+          G.agents[a.suspect]!==a&&!patron(a.suspect)&&(!a.alien||!isMate(a,a.suspect))){
           m.votes[a.i]=a.suspect; continue;
         }
         const bs=bestSusTarget(a,0.5);
-        if(bs&&(!a.alien||!isMate(a,bs.i))){m.votes[a.i]=bs.i;continue;}
+        if(bs&&(!a.alien||!isMate(a,bs.i))&&!patron(bs.i)){m.votes[a.i]=bs.i;continue;}
         if(a.alien){
           const all=G.agents.filter(x=>x.alive&&x!==a&&!isMate(a,x.i));
           const clean=all.filter(x=>!x.detained);
@@ -4589,8 +4686,22 @@
           m.votes[a.i]=pool.length?pool[Math.floor(Math.random()*pool.length)].i:-1;
           continue;
         }
-        /* 人类没有证据不随机投人：弃权比冤枉一个无辜者更符合规则 */
-        m.votes[a.i]=-1;
+        /* 人类没有证据：弃权还是硬投，由性格决定（2026-10-31）。
+           激进的人不肯空手弃权——跟着场上最多的指控投，或者投嫌疑最高的那个；
+           谨慎的人几乎必弃权。 */
+        if(Math.random()<SKTrait.C.voteAbstain(a)){m.votes[a.i]=-1;continue;}
+        /* 跟票必须**自己也有依据**（2026-10-31 修正）：
+           上一版「有多数指控就跟」让激进 AI 变成从众处决机器——
+           一人指控、三人跟票，异形被冤到 23.8% 胜率（exiles 4.28/局）。
+           现在跟票需要自己对该目标 sus≥0.18 或有私仇；都没有就走嫌疑门槛
+           （=开枪门槛，激进 0.36 敢投，谨慎 0.60），仍没有才弃权。 */
+        const lead=leadingAccused(a);
+        if(lead!=null&&lead!==a.i&&
+          (((a.mind&&a.mind.sus[lead])||0)>=0.18||((a.mind&&a.mind.grudge[lead])||0)>=0.4)){
+          m.votes[a.i]=lead;continue;
+        }
+        const bs2=bestSusTarget(a,SKTrait.C.shootSus(a)*0.9);
+        m.votes[a.i]=(bs2&&bs2.i!==a.i)?bs2.i:-1;
       }
     }
     function closeVote(){
@@ -4680,7 +4791,8 @@
         a._avoid={};a._fleeT=0;a._fleeFrom=null;a._pathCD=0;a._fakeN=0;a._alienTaskN=0;a._stallBias=0.8+Math.random()*0.4;
         a._fakeTaskN=0;a._fakeKind=null;a._supportGoal=null;a._lootMem={};
         /* 节奏控制：错峰开工 + 修完歇一会儿；异形更早开始活动，但不会开局贴脸 */
-        a.act=null;a._rest=0;a._delay=2+Math.random()*6;a._fxT=0;
+        /* 开局错峰：激进的人一进夜就冲（缩放 0.55~1.3），谨慎的人磨蹭 */
+      a.act=null;a._rest=0;a._delay=(2+Math.random()*6)*SKTrait.C.delayScale(a);a._fxT=0;
         a.nRoom=roomIdAt(a.x,a.y);a.nSeen={};a.nTask=null;a.nTaskRoom=null;
         a.accuse=null;a._lie=null;
       }
