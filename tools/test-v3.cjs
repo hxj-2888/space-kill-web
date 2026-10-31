@@ -2293,6 +2293,13 @@ function section(t) { console.log('\n== ' + t); }
   ok(BDEV.inv && BDEV.inv.fails.length === 0, '未致濒死拘留后不变量全过');
 
   await fresh(false);
+  const BL2 = await T(() => ({
+    label: SKV3._t.botLabel('secbot'), left: SKV3._t.robots().sec.left,
+    med: SKV3._t.botLabel('medbot')
+  }));
+  ok(BL2.left === 2 && /拘留 0\/2/.test(BL2.label) && !/\/3/.test(BL2.label) &&
+    /电量 2\/2/.test(BL2.med),
+    '机器人标签与上限同源：保安「' + BL2.label + '」/ 医疗「' + BL2.med + '」');
   const BCAP = await T(() => {
     const t = SKV3._t, g = t.G(); g.noReport = true;
     const h = g.agents.find(a => !a.alien && a.i !== 0 && a.alive);
@@ -2301,10 +2308,12 @@ function section(t) { console.log('\n== ' + t); }
     t.tp(h.i, 80.8,75);
     g.secbotUsed = true; g.secbotUses = 2; g.pendingCrime = h.i;   /* 上限已用满 */
     t.botTick(0.2);
-    return { detained: t.detained(), uses: t.robots().sec.uses, inv: t.inv() };
+    return { detained: t.detained(), uses: t.robots().sec.uses,
+      left: t.robots().sec.left, label: t.botLabel('secbot'), inv: t.inv() };
   });
-  ok(BCAP.detained.length === 0 && BCAP.uses === 2,
-    '保安机器人每夜最多擒拿 2 人：第 3 次不再触发');
+  ok(BCAP.detained.length === 0 && BCAP.uses === 2 && BCAP.left === 0 &&
+    /拘留 2\/2/.test(BCAP.label),
+    '保安机器人每夜最多擒拿 2 人：第 3 次不再触发（标签 ' + BCAP.label + '）');
   ok(BCAP.inv && BCAP.inv.fails.length === 0, '擒拿上限后不变量全过');
 
   await fresh(false);

@@ -5441,12 +5441,18 @@
       }
       ctx.restore();
     }
-    function drawBotLabel(f,x,y,s,dead){
+    /* 机器人标签的唯一文案源：保安拘留次数必须读 SEC_USES_MAX，不能再写死 3 */
+    function botLabelText(f,dead){
       const left=G.medbotLeft==null?MEDBOT_CHARGES:G.medbotLeft;
       const exhausted=f.kind==='medbot'&&!dead&&left<=0;
-      const text=f.label+(dead?' · 停摆':(exhausted?' · 电量耗尽':
+      return f.label+(dead?' · 停摆':(exhausted?' · 电量耗尽':
         (f.kind==='medbot'?' · 电量 '+left+'/'+MEDBOT_CHARGES:
-          (f.kind==='secbot'?' · 拘留 '+((G.secbotUses||0))+'/3':' · 在线'))));
+          (f.kind==='secbot'?' · 拘留 '+((G.secbotUses||0))+'/'+SEC_USES_MAX:' · 在线'))));
+    }
+    function drawBotLabel(f,x,y,s,dead){
+      const text=botLabelText(f,dead);
+      const left=G.medbotLeft==null?MEDBOT_CHARGES:G.medbotLeft;
+      const exhausted=f.kind==='medbot'&&!dead&&left<=0;
       ctx.font='500 9.5px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';
       const w=ctx.measureText(text).width+10,h=13,ly=y+0.62*s;
       /* 医疗间地面偏亮，纯文字标签会糊进底图，加一层暗底保证可读 */
@@ -7378,8 +7384,10 @@
       closeWheel:()=>{closeWheel(true);return !G.wheel;},
       supplies:()=>supplyPoints().map(q=>({kind:q.kind,item:q.item,x:q.x,y:q.y,label:q.label})),
       coverAudit:()=>coverAudit(),
+      botLabel:kind=>{const f=M.facility.find(q=>q.kind===kind);
+        return f?botLabelText(f,kind==='secbot'?!!G.secbotDead:!!G.medbotDead):null;},
       robots:()=>({
-        sec:{used:!!G.secbotUsed,uses:G.secbotUses||0,left:3-(G.secbotUses||0),dead:!!G.secbotDead,t:G.secbotT||0,hp:botHp('secbot'),range:SEC_RANGE,arc:SEC_ARC},
+        sec:{used:!!G.secbotUsed,uses:G.secbotUses||0,left:SEC_USES_MAX-(G.secbotUses||0),dead:!!G.secbotDead,t:G.secbotT||0,hp:botHp('secbot'),range:SEC_RANGE,arc:SEC_ARC},
         med:{used:!!G.medbotUsed,dead:!!G.medbotDead,t:G.medbotT||0,left:G.medbotLeft==null?MEDBOT_CHARGES:G.medbotLeft,hp:botHp('medbot')}}),
       bots:()=>{
         const out={};

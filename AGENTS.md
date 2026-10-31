@@ -55,7 +55,7 @@
 | `js/game.js` | 编排 | 状态、AI、动作结算、会议/投票、渲染、输入（`window.SKV3`） |
 | `js/main.js` | 入口 | 开始页按钮绑定 + `[data-version]` 填充 |
 | `tools/serve.cjs` | 工具 | 零依赖静态服务器 |
-| `tools/test-v3.cjs` | 门禁 | Playwright 浏览器断言（562 条） |
+| `tools/test-v3.cjs` | 门禁 | Playwright 浏览器断言（563 条） |
 | `tools/monte-carlo.cjs` | 工具 | 无渲染 AI 对 AI 批量模拟（`_t.simGame`，1000 局基线，seed 可复现） |
 | `tools/mc-report.md` | 数据 | 2026-10-30 1000 局蒙特卡洛汇总（原始局在 `mc-results.json`） |
 | `tools/blender-ship.py` | 美术工具 | 2.5D 底图烘焙（需 Blender，读 `js/data/map.js`） |
@@ -294,6 +294,8 @@
   `botTick()` 在 `G.secCatch` 存在时**跳过巡逻**，押送到位才 `detainedT=DETAIN_TIME` 并写 `noticeAction('detain')`。
   追捕 7 秒还没贴到人就放弃（`G.secCatch=null`）。改这段必须同步 `drawFacilities()` 的追捕连线/压制提示与门禁。
   **拘押与机器人被摧毁都不再 `toast()` 公告**（只留火花 / 警报特效与在场目击者的 `saw_detain` 嫌疑）。
+  拘留次数只读 **`SEC_USES_MAX`**（当前 2）：判定、互动提示、地图机器人标签 `botLabelText()` 与
+  `_t.robots().sec.left` 必须同源；不要在标签里写死 `/3`（2026-10-31 修过一次）。
 - **机器人受击**：保安 / 医疗机器人是实体目标（HP 保安 2 / 医疗 1）；新增攻击入口必须走
   `knifeBot()` → `damageBot()` 或 `fireShotBot()`，同步 `secbotDead` / `medbotDead`、`pendingCrime` 与目击证据。
   出刀砍机器人**必须消耗刀数**并按装甲 HP 结算，AI 不允许"贴身一下就直接停摆"：
@@ -356,7 +358,7 @@
 
 ## 六、当前基线（返航录V3）
 
-- 门禁：`node tools/test-v3.cjs` —— **562 通过 / 0 失败**（2026-10-31 实跑，Edge headless）。
+- 门禁：`node tools/test-v3.cjs` —— **563 通过 / 0 失败**（2026-10-31 实跑，Edge headless）。
   本轮新增：走廊亮灯视野（12 格同廊可见 / 断电后不可见）、事件流字段与归因（出刀/拖尸/破坏修复/
   任务/管道/拉闸/天亮失血归凶）、回放包 roster+events+frames、复盘页 DOM 与舱室高亮、结束页两个入口、
   AI 完成 3 分后自然回圆桌领取、反常拖尸嫌疑与藏尸避人/随机目的地、12 类音效池（枪/刀/命中/交互/维修/胜负）、
