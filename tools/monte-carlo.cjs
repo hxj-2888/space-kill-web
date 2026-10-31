@@ -77,9 +77,19 @@ function summarize(results) {
     'humanDefends', 'reportDoubts'];
   const avg = {}, med = {};
   for (const k of keys) { avg[k] = +mean(results, k).toFixed(3); med[k] = +median(results, k).toFixed(3); }
+  /* 分任务点完成次数：把所有局里每个 label 的计数加起来再除以局数 = 每局平均完成次数。
+     用来回答「电路维修是不是几乎没人做」——先测不改行为。 */
+  const byPoint = {};
+  for (const r of results) {
+    const t = r.tasksByPoint || {};
+    for (const k of Object.keys(t)) byPoint[k] = (byPoint[k] || 0) + (+t[k] || 0);
+  }
+  const tasksPerGame = {};
+  for (const k of Object.keys(byPoint)) tasksPerGame[k] = +(byPoint[k] / (n || 1)).toFixed(3);
   return {
     games: n,
     wins: { human, alien, timeout },
+    tasksPerGame,
     winRate: { human: pct(human, n), alien: pct(alien, n), timeout: pct(timeout, n) },
     humanWin95CI: [+(ciLo * 100).toFixed(2), +(ciHi * 100).toFixed(2)],
     reasons: why,
@@ -149,6 +159,16 @@ function writeOut(results, finished) {
     '| ghostFixes | ' + s.avg.ghostFixes + ' | 幽灵修好的故障次数 |',
     '| humanDefends | ' + s.avg.humanDefends + ' | 人类 AI 公开替人辩护的次数（新行为） |',
     '| reportDoubts | ' + s.avg.reportDoubts + ' | 异形质疑「尸体还热就报案」的次数（新行为） |',
+    '',
+    '## 分任务点完成次数（每局平均 · 由少到多）',
+    '',
+    '> 只统计、不干预。用来回答「电路维修是不是几乎没人做」这类分布问题：',
+    '> 若某个点的完成次数明显低于同难度其它点，说明问题在可达性/AI 意愿，而不是任务本身。',
+    '',
+    '| 任务点 | 每局完成次数 |',
+    '|---|---:|',
+    ...Object.entries(s.tasksPerGame || {}).sort((a, b) => a[1] - b[1])
+      .map(([k, v]) => '| ' + k + ' | ' + v + ' |'),
     '',
     '## 方法说明',
     '',

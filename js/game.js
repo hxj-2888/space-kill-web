@@ -782,6 +782,9 @@
     /* 专用补给点兑换物资的站桩时长（2026-10-31：子弹 10 → 7 秒、医疗包 6 → 5 秒）。
        玩家与 AI 共用这两个常量，改这里即可，别在调用处再写死数字。 */
     const SUPPLY_AMMO_TIME=7, SUPPLY_MED_TIME=5;
+    /* 电闸交互半径（2026-10-31）：锚点对齐到柜体中心后，柜体是 1.6×2.2 格的大件，
+       1.6 格时代玩家贴着正面都按不到。三处判定（玩家轮盘 / AI 合闸 / AI 拉闸）共用。 */
+    const BREAKER_USE_R=2.0;
     function dmgOfRoom(rid){ return G.dmg.find(d=>d.room===rid)||null; }
     function sabRoomOk(rid){
       return !!rid&&rid!=='bridge'&&M.rooms.some(r=>r.id===rid)&&!dmgOfRoom(rid);
@@ -1935,7 +1938,7 @@
             if(crew<1)a._lightGo=true;
           }
           if(a._lightGo){
-            if(Math.hypot(br.x-a.x,br.y-a.y)<1.7){
+            if(Math.hypot(br.x-a.x,br.y-a.y)<BREAKER_USE_R){
               a.path=null;a.moving=false;a.doing=3;a._dur=3;a._doing='breaker';return;
             }
             if(!a.path||!a.path.length)walkTo(a,br.x,br.y);
@@ -2932,6 +2935,9 @@
       if(a.ghost)a.ghostPts=(a.ghostPts||0)+v;
       a.tIdx++; a.progress+=v;
       if(G.simMode&&G.simStats&&a.alien)G.simStats.alienTasks++;
+      /* 分任务点计数：只看不干预，用来定位「某些任务点几乎没人完成」 */
+      if(G.simMode&&G.simStats&&G.simStats.tasksByPoint)
+        G.simStats.tasksByPoint[p.label]=(G.simStats.tasksByPoint[p.label]||0)+1;
       /* 局内统计：幽灵完成的维修任务（报告里要单列「幽灵修了几个任务」） */
       if(a.ghost&&G.stats)G.stats.ghostTasks=(G.stats.ghostTasks||0)+1;
       if(G.simMode&&G.simStats&&a.ghost)G.simStats.ghostTasks++;
@@ -4858,7 +4864,7 @@
           pill:'[E] '+sp.label+(me.qual>0?' · 消耗 1 张申请单':' · 需要物资申请单'),
           accent:sp.item==='ammo'?'rgba(224,169,75,.8)':'rgba(63,191,140,.75)',
           fg:sp.item==='ammo'?'#FFE0A3':'#B9F5DA',run:()=>startSupply(me,sp)});
-        const br=M.facility.find(f=>f.kind==='breaker'&&Math.hypot(f.x-me.x,f.y-me.y)<1.6);
+        const br=M.facility.find(f=>f.kind==='breaker'&&Math.hypot(f.x-me.x,f.y-me.y)<BREAKER_USE_R);
         if(br){
           const bd=breakerPullTime();
           out.push({id:'breaker',x:br.x,y:br.y,
@@ -5520,8 +5526,9 @@
        原来的 Canvas 造型，file:// 冷启动也不会出现空白设施。 */
     loadImg('fx_medbot','v4/facility/medbot.png');
     loadImg('fx_secbot','v4/facility/secbot.png');
-    loadImg('fx_monitor','v4/facility/monitor.png');
-    loadImg('fx_breaker','v4/facility/breaker.png');
+    /* 监控台 / 电闸的贴图不再进运行时：它们的本体由 Blender 底图烘出来，
+       面板与屏幕材质走 assets/scene/v4/tex/facility-*.png（见 tools/blender-ship.py）。
+       assets/scene/v4/facility/monitor.png / breaker.png 保留为素材库。 */
     const ROW={down:0,up:1,left:3,right:4};
     function ready(im){return im&&im.complete&&im.naturalWidth>0;}
     
@@ -5795,49 +5802,24 @@
           BREAKER_LEVER+= (lever-BREAKER_LEVER)*Math.min(1,0.16);
           const ang=-0.62+BREAKER_LEVER*1.22;
           ctx.save();ctx.translate(x,y);
-          /* 柜体：优先用 SDXL 出的 2.5D 俯视贴图（v4/facility/breaker.png）。
-             贴图是 3/4 俯视的整柜，拉杆造型已烘进图里；代码只叠「供电状态灯 + 拉闸进度环 +
-             断电冷调压色」，玩法读数不依赖贴图细节。 */
-          const bimg=IMG['fx_breaker'];
-          if(ready(bimg)){
-            const w=1.40*s, h=1.66*s;
-            ctx.globalAlpha=0.98;
-            ctx.drawImage(bimg,-w/2,-h*0.94,w,h);
-            ctx.globalAlpha=1;
-            if(off){ctx.fillStyle='rgba(70,150,190,.22)';ctx.fillRect(-w/2,-h*0.94,w,h);}
-            ctx.fillStyle=off?'#7FD3F0':'#7FE3B4';
-            ctx.beginPath();ctx.arc(-0.46*s,-0.52*s,0.075*s,0,7);ctx.fill();
-            ctx.fillStyle='rgba(205,216,230,.86)';
-            ctx.font='600 '+Math.max(8,0.17*s).toFixed(1)+'px system-ui';
-            ctx.textAlign='left';ctx.textBaseline='middle';
-            ctx.fillText(off?'断电':'供电',-0.34*s,-0.52*s);
-          }else{
-            ctx.fillStyle='rgba(9,13,19,.96)';
-            ctx.strokeStyle=off?'#7FD3F0':'#F0C674';ctx.lineWidth=1.6;
-            ctx.beginPath();ctx.roundRect(-0.62*s,-0.70*s,1.24*s,1.40*s,4);ctx.fill();ctx.stroke();
-            /* 危险色上下压条 */
-            ctx.fillStyle=off?'rgba(127,211,240,.16)':'rgba(240,198,116,.16)';
-            ctx.fillRect(-0.62*s,-0.70*s,1.24*s,0.10*s);
-            ctx.fillRect(-0.62*s,0.60*s,1.24*s,0.10*s);
-            /* 状态灯 + 铭牌 */
-            ctx.fillStyle=off?'#7FD3F0':'#7FE3B4';
-            ctx.beginPath();ctx.arc(-0.42*s,-0.50*s,0.075*s,0,7);ctx.fill();
-            ctx.fillStyle='rgba(205,216,230,.82)';
-            ctx.font='600 '+Math.max(8,0.17*s).toFixed(1)+'px system-ui';
-            ctx.textAlign='left';ctx.textBaseline='middle';
-            ctx.fillText(off?'断电':'供电',-0.30*s,-0.50*s);
-            /* 拉杆底座 + 拉杆 */
-            ctx.strokeStyle='rgba(120,140,165,.55)';ctx.lineWidth=2;
-            ctx.beginPath();ctx.arc(0,0.02*s,0.30*s,0,7);ctx.stroke();
-            ctx.strokeStyle=off?'#7FD3F0':'#F0C674';
-            ctx.lineWidth=Math.max(3,0.13*s);ctx.lineCap='round';
-            ctx.beginPath();ctx.moveTo(0,0.02*s);
-            ctx.lineTo(Math.sin(ang)*0.52*s,0.02*s-Math.cos(ang)*0.52*s);ctx.stroke();
-            ctx.fillStyle='#E9F1FB';
-            ctx.beginPath();ctx.arc(Math.sin(ang)*0.52*s,0.02*s-Math.cos(ang)*0.52*s,0.10*s,0,7);ctx.fill();
-            ctx.fillStyle='rgba(9,13,19,.9)';
-            ctx.beginPath();ctx.arc(0,0.02*s,0.10*s,0,7);ctx.fill();
+          /* 柜体本体交给底图（2026-10-31 改）：
+             tools/blender-ship.py 的 breaker 分支早就烘了柜体 + 门板 + 拉杆 + LED 灯带 +
+             线管 + 地面框，面板材质换成 SDXL 的 facility-panel.png。Canvas 只画玩法状态层
+             —— 断电冷光、供电状态灯、拉闸进度环、重闸电弧。以前这里再画一台柜子（或叠一张
+             SDXL 精灵），会跟底图那台叠成两台设备，玩家看到的就是「突兀」。 */
+          if(off){
+            const g0=ctx.createRadialGradient(0,0,0,0,0,1.05*s);
+            g0.addColorStop(0,'rgba(70,150,190,.28)');
+            g0.addColorStop(1,'rgba(70,150,190,0)');
+            ctx.fillStyle=g0;ctx.beginPath();ctx.arc(0,0,1.05*s,0,7);ctx.fill();
           }
+          const blink=off?(0.50+0.35*Math.sin(T*6)):(0.60+0.30*Math.sin(T*2.2));
+          ctx.fillStyle=(off?'rgba(127,211,240,':'rgba(127,227,180,')+blink.toFixed(2)+')';
+          ctx.beginPath();ctx.arc(-0.46*s,-0.62*s,0.085*s,0,7);ctx.fill();
+          ctx.fillStyle='rgba(205,216,230,.90)';
+          ctx.font='600 '+Math.max(8,0.17*s).toFixed(1)+'px system-ui';
+          ctx.textAlign='left';ctx.textBaseline='middle';
+          ctx.fillText(off?'断电':'供电',-0.32*s,-0.62*s);
           /* 拉闸进度环 */
           if(pull&&pull.p>0){
             const hot=pull.heavy;
@@ -5862,45 +5844,25 @@
         }else if(f.kind==='monitor'){
           const cut=G.lightState===2;
           ctx.save();ctx.translate(x,y);
-          /* 监控台：优先用 SDXL 2.5D 俯视贴图（v4/facility/monitor.png）；
-             信号中断时整台压红 + 红点，玩法读数仍然清楚。 */
-          const mimg=IMG['fx_monitor'];
-          if(ready(mimg)){
-            const w=1.95*s, h=1.46*s;
-            ctx.globalAlpha=0.98;
-            ctx.drawImage(mimg,-w/2,-h*0.92,w,h);
-            ctx.globalAlpha=1;
-            if(cut){ctx.fillStyle='rgba(190,60,50,.26)';ctx.fillRect(-w/2,-h*0.92,w,h);}
-            /* 屏幕自发光：贴图缩到 40~60px 屏幕细节会糊掉，
-               用一层青绿光把「这是一台在工作的监控台」读出来 */
-            if(!cut){
-              const gg=ctx.createRadialGradient(0,-0.52*s,0,0,-0.52*s,1.0*s);
-              gg.addColorStop(0,'rgba(95,224,168,.20)');
-              gg.addColorStop(1,'rgba(95,224,168,0)');
-              ctx.fillStyle=gg;ctx.beginPath();ctx.arc(0,-0.52*s,1.0*s,0,7);ctx.fill();
-            }
-            /* 在线呼吸灯 / 断线红点 */
-            const blink=cut?0.55+0.35*Math.sin(T*8):0.45+0.3*Math.sin(T*2.6);
-            ctx.fillStyle=cut?'rgba(255,107,97,'+blink.toFixed(2)+')'
-              :'rgba(95,224,168,'+blink.toFixed(2)+')';
-            ctx.beginPath();ctx.arc(0.56*s,-0.42*s,0.06*s,0,7);ctx.fill();
+          /* 监控台本体同样交给底图（2026-10-31 改）：监控室的 screenwall（多屏拼接墙）、
+             console（主控台）、servercab（备份机柜）都是 Blender 模型，屏幕内容用 SDXL 的
+             facility-screen.png。Canvas 只画「这台还能不能调画面」的读数：在线呼吸灯 /
+             断线红点 + 一层屏光。以前这里再叠一张屏幕精灵，等于墙上多出一台设备。 */
+          if(!cut){
+            const gg=ctx.createRadialGradient(0,-0.62*s,0,0,-0.62*s,1.15*s);
+            gg.addColorStop(0,'rgba(95,224,168,.18)');
+            gg.addColorStop(1,'rgba(95,224,168,0)');
+            ctx.fillStyle=gg;ctx.beginPath();ctx.arc(0,-0.62*s,1.15*s,0,7);ctx.fill();
           }else{
-            ctx.fillStyle='rgba(10,16,24,.95)';
-            ctx.strokeStyle=cut?'#6B3A3A':'#3C4B5D';ctx.lineWidth=1.4;
-            ctx.beginPath();ctx.roundRect(-0.72*s,-0.5*s,1.44*s,0.85*s,3);ctx.fill();ctx.stroke();
-            for(let i=0;i<4;i++){
-              const sx0=(-0.58+(i%2)*0.62)*s, sy0=(-0.36+Math.floor(i/2)*0.34)*s;
-              ctx.fillStyle=cut?'rgba(255,90,80,.18)':'rgba(95,224,168,.16)';
-              ctx.fillRect(sx0,sy0,0.52*s,0.26*s);
-              if(!cut){
-                const k=0.25+0.55*(0.5+0.5*Math.sin(T*3+i*1.7));
-                ctx.fillStyle='rgba(150,245,205,'+(0.25*k).toFixed(2)+')';
-                ctx.fillRect(sx0+0.05*s,sy0+0.05*s,0.42*s,0.03*s);
-              }
-            }
-            ctx.fillStyle=cut?'#FF6B61':'#5FE0A8';
-            ctx.beginPath();ctx.arc(0.54*s,-0.40*s,0.05*s,0,7);ctx.fill();
+            const gr=ctx.createRadialGradient(0,-0.62*s,0,0,-0.62*s,0.95*s);
+            gr.addColorStop(0,'rgba(190,60,50,.22)');
+            gr.addColorStop(1,'rgba(190,60,50,0)');
+            ctx.fillStyle=gr;ctx.beginPath();ctx.arc(0,-0.62*s,0.95*s,0,7);ctx.fill();
           }
+          const mblink=cut?(0.55+0.35*Math.sin(T*8)):(0.45+0.30*Math.sin(T*2.6));
+          ctx.fillStyle=cut?('rgba(255,107,97,'+mblink.toFixed(2)+')')
+            :('rgba(95,224,168,'+mblink.toFixed(2)+')');
+          ctx.beginPath();ctx.arc(0,-0.92*s,0.075*s,0,7);ctx.fill();
           ctx.restore();
         }else if(f.kind==='supply'){
           const ammo=f.item==='ammo';
@@ -7532,7 +7494,10 @@
           alienPipes:0,alienPipePlans:0,
           /* 2026-10-31 新增：医疗无人机救治 / 幽灵任务 / 幽灵修故障 / 人类辩护 / 异形质疑报案 */
           medbotRevives:0,medkitRevives:0,ghostTasks:0,ghostFixes:0,
-          humanDefends:0,alienDefends:0,reportDoubts:0};
+          humanDefends:0,alienDefends:0,reportDoubts:0,
+          /* 每个任务点被完成的次数（label → n）：用来观察「电路维修完成率异常低」
+             这类分布问题。2026-10-31 起只统计、不改任何 AI 行为。 */
+          tasksByPoint:{}};
         const dt=Math.min(0.2,Math.max(0.05,opts.dt||0.1));
         const maxNights=opts.maxNights||15;
         const maxSteps=opts.maxSteps||Math.ceil(maxNights*NIGHT/dt)+6000;
@@ -7570,7 +7535,8 @@
              人类辩护 / 异形质疑快速报案者 */
           medbotRevives:G.simStats.medbotRevives,medkitRevives:G.simStats.medkitRevives,
           ghostTasks:G.simStats.ghostTasks,ghostFixes:G.simStats.ghostFixes,
-          humanDefends:G.simStats.humanDefends,reportDoubts:G.simStats.reportDoubts};
+          humanDefends:G.simStats.humanDefends,reportDoubts:G.simStats.reportDoubts,
+          tasksByPoint:Object.assign({},G.simStats.tasksByPoint)};
       } finally {
         Math.random=oldRandom; SIM_RUN=oldSim;
         if(G){G.simMode=false;G.simDebug=false;G.paused=true;}

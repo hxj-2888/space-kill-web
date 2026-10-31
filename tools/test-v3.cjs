@@ -1893,7 +1893,9 @@ function section(t) { console.log('\n== ' + t); }
   const C0 = await T(() => {
     const t = SKV3._t, g = t.G();
     g.noReport = true;
-    t.tp(0, 84,30.6);
+    /* 监控台锚点 2026-10-31 从 (84,29) 挪到 (81,28.8)：贴监控墙正前方，
+       玩家站在墙下沿 y30.4 就能调画面（旧位置在墙右端外侧）。 */
+    t.tp(0, 81,30.4);
     return { room: t.state()[0].room, near: t.cams().near, inv: t.inv() };
   });
   await page.keyboard.press('e');

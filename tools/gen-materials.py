@@ -89,6 +89,18 @@ SPECS = {
         'seamless tileable texture, dark starship engine room deck, heavy steel grating '
         'panels with oil stains, heat discolouration and bolted edge rails, industrial and '
         'grimy, flat even lighting, no text, no logo, no perspective'),
+    # 设施专用（2026-10-31）：电闸柜体面板 / 监控屏幕内容。
+    # 这两张是「监控与电闸统一到 2.5D 管线」的关键——材质进 Blender 模型，
+    # 而不是在 Canvas 上再叠一张精灵图（那样会和底图里的模型叠成两台设备）。
+    'facility-panel': (
+        'seamless tileable texture, dark industrial electrical cabinet metal panel, brushed '
+        'gunmetal with fine countersunk screws, worn amber edge stripe and chipped paint, '
+        'faint scratches dust and fingerprint smudges, sci-fi equipment surface, flat even '
+        'lighting, no text, no logo, no perspective'),
+    'facility-screen': (
+        'seamless tileable texture, sci-fi security monitoring screen contents, very dark glass '
+        'with faint teal grid lines, thin data traces and small glowing readout bars, subtle '
+        'scanlines and vignette, no readable words, flat even lighting, no logo'),
 }
 # reuse 模式：家具直接派生自场景已有素材，天然同风格、同精度、同明度层级
 REUSE = {
@@ -106,6 +118,8 @@ REUSE = {
     'floor-lounge': ('floor-carpet.png', (1.10, 0.98, 0.90), 0.98, 0.018),
     'floor-power': ('floor-grate.png', (0.96, 0.98, 1.04), 1.08, 0.022),
     'floor-engine': ('floor-grate.png', (1.06, 0.96, 0.84), 1.06, 0.026),
+    'facility-panel': ('panel-metal.png', (1.00, 1.02, 1.10), 1.10, 0.020),
+    'facility-screen': ('floor-monitor.png', (0.80, 1.06, 1.10), 0.96, 0.014),
 }
 NEG = ('text, letters, watermark, logo, photograph of a room, furniture object, '
        'strong perspective, glossy reflection, bright saturated color, blur, noise bands')

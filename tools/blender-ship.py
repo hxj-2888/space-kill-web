@@ -321,6 +321,18 @@ VIOLET = mat_plain('emit_violet', (0.16, 0.05, 0.26), emit=(0.72, 0.30, 0.95), s
 LED_MATS = {'cyan': CYAN, 'amber': AMBER, 'green': GREEN, 'violet': VIOLET, 'red': RED}
 SCREEN = mat_plain('screen', (0.02, 0.05, 0.07), metallic=0.1, rough=0.15,
                    emit=(0.1, 0.55, 0.7), strength=1.6)
+# 设施专用材质（2026-10-31）：电闸柜体面板 / 监控屏内容取自 tools/gen-materials.py 的
+# facility-panel / facility-screen 两条 SDXL 贴图。作用是把「监控与电闸」收回底图管线——
+# 之前 Canvas 上又叠了一层设施精灵，和这里烘出来的模型叠成两台设备，才显得突兀。
+FAC_PANEL = mat_tex('fac_panel', 'facility-panel.png', scale=(1 / 2.4, 1 / 2.4, 1.0),
+                    metallic=0.50, rough=0.54,
+                    fallback=((0.20, 0.22, 0.26), 0.5, 0.5))
+# 屏幕材质要「带纹理 + 会发光」：单帧只有 0.7~0.9 格宽，贴图细节会糊掉，
+# 所以用 tint 提亮 + Emission Strength 2.2 把它从「深色玻璃」拉回「在工作」
+FAC_SCREEN = mat_tex('fac_screen', 'facility-screen.png', scale=(1 / 1.7, 1 / 1.7, 1.0),
+                     metallic=0.12, rough=0.22, emit_mul=2.2,
+                     tint=(1.22, 1.34, 1.46),
+                     fallback=((0.02, 0.05, 0.07), 0.1, 0.15))
 METAL = mat_plain('metal', (0.22, 0.25, 0.29), metallic=0.75, rough=0.4)
 TABLE_TOP = mat_plain('table_top', (0.006, 0.008, 0.012), metallic=0.30, rough=0.55, spec=0.18)
 TABLE_RING = mat_plain('table_ring', (0.22, 0.12, 0.03), metallic=0.2, rough=0.35,
@@ -778,7 +790,7 @@ def furniture(c, deco=False):
         Z = 0.86 * hs
         box(tag + '_body', cx, cy, w, h, 0.0, Z, PN, bevel=0.035)
         box(tag + '_cap', cx, cy, w * 1.02, h * 1.02, Z, Z + 0.04, PL, bevel=0.02)
-        box(tag + '_slope', cx, cy - h * 0.10, w * 0.86, h * 0.42, Z + 0.04, Z + 0.125, SCREEN)
+        box(tag + '_slope', cx, cy - h * 0.10, w * 0.86, h * 0.42, Z + 0.04, Z + 0.125, FAC_SCREEN)
         box(tag + '_slope_trim', cx, cy - h * 0.10, w * 0.92, h * 0.46, Z + 0.025, Z + 0.045, TRIM)
         # 屏幕分格：按实例哈希切成 3~5 条，避免所有控制台都是同一块整屏
         for i in range(v['segs']):
@@ -796,7 +808,7 @@ def furniture(c, deco=False):
         box(tag + '_base', cx, cy, w * 0.9, h * 1.2, 0.0, 0.08, DARK, bevel=0.02)
         box(tag + '_post', cx, cy, w * 0.16, h * 0.8, 0.06, 0.42, METAL)
         box(tag + '_frame', cx, cy, w, h, 0.40, Z, TRIM, bevel=0.02)
-        box(tag + '_glass', cx, cy, w * 0.92, h * 0.86, 0.44, Z - 0.04, SCREEN)
+        box(tag + '_glass', cx, cy, w * 0.92, h * 0.86, 0.44, Z - 0.04, FAC_SCREEN)
         for i in range(v['segs']):
             box(tag + '_line%d' % i, cx, cy - h * 0.34 + i * h * 0.68 / max(1, v['segs'] - 1),
                 w * (0.72 - 0.12 * (i % 3)), h * 0.05, Z - 0.035, Z - 0.03, L)
@@ -812,7 +824,9 @@ def furniture(c, deco=False):
             for j in range(rows):
                 px = cx - w * 0.45 + (i + 0.5) * pw
                 py = cy - h * 0.40 + (j + 0.5) * ph
-                m = [SCREEN, CYAN, AMBER, VIOLET][(i * 3 + j * 5 + ti) % 4]
+                # 一半屏幕铺 SDXL 的 facility-screen 内容（网格/数据条），
+                # 另一半保留纯色指示灯 —— 全是细节屏会糊成一片，全纯色又太假
+                m = [FAC_SCREEN, SCREEN, FAC_SCREEN, CYAN, AMBER, VIOLET][(i * 3 + j * 5 + ti) % 6]
                 box(tag + '_m%d_%d' % (i, j), px, py, pw * 0.86, ph * 0.74,
                     0.55 + j * 0.52, 0.58 + j * 0.52 + 0.30, m)
                 box(tag + '_bezel%d_%d' % (i, j), px, py, pw * 0.94, ph * 0.84,
@@ -1071,7 +1085,9 @@ def furniture(c, deco=False):
         led_strip(tag + '_beacon', cx - w * 0.04, cy - h * 0.30, w * 0.16, 1.21, AMBER, n=1)
     elif k == 'breaker':
         Z = 1.22 * hs
-        box(tag + '_body', cx, cy, w, h, 0.0, Z, PN, bevel=0.035)
+        # 柜体面板换成 SDXL 的 facility-panel（拉丝金属 + 铆钉 + 琥珀氧化痕），
+        # 与全屋家具同一套贴图管线；门板保留浅色 PN 变体做层次
+        box(tag + '_body', cx, cy, w, h, 0.0, Z, FAC_PANEL, bevel=0.035)
         box(tag + '_door', cx, cy - h * 0.5, w * 0.92, 0.06, 0.22, Z - 0.12, PL)
         box(tag + '_screen', cx, cy - h * 0.5, w * 0.55, 0.05, Z * 0.70, Z * 0.84, AMBER)
         box(tag + '_haz', cx, cy, w * 1.01, h * 1.01, 0.14, 0.26, HZM)
