@@ -13,7 +13,7 @@ import qrcode
 from PIL import Image
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-URL = 'https://github.com/hxj-2888/xin-fan-hang-lu/releases/latest/download/ReturnLog.apk'
+URL = 'https://github.com/hxj-2888/space-kill-web/releases/download/returnlog-v3/ReturnLog.apk'
 OUT = os.path.join(ROOT, 'assets', 'portfolio', 'returnlog-qr.png')
 SIZE = 370
 
